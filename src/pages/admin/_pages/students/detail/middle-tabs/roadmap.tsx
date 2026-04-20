@@ -20,13 +20,13 @@ const ROADMAP: Record<string, any[]> = {
       { t: '진로 관련 독서 1권 완독', ok: false, type: 'tab', tab: 'book' },
       { t: '숙제 - 관심 직업 인터뷰 글쓰기', ok: false, type: 'tab', tab: 'homework' },
     ]},
-    { m: '4월', theme: '표현력 향상 + 면접 맛보기', freq: '주 1회', missions: [
+    { m: '5월', theme: '표현력 향상 + 면접 맛보기', freq: '주 1회', missions: [
       { t: '표현력 향상 - 감정 전달 스피치', ok: false, type: 'tab', tab: 'lesson' },
       { t: '면접이란? - 기초 개념 이해', ok: false, type: 'tab', tab: 'lesson' },
       { t: '1분 자기소개 완성', ok: false, type: 'tab', tab: 'simulation' },
       { t: '독서 감상문 작성', ok: false, type: 'tab', tab: 'book' },
     ]},
-    { m: '6월', theme: '면접 맛보기 + 독서 심화', freq: '주 1회', missions: [
+    { m: '7월', theme: '면접 맛보기 + 독서 심화', freq: '주 1회', missions: [
       { t: '모의 면접 첫 경험', ok: false, type: 'tab', tab: 'simulation' },
       { t: '면접 태도 기초 (눈 맞춤, 자세)', ok: false, type: 'tab', tab: 'lesson' },
       { t: '독서 2권 완독', ok: false, type: 'tab', tab: 'book' },
@@ -38,13 +38,13 @@ const ROADMAP: Record<string, any[]> = {
       { t: '독서 리스트 추가 선정', ok: false, type: 'tab', tab: 'book' },
       { t: '2학기 목표 설정', ok: false, type: 'teacher' },
     ]},
-    { m: '9월', theme: '면접 기초 완성', freq: '주 1회', missions: [
+    { m: '10월', theme: '면접 기초 완성', freq: '주 1회', missions: [
       { t: '면접 기초 답변 연습 (지원동기)', ok: false, type: 'tab', tab: 'lesson' },
       { t: '면접 시뮬레이션 2회', ok: false, type: 'tab', tab: 'simulation' },
       { t: '숙제 - 나의 장단점 글쓰기', ok: false, type: 'tab', tab: 'homework' },
       { t: '독서 감상 발표', ok: false, type: 'tab', tab: 'book' },
     ]},
-    { m: '11월', theme: '1년 마무리 + 중2 준비', freq: '주 1회', missions: [
+    { m: '12월', theme: '1년 마무리 + 중2 준비', freq: '주 1회', missions: [
       { t: '1년 스피치 성장 돌아보기', ok: false, type: 'teacher' },
       { t: '면접 시뮬레이션 마무리 1회', ok: false, type: 'tab', tab: 'simulation' },
       { t: '독서 1년 정리', ok: false, type: 'tab', tab: 'book' },
@@ -70,13 +70,13 @@ const ROADMAP: Record<string, any[]> = {
       { t: '면접 답변 구조 익히기', ok: false, type: 'tab', tab: 'lesson' },
       { t: '숙제 - 자소서 1항목 완성', ok: false, type: 'tab', tab: 'homework' },
     ]},
-    { m: '4월', theme: '자소서 완성 + 면접 연습', freq: '주 1회', missions: [
+    { m: '5월', theme: '자소서 완성 + 면접 연습', freq: '주 1회', missions: [
       { t: '자소서 전 항목 선생님 피드백', ok: false, type: 'tab', tab: 'expect' },
       { t: '자소서 기반 예상질문 연습', ok: false, type: 'tab', tab: 'expect' },
       { t: '면접 시뮬레이션 1회', ok: false, type: 'tab', tab: 'simulation' },
       { t: '독서 2권 완독', ok: false, type: 'tab', tab: 'book' },
     ]},
-    { m: '6월', theme: '면접 시뮬레이션 집중', freq: '주 1회', missions: [
+    { m: '7월', theme: '면접 시뮬레이션 집중', freq: '주 1회', missions: [
       { t: '면접 시뮬레이션 2회 반복', ok: false, type: 'tab', tab: 'simulation' },
       { t: '기출문제 집중 연습', ok: false, type: 'tab', tab: 'past' },
       { t: '자소서 수정 + 예상질문 추가', ok: false, type: 'tab', tab: 'expect' },
@@ -88,13 +88,13 @@ const ROADMAP: Record<string, any[]> = {
       { t: '제시문 면접 기초 체험', ok: false, type: 'tab', tab: 'presentation' },
       { t: '독서 감상 발표', ok: false, type: 'tab', tab: 'book' },
     ]},
-    { m: '9월', theme: '중3 준비 + 마무리', freq: '주 1회', missions: [
+    { m: '10월', theme: '중3 준비 + 마무리', freq: '주 1회', missions: [
       { t: '자소서 최종 완성', ok: false, type: 'tab', tab: 'expect' },
       { t: '면접 시뮬레이션 마무리', ok: false, type: 'tab', tab: 'simulation' },
       { t: '독서 2학기 리스트 선정', ok: false, type: 'tab', tab: 'book' },
       { t: '중3 로드맵 미리 보기', ok: false, type: 'teacher' },
     ]},
-    { m: '11월', theme: '2년 마무리 + 중3 전략', freq: '주 1회', missions: [
+    { m: '12월', theme: '2년 마무리 + 중3 전략', freq: '주 1회', missions: [
       { t: '2년 성장 돌아보기', ok: false, type: 'teacher' },
       { t: '목표 고교 최종 확정', ok: false, type: 'teacher' },
       { t: '중3 면접 전략 수립', ok: false, type: 'teacher' },
@@ -120,13 +120,13 @@ const ROADMAP: Record<string, any[]> = {
       { t: '제시문 면접 기초 완성', ok: false, type: 'tab', tab: 'presentation' },
       { t: '꼬리질문 집중 대비', ok: false, type: 'tab', tab: 'expect' },
     ]},
-    { m: '4월', theme: '면접 실전 집중 ②', freq: '주 2회', missions: [
+    { m: '5월', theme: '면접 실전 집중 ②', freq: '주 2회', missions: [
       { t: '면접 시뮬레이션 영상 분석 + 약점 보완', ok: false, type: 'tab', tab: 'simulation' },
       { t: '자소서 예상질문 전체 답변 완성', ok: false, type: 'tab', tab: 'expect' },
       { t: '기출 꼬리질문 집중 연습', ok: false, type: 'tab', tab: 'past' },
       { t: '독서 감상 최종 발표', ok: false, type: 'tab', tab: 'book' },
     ]},
-    { m: '6월', theme: 'D-90 카운트다운', freq: '주 2회', missions: [
+    { m: '7월', theme: 'D-90 카운트다운', freq: '주 2회', missions: [
       { t: '면접 전체 점검 - 약점 최종 파악', ok: false, type: 'teacher' },
       { t: '시뮬레이션 집중 반복', ok: false, type: 'tab', tab: 'simulation' },
       { t: '제시문 면접 심화', ok: false, type: 'tab', tab: 'presentation' },
@@ -138,13 +138,13 @@ const ROADMAP: Record<string, any[]> = {
       { t: '자소서 + 예상질문 최종 점검', ok: false, type: 'tab', tab: 'expect' },
       { t: '면접 전날 루틴 설계', ok: false, type: 'teacher' },
     ]},
-    { m: '9월', theme: 'D-10/1 카운트다운 + 면접 완주', freq: '면접일 맞춤', missions: [
+    { m: '10월', theme: 'D-10/1 카운트다운 + 면접 완주', freq: '면접일 맞춤', missions: [
       { t: 'D-10 전체 최종 점검', ok: false, type: 'teacher' },
       { t: 'D-1 시뮬레이션 1회 - 컨디션 체크', ok: false, type: 'tab', tab: 'simulation' },
       { t: '앞선 면접 피드백 반영 → 다음 면접 보완', ok: false, type: 'teacher' },
       { t: '제시문 면접 최종 점검', ok: false, type: 'tab', tab: 'presentation' },
     ]},
-    { m: '11월', theme: '합격 후 마무리', freq: '필요시', missions: [
+    { m: '12월', theme: '합격 후 마무리', freq: '필요시', missions: [
       { t: '합격 확인 + 마무리', ok: false, type: 'teacher' },
       { t: '고등학교 입학 준비 안내', ok: false, type: 'teacher' },
       { t: '합격 후기 공유', ok: false, type: 'teacher' },

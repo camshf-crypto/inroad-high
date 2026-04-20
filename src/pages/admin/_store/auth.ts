@@ -26,9 +26,9 @@ export interface IAcademy {
 }
 
 const DEFAULT_ACADEMY: IAcademy = {
-  academyCode: undefined,
-  academyName: undefined,
-  ownerName: undefined,
+  academyCode: 'A10901',
+  academyName: '인로드 학원',
+  ownerName: '강원장',
   role: 'OWNER',
   teacherId: undefined,
   plans: ['high', 'middle'],

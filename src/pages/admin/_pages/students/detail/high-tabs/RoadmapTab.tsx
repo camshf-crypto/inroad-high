@@ -1,5 +1,15 @@
 import { useState } from 'react'
 
+// 파랑 테마
+const THEME = {
+  accent: '#2563EB',
+  accentDark: '#1E3A8A',
+  accentBg: '#EFF6FF',
+  accentBorder: '#93C5FD',
+  accentShadow: 'rgba(37, 99, 235, 0.15)',
+  gradient: 'linear-gradient(135deg, #1E3A8A, #2563EB)',
+}
+
 const ROADMAP: Record<string, any[]> = {
   '고1': [
     {
@@ -201,10 +211,6 @@ const ROADMAP: Record<string, any[]> = {
   ],
 }
 
-const SEC: React.CSSProperties = {
-  border: '0.5px solid #E5E7EB', borderRadius: 12, background: '#fff', padding: 20, marginBottom: 14,
-}
-
 export default function RoadmapTab({ student }: { student: any }) {
   const [selMonth, setSelMonth] = useState<number | null>(null)
 
@@ -218,85 +224,194 @@ export default function RoadmapTab({ student }: { student: any }) {
   const selected = selMonth !== null ? roadmap[selMonth] : null
 
   const scColor = (type: string) => {
-    if (type === 'inAnswer') return { bg: '#EDE9FE', c: '#6D28D9', label: '인로드' }
-    if (type === 'tab') return { bg: '#EEF2FF', c: '#3B5BDB', label: '바로가기' }
-    return { bg: '#F0FDF4', c: '#15803D', label: '선생님' }
+    if (type === 'inAnswer') return { bg: '#EDE9FE', c: '#6D28D9', label: '✨ 인로드' }
+    if (type === 'tab') return { bg: THEME.accentBg, c: THEME.accent, label: '🔗 바로가기' }
+    return { bg: '#F0FDF4', c: '#15803D', label: '👨‍🏫 선생님' }
   }
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto' }}>
+    <div className="h-full overflow-y-auto">
 
-      {/* 스탯 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-        <div style={{ background: '#3B5BDB', borderRadius: 8, padding: '6px 14px' }}>
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,.8)', marginBottom: 1 }}>전체 진행률</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{overallPct}%</div>
+      {/* ==================== 스탯 ==================== */}
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
+        {/* 전체 진행률 - 그라데이션 */}
+        <div
+          className="rounded-xl px-4 py-2.5 text-white"
+          style={{
+            background: THEME.gradient,
+            boxShadow: `0 4px 12px ${THEME.accentShadow}`,
+          }}
+        >
+          <div className="text-[10px] font-semibold opacity-80 mb-0.5">전체 진행률</div>
+          <div className="text-[18px] font-extrabold tracking-tight">{overallPct}%</div>
         </div>
+
+        {/* 나머지 스탯 */}
         {[
-          { label: '완료 미션', val: `${doneMissions}/${totalMissions}` },
-          { label: '현재 월', val: curMonth },
-          { label: '학년', val: grade },
+          { label: '완료 미션', val: `${doneMissions}/${totalMissions}`, icon: '✅' },
+          { label: '현재 월', val: curMonth, icon: '📅' },
+          { label: '학년', val: grade, icon: '🎓' },
         ].map((s, i) => (
-          <div key={i} style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 8, padding: '6px 14px' }}>
-            <div style={{ fontSize: 10, color: '#6B7280', marginBottom: 1 }}>{s.label}</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a1a' }}>{s.val}</div>
+          <div
+            key={i}
+            className="bg-white border border-line rounded-xl px-4 py-2.5"
+          >
+            <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-0.5">
+              {s.icon} {s.label}
+            </div>
+            <div className="text-[16px] font-extrabold text-ink tracking-tight">{s.val}</div>
           </div>
         ))}
       </div>
 
-      {/* 월 그리드 + 미션 패널 */}
-      <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 300px' : '1fr', gap: 16, alignItems: 'start' }}>
+      {/* ==================== 월 그리드 + 미션 패널 ==================== */}
+      <div
+        className="grid gap-4 items-start"
+        style={{ gridTemplateColumns: selected ? '1fr 320px' : '1fr' }}
+      >
 
-        {/* 왼쪽: 월 그리드 */}
-        <div style={SEC}>
-          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>연간 로드맵 진행 현황</div>
-          <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 14 }}>월을 클릭하면 상세 미션을 확인할 수 있어요.</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 10 }}>
+        {/* ==================== 왼쪽: 월 그리드 ==================== */}
+        <div className="bg-white border border-line rounded-2xl p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
+          <div className="text-[15px] font-extrabold text-ink mb-1 tracking-tight">
+            🗺️ 연간 로드맵 진행 현황
+          </div>
+          <div className="text-[11px] font-medium text-ink-secondary mb-4">
+            월을 클릭하면 상세 미션을 확인할 수 있어요.
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
             {roadmap.map((m: any, i: number) => {
               const done = m.missions.filter((x: any) => x.ok).length
               const pct = Math.round(done / m.missions.length * 100)
               const isCur = m.m === curMonth
               const isSel = selMonth === i
+              const isDone = pct === 100
+
               return (
-                <div key={i} onClick={() => setSelMonth(selMonth === i ? null : i)}
-                  style={{ border: `0.5px solid ${isSel ? '#3B5BDB' : isCur ? '#BAC8FF' : '#E5E7EB'}`, borderRadius: 10, padding: 12, cursor: 'pointer', background: isSel ? '#EEF2FF' : isCur ? '#F5F8FF' : '#fff' }}>
-                  <div style={{ width: 24, height: 24, borderRadius: 6, background: isSel ? '#3B5BDB' : isCur ? '#BAC8FF' : pct === 100 ? '#ECFDF5' : '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: isSel ? '#fff' : isCur ? '#fff' : pct === 100 ? '#059669' : '#6B7280', marginBottom: 7 }}>
-                    {pct === 100 ? '✓' : m.m.replace('월', '')}
+                <button
+                  key={i}
+                  onClick={() => setSelMonth(selMonth === i ? null : i)}
+                  className="rounded-xl p-3 text-left transition-all hover:-translate-y-px"
+                  style={{
+                    border: `1px solid ${isSel ? THEME.accent : isCur ? THEME.accentBorder : '#E5E7EB'}`,
+                    background: isSel ? THEME.accentBg : isCur ? '#F8FAFF' : '#fff',
+                    boxShadow: isSel ? `0 4px 12px ${THEME.accentShadow}` : 'none',
+                  }}
+                >
+                  {/* 월 번호 */}
+                  <div
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-extrabold mb-2"
+                    style={{
+                      background: isSel ? THEME.accent : isCur ? THEME.accentBorder : isDone ? '#ECFDF5' : '#F3F4F6',
+                      color: isSel ? '#fff' : isCur ? '#fff' : isDone ? '#059669' : '#6B7280',
+                    }}
+                  >
+                    {isDone ? '✓' : m.m.replace('월', '')}
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 2 }}>{m.m}</div>
-                  <div style={{ fontSize: 10, color: '#6B7280', marginBottom: 7, lineHeight: 1.4 }}>{m.theme}</div>
-                  <div style={{ height: 3, background: '#F3F4F6', borderRadius: 99, overflow: 'hidden', marginBottom: 4 }}>
-                    <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? '#059669' : '#3B5BDB', borderRadius: 99 }} />
+
+                  {/* 월 이름 */}
+                  <div className="flex items-center gap-1 mb-1">
+                    <div className="text-[13px] font-extrabold text-ink tracking-tight">{m.m}</div>
+                    {isCur && (
+                      <span
+                        className="text-[8px] font-bold px-1.5 py-0.5 rounded-full"
+                        style={{ color: THEME.accent, background: THEME.accentBg }}
+                      >
+                        NOW
+                      </span>
+                    )}
                   </div>
-                  <div style={{ fontSize: 10, color: '#6B7280' }}>{done}/{m.missions.length} 완료</div>
-                </div>
+
+                  {/* 테마 */}
+                  <div className="text-[10px] font-medium text-ink-secondary mb-2 leading-[1.4] min-h-[28px]">
+                    {m.theme}
+                  </div>
+
+                  {/* 진행률 바 */}
+                  <div className="h-1 bg-gray-100 rounded-full overflow-hidden mb-1">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${pct}%`,
+                        background: isDone ? '#059669' : THEME.accent,
+                      }}
+                    />
+                  </div>
+                  <div className="text-[10px] font-semibold text-ink-secondary">
+                    {done}/{m.missions.length} 완료
+                  </div>
+                </button>
               )
             })}
           </div>
         </div>
 
-        {/* 오른쪽: 미션 패널 */}
+        {/* ==================== 오른쪽: 미션 패널 ==================== */}
         {selected && selMonth !== null && (
-          <div style={{ ...SEC, borderColor: '#3B5BDB', position: 'sticky', top: 0, maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div
+            className="bg-white rounded-2xl p-5 sticky top-0"
+            style={{
+              border: `2px solid ${THEME.accent}`,
+              boxShadow: `0 8px 24px ${THEME.accentShadow}`,
+            }}
+          >
+            {/* 헤더 */}
+            <div className="flex items-start justify-between mb-4">
               <div>
-                <div style={{ fontSize: 14, fontWeight: 700 }}>{selected.m}</div>
-                <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{selected.theme}</div>
-                <div style={{ fontSize: 10, color: '#3B5BDB', marginTop: 2 }}>{selected.freq}</div>
+                <div className="text-[16px] font-extrabold text-ink tracking-tight">📅 {selected.m}</div>
+                <div className="text-[11.5px] font-semibold text-ink-secondary mt-1">{selected.theme}</div>
+                <div
+                  className="text-[10px] font-bold mt-1.5 inline-block px-2 py-0.5 rounded-full"
+                  style={{ color: THEME.accent, background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}
+                >
+                  ⏰ {selected.freq}
+                </div>
               </div>
-              <div onClick={() => setSelMonth(null)} style={{ cursor: 'pointer', fontSize: 16, color: '#9CA3AF' }}>✕</div>
+              <button
+                onClick={() => setSelMonth(null)}
+                className="cursor-pointer text-ink-secondary text-base hover:text-ink w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors"
+              >
+                ✕
+              </button>
             </div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', marginBottom: 8 }}>미션 목록</div>
+
+            <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">
+              📋 미션 목록
+            </div>
+
             {selected.missions.map((ms: any, mi: number) => {
               const tc = scColor(ms.type)
               return (
-                <div key={mi} style={{ padding: '9px 10px', borderRadius: 7, marginBottom: 5, background: ms.ok ? '#ECFDF5' : '#F8F7F5', border: `0.5px solid ${ms.ok ? '#6EE7B7' : '#E5E7EB'}` }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <div style={{ width: 16, height: 16, borderRadius: '50%', background: ms.ok ? '#059669' : '#E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#fff', flexShrink: 0 }}>
+                <div
+                  key={mi}
+                  className="rounded-lg px-3 py-2.5 mb-1.5 transition-all"
+                  style={{
+                    background: ms.ok ? '#ECFDF5' : '#F8FAFC',
+                    border: `1px solid ${ms.ok ? '#6EE7B7' : '#E5E7EB'}`,
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
+                      style={{ background: ms.ok ? '#059669' : '#D1D5DB' }}
+                    >
                       {ms.ok ? '✓' : ''}
                     </div>
-                    <span style={{ fontSize: 12, color: ms.ok ? '#059669' : '#6B7280', flex: 1, fontWeight: ms.ok ? 500 : 400 }}>{ms.t}</span>
-                    <span style={{ fontSize: 9, fontWeight: 700, background: tc.bg, color: tc.c, padding: '1px 6px', borderRadius: 99, flexShrink: 0 }}>{tc.label}</span>
+                    <span
+                      className="text-[12px] flex-1 leading-[1.5]"
+                      style={{
+                        color: ms.ok ? '#059669' : '#1a1a1a',
+                        fontWeight: ms.ok ? 700 : 600,
+                      }}
+                    >
+                      {ms.t}
+                    </span>
+                    <span
+                      className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                      style={{ background: tc.bg, color: tc.c }}
+                    >
+                      {tc.label}
+                    </span>
                   </div>
                 </div>
               )

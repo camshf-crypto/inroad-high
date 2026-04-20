@@ -1,5 +1,15 @@
 import { useState } from 'react'
 
+// 파랑 테마
+const THEME = {
+  accent: '#2563EB',
+  accentDark: '#1E3A8A',
+  accentBg: '#EFF6FF',
+  accentBorder: '#93C5FD',
+  accentShadow: 'rgba(37, 99, 235, 0.15)',
+  gradient: 'linear-gradient(135deg, #1E3A8A, #2563EB)',
+}
+
 const TOPICS = [
   { id: 1, grade: '고1', month: '7월', title: '기후변화와 식량 안보', content: '기후변화로 인한 농업 생산량 변화를 데이터로 분석하고, 지속가능한 농업 기술 발전 방향을 제시하겠습니다.', subject: '과학', status: '완료' },
   { id: 2, grade: '고2', month: '1월', title: '인공지능 윤리와 편향성 문제', content: '머신러닝 모델의 학습 데이터 편향이 실제 사회적 차별로 이어지는 사례를 분석하겠습니다.', subject: '정보', status: '검토중' },
@@ -133,41 +143,82 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
     setEditText('')
   }
 
+  // 생기부 시트 컴포넌트
   const GradeSheet = ({ grade, inModal = false }: { grade: string, inModal?: boolean }) => (
-    <div style={{ marginBottom: inModal ? 32 : 16 }}>
+    <div className={inModal ? 'mb-8' : 'mb-4'}>
       {inModal && (
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a1a', marginBottom: 12, paddingBottom: 8, borderBottom: '2px solid #1a1a1a' }}>
-          {grade}
+        <div className="text-[15px] font-extrabold text-ink mb-3 pb-2 border-b-2 border-ink tracking-tight">
+          📅 {grade}
         </div>
       )}
-      <div style={{ marginBottom: inModal ? 20 : 12 }}>
-        <div style={{ fontSize: inModal ? 13 : 11, fontWeight: 700, color: '#1a1a1a', marginBottom: 6 }}>
+
+      {/* 세부능력 및 특기사항 */}
+      <div className={inModal ? 'mb-5' : 'mb-3'}>
+        <div className={`font-extrabold text-ink mb-1.5 tracking-tight ${inModal ? 'text-[13px]' : 'text-[11px]'}`}>
           5. 교과학습발달상황 · 세부능력 및 특기사항
         </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #374151' }}>
+        <table className="w-full border-collapse border border-gray-700">
           <thead>
-            <tr style={{ background: '#F3F4F6' }}>
-              <th style={{ border: '1px solid #374151', padding: inModal ? '8px 12px' : '5px 8px', fontSize: inModal ? 12 : 10, fontWeight: 600, color: '#374151', width: 80, textAlign: 'center' as const }}>과목</th>
-              <th style={{ border: '1px solid #374151', padding: inModal ? '8px 12px' : '5px 8px', fontSize: inModal ? 12 : 10, fontWeight: 600, color: '#374151', textAlign: 'center' as const }}>세부능력 및 특기사항</th>
+            <tr className="bg-gray-100">
+              <th
+                className={`border border-gray-700 font-bold text-ink w-20 text-center ${inModal ? 'px-3 py-2 text-[12px]' : 'px-2 py-1.5 text-[10px]'}`}
+              >
+                과목
+              </th>
+              <th
+                className={`border border-gray-700 font-bold text-ink text-center ${inModal ? 'px-3 py-2 text-[12px]' : 'px-2 py-1.5 text-[10px]'}`}
+              >
+                세부능력 및 특기사항
+              </th>
             </tr>
           </thead>
           <tbody>
             {SUBJECTS.map(subject => (
               <tr key={subject}>
-                <td style={{ border: '1px solid #374151', padding: inModal ? '8px 12px' : '5px 8px', fontSize: inModal ? 12 : 10, fontWeight: 500, color: '#374151', textAlign: 'center' as const, background: '#F9FAFB', verticalAlign: 'top' as const, whiteSpace: 'nowrap' as const }}>{subject}</td>
-                <td style={{ border: '1px solid #374151', padding: 0, verticalAlign: 'top' as const }}>
+                <td
+                  className={`border border-gray-700 font-semibold text-ink text-center bg-gray-50 align-top whitespace-nowrap ${inModal ? 'px-3 py-2 text-[12px]' : 'px-2 py-1.5 text-[10px]'}`}
+                >
+                  {subject}
+                </td>
+                <td className="border border-gray-700 p-0 align-top">
                   {!inModal && editingCell?.grade === grade && editingCell?.field === subject ? (
-                    <div style={{ padding: 4 }}>
-                      <textarea value={editText} onChange={e => setEditText(e.target.value)} autoFocus
-                        style={{ width: '100%', border: 'none', outline: 'none', fontSize: 10, fontFamily: 'inherit', lineHeight: 1.7, resize: 'vertical' as const, minHeight: 50, padding: '4px 8px', boxSizing: 'border-box' as const }} />
-                      <div style={{ display: 'flex', gap: 4, padding: '4px 8px' }}>
-                        <button onClick={saveCell} style={{ padding: '3px 10px', background: '#3B5BDB', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>저장</button>
-                        <button onClick={() => setEditingCell(null)} style={{ padding: '3px 10px', background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 4, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>취소</button>
+                    <div className="p-1">
+                      <textarea
+                        value={editText}
+                        onChange={e => setEditText(e.target.value)}
+                        autoFocus
+                        className="w-full border-none outline-none text-[10px] font-medium leading-[1.7] resize-y min-h-[50px] px-2 py-1 transition-all"
+                        onFocus={e => {
+                          e.target.style.boxShadow = `inset 0 0 0 2px ${THEME.accent}`
+                        }}
+                        onBlur={e => {
+                          e.target.style.boxShadow = 'none'
+                        }}
+                      />
+                      <div className="flex gap-1 px-2 py-1">
+                        <button
+                          onClick={saveCell}
+                          className="px-2.5 py-0.5 text-white rounded text-[11px] font-bold transition-all"
+                          style={{ background: THEME.accent }}
+                        >
+                          💾 저장
+                        </button>
+                        <button
+                          onClick={() => setEditingCell(null)}
+                          className="px-2.5 py-0.5 bg-white text-ink-secondary border border-line rounded text-[11px] font-semibold hover:bg-gray-50 transition-colors"
+                        >
+                          취소
+                        </button>
                       </div>
                     </div>
                   ) : (
-                    <div onClick={() => !inModal && startEditCell(grade, subject)}
-                      style={{ padding: inModal ? '8px 12px' : '5px 8px', fontSize: inModal ? 12 : 10, color: recordData[grade]?.[subject] ? '#1a1a1a' : '#D1D5DB', lineHeight: 1.8, minHeight: inModal ? 50 : 32, cursor: inModal ? 'default' : 'text', whiteSpace: 'pre-wrap' as const }}>
+                    <div
+                      onClick={() => !inModal && startEditCell(grade, subject)}
+                      className={`leading-[1.8] whitespace-pre-wrap transition-colors ${inModal ? 'px-3 py-2 text-[12px] min-h-[50px]' : 'px-2 py-1.5 text-[10px] min-h-[32px] cursor-text hover:bg-blue-50/30'}`}
+                      style={{
+                        color: recordData[grade]?.[subject] ? '#1a1a1a' : '#D1D5DB',
+                      }}
+                    >
                       {recordData[grade]?.[subject] || (inModal ? '' : '클릭하여 입력')}
                     </div>
                   )}
@@ -177,32 +228,68 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
           </tbody>
         </table>
       </div>
+
+      {/* 창의적 체험활동상황 */}
       <div>
-        <div style={{ fontSize: inModal ? 13 : 11, fontWeight: 700, color: '#1a1a1a', marginBottom: 6 }}>8. 창의적 체험활동상황</div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #374151' }}>
+        <div className={`font-extrabold text-ink mb-1.5 tracking-tight ${inModal ? 'text-[13px]' : 'text-[11px]'}`}>
+          8. 창의적 체험활동상황
+        </div>
+        <table className="w-full border-collapse border border-gray-700">
           <thead>
-            <tr style={{ background: '#F3F4F6' }}>
-              <th style={{ border: '1px solid #374151', padding: inModal ? '8px 12px' : '5px 8px', fontSize: inModal ? 12 : 10, fontWeight: 600, color: '#374151', width: 80, textAlign: 'center' as const }}>영역</th>
-              <th style={{ border: '1px solid #374151', padding: inModal ? '8px 12px' : '5px 8px', fontSize: inModal ? 12 : 10, fontWeight: 600, color: '#374151', textAlign: 'center' as const }}>특기사항</th>
+            <tr className="bg-gray-100">
+              <th
+                className={`border border-gray-700 font-bold text-ink w-20 text-center ${inModal ? 'px-3 py-2 text-[12px]' : 'px-2 py-1.5 text-[10px]'}`}
+              >
+                영역
+              </th>
+              <th
+                className={`border border-gray-700 font-bold text-ink text-center ${inModal ? 'px-3 py-2 text-[12px]' : 'px-2 py-1.5 text-[10px]'}`}
+              >
+                특기사항
+              </th>
             </tr>
           </thead>
           <tbody>
             {CREATIVE.map(area => (
               <tr key={area}>
-                <td style={{ border: '1px solid #374151', padding: inModal ? '8px 12px' : '5px 8px', fontSize: inModal ? 12 : 10, fontWeight: 500, color: '#374151', textAlign: 'center' as const, background: '#F9FAFB', verticalAlign: 'top' as const, whiteSpace: 'nowrap' as const }}>{area}</td>
-                <td style={{ border: '1px solid #374151', padding: 0, verticalAlign: 'top' as const }}>
+                <td
+                  className={`border border-gray-700 font-semibold text-ink text-center bg-gray-50 align-top whitespace-nowrap ${inModal ? 'px-3 py-2 text-[12px]' : 'px-2 py-1.5 text-[10px]'}`}
+                >
+                  {area}
+                </td>
+                <td className="border border-gray-700 p-0 align-top">
                   {!inModal && editingCell?.grade === grade && editingCell?.field === area ? (
-                    <div style={{ padding: 4 }}>
-                      <textarea value={editText} onChange={e => setEditText(e.target.value)} autoFocus
-                        style={{ width: '100%', border: 'none', outline: 'none', fontSize: 10, fontFamily: 'inherit', lineHeight: 1.7, resize: 'vertical' as const, minHeight: 50, padding: '4px 8px', boxSizing: 'border-box' as const }} />
-                      <div style={{ display: 'flex', gap: 4, padding: '4px 8px' }}>
-                        <button onClick={saveCell} style={{ padding: '3px 10px', background: '#3B5BDB', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>저장</button>
-                        <button onClick={() => setEditingCell(null)} style={{ padding: '3px 10px', background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 4, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>취소</button>
+                    <div className="p-1">
+                      <textarea
+                        value={editText}
+                        onChange={e => setEditText(e.target.value)}
+                        autoFocus
+                        className="w-full border-none outline-none text-[10px] font-medium leading-[1.7] resize-y min-h-[50px] px-2 py-1"
+                      />
+                      <div className="flex gap-1 px-2 py-1">
+                        <button
+                          onClick={saveCell}
+                          className="px-2.5 py-0.5 text-white rounded text-[11px] font-bold transition-all"
+                          style={{ background: THEME.accent }}
+                        >
+                          💾 저장
+                        </button>
+                        <button
+                          onClick={() => setEditingCell(null)}
+                          className="px-2.5 py-0.5 bg-white text-ink-secondary border border-line rounded text-[11px] font-semibold hover:bg-gray-50 transition-colors"
+                        >
+                          취소
+                        </button>
                       </div>
                     </div>
                   ) : (
-                    <div onClick={() => !inModal && startEditCell(grade, area)}
-                      style={{ padding: inModal ? '8px 12px' : '5px 8px', fontSize: inModal ? 12 : 10, color: recordData[grade]?.[area] ? '#1a1a1a' : '#D1D5DB', lineHeight: 1.8, minHeight: inModal ? 50 : 32, cursor: inModal ? 'default' : 'text', whiteSpace: 'pre-wrap' as const }}>
+                    <div
+                      onClick={() => !inModal && startEditCell(grade, area)}
+                      className={`leading-[1.8] whitespace-pre-wrap transition-colors ${inModal ? 'px-3 py-2 text-[12px] min-h-[50px]' : 'px-2 py-1.5 text-[10px] min-h-[32px] cursor-text hover:bg-blue-50/30'}`}
+                      style={{
+                        color: recordData[grade]?.[area] ? '#1a1a1a' : '#D1D5DB',
+                      }}
+                    >
                       {recordData[grade]?.[area] || (inModal ? '' : '클릭하여 입력')}
                     </div>
                   )}
@@ -216,139 +303,216 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
   )
 
   return (
-    <div style={{ display: 'flex', height: '100%', overflow: 'hidden', gap: 12 }}>
+    <div className="flex h-full overflow-hidden gap-3">
 
-      {/* 왼쪽: 활동 목록 */}
-      <div style={{ width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', gap: 5, marginBottom: 12, flexShrink: 0 }}>
-          {GRADE_LIST.map(g => (
-            <div key={g} onClick={() => { setSelGrade(g); setSelItem(null) }}
-              style={{ flex: 1, padding: '5px 0', borderRadius: 99, fontSize: 11, cursor: 'pointer', textAlign: 'center' as const, background: selGrade === g ? '#3B5BDB' : '#fff', color: selGrade === g ? '#fff' : '#6B7280', border: `0.5px solid ${selGrade === g ? '#3B5BDB' : '#E5E7EB'}` }}>
-              {g}
-            </div>
-          ))}
+      {/* ==================== 왼쪽: 활동 목록 ==================== */}
+      <div className="w-[240px] flex-shrink-0 flex flex-col overflow-hidden">
+
+        {/* 학년 탭 */}
+        <div className="flex gap-1 mb-3 flex-shrink-0">
+          {GRADE_LIST.map(g => {
+            const isActive = selGrade === g
+            return (
+              <button
+                key={g}
+                onClick={() => { setSelGrade(g); setSelItem(null) }}
+                className="flex-1 py-1.5 rounded-full text-[11px] font-bold text-center transition-all border"
+                style={{
+                  background: isActive ? THEME.accent : '#fff',
+                  color: isActive ? '#fff' : '#6B7280',
+                  borderColor: isActive ? THEME.accent : '#E5E7EB',
+                  boxShadow: isActive ? `0 2px 6px ${THEME.accentShadow}` : 'none',
+                }}
+              >
+                {g}
+              </button>
+            )
+          })}
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+        <div className="flex-1 overflow-y-auto flex flex-col gap-3">
+
           {/* 탐구주제 */}
           <div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: '#6B7280', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ background: '#EEF2FF', color: '#3B5BDB', padding: '1px 7px', borderRadius: 99, border: '0.5px solid #BAC8FF' }}>🔬 탐구</span>
-              <span>{gradeTopics.length}개</span>
+            <div className="flex items-center gap-1.5 mb-2">
+              <span
+                className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                style={{ background: THEME.accentBg, color: THEME.accent, border: `1px solid ${THEME.accentBorder}60` }}
+              >
+                🔬 탐구
+              </span>
+              <span className="text-[10px] font-semibold text-ink-secondary">{gradeTopics.length}개</span>
             </div>
-            {gradeTopics.length === 0
-              ? <div style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'center' as const, padding: '8px 0' }}>없음</div>
-              : gradeTopics.map(topic => {
-                const key = getKey('topic', topic.id)
-                const isSelected = selItem?.type === 'topic' && selItem?.id === topic.id
-                const hasRecord = !!records[key]
-                return (
-                  <div key={topic.id} onClick={() => setSelItem({ type: 'topic', id: topic.id })}
-                    style={{ border: `0.5px solid ${isSelected ? '#3B5BDB' : '#E5E7EB'}`, borderRadius: 8, padding: '8px 10px', marginBottom: 5, cursor: 'pointer', background: isSelected ? '#EEF2FF' : '#fff' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                      <span style={{ fontSize: 10, color: '#6B7280' }}>{topic.month} · {topic.subject}</span>
-                      {hasRecord && <span style={{ fontSize: 9, color: '#059669', background: '#ECFDF5', padding: '1px 5px', borderRadius: 99 }}>완성</span>}
-                    </div>
-                    <div style={{ fontSize: 11, fontWeight: 500, color: '#1a1a1a', lineHeight: 1.4 }}>{topic.title}</div>
+            {gradeTopics.length === 0 ? (
+              <div className="text-[11px] font-medium text-ink-muted text-center py-2 bg-gray-50 rounded-lg">
+                없음
+              </div>
+            ) : gradeTopics.map(topic => {
+              const key = getKey('topic', topic.id)
+              const isSelected = selItem?.type === 'topic' && selItem?.id === topic.id
+              const hasRecord = !!records[key]
+              return (
+                <button
+                  key={topic.id}
+                  onClick={() => setSelItem({ type: 'topic', id: topic.id })}
+                  className="w-full rounded-lg px-3 py-2 mb-1.5 text-left transition-all"
+                  style={{
+                    border: `1px solid ${isSelected ? THEME.accent : '#E5E7EB'}`,
+                    background: isSelected ? THEME.accentBg : '#fff',
+                    boxShadow: isSelected ? `0 2px 6px ${THEME.accentShadow}` : 'none',
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[10px] font-semibold text-ink-secondary">{topic.month} · {topic.subject}</span>
+                    {hasRecord && (
+                      <span className="text-[9px] font-bold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">
+                        ✓ 완성
+                      </span>
+                    )}
                   </div>
-                )
-              })
-            }
+                  <div className="text-[11.5px] font-semibold text-ink leading-[1.4]">{topic.title}</div>
+                </button>
+              )
+            })}
           </div>
+
           {/* 독서 */}
           <div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: '#6B7280', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ background: '#FFF7ED', color: '#D97706', padding: '1px 7px', borderRadius: 99, border: '0.5px solid #FDBA74' }}>📚 독서</span>
-              <span>{gradeBooks.length}개</span>
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                📚 독서
+              </span>
+              <span className="text-[10px] font-semibold text-ink-secondary">{gradeBooks.length}개</span>
             </div>
-            {gradeBooks.length === 0
-              ? <div style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'center' as const, padding: '8px 0' }}>없음</div>
-              : gradeBooks.map(book => {
-                const key = getKey('book', book.id)
-                const isSelected = selItem?.type === 'book' && selItem?.id === book.id
-                const hasRecord = !!records[key]
-                return (
-                  <div key={book.id} onClick={() => setSelItem({ type: 'book', id: book.id })}
-                    style={{ border: `0.5px solid ${isSelected ? '#3B5BDB' : '#E5E7EB'}`, borderRadius: 8, padding: '8px 10px', marginBottom: 5, cursor: 'pointer', background: isSelected ? '#EEF2FF' : '#fff' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                      <span style={{ fontSize: 10, color: '#6B7280' }}>{book.month} · {book.subject}</span>
-                      {hasRecord && <span style={{ fontSize: 9, color: '#059669', background: '#ECFDF5', padding: '1px 5px', borderRadius: 99 }}>완성</span>}
-                    </div>
-                    <div style={{ fontSize: 11, fontWeight: 500, color: '#1a1a1a' }}>{book.title}</div>
-                    <div style={{ fontSize: 10, color: '#9CA3AF' }}>{book.author}</div>
+            {gradeBooks.length === 0 ? (
+              <div className="text-[11px] font-medium text-ink-muted text-center py-2 bg-gray-50 rounded-lg">
+                없음
+              </div>
+            ) : gradeBooks.map(book => {
+              const key = getKey('book', book.id)
+              const isSelected = selItem?.type === 'book' && selItem?.id === book.id
+              const hasRecord = !!records[key]
+              return (
+                <button
+                  key={book.id}
+                  onClick={() => setSelItem({ type: 'book', id: book.id })}
+                  className="w-full rounded-lg px-3 py-2 mb-1.5 text-left transition-all"
+                  style={{
+                    border: `1px solid ${isSelected ? THEME.accent : '#E5E7EB'}`,
+                    background: isSelected ? THEME.accentBg : '#fff',
+                    boxShadow: isSelected ? `0 2px 6px ${THEME.accentShadow}` : 'none',
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[10px] font-semibold text-ink-secondary">{book.month} · {book.subject}</span>
+                    {hasRecord && (
+                      <span className="text-[9px] font-bold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">
+                        ✓ 완성
+                      </span>
+                    )}
                   </div>
-                )
-              })
-            }
+                  <div className="text-[11.5px] font-semibold text-ink">{book.title}</div>
+                  <div className="text-[10px] font-medium text-ink-muted">{book.author}</div>
+                </button>
+              )
+            })}
           </div>
         </div>
       </div>
 
-      {/* 가운데: AI 생기부 문구 + 보완점 */}
-      <div style={{ width: 300, flexShrink: 0, background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* ==================== 가운데: AI 생기부 문구 + 보완점 ==================== */}
+      <div className="w-[320px] flex-shrink-0 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
         {!selItem ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#9CA3AF', padding: 20 }}>
-            <div style={{ fontSize: 28 }}>✨</div>
-            <div style={{ fontSize: 13, fontWeight: 500, color: '#6B7280', textAlign: 'center' as const }}>활동을 선택하면 AI 생기부 문구를 생성해드려요</div>
+          <div className="flex-1 flex flex-col items-center justify-center gap-2 text-ink-muted p-5">
+            <div className="text-3xl">✨</div>
+            <div className="text-[13px] font-bold text-ink-secondary text-center">
+              활동을 선택하면<br />AI 생기부 문구를 생성해드려요
+            </div>
           </div>
         ) : (
           <>
-            <div style={{ padding: '12px 14px', borderBottom: '0.5px solid #E5E7EB', flexShrink: 0 }}>
-              <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 4 }}>
+            {/* 헤더 */}
+            <div className="px-4 py-3 border-b border-line flex-shrink-0">
+              <div className="text-[11px] font-semibold text-ink-secondary mb-1">
                 {selItem.type === 'topic' ? '🔬 탐구주제' : '📚 독서'} · {selGrade}
               </div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>
+              <div className="text-[14px] font-extrabold text-ink tracking-tight">
                 {(selectedData as any)?.title}
               </div>
-              <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>과목: {(selectedData as any)?.subject}</div>
+              <div className="text-[11px] font-medium text-ink-secondary mt-0.5">
+                과목: <span className="font-bold">{(selectedData as any)?.subject}</span>
+              </div>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3">
 
               {/* AI 생기부 문구 */}
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: '#1a1a1a' }}>✨ AI 생기부 문구</div>
-                  <div style={{ display: 'flex', gap: 5 }}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[12px] font-extrabold text-ink">✨ AI 생기부 문구</div>
+                  <div className="flex gap-1">
                     {selectedRecord && (
-                      <button onClick={() => deleteRecord(selectedKey!)}
-                        style={{ padding: '3px 8px', background: '#FEF2F2', color: '#EF4444', border: '0.5px solid #FCA5A5', borderRadius: 6, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>
-                        삭제
+                      <button
+                        onClick={() => deleteRecord(selectedKey!)}
+                        className="px-2 py-1 bg-red-50 text-red-600 border border-red-200 rounded-md text-[10px] font-bold hover:bg-red-100 transition-colors"
+                      >
+                        🗑️ 삭제
                       </button>
                     )}
-                    <button onClick={() => generateRecord(selItem.type, selItem.id)}
+                    <button
+                      onClick={() => generateRecord(selItem.type, selItem.id)}
                       disabled={generating === selectedKey}
-                      style={{ padding: '3px 10px', background: generating === selectedKey ? '#E5E7EB' : '#3B5BDB', color: generating === selectedKey ? '#9CA3AF' : '#fff', border: 'none', borderRadius: 6, fontSize: 10, cursor: generating === selectedKey ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-                      {generating === selectedKey ? '생성중...' : selectedRecord ? '재생성' : '생성'}
+                      className="px-2.5 py-1 rounded-md text-[10px] font-bold transition-all disabled:cursor-not-allowed"
+                      style={{
+                        background: generating === selectedKey ? '#E5E7EB' : THEME.accent,
+                        color: generating === selectedKey ? '#9CA3AF' : '#fff',
+                        boxShadow: generating === selectedKey ? 'none' : `0 2px 4px ${THEME.accentShadow}`,
+                      }}
+                    >
+                      {generating === selectedKey ? '⏳ 생성중...' : selectedRecord ? '🔄 재생성' : '✨ 생성'}
                     </button>
                   </div>
                 </div>
 
                 {generating === selectedKey ? (
-                  <div style={{ textAlign: 'center' as const, padding: '20px 0', color: '#9CA3AF', fontSize: 12 }}>
-                    <div style={{ fontSize: 20, marginBottom: 6 }}>✨</div>AI 분석 중...
+                  <div className="text-center py-5 text-ink-muted">
+                    <div className="text-2xl mb-1.5 animate-pulse">✨</div>
+                    <div className="text-[12px] font-medium">AI 분석 중...</div>
                   </div>
                 ) : !selectedRecord ? (
-                  <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '12px', fontSize: 12, color: '#9CA3AF', textAlign: 'center' as const }}>
+                  <div className="bg-gray-50 border border-line rounded-lg p-3 text-[12px] font-medium text-ink-muted text-center">
                     생성 버튼을 눌러주세요
                   </div>
                 ) : (
                   <>
-                    <div style={{ background: '#F0FDF4', border: '0.5px solid #6EE7B7', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#1a1a1a', lineHeight: 1.8, marginBottom: 8 }}>
+                    <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2.5 text-[12px] font-medium text-ink leading-[1.8] mb-2">
                       {selectedRecord}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <span style={{ fontSize: 10, color: selectedRecord.length > 500 ? '#EF4444' : '#059669' }}>
-                        {selectedRecord.length}자
+                    <div className="flex items-center justify-between mb-1">
+                      <span
+                        className="text-[10px] font-bold"
+                        style={{ color: selectedRecord.length > 500 ? '#EF4444' : '#059669' }}
+                      >
+                        {selectedRecord.length}자 {selectedRecord.length > 500 && '⚠️ 초과'}
                       </span>
-                      <div style={{ display: 'flex', gap: 5 }}>
-                        <button onClick={() => navigator.clipboard.writeText(selectedRecord)}
-                          style={{ padding: '3px 8px', background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 5, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>복사</button>
-                        <button onClick={() => {
-                          const subject = (selectedData as any)?.subject
-                          const grade = (selectedData as any)?.grade || selGrade
-                          if (subject && selectedRecord) applyToRecord(grade, subject, selectedRecord)
-                        }}
-                          style={{ padding: '3px 8px', background: '#3B5BDB', color: '#fff', border: 'none', borderRadius: 5, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>생기부 반영</button>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => navigator.clipboard.writeText(selectedRecord)}
+                          className="px-2 py-1 bg-white text-ink-secondary border border-line rounded text-[10px] font-bold hover:bg-gray-50 transition-colors"
+                        >
+                          📋 복사
+                        </button>
+                        <button
+                          onClick={() => {
+                            const subject = (selectedData as any)?.subject
+                            const grade = (selectedData as any)?.grade || selGrade
+                            if (subject && selectedRecord) applyToRecord(grade, subject, selectedRecord)
+                          }}
+                          className="px-2 py-1 text-white rounded text-[10px] font-bold transition-all"
+                          style={{ background: THEME.accent, boxShadow: `0 2px 4px ${THEME.accentShadow}` }}
+                        >
+                          📥 생기부 반영
+                        </button>
                       </div>
                     </div>
                   </>
@@ -356,34 +520,61 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
               </div>
 
               {/* 피드백 작성 요청 버튼 */}
-              <div style={{ borderTop: '0.5px solid #E5E7EB', paddingTop: 10 }}>
+              <div className="border-t border-line pt-2.5">
                 <button
                   onClick={() => selItem.type === 'topic' ? onEditTopic(selItem.id) : onEditBook(selItem.id)}
-                  style={{ width: '100%', padding: '9px 12px', background: '#F8F7F5', color: '#374151', border: '0.5px solid #E5E7EB', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' as const, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  className="w-full px-3 py-2.5 bg-gray-50 text-ink border border-line rounded-lg text-[12px] font-semibold text-left flex items-center justify-between hover:bg-gray-100 transition-colors"
+                >
                   <span>💬 {selItem.type === 'topic' ? '탐구주제' : '독서리스트'} 탭에서 피드백 작성하기</span>
-                  <span style={{ color: '#9CA3AF' }}>→</span>
+                  <span className="text-ink-muted">→</span>
                 </button>
               </div>
 
               {/* AI 보완점 */}
               {selectedSuggestion && selectedRecord && (
-                <div style={{ borderTop: '0.5px solid #E5E7EB', paddingTop: 10 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: '#1a1a1a', marginBottom: 8 }}>🔍 AI 보완점 분석</div>
-                  <div style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: '#059669', marginBottom: 5 }}>강점</div>
+                <div className="border-t border-line pt-2.5">
+                  <div className="text-[12px] font-extrabold text-ink mb-2">🔍 AI 보완점 분석</div>
+
+                  {/* 강점 */}
+                  <div className="mb-2.5">
+                    <div className="text-[10px] font-extrabold text-green-600 mb-1.5">💪 강점</div>
                     {selectedSuggestion.strengths.map((s, i) => (
-                      <div key={i} style={{ fontSize: 11, color: '#374151', lineHeight: 1.6, padding: '4px 8px', background: '#F0FDF4', borderRadius: 6, marginBottom: 4 }}>✓ {s}</div>
+                      <div
+                        key={i}
+                        className="text-[11px] font-medium text-ink leading-[1.6] px-2.5 py-1.5 bg-green-50 border border-green-200 rounded-md mb-1"
+                      >
+                        ✓ {s}
+                      </div>
                     ))}
                   </div>
-                  <div style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: '#EF4444', marginBottom: 5 }}>개선 필요</div>
+
+                  {/* 개선 필요 */}
+                  <div className="mb-2.5">
+                    <div className="text-[10px] font-extrabold text-red-500 mb-1.5">⚡ 개선 필요</div>
                     {selectedSuggestion.improvements.map((s, i) => (
-                      <div key={i} style={{ fontSize: 11, color: '#374151', lineHeight: 1.6, padding: '4px 8px', background: '#FEF2F2', borderRadius: 6, marginBottom: 4 }}>△ {s}</div>
+                      <div
+                        key={i}
+                        className="text-[11px] font-medium text-ink leading-[1.6] px-2.5 py-1.5 bg-red-50 border border-red-200 rounded-md mb-1"
+                      >
+                        △ {s}
+                      </div>
                     ))}
                   </div>
+
+                  {/* 전공 연계 */}
                   <div>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: '#3B5BDB', marginBottom: 5 }}>전공 연계</div>
-                    <div style={{ fontSize: 11, color: '#374151', lineHeight: 1.6, padding: '4px 8px', background: '#EEF2FF', borderRadius: 6 }}>🎓 {selectedSuggestion.connection}</div>
+                    <div className="text-[10px] font-extrabold mb-1.5" style={{ color: THEME.accent }}>
+                      🎓 전공 연계
+                    </div>
+                    <div
+                      className="text-[11px] font-medium text-ink leading-[1.6] px-2.5 py-1.5 rounded-md"
+                      style={{
+                        background: THEME.accentBg,
+                        border: `1px solid ${THEME.accentBorder}60`,
+                      }}
+                    >
+                      🎓 {selectedSuggestion.connection}
+                    </div>
                   </div>
                 </div>
               )}
@@ -392,55 +583,82 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
         )}
       </div>
 
-      {/* 오른쪽: 실제 생기부 */}
-      <div style={{ flex: 1, background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
-        <div style={{ padding: '10px 14px', borderBottom: '0.5px solid #E5E7EB', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>📋 생기부</div>
-            <div style={{ display: 'flex', gap: 5 }}>
-              {GRADE_LIST.map(g => (
-                <div key={g} onClick={() => setSelGrade(g)}
-                  style={{ padding: '3px 10px', borderRadius: 99, fontSize: 11, cursor: 'pointer', background: selGrade === g ? '#1a1a1a' : '#fff', color: selGrade === g ? '#fff' : '#6B7280', border: `0.5px solid ${selGrade === g ? '#1a1a1a' : '#E5E7EB'}` }}>
-                  {g}
-                </div>
-              ))}
+      {/* ==================== 오른쪽: 실제 생기부 ==================== */}
+      <div className="flex-1 bg-white border border-line rounded-2xl flex flex-col overflow-hidden min-w-0 shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
+        <div className="px-4 py-3 border-b border-line flex-shrink-0 flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <div className="text-[14px] font-extrabold text-ink tracking-tight">📋 생기부</div>
+            <div className="flex gap-1">
+              {GRADE_LIST.map(g => {
+                const isActive = selGrade === g
+                return (
+                  <button
+                    key={g}
+                    onClick={() => setSelGrade(g)}
+                    className="px-3 py-1 rounded-full text-[11px] font-bold transition-all border"
+                    style={{
+                      background: isActive ? '#1a1a1a' : '#fff',
+                      color: isActive ? '#fff' : '#6B7280',
+                      borderColor: isActive ? '#1a1a1a' : '#E5E7EB',
+                    }}
+                  >
+                    {g}
+                  </button>
+                )
+              })}
             </div>
           </div>
-          <button onClick={() => setFullScreen(true)}
-            style={{ padding: '5px 12px', background: '#fff', color: '#3B5BDB', border: '0.5px solid #3B5BDB', borderRadius: 7, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+          <button
+            onClick={() => setFullScreen(true)}
+            className="px-3 py-1.5 bg-white border rounded-lg text-[11px] font-bold transition-all hover:-translate-y-px"
+            style={{ color: THEME.accent, borderColor: THEME.accent }}
+          >
             ⛶ 전체화면
           </button>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px' }}>
+        <div className="flex-1 overflow-y-auto px-4 py-4">
           <GradeSheet grade={selGrade} />
         </div>
       </div>
 
-      {/* 전체화면 모달 */}
+      {/* ==================== 전체화면 모달 ==================== */}
       {fullScreen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: 16, width: '90vw', maxWidth: 960, maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ padding: '16px 24px', borderBottom: '0.5px solid #E5E7EB', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div
+          className="fixed inset-0 z-[300] flex items-center justify-center"
+          style={{ background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)' }}
+        >
+          <div
+            className="bg-white rounded-2xl flex flex-col overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.3)]"
+            style={{ width: '90vw', maxWidth: 980, maxHeight: '92vh' }}
+          >
+            <div className="px-6 py-4 border-b border-line flex-shrink-0 flex items-center justify-between gap-3 flex-wrap">
               <div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a' }}>📋 학교생활기록부</div>
-                <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{student?.name} · 고1 ~ 고3 전체</div>
+                <div className="text-[17px] font-extrabold text-ink tracking-tight">📋 학교생활기록부</div>
+                <div className="text-[12px] font-medium text-ink-secondary mt-0.5">
+                  {student?.name} · 고1 ~ 고3 전체
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => window.print()}
-                  style={{ padding: '7px 16px', background: '#3B5BDB', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 text-white rounded-lg text-[12px] font-bold transition-all hover:-translate-y-px"
+                  style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
+                >
                   🖨️ PDF 저장 / 인쇄
                 </button>
-                <button onClick={() => setFullScreen(false)}
-                  style={{ padding: '7px 16px', background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                <button
+                  onClick={() => setFullScreen(false)}
+                  className="px-4 py-2 bg-white text-ink-secondary border border-line rounded-lg text-[12px] font-semibold hover:bg-gray-50 transition-colors"
+                >
                   닫기
                 </button>
               </div>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
-              <div style={{ textAlign: 'center' as const, fontSize: 20, fontWeight: 700, marginBottom: 28, color: '#1a1a1a' }}>
-                학교생활기록부
+            <div className="flex-1 overflow-y-auto px-8 py-7">
+              <div className="text-center text-[22px] font-extrabold text-ink mb-3 tracking-tight">
+                🎓 학교생활기록부
               </div>
-              <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 24, textAlign: 'center' as const }}>
+              <div className="text-[13px] font-semibold text-ink-secondary mb-6 text-center pb-4 border-b border-line">
                 {student?.name} · {student?.grade}
               </div>
               {GRADE_LIST.map(g => (

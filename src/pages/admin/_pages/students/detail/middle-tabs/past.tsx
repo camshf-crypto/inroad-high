@@ -1,6 +1,17 @@
 import { useState } from 'react'
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts'
 
+// 🌱 중등 초록 테마
+const THEME = {
+  accent: '#059669',
+  accentDark: '#065F46',
+  accentBg: '#ECFDF5',
+  accentBorder: '#6EE7B7',
+  accentLight: '#D1FAE5',
+  accentShadow: 'rgba(16, 185, 129, 0.15)',
+  gradient: 'linear-gradient(135deg, #065F46, #10B981)',
+}
+
 const ALL_SCHOOLS = [
   '인천하늘고', '한국과학영재학교', '경기과학고', '서울과학고', '한성과학고',
   '세종과학고', '대전과학고', '광주과학고', '대구과학고', '부산과학고',
@@ -97,7 +108,7 @@ const PAST_QUESTIONS: Record<string, any[]> = {
 }
 
 const TYPE_COLOR: Record<string, any> = {
-  '지원동기': { bg: '#EEF2FF', color: '#3B5BDB', border: '#BAC8FF' },
+  '지원동기': { bg: '#EFF6FF', color: '#2563EB', border: '#93C5FD' },
   '자기주도': { bg: '#ECFDF5', color: '#059669', border: '#6EE7B7' },
   '활동계획': { bg: '#F5F3FF', color: '#7C3AED', border: '#DDD6FE' },
   '인성':     { bg: '#FFF3E8', color: '#D97706', border: '#FDBA74' },
@@ -108,13 +119,8 @@ const TYPE_COLOR: Record<string, any> = {
 }
 
 const STEP_LABELS = ['첫 답변', '1차 피드백', '업그레이드', '최종 피드백', '꼬리질문']
-const accentColor = '#059669'
-const accentBg = '#ECFDF5'
-const accentBorder = '#6EE7B7'
-const accentDark = '#065F46'
-const accentLight = '#D1FAE5'
 
-export default function PastTab({ student }: { student: any }) {
+export default function MiddlePastTab({ student }: { student: any }) {
   const [selSchool, setSelSchool] = useState('')
   const [schoolSearch, setSchoolSearch] = useState('')
   const [schoolDropOpen, setSchoolDropOpen] = useState(false)
@@ -228,146 +234,268 @@ export default function PastTab({ student }: { student: any }) {
   const secondData = aiData?.second || null
   const schoolInputValue = selSchool && !schoolDropOpen ? selSchool : schoolSearch
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: '100%', overflow: 'hidden' }}>
+  const handleTextareaFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    e.target.style.borderColor = THEME.accent
+    e.target.style.boxShadow = `0 0 0 3px ${THEME.accentShadow}`
+  }
+  const handleTextareaBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    e.target.style.borderColor = '#E5E7EB'
+    e.target.style.boxShadow = 'none'
+  }
 
-      {/* 학교 선택 */}
-      <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
-        <div style={{ position: 'relative', width: 220 }}>
-          <div onClick={() => setSchoolDropOpen(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, border: `0.5px solid ${schoolDropOpen ? accentColor : '#E5E7EB'}`, borderRadius: 8, padding: '7px 10px', background: '#fff', cursor: 'text', height: 36 }}>
-            <span style={{ fontSize: 14, flexShrink: 0 }}>🏫</span>
+  return (
+    <div className="flex flex-col gap-3 h-full overflow-hidden">
+
+      {/* ==================== 학교 선택 ==================== */}
+      <div className="flex gap-2 flex-shrink-0 items-center flex-wrap">
+        <div className="relative w-[240px]">
+          <div
+            onClick={() => setSchoolDropOpen(true)}
+            className="flex items-center gap-2 rounded-lg px-3 py-2 bg-white cursor-text h-10 transition-all"
+            style={{
+              border: `1px solid ${schoolDropOpen ? THEME.accent : '#E5E7EB'}`,
+              boxShadow: schoolDropOpen ? `0 0 0 3px ${THEME.accentShadow}` : 'none',
+            }}
+          >
+            <span className="text-sm flex-shrink-0">🏫</span>
             <input
               value={schoolInputValue}
               onChange={e => { setSchoolSearch(e.target.value); setSelSchool(''); setSelQ(null); setSchoolDropOpen(true) }}
               onFocus={() => setSchoolDropOpen(true)}
               placeholder="학교 검색..."
-              style={{ flex: 1, border: 'none', outline: 'none', fontSize: 12, fontFamily: 'inherit', background: 'transparent', color: '#1a1a1a', minWidth: 0 }}
+              className="flex-1 border-none outline-none text-[12.5px] font-medium bg-transparent text-ink min-w-0 placeholder:text-ink-muted"
             />
             {selSchool ? (
-              <button onClick={e => { e.stopPropagation(); setSelSchool(''); setSchoolSearch(''); setSelQ(null); setShowAiPanel(false) }}
-                style={{ fontSize: 10, color: '#9CA3AF', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}>✕</button>
+              <button
+                onClick={e => { e.stopPropagation(); setSelSchool(''); setSchoolSearch(''); setSelQ(null); setShowAiPanel(false) }}
+                className="text-[11px] text-ink-muted flex-shrink-0 hover:text-red-500 transition-colors"
+              >
+                ✕
+              </button>
             ) : (
-              <span onClick={e => { e.stopPropagation(); setSchoolDropOpen(!schoolDropOpen) }}
-                style={{ fontSize: 10, color: '#9CA3AF', cursor: 'pointer', flexShrink: 0, userSelect: 'none' as const }}>▼</span>
+              <span
+                onClick={e => { e.stopPropagation(); setSchoolDropOpen(!schoolDropOpen) }}
+                className="text-[11px] text-ink-muted cursor-pointer flex-shrink-0 select-none"
+              >
+                ▼
+              </span>
             )}
           </div>
           {schoolDropOpen && (
             <>
-              <div onClick={() => setSchoolDropOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10 }} />
-              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 8, zIndex: 20, maxHeight: 220, overflowY: 'auto', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}>
+              <div onClick={() => setSchoolDropOpen(false)} className="fixed inset-0 z-10" />
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-line rounded-lg z-20 max-h-[240px] overflow-y-auto shadow-[0_8px_24px_rgba(0,0,0,0.1)]">
                 {filteredSchools.length === 0 ? (
-                  <div style={{ padding: '10px 12px', fontSize: 12, color: '#9CA3AF', textAlign: 'center' as const }}>검색 결과 없음</div>
+                  <div className="px-3 py-2.5 text-[12px] font-medium text-ink-muted text-center">검색 결과 없음</div>
                 ) : filteredSchools.map((s, i) => (
-                  <div key={i}
+                  <div
+                    key={i}
                     onClick={() => { setSelSchool(s); setSchoolSearch(''); setSchoolDropOpen(false); setSelQ(null); setShowAiPanel(false) }}
-                    style={{ padding: '8px 12px', fontSize: 12, color: '#1a1a1a', cursor: 'pointer', background: selSchool === s ? accentBg : '#fff', borderBottom: i < filteredSchools.length - 1 ? '0.5px solid #F3F4F6' : 'none' }}>
-                    {s}
+                    className="px-3 py-2 text-[12.5px] font-medium cursor-pointer transition-colors"
+                    style={{
+                      color: selSchool === s ? THEME.accentDark : '#1a1a1a',
+                      background: selSchool === s ? THEME.accentBg : '#fff',
+                      borderBottom: i < filteredSchools.length - 1 ? '1px solid #F3F4F6' : 'none',
+                    }}
+                    onMouseEnter={e => { if (selSchool !== s) e.currentTarget.style.background = '#F9FAFB' }}
+                    onMouseLeave={e => { if (selSchool !== s) e.currentTarget.style.background = '#fff' }}
+                  >
+                    🏫 {s}
                   </div>
                 ))}
               </div>
             </>
           )}
         </div>
+
         {selSchool && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: accentColor, background: accentBg, padding: '4px 12px', borderRadius: 99, border: `0.5px solid ${accentBorder}`, flexShrink: 0 }}>
+          <div
+            className="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full flex-shrink-0"
+            style={{
+              color: THEME.accentDark,
+              background: THEME.accentBg,
+              border: `1px solid ${THEME.accentBorder}60`,
+              boxShadow: `0 2px 6px ${THEME.accentShadow}`,
+            }}
+          >
             ✓ {selSchool} · {curQuestions.filter(q => q.answered).length}/{curQuestions.length} 답변완료
           </div>
         )}
       </div>
 
-      {/* 메인 */}
-      <div style={{ display: 'flex', gap: 16, flex: 1, overflow: 'hidden' }}>
+      {/* ==================== 메인 ==================== */}
+      <div className="flex gap-4 flex-1 overflow-hidden">
 
-        {/* 왼쪽 질문 목록 */}
-        <div style={{ width: 280, flexShrink: 0, background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ padding: '12px 14px', borderBottom: '0.5px solid #E5E7EB', flexShrink: 0 }}>
+        {/* ---------- 왼쪽 질문 목록 ---------- */}
+        <div className="w-[300px] flex-shrink-0 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
+          <div className="px-4 py-3 border-b border-line flex-shrink-0">
             {selSchool ? (
               <>
-                <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a' }}>{selSchool}</div>
-                <div style={{ fontSize: 11, color: '#6B7280', marginTop: 4 }}>
-                  총 <span style={{ color: accentColor, fontWeight: 600 }}>{curQuestions.length}개</span> ·
-                  답변완료 <span style={{ color: accentColor, fontWeight: 600 }}>{curQuestions.filter(q => q.answered).length}개</span>
+                <div className="text-[13.5px] font-extrabold text-ink tracking-tight">🎓 {selSchool}</div>
+                <div className="text-[11px] font-medium text-ink-secondary mt-1">
+                  총 <span className="font-bold" style={{ color: THEME.accent }}>{curQuestions.length}개</span> ·
+                  답변 <span className="font-bold" style={{ color: THEME.accent }}>{curQuestions.filter(q => q.answered).length}개</span>
                 </div>
               </>
             ) : (
-              <div style={{ fontSize: 12, color: '#9CA3AF' }}>학교를 선택해주세요</div>
+              <div className="text-[12px] font-medium text-ink-muted">학교를 선택해주세요</div>
             )}
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px' }}>
+          <div className="flex-1 overflow-y-auto px-3 py-3">
             {!selSchool ? (
-              <div style={{ textAlign: 'center' as const, padding: '40px 0', color: '#9CA3AF', fontSize: 12 }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>🏫</div>위에서 학교를 선택해주세요
+              <div className="text-center py-10 text-ink-muted">
+                <div className="text-3xl mb-2">🏫</div>
+                <div className="text-[12px] font-medium">위에서 학교를 선택해주세요</div>
               </div>
             ) : curQuestions.length === 0 ? (
-              <div style={{ textAlign: 'center' as const, padding: '40px 0', color: '#9CA3AF', fontSize: 12 }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>📝</div>기출문제가 없어요.
+              <div className="text-center py-10 text-ink-muted">
+                <div className="text-3xl mb-2">📝</div>
+                <div className="text-[12px] font-medium">기출문제가 없어요.</div>
               </div>
             ) : curQuestions.map((q, i) => {
               const tc = TYPE_COLOR[q.type] || TYPE_COLOR['지원동기']
+              const isSelected = selQ?.id === q.id
               return (
-                <div key={q.id} onClick={() => { setSelQ(q); setShowAiPanel(false); setAiData(null) }}
-                  style={{ border: `0.5px solid ${selQ?.id === q.id ? accentColor : '#E5E7EB'}`, borderRadius: 10, padding: '11px 13px', marginBottom: 7, cursor: 'pointer', background: selQ?.id === q.id ? accentBg : '#fff' }}>
-                  <div style={{ display: 'flex', gap: 5, marginBottom: 5 }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: accentColor, background: accentBg, padding: '1px 7px', borderRadius: 99 }}>Q{i + 1}</span>
-                    <span style={{ fontSize: 10, fontWeight: 500, padding: '1px 7px', borderRadius: 99, background: tc.bg, color: tc.color, border: `0.5px solid ${tc.border}` }}>{q.type}</span>
+                <button
+                  key={q.id}
+                  onClick={() => { setSelQ(q); setShowAiPanel(false); setAiData(null) }}
+                  className="w-full rounded-xl px-3.5 py-3 mb-1.5 text-left transition-all"
+                  style={{
+                    border: `1px solid ${isSelected ? THEME.accent : '#E5E7EB'}`,
+                    background: isSelected ? THEME.accentBg : '#fff',
+                    boxShadow: isSelected ? `0 2px 8px ${THEME.accentShadow}` : 'none',
+                  }}
+                >
+                  <div className="flex gap-1.5 mb-1.5 flex-wrap">
+                    <span
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      style={{ color: THEME.accentDark, background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}
+                    >
+                      Q{i + 1}
+                    </span>
+                    <span
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      style={{ background: tc.bg, color: tc.color, border: `1px solid ${tc.border}60` }}
+                    >
+                      {q.type}
+                    </span>
                   </div>
-                  <div style={{ fontSize: 12, color: '#1a1a1a', lineHeight: 1.5, fontWeight: 500, marginBottom: 5 }}>{q.text}</div>
-                  {q.answered
-                    ? <span style={{ fontSize: 10, color: accentColor, background: accentBg, padding: '2px 7px', borderRadius: 99, border: `0.5px solid ${accentBorder}` }}>답변완료 · {getStep(q)}/5단계</span>
-                    : <span style={{ fontSize: 10, color: '#D97706', background: '#FFF3E8', padding: '2px 7px', borderRadius: 99, border: '0.5px solid #FDBA74' }}>미답변</span>
-                  }
-                </div>
+                  <div
+                    className="text-[12.5px] font-semibold leading-[1.5] mb-1.5"
+                    style={{ color: isSelected ? THEME.accentDark : '#1a1a1a' }}
+                  >
+                    {q.text}
+                  </div>
+                  {q.answered ? (
+                    <span
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      style={{ color: THEME.accent, background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}
+                    >
+                      ✓ 답변 · {getStep(q)}/5단계
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                      ⏳ 미답변
+                    </span>
+                  )}
+                </button>
               )
             })}
           </div>
         </div>
 
-        {/* 가운데 피드백 패널 */}
-        <div style={{ flex: 1, background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+        {/* ---------- 가운데 피드백 패널 ---------- */}
+        <div className="flex-1 bg-white border border-line rounded-2xl flex flex-col overflow-hidden min-w-0 shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
           {!selQ ? (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', gap: 8 }}>
-              <div style={{ fontSize: 32 }}>🏫</div>
-              <div style={{ fontSize: 14, fontWeight: 500, color: '#6B7280' }}>질문을 선택해주세요</div>
-              <div style={{ fontSize: 12 }}>왼쪽에서 기출문제를 클릭하면 상세 내용을 볼 수 있어요</div>
+            <div className="flex-1 flex flex-col items-center justify-center text-ink-muted gap-2">
+              <div className="text-4xl">🎓</div>
+              <div className="text-[14px] font-bold text-ink-secondary">질문을 선택해주세요</div>
+              <div className="text-[12px] font-medium">왼쪽에서 기출문제를 클릭하세요</div>
             </div>
           ) : (
             <>
               {/* 헤더 */}
-              <div style={{ padding: '13px 16px', borderBottom: '0.5px solid #E5E7EB', flexShrink: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a' }}>Q{curQuestions.findIndex(q => q.id === selQ.id) + 1}</div>
-                    <span style={{ fontSize: 11, background: accentBg, color: accentColor, padding: '2px 8px', borderRadius: 99, fontWeight: 600 }}>{selSchool}</span>
-                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: (TYPE_COLOR[selQ.type] || TYPE_COLOR['지원동기']).bg, color: (TYPE_COLOR[selQ.type] || TYPE_COLOR['지원동기']).color, border: `0.5px solid ${(TYPE_COLOR[selQ.type] || TYPE_COLOR['지원동기']).border}` }}>{selQ.type}</span>
+              <div className="px-5 py-4 border-b border-line flex-shrink-0">
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="text-[13px] font-extrabold text-ink">Q{curQuestions.findIndex(q => q.id === selQ.id) + 1}</div>
+                    <span
+                      className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                      style={{ color: THEME.accentDark, background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}
+                    >
+                      🏫 {selSchool}
+                    </span>
+                    <span
+                      className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                      style={{
+                        background: (TYPE_COLOR[selQ.type] || TYPE_COLOR['지원동기']).bg,
+                        color: (TYPE_COLOR[selQ.type] || TYPE_COLOR['지원동기']).color,
+                        border: `1px solid ${(TYPE_COLOR[selQ.type] || TYPE_COLOR['지원동기']).border}60`,
+                      }}
+                    >
+                      {selQ.type}
+                    </span>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div className="flex gap-2 items-center flex-wrap">
                     {selQ.answered && (
-                      <button onClick={() => { if (showAiPanel) { setShowAiPanel(false); setAiData(null) } else openAiAnalysis('first') }}
-                        style={{ padding: '5px 12px', background: showAiPanel ? accentColor : accentBg, color: showAiPanel ? '#fff' : accentColor, border: `0.5px solid ${accentColor}`, borderRadius: 7, fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      <button
+                        onClick={() => { if (showAiPanel) { setShowAiPanel(false); setAiData(null) } else openAiAnalysis('first') }}
+                        className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:-translate-y-px"
+                        style={{
+                          background: showAiPanel ? THEME.accent : '#fff',
+                          color: showAiPanel ? '#fff' : THEME.accent,
+                          border: `1px solid ${THEME.accent}`,
+                          boxShadow: showAiPanel ? `0 4px 12px ${THEME.accentShadow}` : 'none',
+                        }}
+                      >
                         ✨ AI 분석 {showAiPanel ? '닫기' : '보기'}
                       </button>
                     )}
-                    <span style={{ fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 99, background: selQ.answered ? accentBg : '#FFF3E8', color: selQ.answered ? accentColor : '#D97706', border: `0.5px solid ${selQ.answered ? accentBorder : '#FDBA74'}` }}>
-                      {selQ.answered ? '답변완료' : '미답변'}
+                    <span
+                      className="text-[11px] font-bold px-2.5 py-1 rounded-full"
+                      style={{
+                        background: selQ.answered ? THEME.accentBg : '#FEF3C7',
+                        color: selQ.answered ? THEME.accentDark : '#92400E',
+                        border: `1px solid ${selQ.answered ? THEME.accentBorder : '#FCD34D'}60`,
+                      }}
+                    >
+                      {selQ.answered ? '✓ 답변완료' : '⏳ 미답변'}
                     </span>
                   </div>
                 </div>
 
                 {/* 5단계 */}
-                <div style={{ display: 'flex' }}>
+                <div className="flex">
                   {STEP_LABELS.map((label, i) => {
                     const step = getStep(selQ)
                     const stepNum = i + 1
                     const isDone = stepNum < step
                     const isOn = stepNum === step
+                    const active = isDone || isOn
                     return (
-                      <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, position: 'relative' }}>
-                        {i < 4 && <div style={{ position: 'absolute', top: 11, left: '55%', width: '90%', height: 1, background: isDone ? accentColor : '#E5E7EB' }} />}
-                        <div style={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 500, zIndex: 1, position: 'relative', background: isDone ? accentColor : isOn ? accentColor : '#F3F4F6', color: isDone || isOn ? '#fff' : '#9CA3AF', border: `1px solid ${isDone ? accentColor : isOn ? accentColor : '#E5E7EB'}` }}>
+                      <div key={i} className="flex-1 flex flex-col items-center gap-1 relative">
+                        {i < 4 && (
+                          <div
+                            className="absolute top-[11px] left-[55%] w-[90%] h-px"
+                            style={{ background: isDone ? THEME.accent : '#E5E7EB' }}
+                          />
+                        )}
+                        <div
+                          className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-extrabold z-10 relative border"
+                          style={{
+                            background: active ? THEME.accent : '#F3F4F6',
+                            color: active ? '#fff' : '#9CA3AF',
+                            borderColor: active ? THEME.accent : '#E5E7EB',
+                          }}
+                        >
                           {isDone ? '✓' : stepNum}
                         </div>
-                        <div style={{ fontSize: 10, color: isDone ? accentColor : isOn ? accentColor : '#9CA3AF', fontWeight: isOn ? 500 : 400, whiteSpace: 'nowrap' as const }}>{label}</div>
+                        <div
+                          className="text-[10px] font-bold whitespace-nowrap"
+                          style={{ color: active ? THEME.accentDark : '#9CA3AF' }}
+                        >
+                          {label}
+                        </div>
                       </div>
                     )
                   })}
@@ -375,51 +503,81 @@ export default function PastTab({ student }: { student: any }) {
               </div>
 
               {/* 바디 */}
-              <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
 
                 {/* 질문 */}
-                <div style={{ background: '#F8F7F5', borderRadius: 10, padding: '12px 14px' }}>
-                  <div style={{ fontSize: 10, fontWeight: 500, color: '#9CA3AF', marginBottom: 5 }}>기출 질문</div>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a1a', lineHeight: 1.6 }}>{selQ.text}</div>
+                <div className="bg-gray-50 border border-line rounded-xl px-4 py-3">
+                  <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">📌 기출 질문</div>
+                  <div className="text-[14px] font-bold text-ink leading-[1.6]">{selQ.text}</div>
                 </div>
 
-                <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 10, padding: '12px 14px' }}>
-                  <div style={{ fontSize: 10, fontWeight: 500, color: '#9CA3AF', marginBottom: 12 }}>답변 · 피드백 히스토리</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div className="bg-white border border-line rounded-xl px-5 py-4">
+                  <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-3">📜 답변 · 피드백 히스토리</div>
+                  <div className="flex flex-col gap-3.5">
 
                     {/* Step 1 */}
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#6B7280', padding: '2px 8px', borderRadius: 99 }}>Step 1</span>
-                        <span style={{ fontSize: 11, color: '#6B7280' }}>학생 첫 답변</span>
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <span className="text-[10px] font-extrabold text-white bg-gray-500 px-2 py-0.5 rounded-full">Step 1</span>
+                        <span className="text-[11px] font-bold text-ink-secondary">👤 학생 첫 답변</span>
                       </div>
-                      <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '10px 12px', fontSize: 13, color: '#374151', lineHeight: 1.8 }}>
-                        {selQ.answered ? selQ.answer : <span style={{ color: '#9CA3AF' }}>아직 학생이 답변을 작성하지 않았어요.</span>}
-                      </div>
+                      {selQ.answered ? (
+                        <div className="bg-gray-50 border border-line rounded-lg px-3.5 py-3 text-[13px] font-medium text-ink leading-[1.8] whitespace-pre-wrap">
+                          {selQ.answer}
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 rounded-lg px-3 py-4 text-[12px] font-medium text-ink-muted text-center">
+                          ⏳ 학생이 아직 답변하지 않았어요
+                        </div>
+                      )}
                     </div>
 
                     {/* Step 2 */}
                     {selQ.answered && (
                       <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: accentColor, padding: '2px 8px', borderRadius: 99 }}>Step 2</span>
-                          <span style={{ fontSize: 11, color: '#6B7280' }}>선생님 1차 피드백</span>
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <span className="text-[10px] font-extrabold text-white px-2 py-0.5 rounded-full" style={{ background: THEME.accent }}>Step 2</span>
+                          <span className="text-[11px] font-bold text-ink-secondary">💬 선생님 1차 피드백</span>
                         </div>
                         {selQ.prevFeedback ? (
-                          <div style={{ background: accentBg, border: `0.5px solid ${accentBorder}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, color: accentDark, lineHeight: 1.8 }}>
+                          <div
+                            className="rounded-lg px-3.5 py-3 text-[13px] font-medium leading-[1.8]"
+                            style={{
+                              background: THEME.accentBg,
+                              border: `1px solid ${THEME.accentBorder}60`,
+                              color: THEME.accentDark,
+                            }}
+                          >
                             {selQ.prevFeedback}
                           </div>
                         ) : (
                           <>
-                            <textarea value={feedback[String(selQ.id)] || ''} onChange={e => setFeedback(prev => ({ ...prev, [String(selQ.id)]: e.target.value }))}
-                              placeholder="학생 답변에 대한 피드백을 작성해주세요..." rows={3}
-                              style={{ width: '100%', border: '0.5px solid #E5E7EB', borderRadius: 8, padding: '10px 12px', fontSize: 12, outline: 'none', resize: 'vertical' as const, fontFamily: 'inherit', lineHeight: 1.7, boxSizing: 'border-box' as const }} />
-                            <div style={{ display: 'flex', gap: 7, marginTop: 7 }}>
-                              <button onClick={() => sendFeedback('first')}
-                                style={{ padding: '7px 14px', background: accentColor, color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-                                1차 피드백 전달
+                            <textarea
+                              value={feedback[String(selQ.id)] || ''}
+                              onChange={e => setFeedback(prev => ({ ...prev, [String(selQ.id)]: e.target.value }))}
+                              placeholder="학생 답변에 대한 피드백을 작성해주세요..."
+                              rows={3}
+                              className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] font-medium outline-none resize-y leading-[1.7] transition-all placeholder:text-ink-muted"
+                              onFocus={handleTextareaFocus}
+                              onBlur={handleTextareaBlur}
+                            />
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                onClick={() => sendFeedback('first')}
+                                disabled={!(feedback[String(selQ.id)] || '').trim()}
+                                className="px-4 py-2 text-white rounded-lg text-[12px] font-bold transition-all disabled:cursor-not-allowed hover:-translate-y-px"
+                                style={{
+                                  background: (feedback[String(selQ.id)] || '').trim() ? THEME.accent : '#E5E7EB',
+                                  color: (feedback[String(selQ.id)] || '').trim() ? '#fff' : '#9CA3AF',
+                                  boxShadow: (feedback[String(selQ.id)] || '').trim() ? `0 4px 12px ${THEME.accentShadow}` : 'none',
+                                }}
+                              >
+                                📤 1차 피드백 전달
                               </button>
-                              <button style={{ padding: '7px 14px', background: '#fff', color: accentColor, border: `0.5px solid ${accentColor}`, borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                              <button
+                                className="px-4 py-2 bg-white border rounded-lg text-[12px] font-bold transition-all hover:-translate-y-px"
+                                style={{ color: THEME.accent, borderColor: THEME.accent }}
+                              >
                                 ✨ AI 제안
                               </button>
                             </div>
@@ -431,46 +589,83 @@ export default function PastTab({ student }: { student: any }) {
                     {/* Step 3 */}
                     {selQ.prevFeedback && (
                       <div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#6B7280', padding: '2px 8px', borderRadius: 99 }}>Step 3</span>
-                            <span style={{ fontSize: 11, color: '#6B7280' }}>학생 업그레이드 답변</span>
+                        <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-extrabold text-white bg-gray-500 px-2 py-0.5 rounded-full">Step 3</span>
+                            <span className="text-[11px] font-bold text-ink-secondary">👤 학생 업그레이드 답변</span>
                           </div>
                           {selQ.upgradedAnswer && (
-                            <button onClick={() => { if (showAiPanel && aiTab === 'second') { setShowAiPanel(false); setAiData(null) } else openAiAnalysis('second') }}
-                              style={{ padding: '4px 10px', background: showAiPanel && aiTab === 'second' ? accentColor : accentBg, color: showAiPanel && aiTab === 'second' ? '#fff' : accentColor, border: `0.5px solid ${accentColor}`, borderRadius: 7, fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                            <button
+                              onClick={() => { if (showAiPanel && aiTab === 'second') { setShowAiPanel(false); setAiData(null) } else openAiAnalysis('second') }}
+                              className="px-2.5 py-1 rounded-md text-[11px] font-bold transition-all"
+                              style={{
+                                background: showAiPanel && aiTab === 'second' ? THEME.accent : '#fff',
+                                color: showAiPanel && aiTab === 'second' ? '#fff' : THEME.accent,
+                                border: `1px solid ${THEME.accent}`,
+                              }}
+                            >
                               ✨ 2차 AI 분석 {showAiPanel && aiTab === 'second' ? '닫기' : '보기'}
                             </button>
                           )}
                         </div>
-                        <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '10px 12px', fontSize: 13, color: '#374151', lineHeight: 1.8 }}>
-                          {selQ.upgradedAnswer || <span style={{ color: '#9CA3AF' }}>학생이 아직 업그레이드 답변을 작성하지 않았어요.</span>}
-                        </div>
+                        {selQ.upgradedAnswer ? (
+                          <div className="bg-gray-50 border border-line rounded-lg px-3.5 py-3 text-[13px] font-medium text-ink leading-[1.8] whitespace-pre-wrap">
+                            {selQ.upgradedAnswer}
+                          </div>
+                        ) : (
+                          <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-4 text-[12px] font-medium text-amber-700 text-center">
+                            ⏳ 학생이 업그레이드 답변을 작성중이에요
+                          </div>
+                        )}
                       </div>
                     )}
 
                     {/* Step 4 */}
                     {selQ.upgradedAnswer && (
                       <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: accentColor, padding: '2px 8px', borderRadius: 99 }}>Step 4</span>
-                          <span style={{ fontSize: 11, color: '#6B7280' }}>선생님 최종 피드백</span>
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <span className="text-[10px] font-extrabold text-white px-2 py-0.5 rounded-full" style={{ background: THEME.accent }}>Step 4</span>
+                          <span className="text-[11px] font-bold text-ink-secondary">💬 선생님 최종 피드백</span>
                         </div>
                         {selQ.finalFeedback ? (
-                          <div style={{ background: accentBg, border: `0.5px solid ${accentBorder}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, color: accentDark, lineHeight: 1.8 }}>
+                          <div
+                            className="rounded-lg px-3.5 py-3 text-[13px] font-medium leading-[1.8]"
+                            style={{
+                              background: THEME.accentBg,
+                              border: `1px solid ${THEME.accentBorder}60`,
+                              color: THEME.accentDark,
+                            }}
+                          >
                             {selQ.finalFeedback}
                           </div>
                         ) : (
                           <>
-                            <textarea value={feedback[`${selQ.id}_final`] || ''} onChange={e => setFeedback(prev => ({ ...prev, [`${selQ.id}_final`]: e.target.value }))}
-                              placeholder="업그레이드된 답변에 대한 최종 피드백을 작성해주세요..." rows={3}
-                              style={{ width: '100%', border: '0.5px solid #E5E7EB', borderRadius: 8, padding: '10px 12px', fontSize: 12, outline: 'none', resize: 'vertical' as const, fontFamily: 'inherit', lineHeight: 1.7, boxSizing: 'border-box' as const }} />
-                            <div style={{ display: 'flex', gap: 7, marginTop: 7 }}>
-                              <button onClick={() => sendFeedback('final')}
-                                style={{ padding: '7px 14px', background: accentColor, color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-                                최종 피드백 전달
+                            <textarea
+                              value={feedback[`${selQ.id}_final`] || ''}
+                              onChange={e => setFeedback(prev => ({ ...prev, [`${selQ.id}_final`]: e.target.value }))}
+                              placeholder="업그레이드된 답변에 대한 최종 피드백을 작성해주세요..."
+                              rows={3}
+                              className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] font-medium outline-none resize-y leading-[1.7] transition-all placeholder:text-ink-muted"
+                              onFocus={handleTextareaFocus}
+                              onBlur={handleTextareaBlur}
+                            />
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                onClick={() => sendFeedback('final')}
+                                disabled={!(feedback[`${selQ.id}_final`] || '').trim()}
+                                className="px-4 py-2 text-white rounded-lg text-[12px] font-bold transition-all disabled:cursor-not-allowed hover:-translate-y-px"
+                                style={{
+                                  background: (feedback[`${selQ.id}_final`] || '').trim() ? THEME.accent : '#E5E7EB',
+                                  color: (feedback[`${selQ.id}_final`] || '').trim() ? '#fff' : '#9CA3AF',
+                                  boxShadow: (feedback[`${selQ.id}_final`] || '').trim() ? `0 4px 12px ${THEME.accentShadow}` : 'none',
+                                }}
+                              >
+                                📤 최종 피드백 전달
                               </button>
-                              <button style={{ padding: '7px 14px', background: '#fff', color: accentColor, border: `0.5px solid ${accentColor}`, borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                              <button
+                                className="px-4 py-2 bg-white border rounded-lg text-[12px] font-bold transition-all hover:-translate-y-px"
+                                style={{ color: THEME.accent, borderColor: THEME.accent }}
+                              >
                                 ✨ AI 제안
                               </button>
                             </div>
@@ -481,26 +676,53 @@ export default function PastTab({ student }: { student: any }) {
 
                     {/* Step 5 꼬리질문 */}
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: getStep(selQ) >= 4 ? accentColor : '#6B7280', padding: '2px 8px', borderRadius: 99 }}>Step 5</span>
-                        <span style={{ fontSize: 11, color: '#6B7280' }}>꼬리질문</span>
-                        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-                          <button onClick={() => setShowTailModal(true)}
-                            style={{ padding: '4px 10px', background: '#fff', color: accentColor, border: `0.5px solid ${accentColor}`, borderRadius: 7, fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-                            + 직접 추가
+                      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                        <span
+                          className="text-[10px] font-extrabold text-white px-2 py-0.5 rounded-full"
+                          style={{ background: getStep(selQ) >= 4 ? THEME.accent : '#6B7280' }}
+                        >
+                          Step 5
+                        </span>
+                        <span className="text-[11px] font-bold text-ink-secondary">🔗 꼬리질문</span>
+                        <div className="ml-auto flex gap-1.5">
+                          <button
+                            onClick={() => setShowTailModal(true)}
+                            className="px-2.5 py-1 bg-white border rounded-md text-[11px] font-bold transition-all hover:-translate-y-px"
+                            style={{ color: THEME.accent, borderColor: THEME.accent }}
+                          >
+                            ➕ 직접 추가
                           </button>
-                          <button onClick={openAiTailModal}
-                            style={{ padding: '4px 10px', background: accentColor, color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          <button
+                            onClick={openAiTailModal}
+                            className="px-2.5 py-1 text-white rounded-md text-[11px] font-bold transition-all hover:-translate-y-px"
+                            style={{ background: THEME.accent, boxShadow: `0 2px 6px ${THEME.accentShadow}` }}
+                          >
                             ✨ AI 생성
                           </button>
                         </div>
                       </div>
                       {selQ.tails.length === 0 ? (
-                        <div style={{ fontSize: 12, color: '#9CA3AF', textAlign: 'center' as const, padding: '12px 0' }}>꼬리질문이 없어요.</div>
+                        <div className="text-[12px] font-medium text-ink-muted text-center py-3 bg-gray-50 rounded-lg">
+                          꼬리질문이 없어요.
+                        </div>
                       ) : selQ.tails.map((t: string, i: number) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, padding: '8px 10px', background: '#F8F7F5', borderRadius: 7, marginBottom: 5, fontSize: 12, color: '#374151', lineHeight: 1.5 }}>
-                          <span style={{ fontSize: 10, fontWeight: 500, color: accentColor, background: accentBg, padding: '2px 6px', borderRadius: 99, flexShrink: 0, marginTop: 1 }}>꼬리 {i + 1}</span>
-                          {t}
+                        <div
+                          key={i}
+                          className="rounded-lg px-3 py-2.5 mb-1.5 flex items-start gap-2"
+                          style={{
+                            background: THEME.accentBg,
+                            border: `1px solid ${THEME.accentBorder}60`,
+                          }}
+                        >
+                          <span
+                            className="text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                            style={{ color: '#fff', background: THEME.accent }}
+                          >
+                            꼬리{i + 1}
+                          </span>
+                          <span className="text-[12.5px] font-medium leading-[1.6]" style={{ color: THEME.accentDark }}>
+                            {t}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -511,126 +733,204 @@ export default function PastTab({ student }: { student: any }) {
           )}
         </div>
 
-        {/* 오른쪽 AI 분석 패널 */}
+        {/* ---------- 오른쪽 AI 분석 패널 ---------- */}
         {showAiPanel && selQ && (
-          <div style={{ width: 420, flexShrink: 0, background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #E5E7EB', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>✨ AI 분석</div>
-              <div onClick={() => { setShowAiPanel(false); setAiData(null) }} style={{ fontSize: 16, color: '#9CA3AF', cursor: 'pointer' }}>✕</div>
+          <div className="w-[420px] flex-shrink-0 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
+            <div className="px-4 py-3 border-b border-line flex-shrink-0 flex items-center justify-between">
+              <div className="text-[13px] font-extrabold text-ink tracking-tight">✨ AI 분석</div>
+              <button
+                onClick={() => { setShowAiPanel(false); setAiData(null) }}
+                className="text-ink-muted hover:text-ink text-base w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 transition-colors"
+              >
+                ✕
+              </button>
             </div>
 
             {/* 1차/2차 탭 */}
-            <div style={{ display: 'flex', borderBottom: '0.5px solid #E5E7EB', flexShrink: 0 }}>
-              <div onClick={() => { setAiTab('first'); openAiAnalysis('first') }}
-                style={{ flex: 1, padding: '10px 0', textAlign: 'center' as const, fontSize: 12, fontWeight: aiTab === 'first' ? 600 : 400, color: aiTab === 'first' ? accentColor : '#6B7280', borderBottom: aiTab === 'first' ? `2px solid ${accentColor}` : '2px solid transparent', cursor: 'pointer' }}>
+            <div className="flex border-b border-line flex-shrink-0">
+              <button
+                onClick={() => { setAiTab('first'); openAiAnalysis('first') }}
+                className="flex-1 py-2.5 text-center text-[12px] font-bold transition-all border-b-2"
+                style={{
+                  color: aiTab === 'first' ? THEME.accentDark : '#9CA3AF',
+                  borderColor: aiTab === 'first' ? THEME.accent : 'transparent',
+                  background: aiTab === 'first' ? THEME.accentBg : 'transparent',
+                }}
+              >
                 📊 1차 답변 분석
-              </div>
-              <div onClick={() => { if (selQ?.upgradedAnswer) { setAiTab('second'); openAiAnalysis('second') } }}
-                style={{ flex: 1, padding: '10px 0', textAlign: 'center' as const, fontSize: 12, fontWeight: aiTab === 'second' ? 600 : 400, color: !selQ?.upgradedAnswer ? '#D1D5DB' : aiTab === 'second' ? accentColor : '#6B7280', borderBottom: aiTab === 'second' ? `2px solid ${accentColor}` : '2px solid transparent', cursor: selQ?.upgradedAnswer ? 'pointer' : 'not-allowed' }}>
+              </button>
+              <button
+                onClick={() => { if (selQ?.upgradedAnswer) { setAiTab('second'); openAiAnalysis('second') } }}
+                disabled={!selQ?.upgradedAnswer}
+                className="flex-1 py-2.5 text-center text-[12px] font-bold transition-all border-b-2 disabled:cursor-not-allowed"
+                style={{
+                  color: !selQ?.upgradedAnswer ? '#D1D5DB' : aiTab === 'second' ? THEME.accentDark : '#9CA3AF',
+                  borderColor: aiTab === 'second' ? THEME.accent : 'transparent',
+                  background: aiTab === 'second' ? THEME.accentBg : 'transparent',
+                }}
+              >
                 📈 2차 답변 분석
-                {!selQ?.upgradedAnswer && <div style={{ fontSize: 10, color: '#D1D5DB' }}>업그레이드 답변 필요</div>}
-              </div>
+                {!selQ?.upgradedAnswer && <div className="text-[9px]">업그레이드 필요</div>}
+              </button>
             </div>
 
             {/* 1차 분석 */}
             {aiTab === 'first' && (
               aiLoading ? (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: '#9CA3AF' }}>
-                  <div style={{ fontSize: 32 }}>✨</div>
-                  <div style={{ fontSize: 13 }}>AI가 답변을 분석 중이에요...</div>
+                <div className="flex-1 flex flex-col items-center justify-center gap-3 text-ink-muted">
+                  <div className="text-3xl animate-pulse">✨</div>
+                  <div className="text-[13px] font-medium">AI가 답변을 분석 중이에요...</div>
                 </div>
               ) : !aiData ? (
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', fontSize: 13 }}>분석 데이터가 없어요.</div>
+                <div className="flex-1 flex items-center justify-center text-ink-muted text-[13px] font-medium">
+                  분석 데이터가 없어요.
+                </div>
               ) : (
-                <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div style={{ background: accentBg, border: `0.5px solid ${accentBorder}`, borderRadius: 10, padding: '14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                      <span style={{ fontSize: 14 }}>✅</span>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: accentDark }}>답변 정합성 분석</div>
+                <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+                  {/* 정합성 분석 */}
+                  <div
+                    className="rounded-xl px-4 py-3.5"
+                    style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}
+                  >
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-sm">✅</span>
+                      <div className="text-[13px] font-extrabold" style={{ color: THEME.accentDark }}>
+                        답변 정합성 분석
+                      </div>
                     </div>
-                    <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 14 }}>작성하신 답변을 학교별 핵심 평가 기준에 맞춰 분석한 결과입니다.</div>
-                    <div style={{ height: 220, marginBottom: 10 }}>
+                    <div className="text-[11px] font-medium text-ink-secondary mb-3">
+                      작성하신 답변을 학교별 핵심 평가 기준에 맞춰 분석한 결과입니다.
+                    </div>
+
+                    {/* 레이더 차트 */}
+                    <div className="h-[240px] mb-2 bg-white rounded-lg p-2">
                       <ResponsiveContainer width="100%" height="100%">
                         <RadarChart data={getRadarData(selSchool, selQ.id)} margin={{ top: 24, right: 40, bottom: 24, left: 40 }}>
-                          <PolarGrid stroke="#9CA3AF" />
-                          <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: '#374151' }} tickLine={false} />
-                          <Radar name="학교 기준" dataKey="standard" stroke="#F97316" fill="#F97316" fillOpacity={0.4} strokeWidth={2} />
-                          <Radar name="학생 답변" dataKey="student" stroke={accentColor} fill={accentColor} fillOpacity={0.5} strokeWidth={2} />
+                          <PolarGrid stroke="#E5E7EB" />
+                          <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: '#374151', fontWeight: 600 }} tickLine={false} />
+                          <Radar name="학교 기준" dataKey="standard" stroke="#F97316" fill="#F97316" fillOpacity={0.3} strokeWidth={2} />
+                          <Radar name="학생 답변" dataKey="student" stroke={THEME.accent} fill={THEME.accent} fillOpacity={0.5} strokeWidth={2} />
                         </RadarChart>
                       </ResponsiveContainer>
                     </div>
-                    <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginBottom: 14 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6B7280' }}>
-                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#F97316' }} />학교 평가 기준
+                    <div className="flex gap-4 justify-center mb-3">
+                      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-secondary">
+                        <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />학교 기준
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6B7280' }}>
-                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: accentColor }} />학생 답변 데이터
+                      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-secondary">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ background: THEME.accent }} />학생 답변
                       </div>
                     </div>
+
+                    {/* 점수 바 */}
                     {getBarData(aiData).map((d: any, i: number) => (
-                      <div key={i} style={{ marginBottom: 10 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#374151', marginBottom: 4 }}>
-                          <span style={{ fontWeight: 500 }}>{d.name}</span>
-                          <span style={{ color: accentColor, fontWeight: 600 }}>{d.score}/{d.max}</span>
+                      <div key={i} className="mb-2.5 bg-white rounded-lg px-3 py-2">
+                        <div className="flex justify-between text-[12px] mb-1">
+                          <span className="font-semibold text-ink">{d.name}</span>
+                          <span className="font-bold" style={{ color: THEME.accent }}>{d.score}/{d.max}</span>
                         </div>
-                        <div style={{ height: 7, background: accentLight, borderRadius: 99, overflow: 'hidden' }}>
-                          <div style={{ width: `${d.pct}%`, height: '100%', background: d.pct >= 80 ? accentColor : d.pct >= 60 ? '#F97316' : '#EF4444', borderRadius: 99, transition: 'width 0.5s ease' }} />
+                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${d.pct}%`,
+                              background: d.pct >= 80 ? THEME.accent : d.pct >= 60 ? '#F97316' : '#EF4444',
+                            }}
+                          />
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 10, padding: '14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                      <span style={{ fontSize: 14 }}>✅</span>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>사유하는 질문</div>
+                  {/* 사유하는 질문 */}
+                  <div className="bg-white border border-line rounded-xl px-4 py-3.5">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-sm">🔍</span>
+                      <div className="text-[13px] font-extrabold text-ink">사유하는 질문</div>
                     </div>
-                    <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 10 }}>AI가 분석한 답변의 핵심 역량과 개선 가이드입니다.</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div className="text-[11px] font-medium text-ink-secondary mb-2.5">
+                      AI가 분석한 답변의 핵심 역량과 개선 가이드입니다.
+                    </div>
+                    <div className="flex flex-col gap-2">
                       {(aiData.tailSuggestions || []).map((t: string, i: number) => (
-                        <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '8px 10px', background: '#F8F7F5', borderRadius: 8 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: accentColor, background: accentBg, padding: '1px 7px', borderRadius: 99, flexShrink: 0, marginTop: 1 }}>{i + 1}</span>
-                          <span style={{ fontSize: 12, color: '#374151', lineHeight: 1.6 }}>{t}</span>
+                        <div
+                          key={i}
+                          className="flex gap-2 items-start px-3 py-2 rounded-lg"
+                          style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}40` }}
+                        >
+                          <span
+                            className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full flex-shrink-0 mt-0.5"
+                            style={{ color: '#fff', background: THEME.accent }}
+                          >
+                            {i + 1}
+                          </span>
+                          <span className="text-[12px] font-medium leading-[1.6]" style={{ color: THEME.accentDark }}>
+                            {t}
+                          </span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 10, padding: '14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                      <span style={{ fontSize: 14 }}>✅</span>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>AI 종합 분석</div>
+                  {/* 종합 분석 */}
+                  <div className="bg-white border border-line rounded-xl px-4 py-3.5">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-sm">📊</span>
+                      <div className="text-[13px] font-extrabold text-ink">AI 종합 분석</div>
                     </div>
-                    <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '10px 12px', marginBottom: 14 }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', marginBottom: 6 }}>{selSchool} 면접 평가 기준</div>
-                      <div style={{ fontSize: 12, color: '#374151', lineHeight: 1.7 }}>{aiData.evalCriteria}</div>
+
+                    <div className="bg-gray-50 border border-line rounded-lg px-3 py-2.5 mb-3 mt-2">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-ink-muted mb-1.5">
+                        🏫 {selSchool} 면접 평가 기준
+                      </div>
+                      <div className="text-[12px] font-medium text-ink leading-[1.7]">{aiData.evalCriteria}</div>
                     </div>
-                    <div style={{ marginBottom: 14 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#1a1a1a', marginBottom: 10 }}>답변 적합성 평가</div>
+
+                    <div className="mb-3">
+                      <div className="text-[12px] font-bold text-ink mb-2">답변 적합성 평가</div>
                       {(aiData.scores || []).map((s: any, i: number) => (
-                        <div key={i} style={{ marginBottom: 10 }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: '#1a1a1a', marginBottom: 3 }}>{i + 1}. {s.label} ({s.max}점)</div>
-                          <div style={{ fontSize: 12, color: '#374151', lineHeight: 1.6 }}>{s.desc}</div>
+                        <div key={i} className="mb-2">
+                          <div className="text-[12px] font-bold text-ink mb-0.5">{i + 1}. {s.label} ({s.max}점)</div>
+                          <div className="text-[12px] font-medium text-ink-secondary leading-[1.6]">{s.desc}</div>
                         </div>
                       ))}
-                      <div style={{ background: '#FFF3E8', border: '0.5px solid #FDBA74', borderRadius: 8, padding: '10px 12px' }}>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: '#92400E', marginBottom: 4 }}>■ 평가 요약</div>
-                        <div style={{ fontSize: 12, color: '#92400E', lineHeight: 1.7 }}>{aiData.summary}</div>
+                      <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2.5 mt-2">
+                        <div className="text-[11px] font-bold text-orange-800 mb-1">📌 평가 요약</div>
+                        <div className="text-[12px] font-medium text-orange-900 leading-[1.7]">{aiData.summary}</div>
                       </div>
                     </div>
-                    <div style={{ marginBottom: 14 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: accentColor, marginBottom: 8 }}>강점 포인트</div>
+
+                    {/* 강점 */}
+                    <div className="mb-3">
+                      <div className="text-[11px] font-extrabold uppercase tracking-wider mb-2" style={{ color: THEME.accent }}>
+                        💪 강점 포인트
+                      </div>
                       {(aiData.strengths || []).map((s: string, i: number) => (
-                        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6, fontSize: 12, color: '#374151', lineHeight: 1.6, padding: '6px 10px', background: accentBg, borderRadius: 7 }}>
-                          <span style={{ color: accentColor, flexShrink: 0, fontWeight: 600 }}>"</span>{s}<span style={{ color: accentColor, flexShrink: 0, fontWeight: 600 }}>"</span>
+                        <div
+                          key={i}
+                          className="text-[12px] font-medium leading-[1.6] px-3 py-2 rounded-lg mb-1.5"
+                          style={{
+                            background: THEME.accentBg,
+                            border: `1px solid ${THEME.accentBorder}40`,
+                            color: THEME.accentDark,
+                          }}
+                        >
+                          ✓ {s}
                         </div>
                       ))}
                     </div>
+
+                    {/* 개선점 */}
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#EF4444', marginBottom: 8 }}>개선 포인트</div>
+                      <div className="text-[11px] font-extrabold text-red-500 uppercase tracking-wider mb-2">
+                        ⚡ 개선 포인트
+                      </div>
                       {(aiData.improvements || []).map((s: string, i: number) => (
-                        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6, fontSize: 12, color: '#374151', lineHeight: 1.6, padding: '6px 10px', background: '#FEF2F2', borderRadius: 7 }}>
-                          <span style={{ color: '#EF4444', flexShrink: 0, fontWeight: 600 }}>"</span>{s}<span style={{ color: '#EF4444', flexShrink: 0, fontWeight: 600 }}>"</span>
+                        <div
+                          key={i}
+                          className="text-[12px] font-medium text-red-900 leading-[1.6] px-3 py-2 bg-red-50 border border-red-200 rounded-lg mb-1.5"
+                        >
+                          △ {s}
                         </div>
                       ))}
                     </div>
@@ -642,80 +942,114 @@ export default function PastTab({ student }: { student: any }) {
             {/* 2차 분석 */}
             {aiTab === 'second' && (
               secondAiLoading ? (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: '#9CA3AF' }}>
-                  <div style={{ fontSize: 32 }}>✨</div>
-                  <div style={{ fontSize: 13 }}>AI가 2차 답변을 분석 중이에요...</div>
+                <div className="flex-1 flex flex-col items-center justify-center gap-3 text-ink-muted">
+                  <div className="text-3xl animate-pulse">✨</div>
+                  <div className="text-[13px] font-medium">AI가 2차 답변을 분석 중...</div>
                 </div>
               ) : !secondData ? (
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', fontSize: 13 }}>2차 분석 데이터가 없어요.</div>
+                <div className="flex-1 flex items-center justify-center text-ink-muted text-[13px] font-medium">
+                  2차 분석 데이터가 없어요.
+                </div>
               ) : (
-                <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div style={{ background: accentBg, border: `0.5px solid ${accentBorder}`, borderRadius: 10, padding: '14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                      <span style={{ fontSize: 14 }}>✅</span>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: accentDark }}>1차 vs 2차 평가요소 분포 비교</div>
-                    </div>
-                    <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 14 }}>1차 답변과 2차 답변의 평가요소 분포 변화를 확인해보세요.</div>
-                    <div style={{ display: 'flex', gap: 10, marginBottom: 6 }}>
-                      <div style={{ fontSize: 10, color: '#6B7280', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: 2, background: '#BAC8FF' }} />1차
+                <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+                  {/* 분포 비교 */}
+                  <div
+                    className="rounded-xl px-4 py-3.5"
+                    style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}
+                  >
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-sm">📊</span>
+                      <div className="text-[13px] font-extrabold" style={{ color: THEME.accentDark }}>
+                        1차 vs 2차 평가요소 분포
                       </div>
-                      <div style={{ fontSize: 10, color: '#6B7280', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: 2, background: accentColor }} />2차
+                    </div>
+                    <div className="text-[11px] font-medium text-ink-secondary mb-3">
+                      1차 답변과 2차 답변의 평가요소 분포 변화를 확인해보세요.
+                    </div>
+                    <div className="flex gap-3 mb-2">
+                      <div className="text-[10px] font-semibold text-ink-secondary flex items-center gap-1">
+                        <div className="w-2 h-2 rounded bg-blue-300" />1차
+                      </div>
+                      <div className="text-[10px] font-semibold text-ink-secondary flex items-center gap-1">
+                        <div className="w-2 h-2 rounded" style={{ background: THEME.accent }} />2차
                       </div>
                     </div>
                     {secondData.beforeDistribution.map((b: any, i: number) => {
                       const after = secondData.afterDistribution.find((a: any) => a.factorCode === b.factorCode)
                       const diff = (after?.distribution || 0) - b.distribution
                       return (
-                        <div key={i} style={{ marginBottom: 12 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                            <span style={{ fontSize: 12, fontWeight: 500, color: '#1a1a1a' }}>{b.factorName}</span>
-                            <span style={{ fontSize: 11, color: diff > 0 ? accentColor : diff < 0 ? '#EF4444' : '#6B7280', fontWeight: 600 }}>
-                              {diff > 0 ? `+${diff}%` : diff < 0 ? `${diff}%` : '변동없음'}
+                        <div key={i} className="mb-3 bg-white rounded-lg px-3 py-2.5">
+                          <div className="flex justify-between items-center mb-1.5">
+                            <span className="text-[12px] font-bold text-ink">{b.factorName}</span>
+                            <span
+                              className="text-[11px] font-extrabold"
+                              style={{
+                                color: diff > 0 ? THEME.accent : diff < 0 ? '#EF4444' : '#6B7280',
+                              }}
+                            >
+                              {diff > 0 ? `▲ +${diff}%` : diff < 0 ? `▼ ${diff}%` : '변동없음'}
                             </span>
                           </div>
-                          <div style={{ marginBottom: 3 }}>
-                            <div style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 2 }}>1차 · {b.distribution}%</div>
-                            <div style={{ height: 6, background: '#F3F4F6', borderRadius: 99, overflow: 'hidden' }}>
-                              <div style={{ width: `${b.distribution}%`, height: '100%', background: '#BAC8FF', borderRadius: 99 }} />
+                          <div className="mb-1">
+                            <div className="text-[10px] font-semibold text-ink-muted mb-0.5">1차 · {b.distribution}%</div>
+                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-blue-300"
+                                style={{ width: `${b.distribution}%` }}
+                              />
                             </div>
                           </div>
                           <div>
-                            <div style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 2 }}>2차 · {after?.distribution || 0}%</div>
-                            <div style={{ height: 6, background: '#F3F4F6', borderRadius: 99, overflow: 'hidden' }}>
-                              <div style={{ width: `${after?.distribution || 0}%`, height: '100%', background: accentColor, borderRadius: 99, transition: 'width 0.5s ease' }} />
+                            <div className="text-[10px] font-semibold text-ink-muted mb-0.5">2차 · {after?.distribution || 0}%</div>
+                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all"
+                                style={{ width: `${after?.distribution || 0}%`, background: THEME.accent }}
+                              />
                             </div>
                           </div>
                           {after?.evidence && (
-                            <div style={{ fontSize: 11, color: '#6B7280', marginTop: 4, lineHeight: 1.5 }}>→ {after.evidence}</div>
+                            <div className="text-[11px] font-medium text-ink-secondary mt-1.5 leading-[1.5]">
+                              → {after.evidence}
+                            </div>
                           )}
                         </div>
                       )
                     })}
                   </div>
 
-                  <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 10, padding: '14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                      <span style={{ fontSize: 14 }}>✅</span>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>구조 코멘트</div>
+                  {/* 구조 코멘트 */}
+                  <div className="bg-white border border-line rounded-xl px-4 py-3.5">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <span className="text-sm">🏗️</span>
+                      <div className="text-[13px] font-extrabold text-ink">구조 코멘트</div>
                     </div>
-                    <div style={{ background: accentBg, border: `0.5px solid ${accentBorder}`, borderRadius: 8, padding: '12px 14px', fontSize: 13, color: accentDark, lineHeight: 1.8 }}>
+                    <div
+                      className="rounded-lg px-3.5 py-3 text-[13px] font-medium leading-[1.8]"
+                      style={{
+                        background: THEME.accentBg,
+                        border: `1px solid ${THEME.accentBorder}60`,
+                        color: THEME.accentDark,
+                      }}
+                    >
                       {secondData.structureComment}
                     </div>
                   </div>
 
-                  <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 10, padding: '14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                      <span style={{ fontSize: 14 }}>✅</span>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>연습 답변</div>
+                  {/* 연습 답변 */}
+                  <div className="bg-white border border-line rounded-xl px-4 py-3.5">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-sm">🎤</span>
+                      <div className="text-[13px] font-extrabold text-ink">연습 답변</div>
                     </div>
-                    <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 10 }}>2차 원답변을 스피치 구조에 맞게 재정렬한 연습 답변이에요.</div>
-                    <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#374151', lineHeight: 1.9, fontStyle: 'italic' }}>
+                    <div className="text-[11px] font-medium text-ink-secondary mb-2.5">
+                      2차 원답변을 스피치 구조에 맞게 재정렬한 연습 답변이에요.
+                    </div>
+                    <div className="bg-gray-50 rounded-lg px-3.5 py-3 text-[13px] font-medium text-ink leading-[1.9] italic">
                       "{secondData.practiceAnswer}"
                     </div>
-                    <div style={{ marginTop: 8, fontSize: 11, color: '#9CA3AF', lineHeight: 1.5 }}>
-                      ※ 이 연습 답변은 학생의 원답변을 구조에 맞게 재정렬한 것으로, 새로운 내용이 추가되지 않았습니다.
+                    <div className="mt-2 text-[11px] font-medium text-ink-muted leading-[1.5]">
+                      ※ 학생의 원답변을 구조에 맞게 재정렬한 것이에요.
                     </div>
                   </div>
                 </div>
@@ -725,63 +1059,134 @@ export default function PastTab({ student }: { student: any }) {
         )}
       </div>
 
-      {/* 꼬리질문 직접 추가 모달 */}
+      {/* ==================== 꼬리질문 직접 추가 모달 ==================== */}
       {showTailModal && (
-        <div onClick={() => setShowTailModal(false)}
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, padding: 28, width: 440 }}>
-            <div style={{ fontSize: 16, fontWeight: 500, color: '#1a1a1a', marginBottom: 4 }}>꼬리질문 추가</div>
-            <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 16 }}>학생에게 추가로 물어볼 꼬리질문을 작성해요.</div>
-            <textarea value={tailInput} onChange={e => setTailInput(e.target.value)}
-              placeholder="꼬리질문을 입력해주세요..." rows={4} autoFocus
-              style={{ width: '100%', border: '0.5px solid #E5E7EB', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', resize: 'none' as const, fontFamily: 'inherit', lineHeight: 1.7, marginBottom: 16, boxSizing: 'border-box' as const }} />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => { setShowTailModal(false); setTailInput('') }}
-                style={{ flex: 1, height: 42, background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>취소</button>
-              <button onClick={addTail}
-                style={{ flex: 1, height: 42, background: tailInput.trim() ? accentColor : '#E5E7EB', color: tailInput.trim() ? '#fff' : '#9CA3AF', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: tailInput.trim() ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
-                추가하기
+        <div
+          onClick={() => setShowTailModal(false)}
+          className="fixed inset-0 z-[200] flex items-center justify-center"
+          style={{ background: 'rgba(15, 23, 42, 0.55)', backdropFilter: 'blur(4px)' }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-2xl p-7 w-[460px] shadow-[0_20px_60px_rgba(0,0,0,0.25)]"
+          >
+            <div className="text-[18px] font-extrabold text-ink mb-1">➕ 꼬리질문 추가</div>
+            <div className="text-[12px] font-medium text-ink-secondary mb-4">학생에게 추가로 물어볼 꼬리질문을 작성해요.</div>
+            <textarea
+              value={tailInput}
+              onChange={e => setTailInput(e.target.value)}
+              placeholder="꼬리질문을 입력해주세요..."
+              rows={4}
+              autoFocus
+              className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] font-medium outline-none resize-none leading-[1.7] mb-4 transition-all placeholder:text-ink-muted"
+              onFocus={handleTextareaFocus}
+              onBlur={handleTextareaBlur}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setShowTailModal(false); setTailInput('') }}
+                className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={addTail}
+                disabled={!tailInput.trim()}
+                className="flex-1 h-11 text-white rounded-lg text-[13px] font-bold transition-all disabled:cursor-not-allowed hover:-translate-y-px"
+                style={{
+                  background: tailInput.trim() ? THEME.accent : '#E5E7EB',
+                  color: tailInput.trim() ? '#fff' : '#9CA3AF',
+                  boxShadow: tailInput.trim() ? `0 4px 12px ${THEME.accentShadow}` : 'none',
+                }}
+              >
+                📤 추가하기
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* AI 꼬리질문 모달 */}
+      {/* ==================== AI 꼬리질문 모달 ==================== */}
       {showAiTailModal && (
-        <div onClick={() => setShowAiTailModal(false)}
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, padding: 28, width: 480 }}>
-            <div style={{ fontSize: 16, fontWeight: 500, color: '#1a1a1a', marginBottom: 4 }}>✨ AI 꼬리질문 생성</div>
-            <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 20 }}>AI가 답변 내용을 분석해서 꼬리질문을 만들었어요.</div>
+        <div
+          onClick={() => setShowAiTailModal(false)}
+          className="fixed inset-0 z-[200] flex items-center justify-center"
+          style={{ background: 'rgba(15, 23, 42, 0.55)', backdropFilter: 'blur(4px)' }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-2xl p-7 w-[500px] shadow-[0_20px_60px_rgba(0,0,0,0.25)]"
+          >
+            <div className="text-[18px] font-extrabold text-ink mb-1">✨ AI 꼬리질문 생성</div>
+            <div className="text-[12px] font-medium text-ink-secondary mb-5">
+              AI가 답변 내용을 분석해서 꼬리질문을 만들었어요. 전달할 것을 선택하세요.
+            </div>
+
             {aiTailLoading ? (
-              <div style={{ textAlign: 'center' as const, padding: '32px 0', color: '#9CA3AF', fontSize: 13 }}>
-                <div style={{ fontSize: 28, marginBottom: 10 }}>✨</div>AI가 꼬리질문을 생성 중이에요...
+              <div className="text-center py-10 text-ink-muted text-[13px] font-medium">
+                <div className="text-3xl mb-3 animate-pulse">✨</div>
+                AI가 꼬리질문을 생성 중이에요...
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-                {aiTails.map((t, i) => (
-                  <div key={i} onClick={() => setSelectedAiTails(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])}
-                    style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', border: `0.5px solid ${selectedAiTails.includes(i) ? accentColor : '#E5E7EB'}`, borderRadius: 10, cursor: 'pointer', background: selectedAiTails.includes(i) ? accentBg : '#fff' }}>
-                    <div style={{ width: 18, height: 18, borderRadius: 4, border: `1.5px solid ${selectedAiTails.includes(i) ? accentColor : '#D1D5DB'}`, background: selectedAiTails.includes(i) ? accentColor : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
-                      {selectedAiTails.includes(i) && <span style={{ fontSize: 10, color: '#fff' }}>✓</span>}
-                    </div>
-                    <span style={{ fontSize: 13, color: '#1a1a1a', lineHeight: 1.6 }}>{t}</span>
-                  </div>
-                ))}
+              <div className="flex flex-col gap-2 mb-5">
+                {aiTails.map((t, i) => {
+                  const isSelected = selectedAiTails.includes(i)
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => setSelectedAiTails(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])}
+                      className="flex items-start gap-2.5 px-4 py-3 rounded-xl text-left transition-all"
+                      style={{
+                        border: `1px solid ${isSelected ? THEME.accent : '#E5E7EB'}`,
+                        background: isSelected ? THEME.accentBg : '#fff',
+                        boxShadow: isSelected ? `0 2px 8px ${THEME.accentShadow}` : 'none',
+                      }}
+                    >
+                      <div
+                        className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 transition-all"
+                        style={{
+                          border: `1.5px solid ${isSelected ? THEME.accent : '#D1D5DB'}`,
+                          background: isSelected ? THEME.accent : '#fff',
+                        }}
+                      >
+                        {isSelected && <span className="text-[11px] text-white font-bold">✓</span>}
+                      </div>
+                      <span
+                        className="text-[13px] font-medium leading-[1.6]"
+                        style={{ color: isSelected ? THEME.accentDark : '#1a1a1a' }}
+                      >
+                        {t}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             )}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setShowAiTailModal(false)}
-                style={{ flex: 1, height: 42, background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>취소</button>
-              <button onClick={deliverAiTails} disabled={selectedAiTails.length === 0 || aiTailLoading}
-                style={{ flex: 1, height: 42, background: selectedAiTails.length > 0 ? accentColor : '#E5E7EB', color: selectedAiTails.length > 0 ? '#fff' : '#9CA3AF', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: selectedAiTails.length > 0 ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
-                선택한 {selectedAiTails.length}개 전달
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowAiTailModal(false)}
+                className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={deliverAiTails}
+                disabled={selectedAiTails.length === 0 || aiTailLoading}
+                className="flex-1 h-11 text-white rounded-lg text-[13px] font-bold transition-all disabled:cursor-not-allowed hover:-translate-y-px"
+                style={{
+                  background: selectedAiTails.length > 0 ? THEME.accent : '#E5E7EB',
+                  color: selectedAiTails.length > 0 ? '#fff' : '#9CA3AF',
+                  boxShadow: selectedAiTails.length > 0 ? `0 4px 12px ${THEME.accentShadow}` : 'none',
+                }}
+              >
+                📤 {selectedAiTails.length}개 전달
               </button>
             </div>
           </div>
         </div>
       )}
+
     </div>
   )
 }
