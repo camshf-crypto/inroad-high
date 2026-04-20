@@ -36,8 +36,22 @@ const ALL_STUDENTS = [
   { id: 30, name: '방지수', grade: '고3', email: 'bang@example.com' },
 ]
 
+// 파랑 테마
+const THEME = {
+  accent: '#2563EB',
+  accentDark: '#1E3A8A',
+  accentBg: '#EFF6FF',
+  accentBorder: '#93C5FD',
+  accentShadow: 'rgba(37, 99, 235, 0.15)',
+  gradient: 'linear-gradient(135deg, #1E3A8A, #2563EB)',
+}
+
 const Modal = ({ children, onClose }: { children: React.ReactNode, onClose: () => void }) => (
-  <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={onClose}>
+  <div
+    className="fixed inset-0 z-50 flex items-center justify-center"
+    style={{ background: 'rgba(15, 23, 42, 0.55)', backdropFilter: 'blur(4px)' }}
+    onClick={onClose}
+  >
     <div onClick={e => e.stopPropagation()}>{children}</div>
   </div>
 )
@@ -64,61 +78,172 @@ const AssignModal = ({
   })
 
   return (
-    <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 480 }}>
-      <div style={{ fontSize: 16, fontWeight: 500, color: '#1a1a1a', marginBottom: 4 }}>{teacher.name} 선생님 학생 배정</div>
-      <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 16 }}>
-        현재 배정된 학생 <span style={{ color: '#3B5BDB', fontWeight: 500 }}>{selectedStudents.length}명</span> · 클릭해서 배정/해제할 수 있어요.
+    <div className="bg-white rounded-2xl p-7 w-[520px] shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
+      <div className="text-[18px] font-extrabold text-ink mb-1">{teacher.name} 선생님 학생 배정</div>
+      <div className="text-[12px] text-ink-secondary font-medium mb-4">
+        현재 배정된 학생 <span className="font-bold" style={{ color: THEME.accent }}>{selectedStudents.length}명</span> · 클릭해서 배정/해제할 수 있어요.
       </div>
-      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="이름 또는 이메일 검색"
-        style={{ width: '100%', height: 38, border: '0.5px solid #E5E7EB', borderRadius: 8, padding: '0 12px', fontSize: 13, outline: 'none', marginBottom: 12 }}
-        onFocus={e => e.target.style.borderColor = '#3B5BDB'} onBlur={e => e.target.style.borderColor = '#E5E7EB'} />
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ display: 'flex', gap: 5 }}>
+
+      {/* 검색 */}
+      <input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="🔍 이름 또는 이메일 검색"
+        className="w-full h-11 border border-line rounded-lg px-3.5 text-[13px] font-medium outline-none transition-all mb-3 placeholder:text-ink-muted"
+        onFocus={e => {
+          e.target.style.borderColor = THEME.accent
+          e.target.style.boxShadow = `0 0 0 3px ${THEME.accentShadow}`
+        }}
+        onBlur={e => {
+          e.target.style.borderColor = '#E5E7EB'
+          e.target.style.boxShadow = 'none'
+        }}
+      />
+
+      {/* 필터 */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex gap-1">
           {['전체', '고1', '고2', '고3'].map(g => (
-            <div key={g} onClick={() => setGradeFilter(g)} style={{ padding: '4px 12px', borderRadius: 99, fontSize: 11, cursor: 'pointer', background: gradeFilter === g ? '#1a1a1a' : '#fff', color: gradeFilter === g ? '#fff' : '#6B7280', border: `0.5px solid ${gradeFilter === g ? '#1a1a1a' : '#E5E7EB'}` }}>{g}</div>
+            <button
+              key={g}
+              onClick={() => setGradeFilter(g)}
+              className="px-3 py-1 rounded-full text-[11px] font-semibold border transition-all"
+              style={{
+                background: gradeFilter === g ? THEME.accent : '#fff',
+                color: gradeFilter === g ? '#fff' : '#6B7280',
+                borderColor: gradeFilter === g ? THEME.accent : '#E5E7EB',
+              }}
+            >
+              {g}
+            </button>
           ))}
         </div>
-        <div onClick={() => setUnassignedOnly(!unassignedOnly)} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-          <div style={{ width: 32, height: 18, borderRadius: 99, background: unassignedOnly ? '#3B5BDB' : '#E5E7EB', position: 'relative', transition: 'background 0.2s' }}>
-            <div style={{ width: 14, height: 14, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: unassignedOnly ? 16 : 2, transition: 'left 0.2s' }} />
+        <button
+          onClick={() => setUnassignedOnly(!unassignedOnly)}
+          className="flex items-center gap-2 cursor-pointer"
+        >
+          <div
+            className="w-8 h-4 rounded-full relative transition-all"
+            style={{ background: unassignedOnly ? THEME.accent : '#E5E7EB' }}
+          >
+            <div
+              className="w-3 h-3 rounded-full bg-white absolute top-0.5 transition-all"
+              style={{ left: unassignedOnly ? '18px' : '2px' }}
+            />
           </div>
-          <span style={{ fontSize: 11, color: '#6B7280' }}>미배정만</span>
-        </div>
+          <span className="text-[11px] font-semibold text-ink-secondary">미배정만</span>
+        </button>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto', marginBottom: 14 }}>
+
+      {/* 학생 목록 */}
+      <div className="flex flex-col gap-1.5 max-h-[300px] overflow-y-auto mb-4 pr-1">
         {filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '24px 0', fontSize: 13, color: '#6B7280' }}>검색 결과가 없어요.</div>
+          <div className="text-center py-8">
+            <div className="text-3xl mb-2">🔍</div>
+            <div className="text-[13px] text-ink-secondary font-medium">검색 결과가 없어요.</div>
+          </div>
         ) : filtered.map(s => {
           const isSelected = selectedStudents.includes(s.id)
           const assignedToOther = teachers.some(t => t.id !== teacher.id && t.assignedStudents.includes(s.id))
           const assignedTeacher = teachers.find(t => t.id !== teacher.id && t.assignedStudents.includes(s.id))
           return (
-            <div key={s.id} onClick={() => !assignedToOther && onToggle(s.id)}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, border: `0.5px solid ${isSelected ? '#3B5BDB' : '#E5E7EB'}`, background: isSelected ? '#EEF2FF' : assignedToOther ? '#F8F7F5' : '#fff', cursor: assignedToOther ? 'not-allowed' : 'pointer', opacity: assignedToOther ? 0.6 : 1 }}>
-              <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${isSelected ? '#3B5BDB' : '#D1D5DB'}`, background: isSelected ? '#3B5BDB' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                {isSelected && <span style={{ fontSize: 10, color: '#fff' }}>✓</span>}
+            <div
+              key={s.id}
+              onClick={() => !assignedToOther && onToggle(s.id)}
+              className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg border transition-all"
+              style={{
+                borderColor: isSelected ? THEME.accent : '#E5E7EB',
+                background: isSelected ? THEME.accentBg : assignedToOther ? '#F8FAFC' : '#fff',
+                cursor: assignedToOther ? 'not-allowed' : 'pointer',
+                opacity: assignedToOther ? 0.6 : 1,
+              }}
+            >
+              {/* 체크박스 */}
+              <div
+                className="w-[18px] h-[18px] rounded flex items-center justify-center flex-shrink-0"
+                style={{
+                  border: `2px solid ${isSelected ? THEME.accent : '#D1D5DB'}`,
+                  background: isSelected ? THEME.accent : '#fff',
+                }}
+              >
+                {isSelected && <span className="text-[10px] text-white font-bold">✓</span>}
               </div>
-              <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#3B5BDB', fontWeight: 500, flexShrink: 0 }}>{s.name[0]}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 13, color: '#1a1a1a', fontWeight: isSelected ? 500 : 400 }}>{s.name}</span>
-                  {isSelected && <span style={{ fontSize: 10, color: '#3B5BDB', background: '#EEF2FF', padding: '1px 6px', borderRadius: 99, border: '0.5px solid #BAC8FF' }}>배정됨</span>}
+
+              {/* 아바타 */}
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-bold text-white flex-shrink-0"
+                style={{ background: THEME.gradient }}
+              >
+                {s.name[0]}
+              </div>
+
+              {/* 정보 */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="text-[13px] text-ink"
+                    style={{ fontWeight: isSelected ? 700 : 500 }}
+                  >
+                    {s.name}
+                  </span>
+                  {isSelected && (
+                    <span
+                      className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                      style={{
+                        color: THEME.accentDark,
+                        background: '#fff',
+                        border: `1px solid ${THEME.accentBorder}`,
+                      }}
+                    >
+                      배정됨
+                    </span>
+                  )}
                 </div>
-                <div style={{ fontSize: 11, color: '#6B7280' }}>{s.email} · {s.grade}</div>
+                <div className="text-[11px] text-ink-secondary font-medium truncate">{s.email} · {s.grade}</div>
               </div>
-              {assignedToOther && <span style={{ fontSize: 10, color: '#6B7280', background: '#F3F4F6', padding: '2px 7px', borderRadius: 99, flexShrink: 0 }}>{assignedTeacher?.name} 배정중</span>}
-              {isSelected && !assignedToOther && <span style={{ fontSize: 10, color: '#DC2626', background: '#FEE2E2', padding: '2px 7px', borderRadius: 99, flexShrink: 0 }}>클릭시 해제</span>}
+
+              {/* 상태 뱃지 */}
+              {assignedToOther && (
+                <span className="text-[10px] font-semibold text-ink-secondary bg-gray-100 px-2 py-0.5 rounded-full flex-shrink-0">
+                  {assignedTeacher?.name} 배정중
+                </span>
+              )}
+              {isSelected && !assignedToOther && (
+                <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full flex-shrink-0">
+                  클릭시 해제
+                </span>
+              )}
             </div>
           )
         })}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <span style={{ fontSize: 12, color: '#6B7280' }}>선택된 학생 <span style={{ color: '#3B5BDB', fontWeight: 500 }}>{selectedStudents.length}명</span></span>
-        <span style={{ fontSize: 11, color: '#6B7280' }}>{filtered.length}명 표시중</span>
+
+      {/* 요약 */}
+      <div className="flex justify-between items-center mb-4">
+        <span className="text-[12px] font-medium text-ink-secondary">
+          선택된 학생 <span className="font-bold" style={{ color: THEME.accent }}>{selectedStudents.length}명</span>
+        </span>
+        <span className="text-[11px] text-ink-muted font-medium">{filtered.length}명 표시중</span>
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={onClose} style={{ flex: 1, height: 40, background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>취소</button>
-        <button onClick={onSave} style={{ flex: 1, height: 40, background: '#3B5BDB', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>저장하기</button>
+
+      {/* 버튼 */}
+      <div className="flex gap-2">
+        <button
+          onClick={onClose}
+          className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors"
+        >
+          취소
+        </button>
+        <button
+          onClick={onSave}
+          className="flex-1 h-11 text-white rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px"
+          style={{
+            background: THEME.accent,
+            boxShadow: `0 4px 12px ${THEME.accentShadow}`,
+          }}
+        >
+          저장하기
+        </button>
       </div>
     </div>
   )
@@ -151,7 +276,6 @@ export default function Settings() {
   const [withdrawReason, setWithdrawReason] = useState('')
   const [withdrawReasonDetail, setWithdrawReasonDetail] = useState('')
 
-  // 선생님 추가
   const [showAddModal, setShowAddModal] = useState(false)
   const [addName, setAddName] = useState('')
   const [addEmail, setAddEmail] = useState('')
@@ -166,10 +290,6 @@ export default function Settings() {
   const [showAssignConfirm, setShowAssignConfirm] = useState(false)
 
   const WITHDRAW_REASONS = ['서비스가 기대에 못 미쳐서', '사용하기 불편해서', '다른 서비스로 이동', '학원을 더 이상 운영하지 않음', '기타']
-
-  const SEC = { background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, padding: 24 } as React.CSSProperties
-  const LABEL = { fontSize: 11, fontWeight: 500, color: '#6B7280', marginBottom: 5, display: 'block' } as React.CSSProperties
-  const INPUT = { width: '100%', height: 40, border: '0.5px solid #E5E7EB', borderRadius: 7, padding: '0 12px', fontSize: 13, outline: 'none' } as React.CSSProperties
 
   const handleSave = () => {
     setAcademy({ ...academy, academyName, ownerName })
@@ -238,141 +358,304 @@ export default function Settings() {
     setSelectedStudents(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id])
   }
 
+  // 재사용 input focus 스타일
+  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    e.target.style.borderColor = THEME.accent
+    e.target.style.boxShadow = `0 0 0 3px ${THEME.accentShadow}`
+  }
+  const handleInputBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    e.target.style.borderColor = '#E5E7EB'
+    e.target.style.boxShadow = 'none'
+  }
+
   return (
-    <div style={{ padding: '28px 32px' }}>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 20, fontWeight: 500, color: '#1a1a1a', marginBottom: 3 }}>학원 설정</div>
-        <div style={{ fontSize: 12, color: '#6B7280' }}>학원 정보와 선생님을 관리하세요.</div>
+    <div className="px-8 py-7 min-h-[calc(100vh-50px)] bg-[#F8FAFC] font-sans text-ink">
+
+      {/* 헤더 */}
+      <div className="mb-6 flex items-center gap-2.5">
+        <span className="text-2xl">⚙️</span>
+        <div>
+          <div className="text-[22px] font-extrabold text-ink tracking-tight mb-0.5">학원 설정</div>
+          <div className="text-[13px] text-ink-secondary font-medium">학원 정보와 선생님을 관리하세요.</div>
+        </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
-        {[{ key: 'basic', label: '기본 정보' }, { key: 'teachers', label: `선생님 관리 (${teachers.length})` }].map(t => (
-          <div key={t.key} onClick={() => setTab(t.key as any)}
-            style={{ padding: '7px 18px', borderRadius: 99, fontSize: 13, cursor: 'pointer', background: tab === t.key ? '#3B5BDB' : '#fff', color: tab === t.key ? '#fff' : '#6B7280', border: `0.5px solid ${tab === t.key ? '#3B5BDB' : '#E5E7EB'}`, fontWeight: tab === t.key ? 500 : 400 }}>
+      {/* 탭 */}
+      <div className="flex gap-1.5 mb-5">
+        {[
+          { key: 'basic', label: '🏢 기본 정보' },
+          { key: 'teachers', label: `👨‍🏫 선생님 관리 (${teachers.length})` },
+        ].map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key as any)}
+            className="px-5 py-2 rounded-full text-[13px] font-semibold border transition-all"
+            style={{
+              background: tab === t.key ? THEME.accent : '#fff',
+              color: tab === t.key ? '#fff' : '#6B7280',
+              borderColor: tab === t.key ? THEME.accent : '#E5E7EB',
+              boxShadow: tab === t.key ? `0 4px 12px ${THEME.accentShadow}` : 'none',
+              fontWeight: tab === t.key ? 700 : 500,
+            }}
+          >
             {t.label}
-          </div>
+          </button>
         ))}
       </div>
 
+      {/* ============ 기본 정보 탭 ============ */}
       {tab === 'basic' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <div style={SEC}>
-            <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a1a', marginBottom: 20, paddingBottom: 12, borderBottom: '0.5px solid #E5E7EB' }}>학원 기본 정보</div>
+        <div className="grid grid-cols-2 max-lg:grid-cols-1 gap-4">
+
+          {/* 왼쪽: 학원 기본 정보 */}
+          <div className="bg-white border border-line rounded-2xl p-6 shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
+            <div className="text-[15px] font-bold text-ink tracking-tight mb-5 pb-3 border-b border-line flex items-center gap-2">
+              <span>🏢</span>
+              <span>학원 기본 정보</span>
+            </div>
             {[
               { label: '학원명', value: academyName, setter: setAcademyName, placeholder: '학원 이름을 입력해주세요' },
               { label: '원장명', value: ownerName, setter: setOwnerName, placeholder: '원장님 성함을 입력해주세요' },
               { label: '연락처', value: phone, setter: setPhone, placeholder: '010-0000-0000' },
               { label: '주소', value: address, setter: setAddress, placeholder: '학원 주소를 입력해주세요' },
             ].map((f, i) => (
-              <div key={i} style={{ marginBottom: 16 }}>
-                <label style={LABEL}>{f.label}</label>
-                <input value={f.value} onChange={e => f.setter(e.target.value)} placeholder={f.placeholder} style={INPUT}
-                  onFocus={e => e.target.style.borderColor = '#3B5BDB'} onBlur={e => e.target.style.borderColor = '#E5E7EB'} />
+              <div key={i} className="mb-4">
+                <label className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-1.5 block">{f.label}</label>
+                <input
+                  value={f.value}
+                  onChange={e => f.setter(e.target.value)}
+                  placeholder={f.placeholder}
+                  className="w-full h-11 border border-line rounded-lg px-3.5 text-[13px] font-medium outline-none transition-all placeholder:text-ink-muted"
+                  onFocus={handleInputFocus}
+                  onBlur={handleInputBlur}
+                />
               </div>
             ))}
-            <button onClick={handleSave} style={{ width: '100%', height: 42, background: saved ? '#059669' : '#3B5BDB', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 500, cursor: 'pointer', marginTop: 8 }}>
-              {saved ? '✓ 저장됐어요!' : '저장하기'}
+            <button
+              onClick={handleSave}
+              className="w-full h-12 text-white rounded-lg text-[13px] font-bold mt-2 transition-all hover:-translate-y-px"
+              style={{
+                background: saved ? '#059669' : THEME.accent,
+                boxShadow: `0 4px 12px ${saved ? 'rgba(16,185,129,0.3)' : THEME.accentShadow}`,
+              }}
+            >
+              {saved ? '✓ 저장됐어요!' : '💾 저장하기'}
             </button>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={SEC}>
-              <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a1a', marginBottom: 16, paddingBottom: 12, borderBottom: '0.5px solid #E5E7EB' }}>학원 코드</div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8F7F5', borderRadius: 8, padding: '12px 16px' }}>
-                <div style={{ fontSize: 22, fontWeight: 700, color: '#3B5BDB', letterSpacing: '0.1em' }}>{academy.academyCode}</div>
-                <button onClick={() => navigator.clipboard.writeText(academy.academyCode || '')} style={{ padding: '6px 14px', background: '#3B5BDB', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>복사</button>
+          {/* 오른쪽 */}
+          <div className="flex flex-col gap-4">
+
+            {/* 학원 코드 */}
+            <div className="bg-white border border-line rounded-2xl p-6 shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
+              <div className="text-[15px] font-bold text-ink tracking-tight mb-4 pb-3 border-b border-line flex items-center gap-2">
+                <span>🔑</span>
+                <span>학원 코드</span>
               </div>
-              <div style={{ fontSize: 11, color: '#6B7280', marginTop: 10, lineHeight: 1.5 }}>학원 코드는 변경할 수 없어요. 학생들에게 이 코드를 공유해주세요.</div>
+              <div
+                className="flex items-center justify-between rounded-xl p-4"
+                style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}40` }}
+              >
+                <div className="text-[24px] font-extrabold tracking-[0.1em]" style={{ color: THEME.accentDark }}>
+                  {academy.academyCode}
+                </div>
+                <button
+                  onClick={() => navigator.clipboard.writeText(academy.academyCode || '')}
+                  className="px-4 py-2 text-white rounded-lg text-[12px] font-bold transition-all hover:-translate-y-px"
+                  style={{
+                    background: THEME.accent,
+                    boxShadow: `0 4px 12px ${THEME.accentShadow}`,
+                  }}
+                >
+                  📋 복사
+                </button>
+              </div>
+              <div className="text-[11px] text-ink-secondary font-medium mt-3 leading-[1.5]">
+                학원 코드는 변경할 수 없어요. 학생들에게 이 코드를 공유해주세요.
+              </div>
             </div>
 
-            <div style={SEC}>
-              <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a1a', marginBottom: 16, paddingBottom: 12, borderBottom: '0.5px solid #E5E7EB' }}>비밀번호 변경</div>
+            {/* 비밀번호 변경 */}
+            <div className="bg-white border border-line rounded-2xl p-6 shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
+              <div className="text-[15px] font-bold text-ink tracking-tight mb-4 pb-3 border-b border-line flex items-center gap-2">
+                <span>🔒</span>
+                <span>비밀번호 변경</span>
+              </div>
               {[
                 { label: '현재 비밀번호', value: currentPw, setter: setCurrentPw },
                 { label: '새 비밀번호', value: newPw, setter: setNewPw },
                 { label: '새 비밀번호 확인', value: confirmPw, setter: setConfirmPw },
               ].map((f, i) => (
-                <div key={i} style={{ marginBottom: 12 }}>
-                  <label style={LABEL}>{f.label}</label>
-                  <input type="password" value={f.value} onChange={e => { f.setter(e.target.value); setPwError('') }} placeholder="••••••••"
-                    style={{ ...INPUT, borderColor: pwError ? '#DC2626' : '#E5E7EB' }}
-                    onFocus={e => e.target.style.borderColor = pwError ? '#DC2626' : '#3B5BDB'}
-                    onBlur={e => e.target.style.borderColor = pwError ? '#DC2626' : '#E5E7EB'} />
+                <div key={i} className="mb-3">
+                  <label className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-1.5 block">{f.label}</label>
+                  <input
+                    type="password"
+                    value={f.value}
+                    onChange={e => { f.setter(e.target.value); setPwError('') }}
+                    placeholder="••••••••"
+                    className="w-full h-11 border rounded-lg px-3.5 text-[13px] font-medium outline-none transition-all placeholder:text-ink-muted"
+                    style={{ borderColor: pwError ? '#DC2626' : '#E5E7EB' }}
+                    onFocus={e => {
+                      if (!pwError) {
+                        e.target.style.borderColor = THEME.accent
+                        e.target.style.boxShadow = `0 0 0 3px ${THEME.accentShadow}`
+                      }
+                    }}
+                    onBlur={e => {
+                      e.target.style.borderColor = pwError ? '#DC2626' : '#E5E7EB'
+                      e.target.style.boxShadow = 'none'
+                    }}
+                  />
                 </div>
               ))}
-              <div style={{ background: '#F8F7F5', borderRadius: 7, padding: '8px 12px', marginBottom: 10 }}>
-                <div style={{ fontSize: 11, color: '#6B7280', lineHeight: 1.8 }}>
+              <div className="bg-gray-50 rounded-lg px-3.5 py-2.5 mb-2.5">
+                <div className="text-[11px] font-medium leading-[1.8]">
                   {[
                     { label: '8자 이상', ok: newPw.length >= 8 },
                     { label: '숫자 포함', ok: /[0-9]/.test(newPw) },
                     { label: '특수문자 포함', ok: /[!@#$%^&*(),.?":{}|<>]/.test(newPw) },
                   ].map((c, i) => (
-                    <span key={i} style={{ marginRight: 10, color: c.ok ? '#059669' : '#9CA3AF', fontWeight: c.ok ? 500 : 400 }}>
+                    <span
+                      key={i}
+                      className="mr-3"
+                      style={{ color: c.ok ? '#059669' : '#9CA3AF', fontWeight: c.ok ? 700 : 500 }}
+                    >
                       {c.ok ? '✓' : '○'} {c.label}
                     </span>
                   ))}
                 </div>
               </div>
               {pwError && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FEE2E2', borderRadius: 7, padding: '8px 12px', marginBottom: 10 }}>
-                  <span style={{ fontSize: 13 }}>⚠️</span>
-                  <span style={{ fontSize: 12, color: '#DC2626' }}>{pwError}</span>
+                <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2.5">
+                  <span className="text-sm">⚠️</span>
+                  <span className="text-[12px] text-red-600 font-semibold">{pwError}</span>
                 </div>
               )}
-              <button onClick={handlePwChange} style={{ width: '100%', height: 38, background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, cursor: 'pointer', marginTop: 4 }}>비밀번호 변경</button>
+              <button
+                onClick={handlePwChange}
+                className="w-full h-11 bg-ink text-white rounded-lg text-[12px] font-bold mt-2 hover:bg-ink/90 transition-colors"
+              >
+                🔐 비밀번호 변경
+              </button>
             </div>
 
-            <div style={SEC}>
-              <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a1a', marginBottom: 16, paddingBottom: 12, borderBottom: '0.5px solid #E5E7EB' }}>계정 관리</div>
-              <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 14, lineHeight: 1.6 }}>학원 계정을 탈퇴하면 모든 학생 데이터와 기록이 삭제됩니다.<br />탈퇴 전 반드시 데이터를 백업해주세요.</div>
-              <button onClick={() => setWithdrawStep(1)} style={{ width: '100%', height: 38, background: '#fff', color: '#DC2626', border: '0.5px solid #DC2626', borderRadius: 7, fontSize: 12, cursor: 'pointer' }}>학원 계정 탈퇴</button>
+            {/* 계정 관리 (탈퇴) */}
+            <div className="bg-white border border-line rounded-2xl p-6 shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
+              <div className="text-[15px] font-bold text-ink tracking-tight mb-4 pb-3 border-b border-line flex items-center gap-2">
+                <span>⚠️</span>
+                <span>계정 관리</span>
+              </div>
+              <div className="text-[12px] text-ink-secondary font-medium mb-4 leading-[1.6]">
+                학원 계정을 탈퇴하면 모든 학생 데이터와 기록이 삭제됩니다.<br />
+                탈퇴 전 반드시 데이터를 백업해주세요.
+              </div>
+              <button
+                onClick={() => setWithdrawStep(1)}
+                className="w-full h-11 bg-white text-red-600 border border-red-500 rounded-lg text-[12px] font-bold hover:bg-red-50 transition-colors"
+              >
+                학원 계정 탈퇴
+              </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* ============ 선생님 관리 탭 ============ */}
       {tab === 'teachers' && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div style={{ fontSize: 13, color: '#6B7280' }}>
-              총 <span style={{ color: '#3B5BDB', fontWeight: 500 }}>{teachers.length}명</span> · 활성 {teachers.filter(t => t.status === '활성').length}명
+          <div className="flex justify-between items-center mb-4">
+            <div className="text-[13px] font-medium text-ink-secondary">
+              총 <span className="font-bold" style={{ color: THEME.accent }}>{teachers.length}명</span>
+              <span className="text-ink-muted"> · 활성 {teachers.filter(t => t.status === '활성').length}명</span>
             </div>
-            <button onClick={() => setShowAddModal(true)} style={{ padding: '8px 16px', background: '#3B5BDB', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-5 py-2.5 text-white rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px"
+              style={{
+                background: THEME.accent,
+                boxShadow: `0 4px 12px ${THEME.accentShadow}`,
+              }}
+            >
               + 선생님 추가
             </button>
           </div>
 
-          <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div className="bg-white border border-line rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
+            <table className="w-full border-collapse">
               <thead>
-                <tr style={{ background: '#F8F7F5' }}>
+                <tr className="bg-[#F8FAFC]">
                   {['이름', '이메일', '연락처', '담당 학생', '상태', '합류일', ''].map((h, i) => (
-                    <th key={i} style={{ padding: '10px 20px', fontSize: 11, color: '#6B7280', fontWeight: 500, textAlign: 'left', borderBottom: '0.5px solid #E5E7EB' }}>{h}</th>
+                    <th
+                      key={i}
+                      className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line"
+                    >
+                      {h}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {teachers.map((t, i) => (
-                  <tr key={t.id} style={{ borderBottom: i < teachers.length - 1 ? '0.5px solid #E5E7EB' : 'none' }}>
-                    <td style={{ padding: '12px 20px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#3B5BDB', fontWeight: 500 }}>{t.name[0]}</div>
-                        <span style={{ fontSize: 13, color: '#1a1a1a' }}>{t.name}</span>
+                  <tr
+                    key={t.id}
+                    className="hover:bg-gray-50 transition-colors"
+                    style={{ borderBottom: i < teachers.length - 1 ? '1px solid #F1F5F9' : 'none' }}
+                  >
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-bold text-white"
+                          style={{ background: THEME.gradient }}
+                        >
+                          {t.name[0]}
+                        </div>
+                        <span className="text-[13px] font-semibold text-ink">{t.name}</span>
                       </div>
                     </td>
-                    <td style={{ padding: '12px 20px', fontSize: 12, color: '#6B7280' }}>{t.email}</td>
-                    <td style={{ padding: '12px 20px', fontSize: 12, color: '#6B7280' }}>{t.phone}</td>
-                    <td style={{ padding: '12px 20px' }}>
-                      <span style={{ fontSize: 12, color: t.assignedStudents.length > 0 ? '#3B5BDB' : '#6B7280', background: t.assignedStudents.length > 0 ? '#EEF2FF' : '#F3F4F6', padding: '2px 8px', borderRadius: 99 }}>{t.assignedStudents.length}명</span>
+                    <td className="px-5 py-3 text-[12.5px] font-medium text-ink-secondary">{t.email}</td>
+                    <td className="px-5 py-3 text-[12.5px] font-medium text-ink-secondary">{t.phone}</td>
+                    <td className="px-5 py-3">
+                      <span
+                        className="text-[12px] font-bold px-2.5 py-1 rounded-full"
+                        style={{
+                          color: t.assignedStudents.length > 0 ? THEME.accent : '#6B7280',
+                          background: t.assignedStudents.length > 0 ? THEME.accentBg : '#F3F4F6',
+                        }}
+                      >
+                        {t.assignedStudents.length}명
+                      </span>
                     </td>
-                    <td style={{ padding: '12px 20px' }}>
-                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: t.status === '활성' ? '#ECFDF5' : '#EEF2FF', color: t.status === '활성' ? '#059669' : '#3B5BDB', border: `0.5px solid ${t.status === '활성' ? '#6EE7B7' : '#BAC8FF'}` }}>{t.status}</span>
+                    <td className="px-5 py-3">
+                      <span
+                        className="text-[11px] font-bold px-2.5 py-1 rounded-full"
+                        style={{
+                          background: t.status === '활성' ? '#ECFDF5' : THEME.accentBg,
+                          color: t.status === '활성' ? '#059669' : THEME.accent,
+                          border: `1px solid ${t.status === '활성' ? '#6EE7B7' : THEME.accentBorder}60`,
+                        }}
+                      >
+                        {t.status === '활성' ? '✓' : '⏳'} {t.status}
+                      </span>
                     </td>
-                    <td style={{ padding: '12px 20px', fontSize: 12, color: '#6B7280' }}>{t.joinDate}</td>
-                    <td style={{ padding: '12px 20px' }}>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button onClick={() => openAssign(t)} style={{ fontSize: 11, color: '#3B5BDB', border: '0.5px solid #3B5BDB', background: '#fff', padding: '3px 10px', borderRadius: 99, cursor: 'pointer' }}>학생 배정</button>
-                        <button onClick={() => setDeleteTarget(t)} style={{ fontSize: 11, color: '#DC2626', border: '0.5px solid #DC2626', background: '#fff', padding: '3px 10px', borderRadius: 99, cursor: 'pointer' }}>삭제</button>
+                    <td className="px-5 py-3 text-[12px] font-medium text-ink-secondary">{t.joinDate}</td>
+                    <td className="px-5 py-3">
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => openAssign(t)}
+                          className="text-[11px] font-bold bg-white border px-3 py-1.5 rounded-full transition-all hover:-translate-y-px"
+                          style={{
+                            color: THEME.accent,
+                            borderColor: THEME.accent,
+                          }}
+                        >
+                          학생 배정
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(t)}
+                          className="text-[11px] font-bold bg-white text-red-600 border border-red-500 px-3 py-1.5 rounded-full hover:bg-red-50 transition-all"
+                        >
+                          삭제
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -383,87 +666,154 @@ export default function Settings() {
         </div>
       )}
 
-      {/* 선생님 추가 모달 */}
+      {/* ============ 모달들 ============ */}
+
+      {/* 선생님 추가 */}
       {showAddModal && (
         <Modal onClose={() => { setShowAddModal(false); resetAdd() }}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: 420 }}>
-            <div style={{ fontSize: 16, fontWeight: 500, color: '#1a1a1a', marginBottom: 4 }}>선생님 추가</div>
-            <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 20 }}>선생님 계정을 바로 만들어요.</div>
+          <div className="bg-white rounded-2xl p-8 w-[440px] shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
+            <div className="text-[18px] font-extrabold text-ink mb-1">👨‍🏫 선생님 추가</div>
+            <div className="text-[12px] text-ink-secondary font-medium mb-5">선생님 계정을 바로 만들어요.</div>
             {[
               { label: '이름', value: addName, setter: setAddName, placeholder: '선생님 성함', type: 'text' },
               { label: '이메일', value: addEmail, setter: setAddEmail, placeholder: 'teacher@example.com', type: 'email' },
               { label: '연락처', value: addPhone, setter: setAddPhone, placeholder: '010-0000-0000', type: 'text' },
               { label: '비밀번호', value: addPw, setter: setAddPw, placeholder: '4자 이상', type: 'password' },
             ].map((f, i) => (
-              <div key={i} style={{ marginBottom: 14 }}>
-                <label style={LABEL}>{f.label}</label>
-                <input type={f.type} value={f.value} onChange={e => { f.setter(e.target.value); setAddError('') }} placeholder={f.placeholder}
-                  style={INPUT} onFocus={e => e.target.style.borderColor = '#3B5BDB'} onBlur={e => e.target.style.borderColor = '#E5E7EB'} />
+              <div key={i} className="mb-3">
+                <label className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-1.5 block">{f.label}</label>
+                <input
+                  type={f.type}
+                  value={f.value}
+                  onChange={e => { f.setter(e.target.value); setAddError('') }}
+                  placeholder={f.placeholder}
+                  className="w-full h-11 border border-line rounded-lg px-3.5 text-[13px] font-medium outline-none transition-all placeholder:text-ink-muted"
+                  onFocus={handleInputFocus}
+                  onBlur={handleInputBlur}
+                />
               </div>
             ))}
             {addError && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FEE2E2', borderRadius: 7, padding: '8px 12px', marginBottom: 12 }}>
-                <span style={{ fontSize: 12 }}>⚠️</span>
-                <span style={{ fontSize: 12, color: '#DC2626' }}>{addError}</span>
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
+                <span className="text-sm">⚠️</span>
+                <span className="text-[12px] text-red-600 font-semibold">{addError}</span>
               </div>
             )}
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <button onClick={() => { setShowAddModal(false); resetAdd() }} style={{ flex: 1, height: 40, background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>취소</button>
-              <button onClick={handleAddTeacher} style={{ flex: 1, height: 40, background: '#3B5BDB', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>계정 만들기</button>
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={() => { setShowAddModal(false); resetAdd() }}
+                className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleAddTeacher}
+                className="flex-1 h-11 text-white rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px"
+                style={{
+                  background: THEME.accent,
+                  boxShadow: `0 4px 12px ${THEME.accentShadow}`,
+                }}
+              >
+                계정 만들기
+              </button>
             </div>
           </div>
         </Modal>
       )}
 
-      {/* 선생님 추가 확인 모달 */}
+      {/* 선생님 추가 확인 */}
       {showAddConfirm && (
         <Modal onClose={() => setShowAddConfirm(false)}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: 360, textAlign: 'center' }}>
-            <div style={{ fontSize: 28, marginBottom: 12 }}>👨‍🏫</div>
-            <div style={{ fontSize: 16, fontWeight: 500, color: '#1a1a1a', marginBottom: 8 }}>계정을 만드시겠어요?</div>
-            <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '12px 16px', marginBottom: 20, textAlign: 'left' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 6 }}>
-                <span style={{ color: '#6B7280' }}>이름</span><span style={{ color: '#1a1a1a' }}>{addName}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 6 }}>
-                <span style={{ color: '#6B7280' }}>이메일</span><span style={{ color: '#1a1a1a' }}>{addEmail}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                <span style={{ color: '#6B7280' }}>연락처</span><span style={{ color: '#1a1a1a' }}>{addPhone || '-'}</span>
-              </div>
+          <div className="bg-white rounded-2xl p-8 w-[380px] text-center shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
+            <div className="text-4xl mb-3">👨‍🏫</div>
+            <div className="text-[16px] font-extrabold text-ink mb-4">계정을 만드시겠어요?</div>
+            <div
+              className="rounded-xl p-4 mb-5 text-left"
+              style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}40` }}
+            >
+              {[
+                { label: '이름', value: addName },
+                { label: '이메일', value: addEmail },
+                { label: '연락처', value: addPhone || '-' },
+              ].map((r, i) => (
+                <div key={i} className={`flex justify-between text-[12px] ${i < 2 ? 'mb-2' : ''}`}>
+                  <span className="text-ink-secondary font-medium">{r.label}</span>
+                  <span className="text-ink font-bold">{r.value}</span>
+                </div>
+              ))}
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setShowAddConfirm(false)} style={{ flex: 1, height: 40, background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>돌아가기</button>
-              <button onClick={confirmAddTeacher} style={{ flex: 1, height: 40, background: '#3B5BDB', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>확인</button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowAddConfirm(false)}
+                className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors"
+              >
+                돌아가기
+              </button>
+              <button
+                onClick={confirmAddTeacher}
+                className="flex-1 h-11 text-white rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px"
+                style={{
+                  background: THEME.accent,
+                  boxShadow: `0 4px 12px ${THEME.accentShadow}`,
+                }}
+              >
+                확인
+              </button>
             </div>
           </div>
         </Modal>
       )}
 
-      {/* 학생 배정 모달 */}
+      {/* 학생 배정 */}
       {assignTarget && !showAssignConfirm && (
         <Modal onClose={() => setAssignTarget(null)}>
-          <AssignModal teacher={assignTarget} teachers={teachers} selectedStudents={selectedStudents} onToggle={toggleStudent} onSave={() => setShowAssignConfirm(true)} onClose={() => setAssignTarget(null)} />
+          <AssignModal
+            teacher={assignTarget}
+            teachers={teachers}
+            selectedStudents={selectedStudents}
+            onToggle={toggleStudent}
+            onSave={() => setShowAssignConfirm(true)}
+            onClose={() => setAssignTarget(null)}
+          />
         </Modal>
       )}
 
       {/* 학생 배정 확인 */}
       {showAssignConfirm && assignTarget && (
         <Modal onClose={() => setShowAssignConfirm(false)}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: 360, textAlign: 'center' }}>
-            <div style={{ fontSize: 28, marginBottom: 12 }}>👥</div>
-            <div style={{ fontSize: 16, fontWeight: 500, color: '#1a1a1a', marginBottom: 8 }}>학생을 배정하시겠어요?</div>
-            <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '12px 16px', marginBottom: 20, textAlign: 'left' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 6 }}>
-                <span style={{ color: '#6B7280' }}>선생님</span><span style={{ color: '#1a1a1a' }}>{assignTarget.name}</span>
+          <div className="bg-white rounded-2xl p-8 w-[380px] text-center shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
+            <div className="text-4xl mb-3">👥</div>
+            <div className="text-[16px] font-extrabold text-ink mb-4">학생을 배정하시겠어요?</div>
+            <div
+              className="rounded-xl p-4 mb-5 text-left"
+              style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}40` }}
+            >
+              <div className="flex justify-between text-[12px] mb-2">
+                <span className="text-ink-secondary font-medium">선생님</span>
+                <span className="text-ink font-bold">{assignTarget.name}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                <span style={{ color: '#6B7280' }}>담당 학생</span><span style={{ color: '#3B5BDB', fontWeight: 500 }}>{selectedStudents.length}명</span>
+              <div className="flex justify-between text-[12px]">
+                <span className="text-ink-secondary font-medium">담당 학생</span>
+                <span className="font-bold" style={{ color: THEME.accent }}>{selectedStudents.length}명</span>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setShowAssignConfirm(false)} style={{ flex: 1, height: 40, background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>돌아가기</button>
-              <button onClick={handleAssignSave} style={{ flex: 1, height: 40, background: '#3B5BDB', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>확인</button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowAssignConfirm(false)}
+                className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors"
+              >
+                돌아가기
+              </button>
+              <button
+                onClick={handleAssignSave}
+                className="flex-1 h-11 text-white rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px"
+                style={{
+                  background: THEME.accent,
+                  boxShadow: `0 4px 12px ${THEME.accentShadow}`,
+                }}
+              >
+                확인
+              </button>
             </div>
           </div>
         </Modal>
@@ -472,15 +822,30 @@ export default function Settings() {
       {/* 선생님 삭제 확인 */}
       {deleteTarget && (
         <Modal onClose={() => setDeleteTarget(null)}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: 360, textAlign: 'center' }}>
-            <div style={{ fontSize: 28, marginBottom: 12 }}>⚠️</div>
-            <div style={{ fontSize: 16, fontWeight: 500, color: '#1a1a1a', marginBottom: 8 }}>{deleteTarget.name} 선생님을 삭제하시겠어요?</div>
-            <div style={{ background: '#FEE2E2', borderRadius: 8, padding: '10px 14px', marginBottom: 20 }}>
-              <div style={{ fontSize: 12, color: '#DC2626', lineHeight: 1.6 }}>담당 학생 {deleteTarget.assignedStudents.length}명의 배정이 해제됩니다.</div>
+          <div className="bg-white rounded-2xl p-8 w-[380px] text-center shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
+            <div className="text-4xl mb-3">⚠️</div>
+            <div className="text-[16px] font-extrabold text-ink mb-3">
+              {deleteTarget.name} 선생님을 삭제하시겠어요?
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setDeleteTarget(null)} style={{ flex: 1, height: 40, background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>취소</button>
-              <button onClick={handleDeleteTeacher} style={{ flex: 1, height: 40, background: '#DC2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>삭제</button>
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-5">
+              <div className="text-[12px] text-red-600 font-semibold leading-[1.6]">
+                담당 학생 {deleteTarget.assignedStudents.length}명의 배정이 해제됩니다.
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDeleteTeacher}
+                className="flex-1 h-11 bg-red-500 text-white rounded-lg text-[13px] font-bold hover:bg-red-600 transition-all hover:-translate-y-px"
+                style={{ boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)' }}
+              >
+                삭제
+              </button>
             </div>
           </div>
         </Modal>
@@ -489,11 +854,22 @@ export default function Settings() {
       {/* 비밀번호 변경 완료 */}
       {showPwConfirm && (
         <Modal onClose={() => setShowPwConfirm(false)}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: 340, textAlign: 'center' }}>
-            <div style={{ width: 48, height: 48, background: '#ECFDF5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 22 }}>✓</div>
-            <div style={{ fontSize: 16, fontWeight: 500, color: '#1a1a1a', marginBottom: 8 }}>비밀번호가 변경됐어요!</div>
-            <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 24 }}>다음 로그인부터 새 비밀번호를 사용해주세요.</div>
-            <button onClick={() => { setShowPwConfirm(false); setCurrentPw(''); setNewPw(''); setConfirmPw('') }} style={{ width: '100%', height: 40, background: '#3B5BDB', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>확인</button>
+          <div className="bg-white rounded-2xl p-8 w-[360px] text-center shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
+            <div className="w-14 h-14 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+              ✓
+            </div>
+            <div className="text-[18px] font-extrabold text-ink mb-2">비밀번호가 변경됐어요!</div>
+            <div className="text-[12px] text-ink-secondary font-medium mb-5">다음 로그인부터 새 비밀번호를 사용해주세요.</div>
+            <button
+              onClick={() => { setShowPwConfirm(false); setCurrentPw(''); setNewPw(''); setConfirmPw('') }}
+              className="w-full h-11 text-white rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px"
+              style={{
+                background: THEME.accent,
+                boxShadow: `0 4px 12px ${THEME.accentShadow}`,
+              }}
+            >
+              확인
+            </button>
           </div>
         </Modal>
       )}
@@ -501,17 +877,46 @@ export default function Settings() {
       {/* 탈퇴 1단계 */}
       {withdrawStep === 1 && (
         <Modal onClose={resetWithdraw}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: 400 }}>
-            <div style={{ fontSize: 11, color: '#DC2626', background: '#FEE2E2', padding: '2px 8px', borderRadius: 99, display: 'inline-block', marginBottom: 8 }}>1 / 3단계</div>
-            <div style={{ fontSize: 16, fontWeight: 500, color: '#1a1a1a', marginBottom: 6 }}>학원 코드를 입력해주세요</div>
-            <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 20 }}>학원 코드를 정확히 입력해야 다음 단계로 넘어갑니다.</div>
-            <label style={LABEL}>학원 코드</label>
-            <input value={withdrawCode} onChange={e => setWithdrawCode(e.target.value)} placeholder={`예: ${academy.academyCode}`}
-              style={{ ...INPUT, marginBottom: 20 }} onFocus={e => e.target.style.borderColor = '#DC2626'} onBlur={e => e.target.style.borderColor = '#E5E7EB'} />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={resetWithdraw} style={{ flex: 1, height: 40, background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>취소</button>
-              <button onClick={() => withdrawCode === academy.academyCode ? setWithdrawStep(2) : alert('학원 코드가 맞지 않아요.')}
-                style={{ flex: 1, height: 40, background: withdrawCode ? '#DC2626' : '#E5E7EB', color: withdrawCode ? '#fff' : '#9CA3AF', border: 'none', borderRadius: 8, fontSize: 13, cursor: withdrawCode ? 'pointer' : 'not-allowed' }}>다음</button>
+          <div className="bg-white rounded-2xl p-8 w-[420px] shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
+            <div className="inline-block text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 px-2.5 py-0.5 rounded-full mb-3">
+              1 / 3단계
+            </div>
+            <div className="text-[18px] font-extrabold text-ink mb-1.5">학원 코드를 입력해주세요</div>
+            <div className="text-[12px] text-ink-secondary font-medium mb-5">학원 코드를 정확히 입력해야 다음 단계로 넘어갑니다.</div>
+            <label className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-1.5 block">학원 코드</label>
+            <input
+              value={withdrawCode}
+              onChange={e => setWithdrawCode(e.target.value)}
+              placeholder={`예: ${academy.academyCode}`}
+              className="w-full h-11 border border-line rounded-lg px-3.5 text-[13px] font-medium outline-none transition-all mb-5 placeholder:text-ink-muted"
+              onFocus={e => {
+                e.target.style.borderColor = '#DC2626'
+                e.target.style.boxShadow = '0 0 0 3px rgba(220, 38, 38, 0.1)'
+              }}
+              onBlur={e => {
+                e.target.style.borderColor = '#E5E7EB'
+                e.target.style.boxShadow = 'none'
+              }}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={resetWithdraw}
+                className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => withdrawCode === academy.academyCode ? setWithdrawStep(2) : alert('학원 코드가 맞지 않아요.')}
+                disabled={!withdrawCode}
+                className="flex-1 h-11 rounded-lg text-[13px] font-bold transition-all disabled:cursor-not-allowed"
+                style={{
+                  background: withdrawCode ? '#DC2626' : '#E5E7EB',
+                  color: withdrawCode ? '#fff' : '#9CA3AF',
+                  boxShadow: withdrawCode ? '0 4px 12px rgba(220, 38, 38, 0.3)' : 'none',
+                }}
+              >
+                다음
+              </button>
             </div>
           </div>
         </Modal>
@@ -520,17 +925,46 @@ export default function Settings() {
       {/* 탈퇴 2단계 */}
       {withdrawStep === 2 && (
         <Modal onClose={resetWithdraw}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: 400 }}>
-            <div style={{ fontSize: 11, color: '#DC2626', background: '#FEE2E2', padding: '2px 8px', borderRadius: 99, display: 'inline-block', marginBottom: 8 }}>2 / 3단계</div>
-            <div style={{ fontSize: 16, fontWeight: 500, color: '#1a1a1a', marginBottom: 6 }}>원장님 연락처를 입력해주세요</div>
-            <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 20 }}>등록된 연락처를 정확히 입력해야 다음 단계로 넘어갑니다.</div>
-            <label style={LABEL}>연락처</label>
-            <input value={withdrawPhone} onChange={e => setWithdrawPhone(e.target.value)} placeholder="010-0000-0000"
-              style={{ ...INPUT, marginBottom: 20 }} onFocus={e => e.target.style.borderColor = '#DC2626'} onBlur={e => e.target.style.borderColor = '#E5E7EB'} />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setWithdrawStep(1)} style={{ flex: 1, height: 40, background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>이전</button>
-              <button onClick={() => withdrawPhone === phone ? setWithdrawStep(3) : alert('연락처가 맞지 않아요.')}
-                style={{ flex: 1, height: 40, background: withdrawPhone ? '#DC2626' : '#E5E7EB', color: withdrawPhone ? '#fff' : '#9CA3AF', border: 'none', borderRadius: 8, fontSize: 13, cursor: withdrawPhone ? 'pointer' : 'not-allowed' }}>다음</button>
+          <div className="bg-white rounded-2xl p-8 w-[420px] shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
+            <div className="inline-block text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 px-2.5 py-0.5 rounded-full mb-3">
+              2 / 3단계
+            </div>
+            <div className="text-[18px] font-extrabold text-ink mb-1.5">원장님 연락처를 입력해주세요</div>
+            <div className="text-[12px] text-ink-secondary font-medium mb-5">등록된 연락처를 정확히 입력해야 다음 단계로 넘어갑니다.</div>
+            <label className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-1.5 block">연락처</label>
+            <input
+              value={withdrawPhone}
+              onChange={e => setWithdrawPhone(e.target.value)}
+              placeholder="010-0000-0000"
+              className="w-full h-11 border border-line rounded-lg px-3.5 text-[13px] font-medium outline-none transition-all mb-5 placeholder:text-ink-muted"
+              onFocus={e => {
+                e.target.style.borderColor = '#DC2626'
+                e.target.style.boxShadow = '0 0 0 3px rgba(220, 38, 38, 0.1)'
+              }}
+              onBlur={e => {
+                e.target.style.borderColor = '#E5E7EB'
+                e.target.style.boxShadow = 'none'
+              }}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setWithdrawStep(1)}
+                className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors"
+              >
+                이전
+              </button>
+              <button
+                onClick={() => withdrawPhone === phone ? setWithdrawStep(3) : alert('연락처가 맞지 않아요.')}
+                disabled={!withdrawPhone}
+                className="flex-1 h-11 rounded-lg text-[13px] font-bold transition-all disabled:cursor-not-allowed"
+                style={{
+                  background: withdrawPhone ? '#DC2626' : '#E5E7EB',
+                  color: withdrawPhone ? '#fff' : '#9CA3AF',
+                  boxShadow: withdrawPhone ? '0 4px 12px rgba(220, 38, 38, 0.3)' : 'none',
+                }}
+              >
+                다음
+              </button>
             </div>
           </div>
         </Modal>
@@ -539,29 +973,74 @@ export default function Settings() {
       {/* 탈퇴 3단계 */}
       {withdrawStep === 3 && (
         <Modal onClose={resetWithdraw}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: 400 }}>
-            <div style={{ fontSize: 11, color: '#DC2626', background: '#FEE2E2', padding: '2px 8px', borderRadius: 99, display: 'inline-block', marginBottom: 8 }}>3 / 3단계</div>
-            <div style={{ fontSize: 16, fontWeight: 500, color: '#1a1a1a', marginBottom: 6 }}>탈퇴 사유를 알려주세요</div>
-            <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 16 }}>서비스 개선에 소중히 활용할게요.</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+          <div className="bg-white rounded-2xl p-8 w-[420px] shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
+            <div className="inline-block text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 px-2.5 py-0.5 rounded-full mb-3">
+              3 / 3단계
+            </div>
+            <div className="text-[18px] font-extrabold text-ink mb-1.5">탈퇴 사유를 알려주세요</div>
+            <div className="text-[12px] text-ink-secondary font-medium mb-4">서비스 개선에 소중히 활용할게요.</div>
+            <div className="flex flex-col gap-2 mb-3">
               {WITHDRAW_REASONS.map((r, i) => (
-                <div key={i} onClick={() => setWithdrawReason(r)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, border: `0.5px solid ${withdrawReason === r ? '#DC2626' : '#E5E7EB'}`, background: withdrawReason === r ? '#FEE2E2' : '#fff', cursor: 'pointer' }}>
-                  <div style={{ width: 16, height: 16, borderRadius: '50%', border: `1.5px solid ${withdrawReason === r ? '#DC2626' : '#D1D5DB'}`, background: withdrawReason === r ? '#DC2626' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    {withdrawReason === r && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />}
+                <button
+                  key={i}
+                  onClick={() => setWithdrawReason(r)}
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-lg border text-left transition-all"
+                  style={{
+                    borderColor: withdrawReason === r ? '#DC2626' : '#E5E7EB',
+                    background: withdrawReason === r ? '#FEE2E2' : '#fff',
+                  }}
+                >
+                  <div
+                    className="w-[18px] h-[18px] rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{
+                      border: `2px solid ${withdrawReason === r ? '#DC2626' : '#D1D5DB'}`,
+                      background: withdrawReason === r ? '#DC2626' : '#fff',
+                    }}
+                  >
+                    {withdrawReason === r && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                   </div>
-                  <span style={{ fontSize: 13, color: withdrawReason === r ? '#DC2626' : '#1a1a1a' }}>{r}</span>
-                </div>
+                  <span
+                    className="text-[13px]"
+                    style={{
+                      color: withdrawReason === r ? '#DC2626' : '#1a1a1a',
+                      fontWeight: withdrawReason === r ? 700 : 500,
+                    }}
+                  >
+                    {r}
+                  </span>
+                </button>
               ))}
             </div>
             {withdrawReason === '기타' && (
-              <textarea value={withdrawReasonDetail} onChange={e => setWithdrawReasonDetail(e.target.value)} placeholder="탈퇴 사유를 직접 입력해주세요..." rows={3}
-                style={{ width: '100%', border: '0.5px solid #E5E7EB', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', resize: 'none', fontFamily: 'inherit', marginBottom: 14 }} />
+              <textarea
+                value={withdrawReasonDetail}
+                onChange={e => setWithdrawReasonDetail(e.target.value)}
+                placeholder="탈퇴 사유를 직접 입력해주세요..."
+                rows={3}
+                className="w-full border border-line rounded-lg px-3.5 py-2.5 text-[13px] font-medium outline-none resize-none transition-all mb-3 placeholder:text-ink-muted"
+                onFocus={handleInputFocus}
+                onBlur={handleInputBlur}
+              />
             )}
-            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-              <button onClick={() => setWithdrawStep(2)} style={{ flex: 1, height: 40, background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>이전</button>
-              <button onClick={() => withdrawReason ? setWithdrawStep(4) : alert('탈퇴 사유를 선택해주세요.')}
-                style={{ flex: 1, height: 40, background: withdrawReason ? '#DC2626' : '#E5E7EB', color: withdrawReason ? '#fff' : '#9CA3AF', border: 'none', borderRadius: 8, fontSize: 13, cursor: withdrawReason ? 'pointer' : 'not-allowed' }}>다음</button>
+            <div className="flex gap-2 mt-1">
+              <button
+                onClick={() => setWithdrawStep(2)}
+                className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors"
+              >
+                이전
+              </button>
+              <button
+                onClick={() => withdrawReason ? setWithdrawStep(4) : alert('탈퇴 사유를 선택해주세요.')}
+                disabled={!withdrawReason}
+                className="flex-1 h-11 rounded-lg text-[13px] font-bold transition-all disabled:cursor-not-allowed"
+                style={{
+                  background: withdrawReason ? '#DC2626' : '#E5E7EB',
+                  color: withdrawReason ? '#fff' : '#9CA3AF',
+                  boxShadow: withdrawReason ? '0 4px 12px rgba(220, 38, 38, 0.3)' : 'none',
+                }}
+              >
+                다음
+              </button>
             </div>
           </div>
         </Modal>
@@ -570,20 +1049,31 @@ export default function Settings() {
       {/* 탈퇴 최종 확인 */}
       {withdrawStep === 4 && (
         <Modal onClose={resetWithdraw}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: 380, textAlign: 'center' }}>
-            <div style={{ fontSize: 32, marginBottom: 12 }}>⚠️</div>
-            <div style={{ fontSize: 16, fontWeight: 500, color: '#1a1a1a', marginBottom: 8 }}>정말 탈퇴하시겠어요?</div>
-            <div style={{ background: '#FEE2E2', borderRadius: 8, padding: '12px 14px', marginBottom: 20, textAlign: 'left' }}>
-              <div style={{ fontSize: 12, color: '#DC2626', lineHeight: 1.7 }}>
+          <div className="bg-white rounded-2xl p-8 w-[400px] text-center shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
+            <div className="text-4xl mb-3">⚠️</div>
+            <div className="text-[18px] font-extrabold text-ink mb-4">정말 탈퇴하시겠어요?</div>
+            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3.5 mb-5 text-left">
+              <div className="text-[12px] text-red-600 font-semibold leading-[1.8]">
                 • 모든 학생 데이터가 삭제됩니다.<br />
                 • 탐구주제 및 독서리스트 기록이 삭제됩니다.<br />
                 • 결제 내역은 1년간 보관 후 삭제됩니다.<br />
                 • 탈퇴 후 복구가 불가능합니다.
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={resetWithdraw} style={{ flex: 1, height: 40, background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>취소</button>
-              <button onClick={resetWithdraw} style={{ flex: 1, height: 40, background: '#DC2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>탈퇴하기</button>
+            <div className="flex gap-2">
+              <button
+                onClick={resetWithdraw}
+                className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={resetWithdraw}
+                className="flex-1 h-11 bg-red-500 text-white rounded-lg text-[13px] font-bold hover:bg-red-600 transition-all hover:-translate-y-px"
+                style={{ boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)' }}
+              >
+                탈퇴하기
+              </button>
             </div>
           </div>
         </Modal>

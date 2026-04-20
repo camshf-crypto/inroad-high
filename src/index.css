@@ -1,3 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --text: #6b6375;
+  --text-h: #08060d;
+  --bg: #fff;
+  --border: #e5e4e7;
+  --code-bg: #f4f3ec;
+  --accent: #aa3bff;
+  /* ... 나머지 다 그대로 ... */
+}
+
+/* 기존 내용 전부 유지 */
 :root {
   --text: #6b6375;
   --text-h: #08060d;

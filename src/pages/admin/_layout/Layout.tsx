@@ -13,87 +13,206 @@ export default function Layout() {
   const isOwner = academy.role === 'OWNER'
 
   const menus = [
-    { path: '/admin', label: '대시보드', icon: '⊞' },
-    { path: '/admin/students', label: '학생 관리', icon: '👥' },
-    { path: '/admin/academy', label: '학원 코드', icon: '🔑' },
+    { path: '/admin', label: '대시보드', icon: '⊞', type: 'default' as const },
+    { path: '/admin/students', label: '고등 관리', icon: '🌊', type: 'default' as const },
+    { path: '/admin/middle-students', label: '중등 관리', icon: '🌱', type: 'middle' as const },
+    { path: '/admin/academy', label: '학원 코드', icon: '🔑', type: 'default' as const },
     ...(isOwner ? [
-      { path: '/admin/billing', label: '결제 관리', icon: '💳' },
-      { path: '/admin/settings', label: '학원 설정', icon: '⚙️' },
+      { path: '/admin/billing', label: '결제 관리', icon: '💳', type: 'default' as const },
+      { path: '/admin/settings', label: '학원 설정', icon: '⚙️', type: 'default' as const },
     ] : []),
   ]
 
   const handleLogout = () => {
     setToken({ accessToken: undefined, expiresIn: undefined })
-    setAcademy({ academyCode: undefined, academyName: undefined, ownerName: undefined, role: 'OWNER', teacherId: undefined })
+    setAcademy({
+      academyCode: undefined,
+      academyName: undefined,
+      ownerName: undefined,
+      role: 'OWNER',
+      teacherId: undefined,
+      plans: ['high', 'middle'],
+    })
     navigate('/admin/login')
   }
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#F8F7F5', overflow: 'hidden' }}>
+    <div className="flex h-screen bg-[#F8FAFC] overflow-hidden font-sans text-ink">
 
-      {/* 사이드바 — 왼쪽 최소 너비 */}
-      <div style={{ width: 160, background: '#fff', borderRight: '0.5px solid #E5E7EB', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-        <div style={{ padding: '14px 10px 10px' }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#3B5BDB', marginBottom: 4 }}>인로드</div>
+      {/* 사이드바 */}
+      <div className="w-[190px] bg-white border-r border-line flex flex-col flex-shrink-0">
+
+        {/* 로고 & 학원 정보 */}
+        <div className="px-4 pt-5 pb-4 border-b border-line-light">
+          <div
+            className="flex items-center gap-2 mb-3 cursor-pointer"
+            onClick={() => navigate('/admin')}
+          >
+            {/* IR 로고 - 인라인 스타일로 확실하게 */}
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[12px] font-extrabold flex-shrink-0"
+              style={{
+                background: 'linear-gradient(135deg, #1E3A8A, #2563EB)',
+                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
+              }}
+            >
+              IR
+            </div>
+            <span className="text-[15px] font-extrabold tracking-tight" style={{ color: '#1E3A8A' }}>
+              인로드
+            </span>
+            <span
+              className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+              style={{
+                color: '#1E3A8A',
+                background: '#EFF6FF',
+                border: '1px solid rgba(147, 197, 253, 0.6)',
+              }}
+            >
+              {isOwner ? '원장' : '선생님'}
+            </span>
+          </div>
+
+          {/* 학원 정보 박스 */}
           {academy.academyName && (
-            <>
-              <div style={{ fontSize: 9, color: '#9CA3AF' }}>학원 코드</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#3B5BDB', letterSpacing: '0.05em' }}>{academy.academyCode}</div>
-              <div style={{ fontSize: 10, color: '#6B7280', marginTop: 1 }}>{academy.academyName}</div>
-            </>
-          )}
-          {!isOwner && (
-            <div style={{ marginTop: 4, fontSize: 9, color: '#fff', background: '#3B5BDB', padding: '1px 6px', borderRadius: 99, display: 'inline-block' }}>선생님</div>
+            <div
+              className="rounded-lg px-3 py-2.5"
+              style={{
+                background: 'linear-gradient(135deg, #EFF6FF, #FFFFFF)',
+                border: '1px solid rgba(147, 197, 253, 0.5)',
+              }}
+            >
+              <div className="text-[9px] font-bold text-ink-muted uppercase tracking-wider mb-0.5">학원 코드</div>
+              <div className="text-[13px] font-extrabold tracking-wider mb-1" style={{ color: '#1E3A8A' }}>
+                {academy.academyCode}
+              </div>
+              <div className="text-[10px] text-ink-secondary font-medium truncate">{academy.academyName}</div>
+            </div>
           )}
         </div>
 
-        <nav style={{ flex: 1, padding: '4px 6px' }}>
+        {/* 메뉴 */}
+        <nav className="flex-1 px-2 py-3 overflow-y-auto">
           {menus.map(m => {
             const isActive = location.pathname === m.path || (m.path !== '/admin' && location.pathname.startsWith(m.path))
+            const isMiddle = m.type === 'middle'
+
+            // 컬러 정의
+            const accent = isMiddle ? '#059669' : '#2563EB'
+            const accentDark = isMiddle ? '#065F46' : '#1E3A8A'
+            const accentBg = isMiddle ? '#ECFDF5' : '#EFF6FF'
+            const accentShadow = isMiddle ? 'rgba(16, 185, 129, 0.15)' : 'rgba(37, 99, 235, 0.12)'
+
             return (
               <div
                 key={m.path}
                 onClick={() => navigate(m.path)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 8px', borderRadius: 8, marginBottom: 2, cursor: 'pointer', background: isActive ? '#EEF2FF' : 'transparent', color: isActive ? '#3B5BDB' : '#6B7280', fontSize: 12, fontWeight: isActive ? 600 : 400 }}
+                className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg mb-1 cursor-pointer transition-all"
+                style={{
+                  background: isActive ? accentBg : 'transparent',
+                  color: isActive ? accentDark : '#6B7280',
+                  fontWeight: isActive ? 700 : 500,
+                  boxShadow: isActive ? `0 2px 8px ${accentShadow}` : 'none',
+                }}
+                onMouseEnter={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = accentBg
+                    e.currentTarget.style.color = accentDark
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = '#6B7280'
+                  }
+                }}
               >
-                <span style={{ fontSize: 14, flexShrink: 0 }}>{m.icon}</span>
-                {m.label}
+                <span className="text-sm flex-shrink-0">{m.icon}</span>
+                <span className="text-[12.5px]">{m.label}</span>
+                {isActive && (
+                  <div
+                    className="ml-auto w-1 h-4 rounded-full"
+                    style={{ background: accent }}
+                  />
+                )}
               </div>
             )
           })}
         </nav>
 
-        <div style={{ padding: '10px 6px', borderTop: '0.5px solid #E5E7EB' }}>
-          <div onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 8px', borderRadius: 8, cursor: 'pointer', color: '#6B7280', fontSize: 12 }}>
-            <span style={{ fontSize: 14 }}>🚪</span>
+        {/* 로그아웃 */}
+        <div className="p-2 border-t border-line-light">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-ink-secondary text-[12.5px] font-medium hover:bg-red-50 hover:text-red-500 transition-colors"
+          >
+            <span className="text-sm">🚪</span>
             로그아웃
-          </div>
+          </button>
+        </div>
+
+        {/* Footer */}
+        <div className="px-3 pb-3 pt-1 text-[9px] text-ink-muted text-center font-medium">
+          © 2026 Inroad
         </div>
       </div>
 
-      {/* 메인 */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+      {/* 메인 영역 */}
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+
         {/* GNB */}
-        <div style={{ height: 50, background: '#fff', borderBottom: '0.5px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>인로드</div>
-            <span style={{ fontSize: 11, color: '#fff', background: isOwner ? '#3B5BDB' : '#6B7280', padding: '2px 8px', borderRadius: 99 }}>
+        <div className="h-12 bg-white border-b border-line flex items-center justify-between px-6 flex-shrink-0">
+          {/* 학원명만 */}
+          <div className="flex items-center gap-2">
+            {academy.academyName ? (
+              <span
+                className="text-[13px] font-bold px-3 py-1 rounded-full"
+                style={{
+                  color: '#1E3A8A',
+                  background: '#EFF6FF',
+                  border: '1px solid rgba(147, 197, 253, 0.6)',
+                }}
+              >
+                🏫 {academy.academyName}
+              </span>
+            ) : (
+              <span className="text-[13px] font-semibold text-ink-secondary">학원 정보 없음</span>
+            )}
+            <span
+              className="text-[10px] font-bold text-white px-2 py-0.5 rounded-full"
+              style={{
+                background: isOwner ? '#2563EB' : '#6B7280',
+              }}
+            >
               {isOwner ? '학원 관리자' : '선생님'}
             </span>
-            {academy.academyName && (
-              <span style={{ fontSize: 11, color: '#3B5BDB', background: '#EEF2FF', padding: '2px 8px', borderRadius: 99, border: '0.5px solid #BAC8FF' }}>
-                {academy.academyName}
-              </span>
-            )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ fontSize: 13, color: '#6B7280' }}>{academy.ownerName}</div>
-            <div onClick={handleLogout} style={{ fontSize: 12, color: '#6B7280', cursor: 'pointer', padding: '5px 12px', border: '0.5px solid #E5E7EB', borderRadius: 6 }}>로그아웃</div>
+
+          <div className="flex items-center gap-3">
+            {/* 프로필 */}
+            <div className="flex items-center gap-2">
+              <div
+                className="w-7 h-7 rounded-full text-white flex items-center justify-center text-[11px] font-extrabold"
+                style={{
+                  background: 'linear-gradient(135deg, #1E3A8A, #2563EB)',
+                }}
+              >
+                {academy.ownerName?.[0] || '?'}
+              </div>
+              <span className="text-[13px] font-semibold text-ink">{academy.ownerName}님</span>
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="text-[12px] font-medium text-ink-secondary px-3 py-1.5 border border-line rounded-md hover:border-blue-300 hover:text-blue-700 transition-all"
+            >
+              로그아웃
+            </button>
           </div>
         </div>
 
         {/* 콘텐츠 */}
-        <div style={{ flex: 1, overflowY: 'scroll', overflowX: 'hidden', scrollbarWidth: 'thin', scrollbarColor: '#E5E7EB transparent' }}>
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
           <Outlet />
         </div>
       </div>

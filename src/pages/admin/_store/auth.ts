@@ -22,6 +22,29 @@ export interface IAcademy {
   ownerName: string | undefined
   role: 'OWNER' | 'TEACHER'
   teacherId: number | undefined
+  plans: ('high' | 'middle')[]
+}
+
+const DEFAULT_ACADEMY: IAcademy = {
+  academyCode: undefined,
+  academyName: undefined,
+  ownerName: undefined,
+  role: 'OWNER',
+  teacherId: undefined,
+  plans: ['high', 'middle'],
+}
+
+// 캐시된 academyInfo에 plans 없으면 자동으로 기본값 병합
+const savedAcademy = localStorage.getItem('academyInfo')
+if (savedAcademy) {
+  try {
+    const parsed = JSON.parse(savedAcademy)
+    if (!parsed.plans) {
+      localStorage.setItem('academyInfo', JSON.stringify({ ...parsed, plans: ['high', 'middle'] }))
+    }
+  } catch {
+    localStorage.removeItem('academyInfo')
+  }
 }
 
 export const tokenState = atomWithStorage<IToken>('adminToken', {
@@ -29,13 +52,7 @@ export const tokenState = atomWithStorage<IToken>('adminToken', {
   expiresIn: undefined,
 })
 
-export const academyState = atomWithStorage<IAcademy>('academyInfo', {
-  academyCode: undefined,
-  academyName: undefined,
-  ownerName: undefined,
-  role: 'OWNER',
-  teacherId: undefined,
-})
+export const academyState = atomWithStorage<IAcademy>('academyInfo', DEFAULT_ACADEMY)
 
 export const teachersState = atomWithStorage<ITeacher[]>('teachers', [
   { id: 1, name: '김선생', email: 'kim.teacher@example.com', phone: '010-1111-2222', role: 'TEACHER', status: '활성', assignedStudents: [1, 2, 3, 4, 5], joinDate: '2025-01-15' },

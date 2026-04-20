@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { academyState, teachersState } from '../../_store/auth'
 import { useState } from 'react'
 
-const ALL_STUDENTS = [
+const HIGH_STUDENTS = [
   { id: 1, name: '김민준', grade: '고2', month: '4~5월', pct: 25, files: 2 },
   { id: 2, name: '이수현', grade: '고3', month: '7~8월', pct: 75, files: 5 },
   { id: 3, name: '박지호', grade: '고1', month: '1~2월', pct: 100, files: 3 },
@@ -24,16 +24,19 @@ const ALL_STUDENTS = [
   { id: 18, name: '조아현', grade: '고3', month: '10~11월', pct: 95, files: 7 },
   { id: 19, name: '임태준', grade: '고2', month: '4~5월', pct: 30, files: 1 },
   { id: 20, name: '노지은', grade: '고1', month: '3월', pct: 65, files: 2 },
-  { id: 21, name: '서동현', grade: '고3', month: '12월', pct: 98, files: 8 },
-  { id: 22, name: '남지수', grade: '고2', month: '7~8월', pct: 65, files: 3 },
-  { id: 23, name: '황민준', grade: '고1', month: '4~5월', pct: 15, files: 0 },
-  { id: 24, name: '송아영', grade: '고3', month: '9월', pct: 82, files: 5 },
-  { id: 25, name: '류지호', grade: '고2', month: '6월', pct: 50, files: 2 },
-  { id: 26, name: '채은지', grade: '고1', month: '3월', pct: 75, files: 2 },
-  { id: 27, name: '변성훈', grade: '고3', month: '7~8월', pct: 88, files: 6 },
-  { id: 28, name: '도하은', grade: '고2', month: '4~5월', pct: 42, files: 1 },
-  { id: 29, name: '엄재영', grade: '고1', month: '1~2월', pct: 100, files: 3 },
-  { id: 30, name: '방지수', grade: '고3', month: '10~11월', pct: 92, files: 7 },
+]
+
+const MIDDLE_STUDENTS = [
+  { id: 101, name: '김서아', grade: '중2', month: '4월', pct: 30, files: 1 },
+  { id: 102, name: '이준혁', grade: '중3', month: '6월', pct: 65, files: 3 },
+  { id: 103, name: '박민아', grade: '중1', month: '3월', pct: 20, files: 0 },
+  { id: 104, name: '최현우', grade: '중2', month: '5월', pct: 50, files: 2 },
+  { id: 105, name: '정수빈', grade: '중3', month: '8월', pct: 80, files: 4 },
+  { id: 106, name: '강지유', grade: '중1', month: '2월', pct: 10, files: 0 },
+  { id: 107, name: '윤채원', grade: '중2', month: '4월', pct: 45, files: 2 },
+  { id: 108, name: '임도윤', grade: '중3', month: '9월', pct: 90, files: 5 },
+  { id: 109, name: '한지민', grade: '중1', month: '3월', pct: 15, files: 0 },
+  { id: 110, name: '오서현', grade: '중2', month: '6월', pct: 55, files: 2 },
 ]
 
 export default function Dashboard() {
@@ -43,16 +46,44 @@ export default function Dashboard() {
   const [copied, setCopied] = useState(false)
 
   const isOwner = academy.role === 'OWNER'
+  const plans = academy.plans || ['high']
+  const showHigh = plans.includes('high')
+  const showMiddle = plans.includes('middle')
+  const showBothTabs = showHigh && showMiddle
+
+  const defaultTab = showHigh ? 'high' : 'middle'
+  const [schoolTab, setSchoolTab] = useState<'high' | 'middle'>(defaultTab)
+
+  const isMiddle = schoolTab === 'middle'
+
+  // 동적 컬러 (중등=초록, 고등=파랑)
+  const theme = isMiddle ? {
+    accent: '#059669',
+    accentDark: '#065F46',
+    accentBg: '#ECFDF5',
+    accentBorder: '#6EE7B7',
+    accentShadow: 'rgba(16, 185, 129, 0.15)',
+    gradient: 'linear-gradient(135deg, #065F46, #10B981)',
+  } : {
+    accent: '#2563EB',
+    accentDark: '#1E3A8A',
+    accentBg: '#EFF6FF',
+    accentBorder: '#93C5FD',
+    accentShadow: 'rgba(37, 99, 235, 0.15)',
+    gradient: 'linear-gradient(135deg, #1E3A8A, #2563EB)',
+  }
+
+  const allStudents = isMiddle ? MIDDLE_STUDENTS : HIGH_STUDENTS
 
   const myStudents = isOwner
-    ? ALL_STUDENTS
-    : ALL_STUDENTS.filter(s => {
+    ? allStudents
+    : allStudents.filter(s => {
         const myTeacher = teachers.find(t => t.id === academy.teacherId)
         return myTeacher?.assignedStudents.includes(s.id)
       })
 
   const assignedIds = teachers.flatMap(t => t.assignedStudents)
-  const unassignedStudents = ALL_STUDENTS.filter(s => !assignedIds.includes(s.id))
+  const unassignedStudents = allStudents.filter(s => !assignedIds.includes(s.id))
   const recentStudents = myStudents.slice(0, 20)
 
   const handleCopy = () => {
@@ -69,106 +100,227 @@ export default function Dashboard() {
   ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 50px)', background: '#F8F7F5' }}>
-      <div style={{ flex: 1, padding: '28px 32px' }}>
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 20, fontWeight: 500, color: '#1a1a1a', marginBottom: 3 }}>대시보드</div>
-          <div style={{ fontSize: 12, color: '#6B7280' }}>
+    <div className="flex flex-col min-h-[calc(100vh-50px)] bg-[#F8FAFC] font-sans text-ink">
+
+      <div className="flex-1 px-8 py-7">
+
+        {/* 헤더 */}
+        <div className="mb-6">
+          <div className="text-[22px] font-extrabold text-ink tracking-tight mb-1">대시보드</div>
+          <div className="text-[13px] text-ink-secondary font-medium">
             {isOwner ? '학원 전체 현황을 한눈에 확인하세요.' : `${academy.ownerName}님의 담당 학생 현황이에요.`}
           </div>
         </div>
 
+        {/* 고등/중등 탭 */}
+        {showBothTabs && (
+          <div className="flex gap-0 mb-5 bg-gray-100 rounded-xl p-1 w-fit">
+            <button
+              onClick={() => setSchoolTab('high')}
+              className="px-5 py-2 rounded-lg text-[13px] transition-all"
+              style={{
+                fontWeight: schoolTab === 'high' ? 700 : 500,
+                background: schoolTab === 'high' ? '#fff' : 'transparent',
+                color: schoolTab === 'high' ? '#2563EB' : '#6B7280',
+                boxShadow: schoolTab === 'high' ? '0 2px 8px rgba(15, 23, 42, 0.08)' : 'none',
+              }}
+            >
+              🌊 고등
+            </button>
+            <button
+              onClick={() => setSchoolTab('middle')}
+              className="px-5 py-2 rounded-lg text-[13px] transition-all"
+              style={{
+                fontWeight: schoolTab === 'middle' ? 700 : 500,
+                background: schoolTab === 'middle' ? '#fff' : 'transparent',
+                color: schoolTab === 'middle' ? '#059669' : '#6B7280',
+                boxShadow: schoolTab === 'middle' ? '0 2px 8px rgba(15, 23, 42, 0.08)' : 'none',
+              }}
+            >
+              🌱 중등
+            </button>
+          </div>
+        )}
+
         {/* 미배정 학생 알림 - 원장만 */}
         {isOwner && unassignedStudents.length > 0 && (
-          <div onClick={() => navigate('/admin/settings?tab=teachers')}
-            style={{ background: '#EEF2FF', border: '0.5px solid #BAC8FF', borderRadius: 10, padding: '12px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 16 }}>⚠️</span>
+          <div
+            onClick={() => navigate('/admin/settings?tab=teachers')}
+            className="rounded-xl px-5 py-3.5 mb-4 flex items-center justify-between cursor-pointer transition-all hover:-translate-y-px"
+            style={{
+              background: theme.accentBg,
+              border: `1px solid ${theme.accentBorder}60`,
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-lg">⚠️</span>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: '#1E3A8A' }}>미배정 학생이 {unassignedStudents.length}명 있어요!</div>
-                <div style={{ fontSize: 11, color: '#1E3A8A', marginTop: 2 }}>학원 설정 → 선생님 관리에서 담당 선생님을 배정해주세요.</div>
+                <div className="text-[13px] font-bold text-ink">
+                  {isMiddle ? '중등' : '고등'} 미배정 학생이 {unassignedStudents.length}명 있어요!
+                </div>
+                <div className="text-[11px] text-ink-secondary font-medium mt-0.5">
+                  학원 설정 → 선생님 관리에서 담당 선생님을 배정해주세요.
+                </div>
               </div>
             </div>
-            <span style={{ fontSize: 12, color: '#3B5BDB' }}>배정하러 가기 →</span>
+            <span className="text-[12px] font-bold" style={{ color: theme.accent }}>배정하러 가기 →</span>
           </div>
         )}
 
         {/* 학원 코드 - 원장만 */}
         {isOwner && (
-          <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, padding: '16px 20px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="bg-white border border-line rounded-2xl px-6 py-5 mb-4 flex items-center justify-between shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
             <div>
-              <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 4 }}>학원 코드</div>
-              <div style={{ fontSize: 22, fontWeight: 500, color: '#3B5BDB', letterSpacing: '0.1em' }}>{academy.academyCode}</div>
-              <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>학생들에게 이 코드를 공유해주세요</div>
+              <div className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-1">학원 코드</div>
+              <div
+                className="text-[26px] font-extrabold tracking-[0.1em] mb-1"
+                style={{ color: theme.accent }}
+              >
+                {academy.academyCode}
+              </div>
+              <div className="text-[11px] text-ink-secondary font-medium">학생들에게 이 코드를 공유해주세요</div>
             </div>
-            <button onClick={handleCopy} style={{ padding: '8px 16px', background: copied ? '#059669' : '#3B5BDB', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, cursor: 'pointer' }}>
-              {copied ? '✓ 복사됨!' : '코드 복사'}
+            <button
+              onClick={handleCopy}
+              className="h-10 px-5 text-white rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px"
+              style={{
+                background: copied ? '#059669' : theme.accent,
+                boxShadow: `0 4px 12px ${copied ? 'rgba(16, 185, 129, 0.3)' : theme.accentShadow}`,
+              }}
+            >
+              {copied ? '✓ 복사됨!' : '📋 코드 복사'}
             </button>
           </div>
         )}
 
         {/* 요약 카드 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 24 }}>
+        <div className="grid grid-cols-4 max-md:grid-cols-2 gap-3 mb-6">
           {stats.map((s, i) => (
-            <div key={i} style={{ background: s.accent ? '#3B5BDB' : '#fff', border: `0.5px solid ${s.accent ? '#3B5BDB' : '#E5E7EB'}`, borderRadius: 12, padding: '16px 18px' }}>
-              <div style={{ fontSize: 11, color: s.accent ? 'rgba(255,255,255,0.8)' : '#6B7280', marginBottom: 5 }}>{s.label}</div>
-              <div style={{ fontSize: 22, fontWeight: 500, color: s.accent ? '#fff' : '#1a1a1a' }}>{s.val}</div>
+            <div
+              key={i}
+              className="rounded-2xl px-5 py-4 transition-all hover:-translate-y-0.5"
+              style={{
+                background: s.accent ? theme.gradient : '#fff',
+                border: s.accent ? 'none' : '1px solid #E5E7EB',
+                boxShadow: s.accent
+                  ? `0 8px 24px ${theme.accentShadow}`
+                  : '0 2px 8px rgba(15, 23, 42, 0.04)',
+              }}
+            >
+              <div
+                className="text-[11px] font-semibold mb-1.5"
+                style={{ color: s.accent ? 'rgba(255, 255, 255, 0.8)' : '#6B7280' }}
+              >
+                {s.label}
+              </div>
+              <div
+                className="text-[26px] font-extrabold tracking-tight"
+                style={{ color: s.accent ? '#fff' : '#1a1a1a' }}
+              >
+                {s.val}
+              </div>
             </div>
           ))}
         </div>
 
         {/* 학생 목록 */}
-        <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ padding: '16px 20px', borderBottom: '0.5px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="bg-white border border-line rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
+          <div className="px-6 py-4 border-b border-line flex items-center justify-between">
             <div>
-              <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a1a' }}>최근 학생</div>
-              <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
-                {isOwner ? '최근 등록된 학생 20명' : `담당 학생 ${myStudents.length}명`}
+              <div className="text-[15px] font-bold text-ink tracking-tight">
+                최근 {isMiddle ? '중등' : '고등'} 학생
+              </div>
+              <div className="text-[11px] text-ink-secondary font-medium mt-0.5">
+                {isOwner ? `최근 등록된 ${isMiddle ? '중등' : '고등'} 학생 20명` : `담당 학생 ${myStudents.length}명`}
               </div>
             </div>
-            <button onClick={() => navigate('/admin/students')} style={{ fontSize: 12, color: '#3B5BDB', border: '0.5px solid #3B5BDB', background: '#fff', padding: '5px 12px', borderRadius: 99, cursor: 'pointer' }}>
+            <button
+              onClick={() => navigate(isMiddle ? '/admin/middle-students' : '/admin/students')}
+              className="text-[12px] font-bold px-3.5 py-1.5 border rounded-full transition-all hover:-translate-y-px"
+              style={{
+                color: theme.accent,
+                borderColor: theme.accent,
+                background: '#fff',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = theme.accentBg
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = '#fff'
+              }}
+            >
               전체 보기 →
             </button>
           </div>
 
           {recentStudents.length === 0 ? (
-            <div style={{ padding: '40px', textAlign: 'center', fontSize: 13, color: '#6B7280' }}>
-              담당 학생이 없어요. 원장님께 학생 배정을 요청해주세요.
+            <div className="px-10 py-10 text-center">
+              <div className="text-3xl mb-2">📋</div>
+              <div className="text-[13px] text-ink-secondary font-medium">
+                담당 학생이 없어요. 원장님께 학생 배정을 요청해주세요.
+              </div>
             </div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className="w-full border-collapse">
               <thead>
-                <tr style={{ background: '#F8F7F5' }}>
+                <tr className="bg-[#F8FAFC]">
                   {['학생', '학년', '현재 월', '진행률', '파일'].map((h, i) => (
-                    <th key={i} style={{ padding: '10px 20px', fontSize: 11, color: '#6B7280', fontWeight: 500, textAlign: 'left', borderBottom: '0.5px solid #E5E7EB' }}>{h}</th>
+                    <th
+                      key={i}
+                      className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line"
+                    >
+                      {h}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {recentStudents.map((s, i) => (
-                  <tr key={s.id} onClick={() => navigate(`/admin/students/${s.id}`)}
-                    style={{ borderBottom: i < recentStudents.length - 1 ? '0.5px solid #E5E7EB' : 'none', cursor: 'pointer' }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#FAFAFA'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <td style={{ padding: '12px 20px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#3B5BDB', fontWeight: 500 }}>{s.name[0]}</div>
-                        <div style={{ fontSize: 13, color: '#1a1a1a' }}>{s.name}</div>
-                      </div>
-                    </td>
-                    <td style={{ padding: '12px 20px' }}>
-                      <span style={{ fontSize: 12, color: '#6B7280', background: '#F3F4F6', padding: '2px 8px', borderRadius: 99 }}>{s.grade}</span>
-                    </td>
-                    <td style={{ padding: '12px 20px', fontSize: 12, color: '#1a1a1a' }}>{s.month}</td>
-                    <td style={{ padding: '12px 20px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ width: 80, height: 4, background: '#F3F4F6', borderRadius: 99, overflow: 'hidden' }}>
-                          <div style={{ width: `${s.pct}%`, height: '100%', background: s.pct === 100 ? '#059669' : '#3B5BDB', borderRadius: 99 }} />
+                  <tr
+                    key={s.id}
+                    onClick={() => navigate(isMiddle ? `/admin/middle-students/${s.id}` : `/admin/students/${s.id}`)}
+                    className="cursor-pointer transition-colors hover:bg-gray-50"
+                    style={{
+                      borderBottom: i < recentStudents.length - 1 ? '1px solid #F1F5F9' : 'none',
+                    }}
+                  >
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-bold text-white"
+                          style={{ background: theme.gradient }}
+                        >
+                          {s.name[0]}
                         </div>
-                        <span style={{ fontSize: 12, color: '#6B7280' }}>{s.pct}%</span>
+                        <div className="text-[13px] font-semibold text-ink">{s.name}</div>
                       </div>
                     </td>
-                    <td style={{ padding: '12px 20px', fontSize: 12, color: '#6B7280' }}>{s.files}개</td>
+                    <td className="px-5 py-3">
+                      <span className="text-[11px] font-bold text-ink-secondary bg-gray-100 px-2.5 py-1 rounded-full">
+                        {s.grade}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-[13px] font-semibold text-ink">{s.month}</td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-[100px] h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${s.pct}%`,
+                              color: theme.accent,
+                            }}
+                          />
+                        </div>
+                        <span
+                          className="text-[12px] font-bold"
+                          style={{ color: theme.accent }}
+                        >
+                          {s.pct}%
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3 text-[12px] font-semibold text-ink-secondary">{s.files}개</td>
                   </tr>
                 ))}
               </tbody>
@@ -178,14 +330,14 @@ export default function Dashboard() {
       </div>
 
       {/* Footer */}
-      <div style={{ background: '#fff', borderTop: '0.5px solid #E5E7EB', padding: '12px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <div style={{ fontSize: 11, color: '#6B7280' }}>인로드 학원 관리 서비스</div>
-        <div style={{ display: 'flex', gap: 14 }}>
-          <span style={{ fontSize: 11, color: '#6B7280', cursor: 'pointer' }}>이용약관</span>
-          <span style={{ fontSize: 11, color: '#6B7280', cursor: 'pointer' }}>개인정보처리방침</span>
-          <span style={{ fontSize: 11, color: '#6B7280', cursor: 'pointer' }}>고객센터</span>
+      <div className="bg-white border-t border-line px-8 py-3.5 flex items-center justify-between flex-shrink-0">
+        <div className="text-[11px] text-ink-muted font-medium">인로드 학원 관리 서비스</div>
+        <div className="flex gap-4">
+          <button className="text-[11px] text-ink-muted font-medium hover:text-brand-dark transition-colors">이용약관</button>
+          <button className="text-[11px] text-ink-muted font-medium hover:text-brand-dark transition-colors">개인정보처리방침</button>
+          <button className="text-[11px] text-ink-muted font-medium hover:text-brand-dark transition-colors">고객센터</button>
         </div>
-        <div style={{ fontSize: 10, color: '#6B7280' }}>© 2026 Inroad. All rights reserved.</div>
+        <div className="text-[10px] text-ink-muted font-medium">© 2026 Inroad. All rights reserved.</div>
       </div>
     </div>
   )

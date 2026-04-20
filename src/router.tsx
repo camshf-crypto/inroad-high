@@ -11,19 +11,34 @@ import Academy from './pages/admin/_pages/academy/Academy'
 import Billing from './pages/admin/_pages/billing/Billing'
 import Settings from './pages/admin/_pages/settings/Settings'
 
-// Student
-import StudentLayout from './pages/student/_layout/Layout'
-import StudentLogin from './pages/student/_pages/login/Login'
-import StudentSignup from './pages/student/_pages/signup/index'
-import Roadmap from './pages/student/_pages/roadmap/Roadmap'
-import TopicList from './pages/student/_pages/topic/TopicList'
-import BookList from './pages/student/_pages/book/BookList'
-import Connect from './pages/student/_pages/connect/Connect'
-import Expect from './pages/student/_pages/expect/Expect'
-import Past from './pages/student/_pages/past/Past'
-import Simulation from './pages/student/_pages/simulation/Simulation'
-import Presentation from './pages/student/_pages/presentation/Presentation'
-import Major from './pages/student/_pages/major/Major'
+// High Student
+import StudentLayout from './pages/high-student/_layout/Layout'
+import StudentLogin from './pages/high-student/_pages/login/Login'
+import StudentSignup from './pages/high-student/_pages/signup/index'
+import Roadmap from './pages/high-student/_pages/roadmap/Roadmap'
+import TopicList from './pages/high-student/_pages/topic/TopicList'
+import BookList from './pages/high-student/_pages/book/BookList'
+import Connect from './pages/high-student/_pages/connect/Connect'
+import Expect from './pages/high-student/_pages/expect/Expect'
+import Past from './pages/high-student/_pages/past/Past'
+import Simulation from './pages/high-student/_pages/simulation/Simulation'
+import Presentation from './pages/high-student/_pages/presentation/Presentation'
+import Major from './pages/high-student/_pages/major/Major'
+import Record from './pages/high-student/_pages/record/record'
+import MockExam from './pages/high-student/_pages/mockexam/mockexam'
+
+// Middle Student
+import MiddleLayout from './pages/middle-student/_layout/Layout'
+import MiddleLogin from './pages/middle-student/_pages/login/Login'
+import MiddleSignup from './pages/middle-student/_pages/signup/index'
+import MiddleRoadmap from './pages/middle-student/_pages/roadmap/Roadmap'
+import MiddleLesson from './pages/middle-student/_pages/lesson/Lesson'
+import MiddleHomework from './pages/middle-student/_pages/homework/Homework'
+import MiddleBookList from './pages/middle-student/_pages/book/BookList'
+import MiddleExpect from './pages/middle-student/_pages/expect/Expect'
+import MiddlePast from './pages/middle-student/_pages/past/Past'
+import MiddleSimulation from './pages/middle-student/_pages/simulation/Simulation'
+import MiddlePresentation from './pages/middle-student/_pages/presentation/Presentation'
 
 const router = createBrowserRouter([
   {
@@ -41,6 +56,8 @@ const router = createBrowserRouter([
           { path: '', element: <Dashboard /> },
           { path: 'students', element: <Students /> },
           { path: 'students/:id', element: <StudentDetail /> },
+          { path: 'middle-students', element: <Students /> },
+          { path: 'middle-students/:id', element: <StudentDetail /> },
           { path: 'academy', element: <Academy /> },
           { path: 'billing', element: <Billing /> },
           { path: 'settings', element: <Settings /> },
@@ -60,6 +77,8 @@ const router = createBrowserRouter([
           { path: 'roadmap', element: <Roadmap /> },
           { path: 'topic', element: <TopicList /> },
           { path: 'book', element: <BookList /> },
+          { path: 'record', element: <Record /> },
+          { path: 'mockexam', element: <MockExam /> },
           { path: 'connect', element: <Connect /> },
           { path: 'expect', element: <Expect /> },
           { path: 'past', element: <Past /> },
@@ -68,6 +87,27 @@ const router = createBrowserRouter([
           { path: 'major', element: <Major /> },
           { path: 'major/grade', element: <Major /> },
           { path: 'major/chapter', element: <Major /> },
+        ]
+      }
+    ]
+  },
+  {
+    path: 'middle-student',
+    children: [
+      { path: 'login', element: <MiddleLogin /> },
+      { path: 'signup', element: <MiddleSignup /> },
+      {
+        path: '',
+        element: <MiddleLayout />,
+        children: [
+          { path: 'roadmap', element: <MiddleRoadmap /> },
+          { path: 'lesson', element: <MiddleLesson /> },
+          { path: 'homework', element: <MiddleHomework /> },
+          { path: 'book', element: <MiddleBookList /> },
+          { path: 'expect', element: <MiddleExpect /> },
+          { path: 'past', element: <MiddlePast /> },
+          { path: 'simulation', element: <MiddleSimulation /> },
+          { path: 'presentation', element: <MiddlePresentation /> },
         ]
       }
     ]
