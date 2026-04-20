@@ -49,9 +49,9 @@ import MasterAcademyDetail from './pages/master/_pages/academies/detail/AcademyD
 import MasterBilling from './pages/master/_pages/billing/Billing'
 import MasterNotices from './pages/master/_pages/notices/Notices'
 import MasterData from './pages/master/_pages/data/Data'
-// 🆕 신규
 import MasterAudit from './pages/master/_pages/audit/Audit'
 import MasterStaff from './pages/master/_pages/staff/Staff'
+import MasterLessons from './pages/master/_pages/lessons/Lessons'
 
 const router = createBrowserRouter([
   {
@@ -137,10 +137,10 @@ const router = createBrowserRouter([
           { path: '', element: <MasterDashboard /> },
           { path: 'academies', element: <MasterAcademies /> },
           { path: 'academies/:id', element: <MasterAcademyDetail /> },
+          { path: 'lessons', element: <MasterLessons /> },
           { path: 'billing', element: <MasterBilling /> },
           { path: 'notices', element: <MasterNotices /> },
           { path: 'data', element: <MasterData /> },
-          // 🆕 신규
           { path: 'audit', element: <MasterAudit /> },
           { path: 'staff', element: <MasterStaff /> },
         ]

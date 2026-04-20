@@ -14,6 +14,7 @@ const THEME = {
 const MENU = [
   { path: '/master', label: '대시보드', icon: '📊' },
   { path: '/master/academies', label: '학원 관리', icon: '🏫' },
+  { path: '/master/lessons', label: '강의 영상', icon: '🎬' },
   { path: '/master/billing', label: '매출 관리', icon: '💰' },
   { path: '/master/notices', label: '공지사항', icon: '📢' },
   { path: '/master/data', label: '데이터 웨어하우스', icon: '🗄️' },
