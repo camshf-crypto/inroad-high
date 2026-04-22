@@ -14,7 +14,16 @@ export default {
           'gradient-start': '#1E40AF',
           'gradient-end': '#3B82F6',
         },
-        // 초록 (중학생)
+        // 🔵 고등 (파랑) - brand-middle과 동일 구조로 추가!
+        'brand-high': {
+          DEFAULT: '#2563EB',
+          hover: '#1D4ED8',
+          dark: '#1E3A8A',
+          light: '#93C5FD',
+          bg: '#DBEAFE',
+          pale: '#EFF6FF',
+        },
+        // 🟢 중등 (초록)
         'brand-middle': {
           DEFAULT: '#10B981',
           hover: '#059669',
@@ -41,6 +50,8 @@ export default {
         'btn-primary-hover': '0 6px 16px rgba(37, 99, 235, 0.35)',
         'btn-middle': '0 4px 12px rgba(16, 185, 129, 0.25)',
         'btn-middle-hover': '0 6px 16px rgba(16, 185, 129, 0.35)',
+        'btn-high': '0 4px 12px rgba(37, 99, 235, 0.25)',
+        'btn-high-hover': '0 6px 16px rgba(37, 99, 235, 0.35)',
         'btn-secondary-hover': '0 4px 12px rgba(15, 23, 42, 0.08)',
         'mockup': '0 20px 60px rgba(15, 23, 42, 0.08)',
       },

@@ -1,13 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-const SCHOOL_TYPES = ['중학교', '고등학교']
-const GRADES_MIDDLE = ['중1', '중2', '중3']
 const GRADES_HIGH = ['고1', '고2', '고3']
 
 export default function StudentSignup() {
   const navigate = useNavigate()
-  const [step, setStep] = useState<1 | 2>(1)
+  const [step, setStep] = useState<1 | 2 | 3>(1)
 
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
@@ -17,16 +15,20 @@ export default function StudentSignup() {
   const [showPw, setShowPw] = useState(false)
   const [showPwC, setShowPwC] = useState(false)
 
-  const [schoolType, setSchoolType] = useState('')
   const [schoolName, setSchoolName] = useState('')
   const [grade, setGrade] = useState('')
   const [academyCode, setAcademyCode] = useState('')
   const [codeStatus, setCodeStatus] = useState<'idle' | 'loading' | 'ok' | 'fail'>('idle')
   const [academyName, setAcademyName] = useState('')
+
+  // 약관 동의
+  const [agreeAll, setAgreeAll] = useState(false)
+  const [agreeService, setAgreeService] = useState(false)
+  const [agreePrivacy, setAgreePrivacy] = useState(false)
+  const [agreeMarketing, setAgreeMarketing] = useState(false)
+
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-
-  const gradeOptions = schoolType === '중학교' ? GRADES_MIDDLE : schoolType === '고등학교' ? GRADES_HIGH : []
 
   const formatPhone = (val: string) => {
     const num = val.replace(/\D/g, '')
@@ -35,23 +37,33 @@ export default function StudentSignup() {
     return `${num.slice(0, 3)}-${num.slice(3, 7)}-${num.slice(7, 11)}`
   }
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%', height: 38, border: '0.5px solid #E5E7EB', borderRadius: 8,
-    padding: '0 14px', fontSize: 13, outline: 'none', boxSizing: 'border-box',
-    fontFamily: 'inherit', color: '#1a1a1a', background: '#fff',
-  }
-  const labelStyle: React.CSSProperties = {
-    fontSize: 11, fontWeight: 500, color: '#6B7280', display: 'block', marginBottom: 4,
+  const handleAgreeAll = () => {
+    const next = !agreeAll
+    setAgreeAll(next)
+    setAgreeService(next)
+    setAgreePrivacy(next)
+    setAgreeMarketing(next)
   }
 
-  const handleNextStep = () => {
+  const syncAllCheck = (s: boolean, p: boolean, m: boolean) => {
+    setAgreeAll(s && p && m)
+  }
+
+  const handleStep1Next = () => {
+    setError('')
+    if (!agreeService) return setError('필수 약관에 동의해주세요.')
+    if (!agreePrivacy) return setError('개인정보 수집 및 이용에 동의해주세요.')
+    setStep(2)
+  }
+
+  const handleStep2Next = () => {
     setError('')
     if (!name.trim()) return setError('이름을 입력해주세요.')
     if (!phone.trim() || phone.replace(/\D/g, '').length < 10) return setError('올바른 전화번호를 입력해주세요.')
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setError('올바른 이메일을 입력해주세요.')
     if (password.length < 6) return setError('비밀번호는 6자리 이상이어야 해요.')
     if (password !== passwordConfirm) return setError('비밀번호가 일치하지 않아요.')
-    setStep(2)
+    setStep(3)
   }
 
   const handleCheckCode = () => {
@@ -61,7 +73,7 @@ export default function StudentSignup() {
     setTimeout(() => {
       if (academyCode.toUpperCase() === 'ACA001') {
         setCodeStatus('ok')
-        setAcademyName('대치 인데미학원')
+        setAcademyName('대치 인로드학원')
       } else {
         setCodeStatus('fail')
         setAcademyName('')
@@ -72,264 +84,415 @@ export default function StudentSignup() {
 
   const handleSignup = () => {
     setError('')
-    if (!schoolType) return setError('학교 종류를 선택해주세요.')
     if (!schoolName.trim()) return setError('학교 이름을 입력해주세요.')
     if (!grade) return setError('학년을 선택해주세요.')
-    if (codeStatus !== 'ok') return setError('학원 코드를 먼저 확인해주세요.')
     setLoading(true)
-    // TODO: POST /api/student/signup { name, phone, email, password, schoolType, schoolName, grade, academyCode }
-    setTimeout(() => { setLoading(false); navigate('/student/login') }, 800)
+    setTimeout(() => { setLoading(false); navigate('/') }, 800)
   }
 
   const ErrBox = ({ msg }: { msg: string }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FEE2E2', borderRadius: 7, padding: '6px 10px', marginTop: 6 }}>
-      <span style={{ fontSize: 12 }}>⚠️</span>
-      <span style={{ fontSize: 11, color: '#DC2626' }}>{msg}</span>
+    <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-2">
+      <span className="text-sm">⚠️</span>
+      <span className="text-[11px] text-red-600 font-medium">{msg}</span>
     </div>
   )
 
+  const STEPS = ['약관 동의', '기본 정보', '학교 · 학원'] as const
+
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#F8F7F5' }}>
+    <div className="flex h-screen bg-white font-sans text-ink overflow-hidden">
 
-      {/* 왼쪽 폼 */}
-      <div style={{ width: 340, flexShrink: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 28px', background: '#fff', borderRight: '0.5px solid #E5E7EB', overflowY: 'auto' }}>
+      {/* 왼쪽 폼 (45%) */}
+      <div className="w-[45%] flex-shrink-0 flex flex-col bg-white border-r border-line overflow-y-auto relative">
 
-        {/* 헤더 */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#3B5BDB', marginBottom: 2 }}>인데미</div>
-          <div style={{ fontSize: 12, color: '#6B7280' }}>학생 회원가입</div>
-        </div>
-
-        {/* 스텝 인디케이터 */}
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-          {(['기본 정보', '학교 · 학원'] as const).map((label, i) => {
-            const s = i + 1
-            const done = step > s
-            const active = step === s
-            return (
-              <div key={s} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <div style={{
-                    width: 24, height: 24, borderRadius: '50%',
-                    background: done ? '#059669' : active ? '#3B5BDB' : '#E5E7EB',
-                    color: done || active ? '#fff' : '#9CA3AF',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 10, fontWeight: 700, marginBottom: 3,
-                  }}>
-                    {done ? '✓' : s}
-                  </div>
-                  <div style={{ fontSize: 10, color: done ? '#059669' : active ? '#3B5BDB' : '#9CA3AF', fontWeight: active || done ? 600 : 400, whiteSpace: 'nowrap' }}>
-                    {label}
-                  </div>
-                </div>
-                {i < 1 && <div style={{ flex: 1, height: 1.5, background: done ? '#059669' : '#E5E7EB', margin: '0 8px', marginBottom: 16 }} />}
-              </div>
-            )
-          })}
-        </div>
-
-        {/* ── STEP 1 ── */}
-        {step === 1 && (
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a1a', marginBottom: 2 }}>기본 정보 입력</div>
-            <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 12 }}>계정 정보를 입력해주세요.</div>
-
-            <div style={{ marginBottom: 8 }}>
-              <label style={labelStyle}>이름</label>
-              <input style={inputStyle} placeholder="홍길동" value={name}
-                onChange={e => { setName(e.target.value); setError('') }}
-                onFocus={e => e.target.style.borderColor = '#3B5BDB'}
-                onBlur={e => e.target.style.borderColor = '#E5E7EB'} />
+        {/* 로고 */}
+        <div className="px-9 pt-8 pb-5 flex-shrink-0 max-w-[440px] w-full mx-auto">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-high-dark to-brand-high flex items-center justify-center text-white text-[13px] font-extrabold shadow-[0_4px_12px_rgba(37,99,235,0.25)]">
+              IR
             </div>
-
-            <div style={{ marginBottom: 8 }}>
-              <label style={labelStyle}>전화번호</label>
-              <input style={inputStyle} placeholder="010-0000-0000" value={phone}
-                onChange={e => { setPhone(formatPhone(e.target.value)); setError('') }}
-                onFocus={e => e.target.style.borderColor = '#3B5BDB'}
-                onBlur={e => e.target.style.borderColor = '#E5E7EB'}
-                maxLength={13} />
-            </div>
-
-            <div style={{ marginBottom: 8 }}>
-              <label style={labelStyle}>이메일</label>
-              <input style={inputStyle} type="email" placeholder="example@email.com" value={email}
-                onChange={e => { setEmail(e.target.value); setError('') }}
-                onFocus={e => e.target.style.borderColor = '#3B5BDB'}
-                onBlur={e => e.target.style.borderColor = '#E5E7EB'} />
-            </div>
-
-            <div style={{ marginBottom: 8 }}>
-              <label style={labelStyle}>비밀번호</label>
-              <div style={{ position: 'relative' }}>
-                <input style={{ ...inputStyle, paddingRight: 50 }} type={showPw ? 'text' : 'password'}
-                  placeholder="6자리 이상" value={password}
-                  onChange={e => { setPassword(e.target.value); setError('') }}
-                  onFocus={e => e.target.style.borderColor = '#3B5BDB'}
-                  onBlur={e => e.target.style.borderColor = '#E5E7EB'} />
-                <button onClick={() => setShowPw(v => !v)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: 11 }}>
-                  {showPw ? '숨기기' : '보기'}
-                </button>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 4 }}>
-              <label style={labelStyle}>비밀번호 확인</label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  style={{ ...inputStyle, paddingRight: 50, borderColor: passwordConfirm && password !== passwordConfirm ? '#DC2626' : '#E5E7EB' }}
-                  type={showPwC ? 'text' : 'password'}
-                  placeholder="비밀번호를 다시 입력하세요" value={passwordConfirm}
-                  onChange={e => { setPasswordConfirm(e.target.value); setError('') }}
-                  onKeyDown={e => e.key === 'Enter' && handleNextStep()}
-                  onFocus={e => e.target.style.borderColor = '#3B5BDB'}
-                  onBlur={e => e.target.style.borderColor = passwordConfirm && password !== passwordConfirm ? '#DC2626' : '#E5E7EB'} />
-                <button onClick={() => setShowPwC(v => !v)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: 11 }}>
-                  {showPwC ? '숨기기' : '보기'}
-                </button>
-              </div>
-              {passwordConfirm && password !== passwordConfirm && (
-                <div style={{ fontSize: 10, color: '#DC2626', marginTop: 3 }}>비밀번호가 일치하지 않아요.</div>
-              )}
-            </div>
-
-            {error && <ErrBox msg={error} />}
-
-            <button onClick={handleNextStep} style={{
-              width: '100%', height: 42, background: '#3B5BDB', color: '#fff', border: 'none',
-              borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', marginTop: 12,
-            }}>
-              다음 →
-            </button>
-
-            <div style={{ textAlign: 'center', marginTop: 10 }}>
-              <span style={{ fontSize: 11, color: '#9CA3AF' }}>이미 계정이 있으신가요? </span>
-              <span onClick={() => navigate('/student/login')} style={{ fontSize: 11, color: '#3B5BDB', fontWeight: 600, cursor: 'pointer' }}>로그인</span>
-            </div>
+            <span className="text-[18px] font-extrabold text-brand-high-dark tracking-tight">인로드</span>
           </div>
-        )}
+        </div>
 
-        {/* ── STEP 2 ── */}
-        {step === 2 && (
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a1a', marginBottom: 2 }}>학교 · 학원 정보</div>
-            <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 12 }}>학교와 학원 정보를 입력해주세요.</div>
+        {/* 폼 */}
+        <div className="flex-1 flex flex-col justify-center px-9 pb-8 max-w-[440px] w-full mx-auto">
 
-            <div style={{ marginBottom: 10 }}>
-              <label style={labelStyle}>학교 종류</label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {SCHOOL_TYPES.map(t => (
-                  <div key={t} onClick={() => { setSchoolType(t); setGrade(''); setError('') }} style={{
-                    flex: 1, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: `1.5px solid ${schoolType === t ? '#3B5BDB' : '#E5E7EB'}`,
-                    borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                    background: schoolType === t ? '#EEF2FF' : '#fff',
-                    color: schoolType === t ? '#3B5BDB' : '#6B7280',
-                  }}>
-                    {t}
+          <div className="mb-6">
+            <div className="text-[22px] font-extrabold text-ink tracking-tight mb-1">회원가입</div>
+            <div className="text-[13px] text-ink-secondary">고등 학생 전용 서비스에 가입해주세요</div>
+          </div>
+
+          {/* 스텝 인디케이터 */}
+          <div className="flex items-start mb-7">
+            {STEPS.map((label, i) => {
+              const s = i + 1
+              const done = step > s
+              const active = step === s
+              return (
+                <div key={s} className="flex items-start flex-1">
+                  <div className="flex flex-col items-center">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold mb-1.5 transition-all ${
+                      done || active
+                        ? 'bg-brand-high text-white shadow-[0_2px_8px_rgba(37,99,235,0.3)]'
+                        : 'bg-gray-100 text-ink-muted'
+                    }`}>
+                      {done ? '✓' : s}
+                    </div>
+                    <div className={`text-[10px] whitespace-nowrap ${
+                      done || active ? 'text-brand-high-dark font-semibold' : 'text-ink-muted font-medium'
+                    }`}>
+                      {label}
+                    </div>
+                  </div>
+                  {i < STEPS.length - 1 && (
+                    <div className={`flex-1 h-px mx-2 mt-3.5 transition-all ${done ? 'bg-brand-high' : 'bg-line'}`} />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* ── STEP 1: 약관 동의 ── */}
+          {step === 1 && (
+            <div>
+              <div className="text-[15px] font-bold text-ink tracking-tight mb-1">약관 동의</div>
+              <div className="text-[12px] text-ink-secondary mb-4">서비스 이용을 위해 약관에 동의해주세요.</div>
+
+              {/* 전체 동의 */}
+              <div
+                onClick={handleAgreeAll}
+                className={`flex items-center gap-2.5 px-4 py-3.5 rounded-xl mb-3 cursor-pointer transition-all border ${
+                  agreeAll
+                    ? 'bg-brand-high-pale border-brand-high-light'
+                    : 'bg-gray-50 border-line hover:bg-brand-high-pale/40'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-md flex items-center justify-center text-[11px] text-white font-bold flex-shrink-0 transition-all ${
+                  agreeAll ? 'bg-brand-high' : 'bg-white border border-line'
+                }`}>
+                  {agreeAll ? '✓' : ''}
+                </div>
+                <span className={`text-[13px] font-bold flex-1 ${agreeAll ? 'text-brand-high-dark' : 'text-ink'}`}>
+                  전체 동의하기
+                </span>
+              </div>
+
+              {/* 개별 약관 */}
+              <div className="flex flex-col gap-0.5 px-1">
+                {[
+                  { checked: agreeService, setChecked: (v: boolean) => { setAgreeService(v); syncAllCheck(v, agreePrivacy, agreeMarketing) }, label: '서비스 이용약관 동의', required: true },
+                  { checked: agreePrivacy, setChecked: (v: boolean) => { setAgreePrivacy(v); syncAllCheck(agreeService, v, agreeMarketing) }, label: '개인정보 수집 및 이용 동의', required: true },
+                  { checked: agreeMarketing, setChecked: (v: boolean) => { setAgreeMarketing(v); syncAllCheck(agreeService, agreePrivacy, v) }, label: '마케팅 정보 수신 동의', required: false },
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-2.5 py-2">
+                    <div
+                      onClick={() => item.setChecked(!item.checked)}
+                      className={`w-[18px] h-[18px] rounded flex items-center justify-center text-[10px] text-white font-bold flex-shrink-0 cursor-pointer transition-all ${
+                        item.checked ? 'bg-brand-high' : 'bg-white border border-line hover:border-brand-high-light'
+                      }`}
+                    >
+                      {item.checked ? '✓' : ''}
+                    </div>
+                    <span
+                      onClick={() => item.setChecked(!item.checked)}
+                      className="text-[12.5px] text-ink flex-1 cursor-pointer"
+                    >
+                      {item.required && <span className="text-red-500 font-bold mr-1">[필수]</span>}
+                      {!item.required && <span className="text-ink-muted font-medium mr-1">[선택]</span>}
+                      {item.label}
+                    </span>
+                    <button className="text-[11px] text-ink-muted hover:text-brand-high-dark font-medium transition-colors">
+                      보기 →
+                    </button>
                   </div>
                 ))}
               </div>
-            </div>
 
-            <div style={{ marginBottom: 10 }}>
-              <label style={labelStyle}>학교 이름</label>
-              <input style={inputStyle} placeholder="예: 대치중학교" value={schoolName}
-                onChange={e => { setSchoolName(e.target.value); setError('') }}
-                onFocus={e => e.target.style.borderColor = '#3B5BDB'}
-                onBlur={e => e.target.style.borderColor = '#E5E7EB'} />
-            </div>
+              {error && <ErrBox msg={error} />}
 
-            <div style={{ marginBottom: 10 }}>
-              <label style={labelStyle}>학년</label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {gradeOptions.length > 0 ? gradeOptions.map(g => (
-                  <div key={g} onClick={() => { setGrade(g); setError('') }} style={{
-                    flex: 1, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: `1.5px solid ${grade === g ? '#3B5BDB' : '#E5E7EB'}`,
-                    borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                    background: grade === g ? '#EEF2FF' : '#fff',
-                    color: grade === g ? '#3B5BDB' : '#6B7280',
-                  }}>
-                    {g}
-                  </div>
-                )) : (
-                  <div style={{ fontSize: 11, color: '#9CA3AF', padding: '10px 0' }}>학교 종류를 먼저 선택해주세요.</div>
-                )}
-              </div>
-            </div>
+              <button
+                onClick={handleStep1Next}
+                className="w-full h-11 bg-brand-high hover:bg-brand-high-dark text-white rounded-lg text-[14px] font-semibold mt-6 transition-all hover:-translate-y-px shadow-[0_4px_12px_rgba(37,99,235,0.2)]"
+              >
+                다음 →
+              </button>
 
-            <div style={{ marginBottom: 6 }}>
-              <label style={labelStyle}>학원 코드</label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  style={{ ...inputStyle, flex: 1, borderColor: codeStatus === 'ok' ? '#059669' : codeStatus === 'fail' ? '#DC2626' : '#E5E7EB' }}
-                  placeholder="예: ACA001"
-                  value={academyCode}
-                  onChange={e => { setAcademyCode(e.target.value.toUpperCase()); setCodeStatus('idle'); setAcademyName(''); setError('') }}
-                  onKeyDown={e => e.key === 'Enter' && handleCheckCode()}
-                  onFocus={e => e.target.style.borderColor = '#3B5BDB'}
-                  onBlur={e => e.target.style.borderColor = codeStatus === 'ok' ? '#059669' : codeStatus === 'fail' ? '#DC2626' : '#E5E7EB'}
-                />
-                <button onClick={handleCheckCode} disabled={codeStatus === 'loading'} style={{
-                  flexShrink: 0, height: 38, padding: '0 12px',
-                  background: codeStatus === 'ok' ? '#ECFDF5' : '#F3F4F6',
-                  color: codeStatus === 'ok' ? '#059669' : '#6B7280',
-                  border: `0.5px solid ${codeStatus === 'ok' ? '#6EE7B7' : '#E5E7EB'}`,
-                  borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap' as const,
-                }}>
-                  {codeStatus === 'loading' ? '확인 중...' : codeStatus === 'ok' ? '✓ 확인됨' : '코드 확인'}
+              <div className="text-center mt-3">
+                <span className="text-[12px] text-ink-secondary">이미 계정이 있으신가요? </span>
+                <button
+                  onClick={() => navigate('/')}
+                  className="text-[12px] text-brand-high-dark font-bold hover:underline"
+                >
+                  로그인
                 </button>
               </div>
-              {codeStatus === 'ok' && academyName && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#ECFDF5', border: '0.5px solid #6EE7B7', borderRadius: 7, padding: '6px 10px', marginTop: 6 }}>
-                  <span style={{ fontSize: 12 }}>🏫</span>
-                  <span style={{ fontSize: 11, color: '#059669', fontWeight: 500 }}>{academyName}</span>
-                  <span style={{ fontSize: 11, color: '#6B7280' }}>에 연결됩니다.</span>
+            </div>
+          )}
+
+          {/* ── STEP 2: 기본 정보 ── */}
+          {step === 2 && (
+            <div>
+              <div className="text-[15px] font-bold text-ink tracking-tight mb-1">기본 정보 입력</div>
+              <div className="text-[12px] text-ink-secondary mb-4">계정 정보를 입력해주세요.</div>
+
+              <div className="flex flex-col gap-3">
+
+                <div>
+                  <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">이름</label>
+                  <input
+                    value={name}
+                    onChange={e => { setName(e.target.value); setError('') }}
+                    placeholder="홍길동"
+                    className="w-full h-10 px-3.5 border border-line rounded-lg text-[13px] focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted"
+                  />
                 </div>
-              )}
-            </div>
 
-            {error && <ErrBox msg={error} />}
+                <div>
+                  <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">전화번호</label>
+                  <input
+                    value={phone}
+                    onChange={e => { setPhone(formatPhone(e.target.value)); setError('') }}
+                    placeholder="010-0000-0000"
+                    maxLength={13}
+                    className="w-full h-10 px-3.5 border border-line rounded-lg text-[13px] focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted"
+                  />
+                </div>
 
-            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-              <button onClick={() => { setStep(1); setError('') }} style={{
-                flex: 1, height: 42, background: '#fff', color: '#6B7280',
-                border: '0.5px solid #E5E7EB', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer',
-              }}>
-                ← 이전
-              </button>
-              <button onClick={handleSignup} disabled={loading} style={{
-                flex: 2, height: 42, background: loading ? '#BAC8FF' : '#3B5BDB', color: '#fff',
-                border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500,
-                cursor: loading ? 'not-allowed' : 'pointer',
-              }}>
-                {loading ? '가입 중...' : '가입 완료'}
-              </button>
+                <div>
+                  <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">이메일</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => { setEmail(e.target.value); setError('') }}
+                    placeholder="example@email.com"
+                    className="w-full h-10 px-3.5 border border-line rounded-lg text-[13px] focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">비밀번호</label>
+                  <div className="relative">
+                    <input
+                      type={showPw ? 'text' : 'password'}
+                      value={password}
+                      onChange={e => { setPassword(e.target.value); setError('') }}
+                      placeholder="6자리 이상"
+                      className="w-full h-10 pl-3.5 pr-14 border border-line rounded-lg text-[13px] focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted"
+                    />
+                    <button
+                      onClick={() => setShowPw(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-ink-muted hover:text-brand-high-dark font-medium transition-colors"
+                    >
+                      {showPw ? '숨기기' : '보기'}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">비밀번호 확인</label>
+                  <div className="relative">
+                    <input
+                      type={showPwC ? 'text' : 'password'}
+                      value={passwordConfirm}
+                      onChange={e => { setPasswordConfirm(e.target.value); setError('') }}
+                      onKeyDown={e => e.key === 'Enter' && handleStep2Next()}
+                      placeholder="비밀번호를 다시 입력하세요"
+                      className={`w-full h-10 pl-3.5 pr-14 border rounded-lg text-[13px] focus:outline-none focus:ring-2 transition-all placeholder:text-ink-muted ${
+                        passwordConfirm && password !== passwordConfirm
+                          ? 'border-red-400 focus:border-red-500 focus:ring-red-500/10'
+                          : 'border-line focus:border-brand-high focus:ring-brand-high/10'
+                      }`}
+                    />
+                    <button
+                      onClick={() => setShowPwC(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-ink-muted hover:text-brand-high-dark font-medium transition-colors"
+                    >
+                      {showPwC ? '숨기기' : '보기'}
+                    </button>
+                  </div>
+                  {passwordConfirm && password !== passwordConfirm && (
+                    <div className="text-[10px] text-red-500 mt-1 font-medium">비밀번호가 일치하지 않아요.</div>
+                  )}
+                </div>
+
+              </div>
+
+              {error && <ErrBox msg={error} />}
+
+              <div className="flex gap-2 mt-5">
+                <button
+                  onClick={() => { setStep(1); setError('') }}
+                  className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:border-brand-high-light hover:text-brand-high-dark transition-all"
+                >
+                  ← 이전
+                </button>
+                <button
+                  onClick={handleStep2Next}
+                  className="flex-[2] h-11 bg-brand-high hover:bg-brand-high-dark text-white rounded-lg text-[13px] font-semibold transition-all hover:-translate-y-px shadow-[0_4px_12px_rgba(37,99,235,0.2)]"
+                >
+                  다음 →
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* ── STEP 3: 학교 · 학원 ── */}
+          {step === 3 && (
+            <div>
+              <div className="text-[15px] font-bold text-ink tracking-tight mb-1">학교 · 학원 정보</div>
+              <div className="text-[12px] text-ink-secondary mb-4">학교와 학원 정보를 입력해주세요.</div>
+
+              <div className="flex flex-col gap-3">
+
+                {/* 고등학교 이름 */}
+                <div>
+                  <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">고등학교 이름 🎓</label>
+                  <input
+                    value={schoolName}
+                    onChange={e => { setSchoolName(e.target.value); setError('') }}
+                    placeholder="예: 대치고등학교"
+                    className="w-full h-10 px-3.5 border border-line rounded-lg text-[13px] focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted"
+                  />
+                </div>
+
+                {/* 학년 - 고1/고2/고3만 */}
+                <div>
+                  <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">학년</label>
+                  <div className="flex gap-2">
+                    {GRADES_HIGH.map(g => (
+                      <button
+                        key={g}
+                        onClick={() => { setGrade(g); setError('') }}
+                        className={`flex-1 h-10 rounded-lg text-[13px] font-semibold border-2 transition-all ${
+                          grade === g
+                            ? 'border-brand-high bg-brand-high-pale text-brand-high-dark'
+                            : 'border-line bg-white text-ink-secondary hover:border-brand-high-light'
+                        }`}
+                      >
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 학원 코드 */}
+                <div>
+                  <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">
+                    학원 코드 <span className="text-ink-muted font-normal">(선택 - 학원생인 경우)</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      value={academyCode}
+                      onChange={e => { setAcademyCode(e.target.value.toUpperCase()); setCodeStatus('idle'); setAcademyName(''); setError('') }}
+                      onKeyDown={e => e.key === 'Enter' && handleCheckCode()}
+                      placeholder="예: ACA001"
+                      className={`flex-1 h-10 px-3.5 border rounded-lg text-[13px] focus:outline-none focus:ring-2 transition-all placeholder:text-ink-muted ${
+                        codeStatus === 'ok'
+                          ? 'border-brand-high focus:ring-brand-high/10'
+                          : codeStatus === 'fail'
+                            ? 'border-red-400 focus:ring-red-500/10'
+                            : 'border-line focus:border-brand-high focus:ring-brand-high/10'
+                      }`}
+                    />
+                    <button
+                      onClick={handleCheckCode}
+                      disabled={codeStatus === 'loading'}
+                      className={`flex-shrink-0 h-10 px-3.5 rounded-lg text-[12px] font-semibold whitespace-nowrap border transition-all ${
+                        codeStatus === 'ok'
+                          ? 'bg-brand-high-pale text-brand-high-dark border-brand-high-light'
+                          : 'bg-white text-ink-secondary border-line hover:border-brand-high-light hover:text-brand-high-dark'
+                      } ${codeStatus === 'loading' ? 'cursor-not-allowed opacity-70' : ''}`}
+                    >
+                      {codeStatus === 'loading' ? '확인 중...' : codeStatus === 'ok' ? '✓ 확인됨' : '코드 확인'}
+                    </button>
+                  </div>
+                  {codeStatus === 'ok' && academyName && (
+                    <div className="flex items-center gap-1.5 bg-brand-high-pale border border-brand-high-light rounded-lg px-3 py-2 mt-2">
+                      <span className="text-sm">🏫</span>
+                      <span className="text-[12px] text-brand-high-dark font-bold">{academyName}</span>
+                      <span className="text-[11px] text-ink-secondary">에 연결됩니다</span>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+
+              {error && <ErrBox msg={error} />}
+
+              <div className="flex gap-2 mt-5">
+                <button
+                  onClick={() => { setStep(2); setError('') }}
+                  className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:border-brand-high-light hover:text-brand-high-dark transition-all"
+                >
+                  ← 이전
+                </button>
+                <button
+                  onClick={handleSignup}
+                  disabled={loading}
+                  className={`flex-[2] h-11 rounded-lg text-[13px] font-semibold text-white transition-all ${
+                    loading
+                      ? 'bg-brand-high-light cursor-not-allowed'
+                      : 'bg-brand-high hover:bg-brand-high-dark hover:-translate-y-px shadow-[0_4px_12px_rgba(37,99,235,0.2)]'
+                  }`}
+                >
+                  {loading ? '가입 중...' : '가입 완료 🎉'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* 오른쪽 소개 */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60, background: '#F8F7F5' }}>
-        <div style={{ fontSize: 32, fontWeight: 700, color: '#1a1a1a', marginBottom: 12 }}>면접 합격, 지금 시작하세요</div>
-        <div style={{ fontSize: 15, color: '#6B7280', marginBottom: 48, textAlign: 'center', lineHeight: 1.6 }}>
-          탐구주제 설계부터 실전 면접 시뮬레이션까지<br />인데미와 함께 단계별로 준비하세요.
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, width: '100%', maxWidth: 520 }}>
-          {[
-            { icon: '🗺️', title: '연간 로드맵', desc: '학년별 월별 맞춤 커리큘럼' },
-            { icon: '🔬', title: '탐구주제 설계', desc: '세특라이트로 탐구 방향 잡기' },
-            { icon: '🎤', title: '면접 시뮬레이션', desc: '실전처럼 연습하고 피드백 받기' },
-            { icon: '📄', title: '제시문 면접', desc: 'SKY·교대 기출 제시문 풀기' },
-          ].map((f, i) => (
-            <div key={i} style={{ background: '#fff', borderRadius: 12, padding: '20px 22px', border: '0.5px solid #E5E7EB' }}>
-              <div style={{ fontSize: 26, marginBottom: 10 }}>{f.icon}</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 5 }}>{f.title}</div>
-              <div style={{ fontSize: 12, color: '#6B7280' }}>{f.desc}</div>
+      {/* 오른쪽 소개 (55%, 파랑 그라데이션) */}
+      <div className="flex-1 relative overflow-hidden bg-gradient-to-br from-brand-high-pale via-white to-brand-high-pale/60 flex items-center justify-center px-12 max-lg:hidden">
+
+        {/* 배경 장식 */}
+        <div
+          className="absolute -top-20 -right-20 w-[500px] h-[500px] rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.12), transparent 70%)' }}
+        />
+        <div
+          className="absolute -bottom-20 -left-20 w-[400px] h-[400px] rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.08), transparent 70%)' }}
+        />
+
+        <div className="relative w-full max-w-[560px]">
+
+          <div className="mb-4 flex justify-center">
+            <div className="inline-flex items-center gap-2 bg-brand-high-pale border border-brand-high-light rounded-full px-3.5 py-1.5">
+              <span className="text-[12px] font-bold text-brand-high-dark">🎓 고등학생 전용</span>
             </div>
-          ))}
+          </div>
+
+          <div className="text-[36px] font-extrabold tracking-tight leading-[1.2] mb-4 text-ink text-center">
+            대입 합격,<br />
+            <span className="text-brand-high-dark">지금 시작하세요</span>
+          </div>
+
+          <div className="text-[15px] text-ink-secondary leading-[1.6] mb-10 text-center">
+            탐구주제 설계부터 실전 면접 시뮬레이션까지<br />
+            인로드와 함께 단계별로 준비하세요.
+          </div>
+
+          {/* 기능 카드 */}
+          <div className="grid grid-cols-2 gap-3.5">
+            {[
+              { icon: '🗺️', title: '연간 로드맵', desc: '학년별 월별 맞춤 커리큘럼' },
+              { icon: '🔬', title: '탐구주제 설계', desc: '세특라이트로 탐구 방향 잡기' },
+              { icon: '🎤', title: '면접 시뮬레이션', desc: '실전처럼 연습하고 피드백 받기' },
+              { icon: '📄', title: '제시문 면접', desc: 'SKY·교대 기출 제시문 풀기' },
+            ].map((f, i) => (
+              <div
+                key={i}
+                className="bg-white border border-line rounded-xl px-5 py-4 hover:border-brand-high-light hover:shadow-[0_8px_24px_rgba(37,99,235,0.1)] hover:-translate-y-0.5 transition-all cursor-default"
+              >
+                <div className="text-2xl mb-2">{f.icon}</div>
+                <div className="text-[14px] font-bold text-ink mb-0.5 tracking-tight">{f.title}</div>
+                <div className="text-[11.5px] text-ink-secondary font-medium">{f.desc}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

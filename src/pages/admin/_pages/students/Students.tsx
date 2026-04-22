@@ -1,31 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAtomValue } from 'jotai'
-import { academyState, teachersState } from '../../_store/auth'
-
-const HIGH_STUDENTS = [
-  { id: 1, name: '김민준', grade: '고2', month: '4~5월', pct: 25, files: 2, email: 'kim@example.com', joinDate: '2025-01-15' },
-  { id: 2, name: '이수현', grade: '고3', month: '7~8월', pct: 75, files: 5, email: 'lee@example.com', joinDate: '2025-01-10' },
-  { id: 3, name: '박지호', grade: '고1', month: '1~2월', pct: 100, files: 3, email: 'park@example.com', joinDate: '2025-02-01' },
-  { id: 4, name: '최유진', grade: '고2', month: '4~5월', pct: 40, files: 1, email: 'choi@example.com', joinDate: '2025-01-20' },
-  { id: 5, name: '정다은', grade: '고3', month: '9월', pct: 85, files: 4, email: 'jung@example.com', joinDate: '2025-01-05' },
-  { id: 6, name: '강민서', grade: '고1', month: '3월', pct: 100, files: 2, email: 'kang@example.com', joinDate: '2025-02-10' },
-  { id: 7, name: '윤서준', grade: '고2', month: '4~5월', pct: 60, files: 3, email: 'yoon@example.com', joinDate: '2025-01-25' },
-  { id: 8, name: '임지수', grade: '고1', month: '3월', pct: 50, files: 1, email: 'lim@example.com', joinDate: '2025-02-15' },
-  { id: 9, name: '한지원', grade: '고3', month: '10~11월', pct: 90, files: 6, email: 'han@example.com', joinDate: '2025-01-03' },
-  { id: 10, name: '오민석', grade: '고2', month: '6월', pct: 55, files: 2, email: 'oh@example.com', joinDate: '2025-01-18' },
-]
-
-const MIDDLE_STUDENTS = [
-  { id: 101, name: '김서아', grade: '중2', month: '4월', pct: 30, files: 1, email: 'kim2@example.com', joinDate: '2025-02-01' },
-  { id: 102, name: '이준혁', grade: '중3', month: '6월', pct: 65, files: 3, email: 'lee2@example.com', joinDate: '2025-01-15' },
-  { id: 103, name: '박민아', grade: '중1', month: '3월', pct: 20, files: 0, email: 'park2@example.com', joinDate: '2025-02-10' },
-  { id: 104, name: '최현우', grade: '중2', month: '5월', pct: 50, files: 2, email: 'choi2@example.com', joinDate: '2025-01-20' },
-  { id: 105, name: '정수빈', grade: '중3', month: '8월', pct: 80, files: 4, email: 'jung2@example.com', joinDate: '2025-01-05' },
-  { id: 106, name: '강지유', grade: '중1', month: '2월', pct: 10, files: 0, email: 'kang2@example.com', joinDate: '2025-03-01' },
-  { id: 107, name: '윤채원', grade: '중2', month: '4월', pct: 45, files: 2, email: 'yoon2@example.com', joinDate: '2025-01-28' },
-  { id: 108, name: '임도윤', grade: '중3', month: '9월', pct: 90, files: 5, email: 'lim2@example.com', joinDate: '2025-01-08' },
-]
+import { academyState } from '../../_store/auth'
+import { useAcademyStudents } from '../../_hooks/useAcademyStudents'
 
 const PAGE_SIZE = 10
 
@@ -33,12 +10,15 @@ export default function Students() {
   const navigate = useNavigate()
   const location = useLocation()
   const academy = useAtomValue(academyState)
-  const teachers = useAtomValue(teachersState)
 
   const isOwner = academy.role === 'OWNER'
 
   // URL로 중등/고등 판단
   const isMiddle = location.pathname.startsWith('/admin/middle-students')
+  const level: 'high' | 'middle' = isMiddle ? 'middle' : 'high'
+
+  // ✅ Supabase에서 학원 학생 목록 조회
+  const { data: studentsData, isLoading, error } = useAcademyStudents(level)
 
   // 동적 테마
   const theme = isMiddle ? {
@@ -57,17 +37,24 @@ export default function Students() {
     gradient: 'linear-gradient(135deg, #1E3A8A, #2563EB)',
   }
 
-  const allStudents = isMiddle ? MIDDLE_STUDENTS : HIGH_STUDENTS
+  // ✅ Supabase 데이터를 UI용 형태로 매핑 (진행률/파일수는 추후 RPC)
+  const allStudents = (studentsData ?? []).map(p => ({
+    id: p.id,
+    name: p.name ?? '이름없음',
+    grade: p.grade ?? '-',
+    email: p.email ?? '-',
+    school: p.school ?? '',
+    pct: 0,
+    files: 0,
+    joinDate: p.created_at ? p.created_at.slice(0, 10) : '-',
+  }))
+
   const GRADE_TABS = isMiddle
     ? ['전체', '중1', '중2', '중3']
     : ['전체', '고1', '고2', '고3']
 
-  const baseStudents = isOwner
-    ? allStudents
-    : allStudents.filter(s => {
-        const myTeacher = teachers.find((t: any) => t.id === academy.teacherId)
-        return myTeacher?.assignedStudents.includes(s.id)
-      })
+  // 선생님 담당 필터는 teachers DB 연동 후에 붙일 것 → 지금은 원장/선생님 모두 전체
+  const baseStudents = allStudents
 
   const [grade, setGrade] = useState('전체')
   const [search, setSearch] = useState('')
@@ -84,7 +71,7 @@ export default function Students() {
       return (a.pct - b.pct) * dir
     })
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const handleSort = (key: 'name' | 'pct') => {
@@ -96,7 +83,7 @@ export default function Students() {
   const handleGrade = (g: string) => { setGrade(g); setPage(1) }
   const handleSearch = (v: string) => { setSearch(v); setPage(1) }
 
-  const handleStudentClick = (id: number) => {
+  const handleStudentClick = (id: string) => {
     if (isMiddle) navigate(`/admin/middle-students/${id}`)
     else navigate(`/admin/students/${id}`)
   }
@@ -118,6 +105,14 @@ export default function Students() {
           </div>
         </div>
       </div>
+
+      {/* 에러 배너 */}
+      {error && (
+        <div className="rounded-xl px-5 py-3.5 mb-4 bg-red-50 border border-red-200">
+          <div className="text-[13px] font-bold text-red-700">⚠️ 학생 목록을 불러오지 못했어요</div>
+          <div className="text-[11px] text-red-600 mt-1">{(error as Error).message}</div>
+        </div>
+      )}
 
       {/* 필터 & 검색 */}
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
@@ -184,167 +179,184 @@ export default function Students() {
           </div>
         </div>
 
-        {/* 테이블 */}
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-[#F8FAFC]">
-              <th
-                onClick={() => handleSort('name')}
-                className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line cursor-pointer hover:text-ink transition-colors"
-              >
-                학생 {sortKey === 'name' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
-              </th>
-              <th className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line">학년</th>
-              <th className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line">이메일</th>
-              <th className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line">현재 월</th>
-              <th
-                onClick={() => handleSort('pct')}
-                className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line cursor-pointer hover:text-ink transition-colors"
-              >
-                진행률 {sortKey === 'pct' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
-              </th>
-              <th className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line">파일</th>
-              <th className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line">가입일</th>
-              <th className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginated.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="px-10 py-12 text-center">
-                  <div className="text-3xl mb-2">🔍</div>
-                  <div className="text-[13px] text-ink-secondary font-medium">
-                    {isOwner ? '검색 결과가 없어요.' : '담당 학생이 없어요. 원장님께 학생 배정을 요청해주세요.'}
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              paginated.map((s, i) => (
-                <tr
-                  key={s.id}
-                  onClick={() => handleStudentClick(s.id)}
-                  className="cursor-pointer transition-colors hover:bg-gray-50"
-                  style={{
-                    borderBottom: i < paginated.length - 1 ? '1px solid #F1F5F9' : 'none',
-                  }}
-                >
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-bold text-white"
-                        style={{ background: theme.gradient }}
-                      >
-                        {s.name[0]}
+        {/* 로딩 중 */}
+        {isLoading ? (
+          <div className="px-10 py-16 text-center">
+            <div
+              className="inline-block w-6 h-6 border-2 border-gray-200 rounded-full animate-spin mb-3"
+              style={{ borderTopColor: theme.accent }}
+            />
+            <div className="text-[13px] text-ink-secondary font-medium">학생 목록을 불러오는 중...</div>
+          </div>
+        ) : (
+          <>
+            {/* 테이블 */}
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-[#F8FAFC]">
+                  <th
+                    onClick={() => handleSort('name')}
+                    className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line cursor-pointer hover:text-ink transition-colors"
+                  >
+                    학생 {sortKey === 'name' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                  </th>
+                  <th className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line">학년</th>
+                  <th className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line">이메일</th>
+                  <th className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line">학교</th>
+                  <th
+                    onClick={() => handleSort('pct')}
+                    className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line cursor-pointer hover:text-ink transition-colors"
+                  >
+                    진행률 {sortKey === 'pct' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                  </th>
+                  <th className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line">파일</th>
+                  <th className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line">가입일</th>
+                  <th className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginated.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-10 py-12 text-center">
+                      <div className="text-3xl mb-2">🔍</div>
+                      <div className="text-[13px] text-ink-secondary font-medium">
+                        {search || grade !== '전체'
+                          ? '검색 결과가 없어요.'
+                          : isOwner
+                            ? `아직 등록된 ${isMiddle ? '중등' : '고등'} 학생이 없어요.`
+                            : '담당 학생이 없어요. 원장님께 학생 배정을 요청해주세요.'}
                       </div>
-                      <div className="text-[13px] font-semibold text-ink">{s.name}</div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3">
-                    <span className="text-[11px] font-bold text-ink-secondary bg-gray-100 px-2.5 py-1 rounded-full">
-                      {s.grade}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-[12.5px] font-medium text-ink-secondary">{s.email}</td>
-                  <td className="px-5 py-3 text-[13px] font-semibold text-ink">{s.month}</td>
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-[100px] h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{
-                            width: `${s.pct}%`,
-                            background: theme.accent,
-                          }}
-                        />
-                      </div>
-                      <span
-                        className="text-[12px] font-bold"
-                        style={{ color: theme.accent }}
-                      >
-                        {s.pct}%
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3 text-[12px] font-semibold text-ink-secondary">{s.files}개</td>
-                  <td className="px-5 py-3 text-[12px] font-medium text-ink-muted">{s.joinDate}</td>
-                  <td className="px-5 py-3">
-                    <span
-                      className="text-[11px] font-bold px-3 py-1 rounded-full border"
+                    </td>
+                  </tr>
+                ) : (
+                  paginated.map((s, i) => (
+                    <tr
+                      key={s.id}
+                      onClick={() => handleStudentClick(s.id)}
+                      className="cursor-pointer transition-colors hover:bg-gray-50"
                       style={{
-                        color: theme.accent,
-                        borderColor: theme.accent,
-                        background: '#fff',
+                        borderBottom: i < paginated.length - 1 ? '1px solid #F1F5F9' : 'none',
                       }}
                     >
-                      상세보기 →
-                    </span>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-bold text-white"
+                            style={{ background: theme.gradient }}
+                          >
+                            {s.name[0]}
+                          </div>
+                          <div className="text-[13px] font-semibold text-ink">{s.name}</div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className="text-[11px] font-bold text-ink-secondary bg-gray-100 px-2.5 py-1 rounded-full">
+                          {s.grade}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-[12.5px] font-medium text-ink-secondary">{s.email}</td>
+                      <td className="px-5 py-3 text-[13px] font-semibold text-ink">{s.school || '-'}</td>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-[100px] h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{
+                                width: `${s.pct}%`,
+                                background: theme.accent,
+                              }}
+                            />
+                          </div>
+                          <span
+                            className="text-[12px] font-bold"
+                            style={{ color: theme.accent }}
+                          >
+                            {s.pct}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3 text-[12px] font-semibold text-ink-secondary">{s.files}개</td>
+                      <td className="px-5 py-3 text-[12px] font-medium text-ink-muted">{s.joinDate}</td>
+                      <td className="px-5 py-3">
+                        <span
+                          className="text-[11px] font-bold px-3 py-1 rounded-full border"
+                          style={{
+                            color: theme.accent,
+                            borderColor: theme.accent,
+                            background: '#fff',
+                          }}
+                        >
+                          상세보기 →
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
 
-        {/* 페이지네이션 */}
-        {totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-line flex items-center justify-between">
-            <div className="text-[12px] text-ink-secondary font-medium">
-              {(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, filtered.length)} / 총 <span className="font-bold" style={{ color: theme.accent }}>{filtered.length}명</span>
-            </div>
-            <div className="flex gap-1">
-              <button
-                onClick={() => setPage(1)}
-                disabled={page === 1}
-                className="h-8 px-2.5 border border-line rounded-md bg-white text-[11px] font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40 enabled:hover:border-ink-muted enabled:hover:text-ink"
-                style={{ color: page === 1 ? '#D1D5DB' : '#6B7280' }}
-              >
-                처음
-              </button>
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="w-8 h-8 border border-line rounded-md bg-white text-[13px] font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40 enabled:hover:border-ink-muted enabled:hover:text-ink"
-                style={{ color: page === 1 ? '#D1D5DB' : '#6B7280' }}
-              >
-                ←
-              </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const start = Math.max(1, Math.min(page - 2, totalPages - 4))
-                return start + i
-              }).map(p => (
-                <button
-                  key={p}
-                  onClick={() => setPage(p)}
-                  className="w-8 h-8 rounded-md text-[13px] transition-all"
-                  style={{
-                    border: `1px solid ${page === p ? theme.accent : '#E5E7EB'}`,
-                    background: page === p ? theme.accent : '#fff',
-                    color: page === p ? '#fff' : '#6B7280',
-                    fontWeight: page === p ? 700 : 500,
-                    boxShadow: page === p ? `0 2px 8px ${theme.accentShadow}` : 'none',
-                  }}
-                >
-                  {p}
-                </button>
-              ))}
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="w-8 h-8 border border-line rounded-md bg-white text-[13px] font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40 enabled:hover:border-ink-muted enabled:hover:text-ink"
-                style={{ color: page === totalPages ? '#D1D5DB' : '#6B7280' }}
-              >
-                →
-              </button>
-              <button
-                onClick={() => setPage(totalPages)}
-                disabled={page === totalPages}
-                className="h-8 px-2.5 border border-line rounded-md bg-white text-[11px] font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40 enabled:hover:border-ink-muted enabled:hover:text-ink"
-                style={{ color: page === totalPages ? '#D1D5DB' : '#6B7280' }}
-              >
-                마지막
-              </button>
-            </div>
-          </div>
+            {/* 페이지네이션 */}
+            {totalPages > 1 && (
+              <div className="px-6 py-4 border-t border-line flex items-center justify-between">
+                <div className="text-[12px] text-ink-secondary font-medium">
+                  {(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, filtered.length)} / 총 <span className="font-bold" style={{ color: theme.accent }}>{filtered.length}명</span>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setPage(1)}
+                    disabled={page === 1}
+                    className="h-8 px-2.5 border border-line rounded-md bg-white text-[11px] font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40 enabled:hover:border-ink-muted enabled:hover:text-ink"
+                    style={{ color: page === 1 ? '#D1D5DB' : '#6B7280' }}
+                  >
+                    처음
+                  </button>
+                  <button
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="w-8 h-8 border border-line rounded-md bg-white text-[13px] font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40 enabled:hover:border-ink-muted enabled:hover:text-ink"
+                    style={{ color: page === 1 ? '#D1D5DB' : '#6B7280' }}
+                  >
+                    ←
+                  </button>
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const start = Math.max(1, Math.min(page - 2, totalPages - 4))
+                    return start + i
+                  }).map(p => (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      className="w-8 h-8 rounded-md text-[13px] transition-all"
+                      style={{
+                        border: `1px solid ${page === p ? theme.accent : '#E5E7EB'}`,
+                        background: page === p ? theme.accent : '#fff',
+                        color: page === p ? '#fff' : '#6B7280',
+                        fontWeight: page === p ? 700 : 500,
+                        boxShadow: page === p ? `0 2px 8px ${theme.accentShadow}` : 'none',
+                      }}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="w-8 h-8 border border-line rounded-md bg-white text-[13px] font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40 enabled:hover:border-ink-muted enabled:hover:text-ink"
+                    style={{ color: page === totalPages ? '#D1D5DB' : '#6B7280' }}
+                  >
+                    →
+                  </button>
+                  <button
+                    onClick={() => setPage(totalPages)}
+                    disabled={page === totalPages}
+                    className="h-8 px-2.5 border border-line rounded-md bg-white text-[11px] font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40 enabled:hover:border-ink-muted enabled:hover:text-ink"
+                    style={{ color: page === totalPages ? '#D1D5DB' : '#6B7280' }}
+                  >
+                    마지막
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

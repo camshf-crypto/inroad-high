@@ -54,99 +54,87 @@ import MasterStaff from './pages/master/_pages/staff/Staff'
 import MasterLessons from './pages/master/_pages/lessons/Lessons'
 
 const router = createBrowserRouter([
+  // 루트 → admin 로그인
   {
     path: '/',
     element: <Navigate to="/admin/login" replace />,
   },
+
+  // ===== 학원 어드민 =====
+  { path: '/admin/login', element: <AdminLogin /> },
   {
-    path: 'admin',
+    path: '/admin',
+    element: <AdminLayout />,
     children: [
-      { path: 'login', element: <AdminLogin /> },
-      {
-        path: '',
-        element: <AdminLayout />,
-        children: [
-          { path: '', element: <Dashboard /> },
-          { path: 'students', element: <Students /> },
-          { path: 'students/:id', element: <StudentDetail /> },
-          { path: 'middle-students', element: <Students /> },
-          { path: 'middle-students/:id', element: <StudentDetail /> },
-          { path: 'academy', element: <Academy /> },
-          { path: 'billing', element: <Billing /> },
-          { path: 'settings', element: <Settings /> },
-        ]
-      }
-    ]
+      { index: true, element: <Dashboard /> },
+      { path: 'students', element: <Students /> },
+      { path: 'students/:id', element: <StudentDetail /> },
+      { path: 'middle-students', element: <Students /> },
+      { path: 'middle-students/:id', element: <StudentDetail /> },
+      { path: 'academy', element: <Academy /> },
+      { path: 'billing', element: <Billing /> },
+      { path: 'settings', element: <Settings /> },
+    ],
   },
+
+  // ===== 고등 학생 =====
+  { path: '/high-student/login', element: <StudentLogin /> },
+  { path: '/high-student/signup', element: <StudentSignup /> },
   {
-    path: 'student',
+    path: '/high-student',
+    element: <StudentLayout />,
     children: [
-      { path: 'login', element: <StudentLogin /> },
-      { path: 'signup', element: <StudentSignup /> },
-      {
-        path: '',
-        element: <StudentLayout />,
-        children: [
-          { path: 'roadmap', element: <Roadmap /> },
-          { path: 'topic', element: <TopicList /> },
-          { path: 'book', element: <BookList /> },
-          { path: 'record', element: <Record /> },
-          { path: 'mockexam', element: <MockExam /> },
-          { path: 'connect', element: <Connect /> },
-          { path: 'expect', element: <Expect /> },
-          { path: 'past', element: <Past /> },
-          { path: 'simulation', element: <Simulation /> },
-          { path: 'presentation', element: <Presentation /> },
-          { path: 'major', element: <Major /> },
-          { path: 'major/grade', element: <Major /> },
-          { path: 'major/chapter', element: <Major /> },
-        ]
-      }
-    ]
+      { path: 'roadmap', element: <Roadmap /> },
+      { path: 'topic', element: <TopicList /> },
+      { path: 'book', element: <BookList /> },
+      { path: 'record', element: <Record /> },
+      { path: 'mockexam', element: <MockExam /> },
+      { path: 'connect', element: <Connect /> },
+      { path: 'expect', element: <Expect /> },
+      { path: 'past', element: <Past /> },
+      { path: 'simulation', element: <Simulation /> },
+      { path: 'presentation', element: <Presentation /> },
+      { path: 'major', element: <Major /> },
+      { path: 'major/grade', element: <Major /> },
+      { path: 'major/chapter', element: <Major /> },
+    ],
   },
+
+  // ===== 중등 학생 =====
+  { path: '/middle-student/login', element: <MiddleLogin /> },
+  { path: '/middle-student/signup', element: <MiddleSignup /> },
   {
-    path: 'middle-student',
+    path: '/middle-student',
+    element: <MiddleLayout />,
     children: [
-      { path: 'login', element: <MiddleLogin /> },
-      { path: 'signup', element: <MiddleSignup /> },
-      {
-        path: '',
-        element: <MiddleLayout />,
-        children: [
-          { path: 'roadmap', element: <MiddleRoadmap /> },
-          { path: 'lesson', element: <MiddleLesson /> },
-          { path: 'homework', element: <MiddleHomework /> },
-          { path: 'book', element: <MiddleBookList /> },
-          { path: 'expect', element: <MiddleExpect /> },
-          { path: 'past', element: <MiddlePast /> },
-          { path: 'simulation', element: <MiddleSimulation /> },
-          { path: 'presentation', element: <MiddlePresentation /> },
-        ]
-      }
-    ]
+      { path: 'roadmap', element: <MiddleRoadmap /> },
+      { path: 'lesson', element: <MiddleLesson /> },
+      { path: 'homework', element: <MiddleHomework /> },
+      { path: 'book', element: <MiddleBookList /> },
+      { path: 'expect', element: <MiddleExpect /> },
+      { path: 'past', element: <MiddlePast /> },
+      { path: 'simulation', element: <MiddleSimulation /> },
+      { path: 'presentation', element: <MiddlePresentation /> },
+    ],
   },
-  // 🏢 Master (본사)
+
+  // ===== 마스터 (본사) =====
+  { path: '/master/login', element: <MasterLogin /> },
   {
-    path: 'master',
+    path: '/master',
+    element: <MasterLayout />,
     children: [
-      { path: 'login', element: <MasterLogin /> },
-      {
-        path: '',
-        element: <MasterLayout />,
-        children: [
-          { path: '', element: <MasterDashboard /> },
-          { path: 'academies', element: <MasterAcademies /> },
-          { path: 'academies/:id', element: <MasterAcademyDetail /> },
-          { path: 'lessons', element: <MasterLessons /> },
-          { path: 'billing', element: <MasterBilling /> },
-          { path: 'notices', element: <MasterNotices /> },
-          { path: 'data', element: <MasterData /> },
-          { path: 'audit', element: <MasterAudit /> },
-          { path: 'staff', element: <MasterStaff /> },
-        ]
-      }
-    ]
-  }
+      { index: true, element: <MasterDashboard /> },
+      { path: 'academies', element: <MasterAcademies /> },
+      { path: 'academies/:id', element: <MasterAcademyDetail /> },
+      { path: 'lessons', element: <MasterLessons /> },
+      { path: 'billing', element: <MasterBilling /> },
+      { path: 'notices', element: <MasterNotices /> },
+      { path: 'data', element: <MasterData /> },
+      { path: 'audit', element: <MasterAudit /> },
+      { path: 'staff', element: <MasterStaff /> },
+    ],
+  },
 ])
 
 export const Router = () => <RouterProvider router={router} />

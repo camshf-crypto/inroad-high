@@ -2,29 +2,93 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSetAtom } from 'jotai'
 import { masterTokenState } from '../../_store/auth'
+import { supabase } from '../../../../lib/supabase'
 
 const THEME = {
   accent: '#7C3AED',
   accentDark: '#5B21B6',
   accentBg: '#F5F3FF',
   accentBorder: '#C4B5FD',
-  accentShadow: 'rgba(124, 58, 237, 0.15)',
+  accentShadow: 'rgba(124, 58, 237, 0.48)',
   gradient: 'linear-gradient(135deg, #5B21B6, #8B5CF6)',
 }
 
 export default function MasterLogin() {
   const navigate = useNavigate()
   const setToken = useSetAtom(masterTokenState)
-  const [email, setEmail] = useState('master@inroad.com')
+  const [email, setEmail] = useState('company@masterway.co.kr')
   const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const handleLogin = () => {
-    // 임시 로그인 (MVP)
-    setToken({
-      accessToken: 'master-demo-token',
-      expiresIn: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    })
-    navigate('/master')
+  const handleLogin = async () => {
+    setError('')
+    
+    if (!email || !password) {
+      setError('이메일과 비밀번호를 입력해주세요')
+      return
+    }
+
+    setLoading(true)
+    
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (authError) {
+        if (authError.message.includes('Invalid login credentials')) {
+          setError('이메일 또는 비밀번호가 올바르지 않습니다')
+        } else if (authError.message.includes('Email not confirmed')) {
+          setError('이메일 인증이 완료되지 않았습니다')
+        } else {
+          setError('로그인에 실패했습니다: ' + authError.message)
+        }
+        setLoading(false)
+        return
+      }
+
+      if (!authData.user) {
+        setError('로그인 정보를 가져올 수 없습니다')
+        setLoading(false)
+        return
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role, name')
+        .eq('id', authData.user.id)
+        .single()
+
+      if (profileError || !profile) {
+        setError('프로필 정보를 불러올 수 없습니다')
+        await supabase.auth.signOut()
+        setLoading(false)
+        return
+      }
+
+      if (!profile.role.startsWith('master_')) {
+        setError('본사 직원 계정만 접근 가능합니다')
+        await supabase.auth.signOut()
+        setLoading(false)
+        return
+      }
+
+      setToken({
+        accessToken: authData.session?.access_token || '',
+        expiresIn: new Date(
+          (authData.session?.expires_at || Date.now() / 1000 + 86400) * 1000
+        ).toISOString(),
+      })
+
+      navigate('/master')
+
+    } catch (err) {
+      console.error('로그인 에러:', err)
+      setError('로그인 중 오류가 발생했습니다')
+      setLoading(false)
+    }
   }
 
   return (
@@ -32,7 +96,6 @@ export default function MasterLogin() {
       className="min-h-screen flex items-center justify-center px-4 font-sans relative overflow-hidden"
       style={{ background: THEME.gradient }}
     >
-      {/* 배경 장식 */}
       <div
         className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full pointer-events-none"
         style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.12), transparent 70%)' }}
@@ -44,7 +107,6 @@ export default function MasterLogin() {
 
       <div className="bg-white rounded-3xl px-10 py-12 w-[440px] shadow-[0_30px_80px_rgba(0,0,0,0.25)] relative">
 
-        {/* 로고 */}
         <div className="text-center mb-8">
           <div
             className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-[0_8px_24px_rgba(124,58,237,0.3)]"
@@ -60,7 +122,6 @@ export default function MasterLogin() {
           </div>
         </div>
 
-        {/* 경고 배너 */}
         <div
           className="rounded-xl px-4 py-3 mb-5 flex items-start gap-2"
           style={{
@@ -75,7 +136,15 @@ export default function MasterLogin() {
           </div>
         </div>
 
-        {/* 입력 */}
+        {error && (
+          <div className="rounded-xl px-4 py-3 mb-4 bg-red-50 border border-red-200">
+            <div className="text-[12px] font-medium text-red-600 flex items-start gap-2">
+              <span>⚠️</span>
+              <span>{error}</span>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col gap-3 mb-5">
           <div>
             <label className="text-[11px] font-bold text-ink-secondary uppercase tracking-wider mb-1.5 block">
@@ -85,8 +154,9 @@ export default function MasterLogin() {
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="master@inroad.com"
-              className="w-full h-12 px-4 border border-line rounded-lg text-[14px] font-medium outline-none transition-all placeholder:text-ink-muted"
+              disabled={loading}
+              placeholder="company@masterway.co.kr"
+              className="w-full h-12 px-4 border border-line rounded-lg text-[14px] font-medium outline-none transition-all placeholder:text-ink-muted disabled:opacity-60 disabled:bg-gray-50"
               onFocus={e => {
                 e.target.style.borderColor = THEME.accent
                 e.target.style.boxShadow = `0 0 0 3px ${THEME.accentShadow}`
@@ -106,9 +176,10 @@ export default function MasterLogin() {
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleLogin()}
+              onKeyDown={e => e.key === 'Enter' && !loading && handleLogin()}
+              disabled={loading}
               placeholder="비밀번호 입력"
-              className="w-full h-12 px-4 border border-line rounded-lg text-[14px] font-medium outline-none transition-all placeholder:text-ink-muted"
+              className="w-full h-12 px-4 border border-line rounded-lg text-[14px] font-medium outline-none transition-all placeholder:text-ink-muted disabled:opacity-60 disabled:bg-gray-50"
               onFocus={e => {
                 e.target.style.borderColor = THEME.accent
                 e.target.style.boxShadow = `0 0 0 3px ${THEME.accentShadow}`
@@ -123,17 +194,18 @@ export default function MasterLogin() {
 
         <button
           onClick={handleLogin}
-          className="w-full h-12 text-white rounded-lg text-[14px] font-extrabold transition-all hover:-translate-y-px"
+          disabled={loading}
+          className="w-full h-12 text-white rounded-lg text-[14px] font-extrabold transition-all hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed"
           style={{
             background: THEME.gradient,
             boxShadow: `0 8px 24px ${THEME.accentShadow}`,
           }}
         >
-          🔑 로그인
+          {loading ? '로그인 중...' : '🔑 로그인'}
         </button>
 
         <div className="text-center mt-6 text-[11px] font-medium text-ink-muted">
-          © 2025 INROAD. All rights reserved.
+          © 2026 INROAD. All rights reserved.
         </div>
       </div>
     </div>

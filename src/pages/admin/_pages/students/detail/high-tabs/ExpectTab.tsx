@@ -1,383 +1,897 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import {
+  useStudentSaenggibuPdf,
+  useStudentQuestions,
+  useQuestionAnalyses,
+  useQuestionFollowups,
+  useGenerateAIQuestions,
+  useAddManualQuestion,
+  useToggleQuestionPublish,
+  usePublishAllQuestions,
+  useDeleteQuestion,
+  useSendFirstFeedback,
+  useSendFinalFeedback,
+  useAddFollowup,
+  useGenerateAIFollowups,
+  useSaveSelectedFollowups,
+  useDeleteFollowup,
+  useDeleteStudentPdf,
+  getSaenggibuPdfSignedUrl,
+  gradeToNum,
+  getQuestionStep,
+  type ExpectQuestion,
+} from '../../../../_hooks/useHighSaenggibuQuestions'
+import { PdfThumbnailGrid, PdfViewerModal } from './PdfViewer'
 
 type LeftTab = 'upload' | 'answers'
 
-const MOCK_QUESTIONS = [
-  {
-    id: 1, text: '최근 관심 있는 IT 기술이나 이슈가 있다면 설명해 주세요.', tag: '진로탐색', answered: true, step: 3,
-    purpose: ['지원자가 자기 주도적 탐색과 고민을 바탕으로 지원했는지 확인', '장기적인 목표와 학과 선택의 연계성 확인'],
-    answer: '최근 가장 관심 있는 IT 기술은 생성형 AI입니다. 파이썬으로 챗봇도 구현해 봤습니다.',
-    date: '2025-03-15',
-    prevFeedback: '답변이 좋아요! 더 구체적인 프로젝트 경험을 언급하면 설득력이 높아질 것 같아요.',
-    upgradedAnswer: 'GPT 계열 모델에 관심이 많습니다. OpenAI API로 챗봇을 구현하며 프롬프트 엔지니어링의 중요성을 깨달았습니다.',
-    finalFeedback: '', tails: ['생성형 AI의 윤리적 문제에 대해 어떻게 생각하나요?'],
-  },
-  {
-    id: 2, text: '고등학교 생활 중 가장 의미 있었던 탐구 활동은 무엇인가요?', tag: '학교생활', answered: true, step: 2,
-    purpose: ['학생의 자기주도적 학습 역량 확인'],
-    answer: '지구과학 시간에 기후변화와 식량 안보의 관계를 탐구했습니다.',
-    date: '2025-03-16', prevFeedback: '', upgradedAnswer: '', finalFeedback: '', tails: [],
-  },
-  {
-    id: 3, text: '지원 학과를 선택한 구체적인 계기가 있나요?', tag: '지원동기', answered: false, step: 0,
-    purpose: ['지원 동기의 진정성 확인'], answer: '', date: '', prevFeedback: '', upgradedAnswer: '', finalFeedback: '', tails: [],
-  },
-  {
-    id: 4, text: '본인의 장점과 단점을 솔직하게 말해보세요.', tag: '자기소개', answered: false, step: 0,
-    purpose: ['자기 인식 능력 확인'], answer: '', date: '', prevFeedback: '', upgradedAnswer: '', finalFeedback: '', tails: [],
-  },
-  {
-    id: 5, text: '독서 활동 중 가장 인상 깊었던 책과 그 이유를 설명해주세요.', tag: '독서활동', answered: true, step: 2,
-    purpose: ['독서 활동의 깊이와 사고력 확인'],
-    answer: '사피엔스를 읽고 인류 문명의 발전이 협업에서 비롯됐다는 인사이트를 얻었습니다.',
-    date: '2025-03-18', prevFeedback: '', upgradedAnswer: '', finalFeedback: '', tails: [],
-  },
-]
-
 const STEP_LABELS = ['첫 답변', '1차 피드백', '업그레이드', '최종 피드백', '꼬리질문']
-const TOTAL_PAGES = 28
-const PAGES = Array.from({ length: TOTAL_PAGES }, (_, i) => i + 1)
-
-const AI_TAIL_SUGGESTIONS = [
-  '생성형 AI의 윤리적 문제에 대해 구체적인 사례를 들어 설명해주세요.',
-  '직접 구현한 챗봇에서 가장 어려웠던 기술적 문제는 무엇이었나요?',
-  'AI 기술이 발전하면 어떤 직업이 가장 큰 영향을 받을 것 같나요?',
+const GRADE_LIST = ['고1', '고2', '고3']
+const TAG_OPTIONS = [
+  '출결상황',
+  '1학년 자율활동',
+  '1학년 동아리활동',
+  '1학년 진로활동',
+  '2학년 자율활동',
+  '2학년 진로활동',
+  '3학년 자율활동',
+  '3학년 동아리활동',
+  '3학년 진로활동',
+  '1학년 세특',
+  '2학년 세특',
+  '3학년 세특',
+  '1학년 교과성적',
+  '2학년 교과성적',
+  '3학년 교과성적',
+  '1학년 행특',
+  '2학년 행특',
+  '3학년 행특',
 ]
+
+// 각 직접 작성 질문의 구조
+interface ManualQuestion {
+  tag: string
+  question: string
+}
 
 export default function ExpectTab({ student }: { student: any }) {
-  const [leftTab, setLeftTab] = useState<LeftTab>('upload')
-  const [hasFile] = useState(true)
-  const [generating, setGenerating] = useState(false)
-  const [questions, setQuestions] = useState(MOCK_QUESTIONS)
-  const [selQ, setSelQ] = useState<any>(null)
-  const [feedback, setFeedback] = useState<Record<string, string>>({})
-  const [previewPage, setPreviewPage] = useState<number | null>(null)
+  const studentId: string = student.id
 
-  // 꼬리질문 직접 추가 모달
+  const [selGrade, setSelGrade] = useState('고1')
+  const [leftTab, setLeftTab] = useState<LeftTab>('upload')
+  const [selQId, setSelQId] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<Record<string, string>>({})
+
   const [showTailModal, setShowTailModal] = useState(false)
   const [tailInput, setTailInput] = useState('')
 
-  // AI 꼬리질문 모달
   const [showAiTailModal, setShowAiTailModal] = useState(false)
-  const [aiTailLoading, setAiTailLoading] = useState(false)
   const [aiTails, setAiTails] = useState<string[]>([])
   const [selectedAiTails, setSelectedAiTails] = useState<number[]>([])
 
-  const handleGenerate = () => {
-    setGenerating(true)
-    setTimeout(() => { setGenerating(false); setLeftTab('answers') }, 1500)
-  }
+  const [showManualModal, setShowManualModal] = useState(false)
+  const [manualItems, setManualItems] = useState<ManualQuestion[]>([
+    { tag: '출결상황', question: '' },
+  ])
 
-  const sendFeedback = (type: 'first' | 'final') => {
-    if (!selQ) return
-    const key = type === 'first' ? String(selQ.id) : `${selQ.id}_final`
-    const val = feedback[key] || ''
-    if (!val.trim()) return
-    if (type === 'first') {
-      const updated = questions.map(q => q.id === selQ.id ? { ...q, prevFeedback: val, step: Math.max(q.step, 3) } : q)
-      setQuestions(updated)
-      setSelQ({ ...selQ, prevFeedback: val, step: Math.max(selQ.step, 3) })
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [totalPages, setTotalPages] = useState(0)
+  const [previewPage, setPreviewPage] = useState<number | null>(null)
+
+  const gradeNum = gradeToNum(selGrade) ?? 1
+
+  // DB 조회
+  const { data: pdfInfo, refetch: refetchPdf } = useStudentSaenggibuPdf(studentId, gradeNum)
+  const { data: questions = [], isLoading: loadingQ } = useStudentQuestions(studentId, gradeNum)
+  const { data: analyses = [] } = useQuestionAnalyses(selQId ?? undefined)
+  const { data: followups = [] } = useQuestionFollowups(selQId ?? undefined)
+
+  // 뮤테이션
+  const generateAI = useGenerateAIQuestions()
+  const addManual = useAddManualQuestion()
+  const togglePublish = useToggleQuestionPublish()
+  const publishAll = usePublishAllQuestions()
+  const deleteQ = useDeleteQuestion()
+  const sendFirst = useSendFirstFeedback()
+  const sendFinal = useSendFinalFeedback()
+  const addTail = useAddFollowup()
+  const genAITails = useGenerateAIFollowups()
+  const saveAITails = useSaveSelectedFollowups()
+  const deleteTail = useDeleteFollowup()
+  const deletePdf = useDeleteStudentPdf()
+
+  const selQ = questions.find(q => q.id === selQId) ?? null
+  const step = selQ ? getQuestionStep(selQ, analyses) : 0
+  const round1 = analyses.find(a => a.round === 1)
+  const round2 = analyses.find(a => a.round === 2)
+
+  // PDF 서명 URL만 받기 (페이지 수는 PdfThumbnailGrid가 처리)
+  useEffect(() => {
+    if (pdfInfo?.saenggibu_pdf_url) {
+      getSaenggibuPdfSignedUrl(pdfInfo.saenggibu_pdf_url).then((url) => {
+        setPdfUrl(url)
+      })
     } else {
-      const updated = questions.map(q => q.id === selQ.id ? { ...q, finalFeedback: val, step: 5 } : q)
-      setQuestions(updated)
-      setSelQ({ ...selQ, finalFeedback: val, step: 5 })
+      setPdfUrl(null)
+      setTotalPages(0)
     }
-    setFeedback(prev => ({ ...prev, [key]: '' }))
+  }, [pdfInfo?.saenggibu_pdf_url])
+
+  // 학년 변경시 선택 해제
+  useEffect(() => { setSelQId(null) }, [selGrade])
+
+  // 주기적으로 PDF 갱신 (학생이 업로드/삭제 반영)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refetchPdf()
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [refetchPdf])
+
+  const handleGenerateAI = () => {
+    if (!pdfInfo?.saenggibu_pdf_url) {
+      alert('학생이 먼저 생기부를 업로드해야 해요!')
+      return
+    }
+    generateAI.mutate({
+      studentId,
+      grade: gradeNum,
+      saenggibu_pdf_url: pdfInfo.saenggibu_pdf_url,
+      major_dept: pdfInfo.major_dept,
+    }, {
+      onSuccess: () => {
+        setLeftTab('answers')
+      },
+    })
   }
 
-  const addTail = () => {
-    if (!tailInput.trim() || !selQ) return
-    const updated = questions.map(q => q.id === selQ.id ? { ...q, tails: [...q.tails, tailInput.trim()] } : q)
-    setQuestions(updated)
-    setSelQ({ ...selQ, tails: [...selQ.tails, tailInput.trim()] })
-    setTailInput('')
-    setShowTailModal(false)
+  const handleAddManual = async () => {
+    const validItems = manualItems.filter(item => item.question.trim())
+    if (validItems.length === 0) return
+
+    try {
+      // 여러 질문 순차적으로 저장 (각자 태그+질문)
+      for (const item of validItems) {
+        await addManual.mutateAsync({
+          student_id: studentId,
+          grade: gradeNum,
+          question: item.question.trim(),
+          tag: item.tag,
+          purpose: [],  // 목적 없음
+          major_dept: pdfInfo?.major_dept ?? null,
+          publish_now: false,
+        })
+      }
+      setShowManualModal(false)
+      setManualItems([{ tag: '출결상황', question: '' }])
+      setLeftTab('answers')
+    } catch (err: any) {
+      alert('저장 실패: ' + (err?.message || '알 수 없는 오류'))
+    }
+  }
+
+  // 질문 행 추가
+  const addManualRow = () => {
+    setManualItems(prev => [
+      ...prev,
+      { tag: '출결상황', question: '' },
+    ])
+  }
+
+  // 질문 행 삭제
+  const removeManualRow = (index: number) => {
+    setManualItems(prev => prev.filter((_, i) => i !== index))
+  }
+
+  // 질문 행 업데이트
+  const updateManualRow = (index: number, updates: Partial<ManualQuestion>) => {
+    setManualItems(prev => prev.map((item, i) => i === index ? { ...item, ...updates } : item))
+  }
+
+  const handlePublish = (q: ExpectQuestion) => {
+    togglePublish.mutate({ id: q.id, publish: q.question_status !== 'published' })
+  }
+
+  const handlePublishAll = () => {
+    if (window.confirm(`${selGrade} 미게시 질문을 모두 학생에게 게시할까요?`)) {
+      publishAll.mutate({ studentId, grade: gradeNum })
+    }
+  }
+
+  const handleDelete = (q: ExpectQuestion) => {
+    if (window.confirm('이 질문을 삭제할까요? 답변/피드백/꼬리질문도 함께 삭제돼요.')) {
+      deleteQ.mutate(q.id, {
+        onSuccess: () => {
+          if (selQId === q.id) setSelQId(null)
+        },
+      })
+    }
+  }
+
+  const sendFirstFb = () => {
+    if (!selQ) return
+    const key = String(selQ.id)
+    const val = (feedback[key] || '').trim()
+    if (!val) return
+    sendFirst.mutate({
+      questionId: selQ.id,
+      studentId,
+      feedback: val,
+    }, {
+      onSuccess: () => {
+        setFeedback(prev => ({ ...prev, [key]: '' }))
+      },
+    })
+  }
+
+  const sendFinalFb = () => {
+    if (!selQ) return
+    const key = `${selQ.id}_final`
+    const val = (feedback[key] || '').trim()
+    if (!val) return
+    sendFinal.mutate({
+      questionId: selQ.id,
+      studentId,
+      feedback: val,
+    }, {
+      onSuccess: () => {
+        setFeedback(prev => ({ ...prev, [key]: '' }))
+      },
+    })
+  }
+
+  const submitTail = () => {
+    if (!selQ || !tailInput.trim()) return
+    addTail.mutate({
+      question_id: selQ.id,
+      student_id: studentId,
+      text: tailInput.trim(),
+      publish_now: true,
+    }, {
+      onSuccess: () => {
+        setTailInput('')
+        setShowTailModal(false)
+      },
+    })
   }
 
   const openAiTailModal = () => {
+    if (!selQ) return
     setShowAiTailModal(true)
-    setAiTailLoading(true)
     setAiTails([])
     setSelectedAiTails([])
-    setTimeout(() => { setAiTails(AI_TAIL_SUGGESTIONS); setAiTailLoading(false) }, 1200)
+    genAITails.mutate({
+      question_id: selQ.id,
+      student_answer: selQ.student_answer,
+    }, {
+      onSuccess: (data) => {
+        setAiTails(data)
+      },
+    })
   }
 
   const deliverAiTails = () => {
     if (!selQ || selectedAiTails.length === 0) return
-    const newTails = selectedAiTails.map(i => aiTails[i])
-    const updated = questions.map(q => q.id === selQ.id ? { ...q, tails: [...q.tails, ...newTails] } : q)
-    setQuestions(updated)
-    setSelQ({ ...selQ, tails: [...selQ.tails, ...newTails] })
-    setShowAiTailModal(false)
-    setAiTails([]); setSelectedAiTails([])
+    const selected = selectedAiTails.map(i => aiTails[i])
+    saveAITails.mutate({
+      question_id: selQ.id,
+      student_id: studentId,
+      questions: selected,
+      publish_now: true,
+    }, {
+      onSuccess: () => {
+        setShowAiTailModal(false)
+        setAiTails([])
+        setSelectedAiTails([])
+      },
+    })
   }
 
   return (
-    <div style={{ display: 'flex', gap: 16, height: '100%', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: '100%', overflow: 'hidden' }}>
 
-      {/* 왼쪽 */}
-      <div style={{ width: 360, flexShrink: 0, background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', borderBottom: '0.5px solid #E5E7EB', flexShrink: 0 }}>
-          {[{ key: 'upload', label: '생기부 확인' }, { key: 'answers', label: '답변 피드백' }].map(t => (
-            <div key={t.key} onClick={() => setLeftTab(t.key as LeftTab)}
-              style={{ flex: 1, padding: '10px 0', textAlign: 'center', fontSize: 12, fontWeight: leftTab === t.key ? 600 : 400, color: leftTab === t.key ? '#3B5BDB' : '#6B7280', borderBottom: `2px solid ${leftTab === t.key ? '#3B5BDB' : 'transparent'}`, cursor: 'pointer' }}>
-              {t.label}
-            </div>
+      {/* 상단: 학년 탭 + 전체 게시 */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {GRADE_LIST.map(g => (
+            <button
+              key={g}
+              onClick={() => setSelGrade(g)}
+              style={{
+                padding: '6px 16px',
+                borderRadius: 99,
+                fontSize: 12,
+                fontWeight: 600,
+                border: `1px solid ${selGrade === g ? '#2563EB' : '#E5E7EB'}`,
+                background: selGrade === g ? '#2563EB' : '#fff',
+                color: selGrade === g ? '#fff' : '#6B7280',
+                cursor: 'pointer',
+              }}
+            >
+              {g}
+            </button>
           ))}
         </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {questions.filter(q => q.question_status === 'draft').length > 0 && (
+            <button
+              onClick={handlePublishAll}
+              disabled={publishAll.isPending}
+              style={{
+                padding: '6px 14px',
+                background: '#059669',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 99,
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              {publishAll.isPending ? '처리중...' : `👁 ${questions.filter(q => q.question_status === 'draft').length}개 학생에게 전체 게시`}
+            </button>
+          )}
+        </div>
+      </div>
 
-        {/* 생기부 확인 */}
-        {leftTab === 'upload' && (
-          <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-            {!hasFile ? (
-              <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9CA3AF' }}>
-                <div style={{ fontSize: 32, marginBottom: 12 }}>📄</div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: '#6B7280', marginBottom: 6 }}>생기부 미업로드</div>
-                <div style={{ fontSize: 12 }}>학생이 아직 생기부를 업로드하지 않았어요.</div>
-              </div>
-            ) : (
-              <>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', marginBottom: 8 }}>업로드된 생기부</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', background: '#F8F7F5', border: '0.5px solid #E5E7EB', borderRadius: 9, marginBottom: 14 }}>
-                  <div style={{ width: 32, height: 32, background: '#EF4444', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>PDF</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{student.name}_생기부_2025.pdf</div>
-                    <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 1 }}>2.3MB · 2025-03-15 업로드 · {TOTAL_PAGES}페이지</div>
-                  </div>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#059669', background: '#ECFDF5', padding: '2px 7px', borderRadius: 99, border: '0.5px solid #6EE7B7' }}>완료</span>
-                </div>
-                <button onClick={handleGenerate} disabled={generating}
-                  style={{ width: '100%', padding: '11px 0', background: generating ? '#BAC8FF' : '#3B5BDB', color: '#fff', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: generating ? 'not-allowed' : 'pointer', fontFamily: 'inherit', marginBottom: 14 }}>
-                  {generating ? '질문 생성 중...' : '✨ AI 예상질문 생성 + 학생에게 전달'}
-                </button>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', marginBottom: 8 }}>페이지 미리보기</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                  {PAGES.map(p => (
-                    <div key={p} onClick={() => setPreviewPage(p)}
-                      style={{ background: '#F8F7F5', border: '0.5px solid #E5E7EB', borderRadius: 7, aspectRatio: '3/4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 4, fontSize: 11, color: '#9CA3AF', cursor: 'pointer' }}>
-                      <div style={{ fontSize: 18 }}>📄</div>
-                      <div>{p}p</div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        )}
+      {/* 좌우 */}
+      <div style={{ display: 'flex', gap: 16, flex: 1, overflow: 'hidden' }}>
 
-        {/* 답변 피드백 */}
-        {leftTab === 'answers' && (
-          <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px' }}>
-            <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 10 }}>
-              총 <span style={{ color: '#3B5BDB', fontWeight: 600 }}>{questions.length}개</span> 질문 ·
-              답변완료 <span style={{ color: '#059669', fontWeight: 600 }}>{questions.filter(q => q.answered).length}개</span>
-            </div>
-            {questions.map((q, i) => (
-              <div key={q.id} onClick={() => setSelQ(q)}
-                style={{ border: `0.5px solid ${selQ?.id === q.id ? '#3B5BDB' : '#E5E7EB'}`, borderRadius: 10, padding: '11px 13px', marginBottom: 7, cursor: 'pointer', background: selQ?.id === q.id ? '#EEF2FF' : '#fff' }}>
-                <span style={{ fontSize: 10, fontWeight: 600, color: '#3B5BDB', background: '#EEF2FF', padding: '1px 7px', borderRadius: 99, display: 'inline-block', marginBottom: 5 }}>질문 {i + 1}</span>
-                <div style={{ fontSize: 12, color: '#1a1a1a', lineHeight: 1.5, fontWeight: 500, marginBottom: 6 }}>{q.text}</div>
-                <div style={{ display: 'flex', gap: 5 }}>
-                  <span style={{ fontSize: 10, color: '#6B7280', background: '#F3F4F6', padding: '2px 7px', borderRadius: 99 }}>{q.tag}</span>
-                  {q.answered
-                    ? <span style={{ fontSize: 10, color: '#059669', background: '#ECFDF5', padding: '2px 7px', borderRadius: 99, border: '0.5px solid #6EE7B7' }}>답변완료 · {q.step}/5단계</span>
-                    : <span style={{ fontSize: 10, color: '#D97706', background: '#FFF3E8', padding: '2px 7px', borderRadius: 99, border: '0.5px solid #FDBA74' }}>미답변</span>
-                  }
-                </div>
+        {/* 왼쪽 */}
+        <div style={{ width: 360, flexShrink: 0, background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid #E5E7EB', flexShrink: 0 }}>
+            {[{ key: 'upload', label: '생기부 확인' }, { key: 'answers', label: '답변 피드백' }].map(t => (
+              <div
+                key={t.key}
+                onClick={() => setLeftTab(t.key as LeftTab)}
+                style={{
+                  flex: 1,
+                  padding: '12px 0',
+                  textAlign: 'center',
+                  fontSize: 12,
+                  fontWeight: leftTab === t.key ? 700 : 500,
+                  color: leftTab === t.key ? '#2563EB' : '#6B7280',
+                  borderBottom: `2px solid ${leftTab === t.key ? '#2563EB' : 'transparent'}`,
+                  cursor: 'pointer',
+                }}
+              >
+                {t.label}
               </div>
             ))}
           </div>
-        )}
-      </div>
 
-      {/* 오른쪽 */}
-      <div style={{ flex: 1, background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {!selQ ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', gap: 8 }}>
-            <div style={{ fontSize: 32 }}>💬</div>
-            <div style={{ fontSize: 14, fontWeight: 500, color: '#6B7280' }}>질문을 선택해주세요</div>
-            <div style={{ fontSize: 12 }}>왼쪽에서 질문을 클릭하면 상세 내용을 볼 수 있어요</div>
-          </div>
-        ) : (
-          <>
-            {/* 헤더 */}
-            <div style={{ padding: '13px 16px', borderBottom: '0.5px solid #E5E7EB', flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a' }}>질문 {questions.findIndex(q => q.id === selQ.id) + 1}</div>
-                  <div style={{ fontSize: 11, color: '#6B7280', marginTop: 1 }}>{selQ.tag}</div>
+          {/* 생기부 확인 탭 */}
+          {leftTab === 'upload' && (
+            <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+              {!pdfInfo?.saenggibu_pdf_url ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9CA3AF' }}>
+                  <div style={{ fontSize: 36, marginBottom: 12 }}>📄</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#6B7280', marginBottom: 6 }}>생기부 미업로드</div>
+                  <div style={{ fontSize: 12, lineHeight: 1.6 }}>
+                    학생이 아직 {selGrade} 생기부를<br />업로드하지 않았어요.
+                  </div>
                 </div>
-                <span style={{ fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 99, background: selQ.answered ? '#ECFDF5' : '#FFF3E8', color: selQ.answered ? '#059669' : '#D97706', border: `0.5px solid ${selQ.answered ? '#6EE7B7' : '#FDBA74'}` }}>
-                  {selQ.answered ? '답변완료' : '미답변'}
-                </span>
-              </div>
-              <div style={{ display: 'flex' }}>
-                {STEP_LABELS.map((label, i) => {
-                  const stepNum = i + 1
-                  const isDone = stepNum < selQ.step
-                  const isOn = stepNum === selQ.step
-                  return (
-                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, position: 'relative' }}>
-                      {i < 4 && <div style={{ position: 'absolute', top: 11, left: '55%', width: '90%', height: 1, background: isDone ? '#059669' : '#E5E7EB' }} />}
-                      <div style={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 500, zIndex: 1, position: 'relative', background: isDone ? '#059669' : isOn ? '#3B5BDB' : '#F3F4F6', color: isDone || isOn ? '#fff' : '#9CA3AF', border: `1px solid ${isDone ? '#059669' : isOn ? '#3B5BDB' : '#E5E7EB'}` }}>
-                        {isDone ? '✓' : stepNum}
+              ) : (
+                <>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', marginBottom: 8 }}>업로드된 생기부</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: '#F8F7F5', border: '1px solid #E5E7EB', borderRadius: 10, marginBottom: 10 }}>
+                    <div style={{ width: 36, height: 36, background: '#EF4444', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>PDF</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {student.name}_{selGrade}_생기부.pdf
                       </div>
-                      <div style={{ fontSize: 10, color: isDone ? '#059669' : isOn ? '#3B5BDB' : '#9CA3AF', fontWeight: isOn ? 500 : 400, whiteSpace: 'nowrap' }}>{label}</div>
+                      <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>
+                        {pdfInfo.major_dept && <>🎓 {pdfInfo.major_dept} · </>}
+                        {totalPages > 0 && <>{totalPages}페이지 · </>}
+                        업로드 완료
+                      </div>
                     </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* 바디 */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-              {/* 질문 */}
-              <div style={{ background: '#F8F7F5', borderRadius: 10, padding: '12px 14px' }}>
-                <div style={{ fontSize: 10, fontWeight: 500, color: '#9CA3AF', marginBottom: 5 }}>예상 질문</div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a1a', lineHeight: 1.6 }}>{selQ.text}</div>
-              </div>
-
-              {/* 질문 목적 */}
-              <div style={{ background: '#EEF2FF', border: '0.5px solid #BAC8FF', borderRadius: 10, padding: '12px 14px' }}>
-                <div style={{ fontSize: 11, fontWeight: 500, color: '#3B5BDB', marginBottom: 6 }}>질문 목적</div>
-                <ul style={{ paddingLeft: 14 }}>
-                  {selQ.purpose.map((p: string, i: number) => (
-                    <li key={i} style={{ fontSize: 12, color: '#1E3A8A', lineHeight: 1.7 }}>{p}</li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* 히스토리 */}
-              <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 10, padding: '12px 14px' }}>
-                <div style={{ fontSize: 10, fontWeight: 500, color: '#9CA3AF', marginBottom: 12 }}>답변 · 피드백 히스토리</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-                  {/* Step 1 */}
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#6B7280', padding: '2px 8px', borderRadius: 99 }}>Step 1</span>
-                      <span style={{ fontSize: 11, color: '#6B7280' }}>학생 첫 답변</span>
-                      {selQ.date && <span style={{ fontSize: 10, color: '#9CA3AF', marginLeft: 'auto' }}>{selQ.date}</span>}
-                    </div>
-                    <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '10px 12px', fontSize: 13, color: '#374151', lineHeight: 1.8 }}>
-                      {selQ.answered ? selQ.answer : <span style={{ color: '#9CA3AF' }}>아직 학생이 답변을 작성하지 않았어요.</span>}
-                    </div>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#059669', background: '#ECFDF5', padding: '3px 8px', borderRadius: 99, border: '1px solid #6EE7B7', flexShrink: 0 }}>
+                      완료
+                    </span>
                   </div>
 
-                  {/* Step 2 */}
-                  {selQ.answered && (
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#3B5BDB', padding: '2px 8px', borderRadius: 99 }}>Step 2</span>
-                        <span style={{ fontSize: 11, color: '#6B7280' }}>선생님 1차 피드백</span>
-                      </div>
-                      {selQ.prevFeedback ? (
-                        <div style={{ background: '#EEF2FF', border: '0.5px solid #BAC8FF', borderRadius: 8, padding: '10px 12px', fontSize: 13, color: '#1E3A8A', lineHeight: 1.8 }}>
-                          {selQ.prevFeedback}
-                        </div>
+                  {/* 삭제 버튼 */}
+                  <button
+                    onClick={() => {
+                      if (window.confirm(
+                        `정말 학생의 ${selGrade} 생기부를 삭제할까요?\n\n` +
+                        `⚠️ 주의:\n` +
+                        `• 학생이 다시 업로드해야 해요\n` +
+                        `• 이미 생성된 질문들은 그대로 남아요\n` +
+                        `• 이 작업은 되돌릴 수 없어요`
+                      )) {
+                        deletePdf.mutate({
+                          studentId,
+                          path: pdfInfo.saenggibu_pdf_url!,
+                          grade: gradeNum,
+                        }, {
+                          onSuccess: () => {
+                            alert('생기부가 삭제되었어요. 학생에게 재업로드를 요청해주세요.')
+                          },
+                          onError: (err: any) => {
+                            alert('삭제 실패: ' + (err?.message || '알 수 없는 오류'))
+                          },
+                        })
+                      }
+                    }}
+                    disabled={deletePdf.isPending}
+                    style={{
+                      width: '100%',
+                      padding: '8px 0',
+                      background: '#fff',
+                      color: '#EF4444',
+                      border: '1px solid #FCA5A5',
+                      borderRadius: 8,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: deletePdf.isPending ? 'not-allowed' : 'pointer',
+                      marginBottom: 14,
+                    }}
+                  >
+                    {deletePdf.isPending ? '삭제중...' : '🗑 생기부 삭제 (학생 재업로드 필요)'}
+                  </button>
+
+                  <button
+                    onClick={handleGenerateAI}
+                    disabled={generateAI.isPending}
+                    style={{
+                      width: '100%',
+                      padding: '12px 0',
+                      background: generateAI.isPending ? '#BAC8FF' : '#2563EB',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 10,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: generateAI.isPending ? 'not-allowed' : 'pointer',
+                      marginBottom: 10,
+                    }}
+                  >
+                    {generateAI.isPending ? '질문 생성 중...' : '✨ AI 예상질문 생성 + 학생에게 전달'}
+                  </button>
+
+                  <button
+                    onClick={() => setShowManualModal(true)}
+                    style={{
+                      width: '100%',
+                      padding: '11px 0',
+                      background: '#fff',
+                      color: '#2563EB',
+                      border: '1px solid #2563EB',
+                      borderRadius: 10,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      marginBottom: 14,
+                    }}
+                  >
+                    ✏️ 직접 질문 작성
+                  </button>
+
+                  {/* 페이지 썸네일 그리드 (PDF.js 기반) */}
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', marginBottom: 8 }}>
+                    페이지 미리보기 {totalPages > 0 && `(${totalPages}장)`}
+                  </div>
+
+                  {pdfUrl && (
+                    <PdfThumbnailGrid
+                      pdfUrl={pdfUrl}
+                      onClickPage={(p) => setPreviewPage(p)}
+                      onTotalPages={(n) => setTotalPages(n)}
+                    />
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* 답변 피드백 탭 */}
+          {leftTab === 'answers' && (
+            <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
+              <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 10, padding: '0 4px', lineHeight: 1.7 }}>
+                총 <span style={{ color: '#2563EB', fontWeight: 700 }}>{questions.length}개</span> ·
+                게시 <span style={{ color: '#059669', fontWeight: 700 }}>{questions.filter(q => q.question_status === 'published').length}개</span>
+                <br />
+                답변완료 <span style={{ color: '#059669', fontWeight: 700 }}>{questions.filter(q => !!q.student_answer).length}개</span> ·
+                미답변 <span style={{ color: '#D97706', fontWeight: 700 }}>{questions.filter(q => !q.student_answer).length}개</span>
+              </div>
+
+              {loadingQ ? (
+                <div style={{ textAlign: 'center', padding: '30px 0', color: '#9CA3AF', fontSize: 12 }}>
+                  불러오는 중...
+                </div>
+              ) : questions.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: '#9CA3AF' }}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
+                  <div style={{ fontSize: 12, marginBottom: 4 }}>생성된 질문이 없어요.</div>
+                  <div style={{ fontSize: 11, lineHeight: 1.6 }}>
+                    '생기부 확인' 탭에서<br />AI 생성 또는 직접 작성해보세요.
+                  </div>
+                </div>
+              ) : questions.map((q, i) => {
+                const isPublished = q.question_status === 'published'
+                return (
+                  <div
+                    key={q.id}
+                    onClick={() => setSelQId(q.id)}
+                    style={{
+                      border: `1px solid ${selQId === q.id ? '#2563EB' : '#E5E7EB'}`,
+                      borderRadius: 10,
+                      padding: '12px 14px',
+                      marginBottom: 8,
+                      cursor: 'pointer',
+                      background: selQId === q.id ? '#EFF6FF' : '#fff',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', padding: '2px 8px', borderRadius: 99 }}>
+                        질문 {i + 1}
+                      </span>
+                      {q.source_type === 'teacher_manual' && (
+                        <span style={{ fontSize: 9, fontWeight: 700, color: '#7C3AED', background: '#F3E8FF', padding: '2px 6px', borderRadius: 99 }}>
+                          원장 작성
+                        </span>
+                      )}
+                      {isPublished ? (
+                        <span style={{ fontSize: 9, fontWeight: 700, color: '#059669', background: '#ECFDF5', padding: '2px 6px', borderRadius: 99, border: '1px solid #6EE7B7' }}>
+                          게시됨
+                        </span>
                       ) : (
-                        <>
-                          <textarea value={feedback[String(selQ.id)] || ''} onChange={e => setFeedback(prev => ({ ...prev, [String(selQ.id)]: e.target.value }))}
-                            placeholder="학생의 첫 답변에 대한 피드백을 작성해주세요..." rows={3}
-                            style={{ width: '100%', border: '0.5px solid #E5E7EB', borderRadius: 8, padding: '10px 12px', fontSize: 12, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7 }} />
-                          <div style={{ display: 'flex', gap: 7, marginTop: 7 }}>
-                            <button onClick={() => sendFeedback('first')} style={{ padding: '7px 14px', background: '#3B5BDB', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>1차 피드백 전달</button>
-                            <button style={{ padding: '7px 14px', background: '#fff', color: '#3B5BDB', border: '0.5px solid #3B5BDB', borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>✨ AI 제안</button>
-                          </div>
-                        </>
+                        <span style={{ fontSize: 9, fontWeight: 700, color: '#D97706', background: '#FFF3E8', padding: '2px 6px', borderRadius: 99, border: '1px solid #FDBA74' }}>
+                          미게시
+                        </span>
                       )}
                     </div>
-                  )}
 
-                  {/* Step 3 */}
-                  {selQ.step >= 3 && (
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#6B7280', padding: '2px 8px', borderRadius: 99 }}>Step 3</span>
-                        <span style={{ fontSize: 11, color: '#6B7280' }}>학생 업그레이드 답변</span>
-                      </div>
-                      <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '10px 12px', fontSize: 13, color: '#374151', lineHeight: 1.8 }}>
-                        {selQ.upgradedAnswer || <span style={{ color: '#9CA3AF' }}>학생이 아직 업그레이드 답변을 작성하지 않았어요.</span>}
-                      </div>
+                    <div style={{ fontSize: 12.5, color: '#1a1a1a', lineHeight: 1.5, fontWeight: 500, marginBottom: 8 }}>
+                      {q.teacher_edited_question || q.question}
                     </div>
-                  )}
 
-                  {/* Step 4 */}
-                  {selQ.step >= 4 && (
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#059669', padding: '2px 8px', borderRadius: 99 }}>Step 4</span>
-                        <span style={{ fontSize: 11, color: '#6B7280' }}>선생님 최종 피드백</span>
-                      </div>
-                      {selQ.finalFeedback ? (
-                        <div style={{ background: '#ECFDF5', border: '0.5px solid #6EE7B7', borderRadius: 8, padding: '10px 12px', fontSize: 13, color: '#065F46', lineHeight: 1.8 }}>
-                          {selQ.finalFeedback}
-                        </div>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {q.tag && (
+                        <span style={{ fontSize: 10, color: '#6B7280', background: '#F3F4F6', padding: '2px 7px', borderRadius: 99 }}>
+                          {q.tag}
+                        </span>
+                      )}
+                      {q.student_answer ? (
+                        <span style={{ fontSize: 10, color: '#059669', background: '#ECFDF5', padding: '2px 7px', borderRadius: 99, border: '1px solid #6EE7B7' }}>
+                          답변완료
+                        </span>
                       ) : (
-                        <>
-                          <textarea value={feedback[`${selQ.id}_final`] || ''} onChange={e => setFeedback(prev => ({ ...prev, [`${selQ.id}_final`]: e.target.value }))}
-                            placeholder="업그레이드된 답변에 대한 최종 피드백을 작성해주세요..." rows={3}
-                            style={{ width: '100%', border: '0.5px solid #E5E7EB', borderRadius: 8, padding: '10px 12px', fontSize: 12, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7 }} />
-                          <div style={{ display: 'flex', gap: 7, marginTop: 7 }}>
-                            <button onClick={() => sendFeedback('final')} style={{ padding: '7px 14px', background: '#059669', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>최종 피드백 전달</button>
-                            <button style={{ padding: '7px 14px', background: '#fff', color: '#3B5BDB', border: '0.5px solid #3B5BDB', borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>✨ AI 제안</button>
-                          </div>
-                        </>
+                        <span style={{ fontSize: 10, color: '#D97706', background: '#FFF3E8', padding: '2px 7px', borderRadius: 99, border: '1px solid #FDBA74' }}>
+                          미답변
+                        </span>
                       )}
                     </div>
-                  )}
 
-                  {/* Step 5 — 꼬리질문 */}
+                    <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handlePublish(q) }}
+                        style={{
+                          flex: 1,
+                          padding: '4px 8px',
+                          fontSize: 10,
+                          fontWeight: 700,
+                          borderRadius: 6,
+                          border: isPublished ? '1px solid #E5E7EB' : 'none',
+                          background: isPublished ? '#fff' : '#2563EB',
+                          color: isPublished ? '#6B7280' : '#fff',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {isPublished ? '🔒 비공개' : '👁 게시'}
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDelete(q) }}
+                        style={{
+                          padding: '4px 10px',
+                          fontSize: 10,
+                          fontWeight: 700,
+                          borderRadius: 6,
+                          border: '1px solid #FCA5A5',
+                          background: '#fff',
+                          color: '#EF4444',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* 오른쪽 */}
+        <div style={{ flex: 1, background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {!selQ ? (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', gap: 8 }}>
+              <div style={{ fontSize: 36 }}>💬</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#6B7280' }}>질문을 선택해주세요</div>
+              <div style={{ fontSize: 12 }}>왼쪽에서 질문을 클릭하면 상세 내용을 볼 수 있어요</div>
+            </div>
+          ) : (
+            <>
+              {/* 헤더 */}
+              <div style={{ padding: '14px 18px', borderBottom: '1px solid #E5E7EB', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>
+                      질문 {questions.findIndex(q => q.id === selQ.id) + 1}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{selQ.tag || '기타'}</div>
+                  </div>
+                  <span style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: '3px 12px',
+                    borderRadius: 99,
+                    background: selQ.student_answer ? '#ECFDF5' : '#FFF3E8',
+                    color: selQ.student_answer ? '#059669' : '#D97706',
+                    border: `1px solid ${selQ.student_answer ? '#6EE7B7' : '#FDBA74'}`,
+                  }}>
+                    {selQ.student_answer ? '답변완료' : '미답변'}
+                  </span>
+                </div>
+
+                {/* 5단계 스테퍼 */}
+                <div style={{ display: 'flex' }}>
+                  {STEP_LABELS.map((label, i) => {
+                    const stepNum = i + 1
+                    const isDone = stepNum < step
+                    const isOn = stepNum === step
+                    return (
+                      <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative' }}>
+                        {i < 4 && (
+                          <div style={{
+                            position: 'absolute',
+                            top: 11,
+                            left: '55%',
+                            width: '90%',
+                            height: 1.5,
+                            background: isDone ? '#059669' : '#E5E7EB',
+                          }} />
+                        )}
+                        <div style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 10,
+                          fontWeight: 700,
+                          zIndex: 1,
+                          position: 'relative',
+                          background: isDone ? '#059669' : isOn ? '#2563EB' : '#F3F4F6',
+                          color: isDone || isOn ? '#fff' : '#9CA3AF',
+                          border: `2px solid ${isDone ? '#059669' : isOn ? '#2563EB' : '#E5E7EB'}`,
+                        }}>
+                          {isDone ? '✓' : stepNum}
+                        </div>
+                        <div style={{
+                          fontSize: 10,
+                          color: isDone ? '#059669' : isOn ? '#2563EB' : '#9CA3AF',
+                          fontWeight: isOn ? 700 : 500,
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {label}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* 본문 */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+                {/* 질문 */}
+                <div style={{ background: '#F8F7F5', borderRadius: 10, padding: '14px 16px' }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', marginBottom: 6, letterSpacing: '0.5px' }}>예상 질문</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', lineHeight: 1.6 }}>
+                    {selQ.teacher_edited_question || selQ.question}
+                  </div>
+                </div>
+
+                {/* 질문 목적 */}
+                {selQ.purpose && Array.isArray(selQ.purpose) && selQ.purpose.length > 0 && (
+                  <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10, padding: '14px 16px' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#2563EB', marginBottom: 8 }}>💡 질문 목적</div>
+                    <ul style={{ paddingLeft: 16, margin: 0 }}>
+                      {selQ.purpose.map((p: string, i: number) => (
+                        <li key={i} style={{ fontSize: 12, color: '#1E3A8A', lineHeight: 1.7 }}>{p}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Step 1 - 학생 첫 답변 */}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#6B7280', padding: '3px 10px', borderRadius: 99 }}>Step 1</span>
+                    <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>학생 첫 답변</span>
+                  </div>
+                  <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '11px 14px', fontSize: 13, color: '#374151', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                    {selQ.student_answer || <span style={{ color: '#9CA3AF' }}>아직 학생이 답변을 작성하지 않았어요.</span>}
+                  </div>
+                </div>
+
+                {/* Step 2 - 1차 피드백 */}
+                {selQ.student_answer && (
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: selQ.step >= 5 ? '#3B5BDB' : '#6B7280', padding: '2px 8px', borderRadius: 99 }}>Step 5</span>
-                      <span style={{ fontSize: 11, color: '#6B7280' }}>꼬리질문</span>
-                      <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-                        <button onClick={() => setShowTailModal(true)}
-                          style={{ padding: '4px 10px', background: '#fff', color: '#3B5BDB', border: '0.5px solid #3B5BDB', borderRadius: 7, fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-                          + 직접 추가
-                        </button>
-                        <button onClick={openAiTailModal}
-                          style={{ padding: '4px 10px', background: '#3B5BDB', color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-                          ✨ AI 생성
-                        </button>
-                      </div>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#2563EB', padding: '3px 10px', borderRadius: 99 }}>Step 2</span>
+                      <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>선생님 1차 피드백</span>
                     </div>
-                    {selQ.tails.length === 0 ? (
-                      <div style={{ fontSize: 12, color: '#9CA3AF', textAlign: 'center', padding: '12px 0' }}>꼬리질문이 없어요.</div>
-                    ) : selQ.tails.map((t: string, i: number) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, padding: '8px 10px', background: '#F8F7F5', borderRadius: 7, marginBottom: 5, fontSize: 12, color: '#374151', lineHeight: 1.5 }}>
-                        <span style={{ fontSize: 10, fontWeight: 500, color: '#3B5BDB', background: '#EEF2FF', padding: '2px 6px', borderRadius: 99, flexShrink: 0, marginTop: 1 }}>꼬리 {i + 1}</span>
-                        {t}
+                    {round1?.teacher_feedback ? (
+                      <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '11px 14px', fontSize: 13, color: '#1E3A8A', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                        {round1.teacher_feedback}
                       </div>
-                    ))}
+                    ) : (
+                      <>
+                        <textarea
+                          value={feedback[String(selQ.id)] || ''}
+                          onChange={e => setFeedback(prev => ({ ...prev, [String(selQ.id)]: e.target.value }))}
+                          placeholder="학생의 첫 답변에 대한 피드백을 작성해주세요..."
+                          rows={4}
+                          style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: 8, padding: '11px 14px', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7 }}
+                        />
+                        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                          <button
+                            onClick={sendFirstFb}
+                            disabled={sendFirst.isPending || !(feedback[String(selQ.id)] || '').trim()}
+                            style={{
+                              padding: '8px 16px',
+                              background: (feedback[String(selQ.id)] || '').trim() ? '#2563EB' : '#E5E7EB',
+                              color: (feedback[String(selQ.id)] || '').trim() ? '#fff' : '#9CA3AF',
+                              border: 'none',
+                              borderRadius: 7,
+                              fontSize: 12,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {sendFirst.isPending ? '전달중...' : '1차 피드백 전달'}
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
+                )}
 
+                {/* Step 3 - 업그레이드 답변 */}
+                {round1?.teacher_feedback && (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#6B7280', padding: '3px 10px', borderRadius: 99 }}>Step 3</span>
+                      <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>학생 업그레이드 답변</span>
+                    </div>
+                    <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '11px 14px', fontSize: 13, color: '#374151', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                      {round2?.revised_answer || <span style={{ color: '#9CA3AF' }}>학생이 아직 업그레이드 답변을 작성하지 않았어요.</span>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 4 - 최종 피드백 */}
+                {round2?.revised_answer && (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#059669', padding: '3px 10px', borderRadius: 99 }}>Step 4</span>
+                      <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>선생님 최종 피드백</span>
+                    </div>
+                    {round2.teacher_feedback ? (
+                      <div style={{ background: '#ECFDF5', border: '1px solid #6EE7B7', borderRadius: 8, padding: '11px 14px', fontSize: 13, color: '#065F46', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                        {round2.teacher_feedback}
+                      </div>
+                    ) : (
+                      <>
+                        <textarea
+                          value={feedback[`${selQ.id}_final`] || ''}
+                          onChange={e => setFeedback(prev => ({ ...prev, [`${selQ.id}_final`]: e.target.value }))}
+                          placeholder="업그레이드된 답변에 대한 최종 피드백을 작성해주세요..."
+                          rows={4}
+                          style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: 8, padding: '11px 14px', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7 }}
+                        />
+                        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                          <button
+                            onClick={sendFinalFb}
+                            disabled={sendFinal.isPending || !(feedback[`${selQ.id}_final`] || '').trim()}
+                            style={{
+                              padding: '8px 16px',
+                              background: (feedback[`${selQ.id}_final`] || '').trim() ? '#059669' : '#E5E7EB',
+                              color: (feedback[`${selQ.id}_final`] || '').trim() ? '#fff' : '#9CA3AF',
+                              border: 'none',
+                              borderRadius: 7,
+                              fontSize: 12,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {sendFinal.isPending ? '전달중...' : '최종 피드백 전달'}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 5 - 꼬리질문 */}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: step >= 5 ? '#2563EB' : '#6B7280', padding: '3px 10px', borderRadius: 99 }}>Step 5</span>
+                    <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>꼬리질문</span>
+                    <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                      <button
+                        onClick={() => setShowTailModal(true)}
+                        style={{ padding: '5px 12px', background: '#fff', color: '#2563EB', border: '1px solid #2563EB', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        + 직접 추가
+                      </button>
+                      <button
+                        onClick={openAiTailModal}
+                        style={{ padding: '5px 12px', background: '#2563EB', color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        ✨ AI 생성
+                      </button>
+                    </div>
+                  </div>
+                  {followups.length === 0 ? (
+                    <div style={{ fontSize: 12, color: '#9CA3AF', textAlign: 'center', padding: '14px 0', background: '#F8F7F5', borderRadius: 8 }}>
+                      꼬리질문이 없어요.
+                    </div>
+                  ) : followups.map((fu, i) => (
+                    <div key={fu.id} style={{ background: '#F8F7F5', border: '1px solid #E5E7EB', borderRadius: 8, padding: '10px 12px', marginBottom: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', padding: '3px 8px', borderRadius: 99, flexShrink: 0, marginTop: 1 }}>
+                          꼬리 {i + 1}
+                        </span>
+                        <div style={{ flex: 1, fontSize: 12, color: '#374151', lineHeight: 1.6 }}>
+                          {fu.teacher_edited_question || fu.ai_generated_question}
+                        </div>
+                        <button
+                          onClick={() => { if (window.confirm('꼬리질문 삭제?')) deleteTail.mutate(fu.id) }}
+                          style={{ padding: '3px 8px', fontSize: 10, color: '#EF4444', background: '#fff', border: '1px solid #FCA5A5', borderRadius: 5, cursor: 'pointer' }}
+                        >
+                          삭제
+                        </button>
+                      </div>
+                      {fu.student_answer && (
+                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #E5E7EB' }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: '#059669', marginBottom: 4 }}>학생 답변</div>
+                          <div style={{ fontSize: 12, color: '#1a1a1a', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{fu.student_answer}</div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
+
               </div>
-            </div>
-          </>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* 꼬리질문 직접 추가 모달 */}
       {showTailModal && (
         <div onClick={() => setShowTailModal(false)}
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div onClick={e => e.stopPropagation()}
-            style={{ background: '#fff', borderRadius: 16, padding: 28, width: 440 }}>
-            <div style={{ fontSize: 16, fontWeight: 500, color: '#1a1a1a', marginBottom: 4 }}>꼬리질문 추가</div>
+            style={{ background: '#fff', borderRadius: 16, padding: 28, width: 480 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>꼬리질문 추가</div>
             <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 16 }}>학생에게 추가로 물어볼 꼬리질문을 작성해요.</div>
             <textarea value={tailInput} onChange={e => setTailInput(e.target.value)}
               placeholder="꼬리질문을 입력해주세요..." rows={4} autoFocus
-              style={{ width: '100%', border: '0.5px solid #E5E7EB', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', resize: 'none', fontFamily: 'inherit', lineHeight: 1.7, marginBottom: 16 }} />
+              style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: 8, padding: '11px 14px', fontSize: 13, outline: 'none', resize: 'none', fontFamily: 'inherit', lineHeight: 1.7, marginBottom: 16 }} />
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => { setShowTailModal(false); setTailInput('') }}
-                style={{ flex: 1, height: 42, background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>취소</button>
-              <button onClick={addTail}
-                style={{ flex: 1, height: 42, background: tailInput.trim() ? '#3B5BDB' : '#E5E7EB', color: tailInput.trim() ? '#fff' : '#9CA3AF', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: tailInput.trim() ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
-                추가하기
+                style={{ flex: 1, height: 42, background: '#fff', color: '#6B7280', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>취소</button>
+              <button onClick={submitTail} disabled={!tailInput.trim() || addTail.isPending}
+                style={{ flex: 1, height: 42, background: tailInput.trim() ? '#2563EB' : '#E5E7EB', color: tailInput.trim() ? '#fff' : '#9CA3AF', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: tailInput.trim() ? 'pointer' : 'not-allowed' }}>
+                {addTail.isPending ? '추가중...' : '추가하고 게시'}
               </button>
             </div>
           </div>
@@ -387,12 +901,12 @@ export default function ExpectTab({ student }: { student: any }) {
       {/* AI 꼬리질문 모달 */}
       {showAiTailModal && (
         <div onClick={() => setShowAiTailModal(false)}
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div onClick={e => e.stopPropagation()}
-            style={{ background: '#fff', borderRadius: 16, padding: 28, width: 480 }}>
-            <div style={{ fontSize: 16, fontWeight: 500, color: '#1a1a1a', marginBottom: 4 }}>✨ AI 꼬리질문 생성</div>
+            style={{ background: '#fff', borderRadius: 16, padding: 28, width: 520 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>✨ AI 꼬리질문 생성</div>
             <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 20 }}>AI가 답변 내용을 분석해서 꼬리질문을 만들었어요. 전달할 질문을 선택해주세요.</div>
-            {aiTailLoading ? (
+            {genAITails.isPending ? (
               <div style={{ textAlign: 'center', padding: '32px 0', color: '#9CA3AF', fontSize: 13 }}>
                 <div style={{ fontSize: 28, marginBottom: 10 }}>✨</div>
                 AI가 꼬리질문을 생성 중이에요...
@@ -401,9 +915,9 @@ export default function ExpectTab({ student }: { student: any }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
                 {aiTails.map((t, i) => (
                   <div key={i} onClick={() => setSelectedAiTails(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])}
-                    style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', border: `0.5px solid ${selectedAiTails.includes(i) ? '#3B5BDB' : '#E5E7EB'}`, borderRadius: 10, cursor: 'pointer', background: selectedAiTails.includes(i) ? '#EEF2FF' : '#fff' }}>
-                    <div style={{ width: 18, height: 18, borderRadius: 4, border: `1.5px solid ${selectedAiTails.includes(i) ? '#3B5BDB' : '#D1D5DB'}`, background: selectedAiTails.includes(i) ? '#3B5BDB' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
-                      {selectedAiTails.includes(i) && <span style={{ fontSize: 10, color: '#fff' }}>✓</span>}
+                    style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', border: `1px solid ${selectedAiTails.includes(i) ? '#2563EB' : '#E5E7EB'}`, borderRadius: 10, cursor: 'pointer', background: selectedAiTails.includes(i) ? '#EFF6FF' : '#fff' }}>
+                    <div style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${selectedAiTails.includes(i) ? '#2563EB' : '#D1D5DB'}`, background: selectedAiTails.includes(i) ? '#2563EB' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                      {selectedAiTails.includes(i) && <span style={{ fontSize: 11, color: '#fff' }}>✓</span>}
                     </div>
                     <span style={{ fontSize: 13, color: '#1a1a1a', lineHeight: 1.6 }}>{t}</span>
                   </div>
@@ -412,43 +926,181 @@ export default function ExpectTab({ student }: { student: any }) {
             )}
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setShowAiTailModal(false)}
-                style={{ flex: 1, height: 42, background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>취소</button>
-              <button onClick={deliverAiTails} disabled={selectedAiTails.length === 0 || aiTailLoading}
-                style={{ flex: 1, height: 42, background: selectedAiTails.length > 0 ? '#3B5BDB' : '#E5E7EB', color: selectedAiTails.length > 0 ? '#fff' : '#9CA3AF', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: selectedAiTails.length > 0 ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
-                선택한 {selectedAiTails.length}개 전달
+                style={{ flex: 1, height: 42, background: '#fff', color: '#6B7280', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>취소</button>
+              <button onClick={deliverAiTails} disabled={selectedAiTails.length === 0 || genAITails.isPending || saveAITails.isPending}
+                style={{ flex: 1, height: 42, background: selectedAiTails.length > 0 ? '#2563EB' : '#E5E7EB', color: selectedAiTails.length > 0 ? '#fff' : '#9CA3AF', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: selectedAiTails.length > 0 ? 'pointer' : 'not-allowed' }}>
+                {saveAITails.isPending ? '저장중...' : `선택한 ${selectedAiTails.length}개 전달`}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 페이지 미리보기 모달 */}
-      {previewPage !== null && (
-        <div onClick={() => setPreviewPage(null)}
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {/* 원장 직접 질문 추가 모달 */}
+      {showManualModal && (
+        <div onClick={() => setShowManualModal(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div onClick={e => e.stopPropagation()}
-            style={{ background: '#fff', borderRadius: 16, width: 600, maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '14px 20px', borderBottom: '0.5px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a1a' }}>{previewPage}페이지</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <button onClick={() => setPreviewPage(p => Math.max(1, (p || 1) - 1))} disabled={previewPage === 1}
-                  style={{ padding: '5px 12px', background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 7, fontSize: 12, cursor: previewPage === 1 ? 'not-allowed' : 'pointer', color: previewPage === 1 ? '#D1D5DB' : '#374151' }}>← 이전</button>
-                <span style={{ fontSize: 12, color: '#6B7280' }}>{previewPage} / {TOTAL_PAGES}</span>
-                <button onClick={() => setPreviewPage(p => Math.min(TOTAL_PAGES, (p || 1) + 1))} disabled={previewPage === TOTAL_PAGES}
-                  style={{ padding: '5px 12px', background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 7, fontSize: 12, cursor: previewPage === TOTAL_PAGES ? 'not-allowed' : 'pointer', color: previewPage === TOTAL_PAGES ? '#D1D5DB' : '#374151' }}>다음 →</button>
-                <button onClick={() => setPreviewPage(null)}
-                  style={{ width: 28, height: 28, background: '#F3F4F6', border: 'none', borderRadius: 7, cursor: 'pointer', color: '#6B7280', fontSize: 14 }}>✕</button>
+            style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 760, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+            {/* 헤더 */}
+            <div style={{ padding: '20px 28px 14px', borderBottom: '1px solid #E5E7EB', flexShrink: 0 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>✏️ 직접 질문 작성</div>
+              <div style={{ fontSize: 12, color: '#6B7280' }}>
+                원장님이 직접 예상질문을 작성하세요. 한 번에 여러 개 작성 가능해요.
+                저장 후 <strong>미게시 상태</strong>로 보관되고 학생에게는 게시해야 보여요.
               </div>
             </div>
-            <div style={{ flex: 1, overflow: 'auto', padding: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ width: '100%', aspectRatio: '3/4', background: '#F8F7F5', border: '0.5px solid #E5E7EB', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, color: '#9CA3AF' }}>
-                <div style={{ fontSize: 48 }}>📄</div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: '#6B7280' }}>{previewPage}페이지</div>
-                <div style={{ fontSize: 12 }}>실제 서비스에서 PDF 이미지가 표시돼요</div>
-              </div>
+
+            {/* 질문 리스트 (스크롤) */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 28px' }}>
+              {manualItems.map((item, idx) => (
+                <div key={idx} style={{
+                  border: '1px solid #E5E7EB',
+                  borderRadius: 10,
+                  padding: 14,
+                  marginBottom: 10,
+                  background: '#FAFBFC',
+                  position: 'relative',
+                }}>
+                  {/* 헤더 - 번호 + 삭제 */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', padding: '3px 10px', borderRadius: 99 }}>
+                      질문 {idx + 1}
+                    </span>
+                    {manualItems.length > 1 && (
+                      <button
+                        onClick={() => removeManualRow(idx)}
+                        style={{
+                          padding: '3px 10px',
+                          fontSize: 11,
+                          color: '#EF4444',
+                          background: '#fff',
+                          border: '1px solid #FCA5A5',
+                          borderRadius: 6,
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                        }}
+                      >
+                        ✕ 삭제
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 태그 + 질문 한 줄에 */}
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                    <div style={{ width: 140, flexShrink: 0 }}>
+                      <label style={{ fontSize: 10, fontWeight: 700, color: '#6B7280', display: 'block', marginBottom: 4 }}>태그</label>
+                      <select
+                        value={item.tag}
+                        onChange={e => updateManualRow(idx, { tag: e.target.value })}
+                        style={{
+                          width: '100%',
+                          border: '1px solid #E5E7EB',
+                          borderRadius: 7,
+                          padding: '8px 6px',
+                          fontSize: 11,
+                          outline: 'none',
+                          fontFamily: 'inherit',
+                          background: '#fff',
+                        }}
+                      >
+                        {TAG_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: 10, fontWeight: 700, color: '#6B7280', display: 'block', marginBottom: 4 }}>질문 내용 *</label>
+                      <textarea
+                        value={item.question}
+                        onChange={e => updateManualRow(idx, { question: e.target.value })}
+                        placeholder="학생에게 물어볼 예상질문을 작성해주세요..."
+                        rows={2}
+                        style={{
+                          width: '100%',
+                          border: '1px solid #E5E7EB',
+                          borderRadius: 7,
+                          padding: '8px 10px',
+                          fontSize: 12,
+                          outline: 'none',
+                          resize: 'vertical',
+                          fontFamily: 'inherit',
+                          lineHeight: 1.6,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* 질문 추가 버튼 */}
+              <button
+                onClick={addManualRow}
+                style={{
+                  width: '100%',
+                  padding: '10px 0',
+                  background: '#fff',
+                  color: '#2563EB',
+                  border: '1.5px dashed #93C5FD',
+                  borderRadius: 10,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                + 질문 추가
+              </button>
+            </div>
+
+            {/* 푸터 - 버튼 */}
+            <div style={{ padding: '14px 28px 20px', borderTop: '1px solid #E5E7EB', display: 'flex', gap: 8, flexShrink: 0 }}>
+              <button
+                onClick={() => {
+                  setShowManualModal(false)
+                  setManualItems([{ tag: '출결상황', question: '' }])
+                }}
+                style={{
+                  flex: 1,
+                  height: 42,
+                  background: '#fff',
+                  color: '#6B7280',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                }}
+              >
+                취소
+              </button>
+              <button
+                onClick={handleAddManual}
+                disabled={manualItems.filter(i => i.question.trim()).length === 0 || addManual.isPending}
+                style={{
+                  flex: 2,
+                  height: 42,
+                  background: manualItems.filter(i => i.question.trim()).length > 0 && !addManual.isPending ? '#2563EB' : '#E5E7EB',
+                  color: manualItems.filter(i => i.question.trim()).length > 0 && !addManual.isPending ? '#fff' : '#9CA3AF',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: manualItems.filter(i => i.question.trim()).length > 0 && !addManual.isPending ? 'pointer' : 'not-allowed',
+                }}
+              >
+                {addManual.isPending ? '저장중...' : `${manualItems.filter(i => i.question.trim()).length}개 질문 저장`}
+              </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* 페이지 미리보기 모달 (PDF.js 기반 + 스크롤 감지) */}
+      {previewPage !== null && pdfUrl && (
+        <PdfViewerModal
+          pdfUrl={pdfUrl}
+          initialPage={previewPage}
+          onClose={() => setPreviewPage(null)}
+        />
       )}
 
     </div>

@@ -2,12 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSetAtom } from 'jotai'
 import { tokenState, academyState } from '../../_store/auth'
-
-const MOCK_ACCOUNTS = [
-  { email: 'owner@inanswer.com', password: '1234', role: 'OWNER' as const, name: '대치 인로드학원', code: 'ACA001', ownerName: '김원장', teacherId: undefined },
-  { email: 'kim.teacher@example.com', password: '1234', role: 'TEACHER' as const, name: '대치 인로드학원', code: 'ACA001', ownerName: '김선생', teacherId: 1 },
-  { email: 'lee.teacher@example.com', password: '1234', role: 'TEACHER' as const, name: '대치 인로드학원', code: 'ACA001', ownerName: '이선생', teacherId: 2 },
-]
+import { supabase } from '../../../../lib/supabase'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -20,29 +15,107 @@ export default function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleLogin = () => {
-    if (!email || !password) { setError('이메일과 비밀번호를 입력해주세요.'); return }
+  const handleLogin = async () => {
+    if (!email || !password) {
+      setError('이메일과 비밀번호를 입력해주세요.')
+      return
+    }
+
     setLoading(true)
     setError('')
-    setTimeout(() => {
-      const account = MOCK_ACCOUNTS.find(a => a.email === email && a.password === password)
-      if (!account) {
-        setError('이메일 또는 비밀번호가 맞지 않아요.')
+
+    try {
+      // 1️⃣ Supabase Auth 로그인
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (authError) {
+        if (authError.message.includes('Invalid login credentials')) {
+          setError('이메일 또는 비밀번호가 맞지 않아요.')
+        } else if (authError.message.includes('Email not confirmed')) {
+          setError('이메일 인증이 완료되지 않았습니다.')
+        } else {
+          setError('로그인에 실패했습니다.')
+        }
         setLoading(false)
         return
       }
-      setToken({ accessToken: 'mock-token', expiresIn: '3600' })
+
+      if (!authData.user) {
+        setError('로그인 정보를 가져올 수 없습니다.')
+        setLoading(false)
+        return
+      }
+
+      // 2️⃣ profiles 테이블에서 role 확인
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role, name, academy_id')
+        .eq('id', authData.user.id)
+        .single()
+
+      if (profileError || !profile) {
+        setError('프로필 정보를 불러올 수 없습니다.')
+        await supabase.auth.signOut()
+        setLoading(false)
+        return
+      }
+
+      // 3️⃣ admin 또는 teacher만 허용
+      if (profile.role !== 'admin' && profile.role !== 'teacher') {
+        setError('학원 관리자 계정만 접근 가능합니다.')
+        await supabase.auth.signOut()
+        setLoading(false)
+        return
+      }
+
+      // 4️⃣ 학원 정보 가져오기
+      let academyInfo: any = null
+      if (profile.academy_id) {
+        const { data: academy } = await supabase
+          .from('academies')
+          .select('*')
+          .eq('id', profile.academy_id)
+          .single()
+
+        academyInfo = academy
+      }
+
+      if (!academyInfo) {
+        setError('소속된 학원 정보를 찾을 수 없습니다.')
+        await supabase.auth.signOut()
+        setLoading(false)
+        return
+      }
+
+      // 5️⃣ Jotai 상태 저장
+      setToken({
+        accessToken: authData.session?.access_token || '',
+        expiresIn: String(
+          authData.session?.expires_at || Date.now() / 1000 + 86400
+        ),
+      })
+
       setAcademy({
-        academyCode: account.code,
-        academyName: account.name,
-        ownerName: account.ownerName,
-        role: account.role,
-        teacherId: account.teacherId,
+        academyId: academyInfo.id,                          // ✅ 추가: DB 조회용 uuid
+        academyCode: academyInfo.academy_code || '',
+        academyName: academyInfo.name,
+        ownerName: profile.name || '',
+        role: profile.role === 'admin' ? 'OWNER' : 'TEACHER',
+        teacherId: undefined,
         plans: ['high', 'middle'],
       })
-      setLoading(false)
+
+      // 6️⃣ 대시보드로 이동
       navigate('/admin')
-    }, 800)
+
+    } catch (err) {
+      console.error('로그인 에러:', err)
+      setError('로그인 중 오류가 발생했습니다.')
+      setLoading(false)
+    }
   }
 
   return (
@@ -51,7 +124,7 @@ export default function Login() {
       {/* 왼쪽 로그인 폼 (45%) */}
       <div className="w-[45%] flex-shrink-0 flex flex-col bg-white border-r border-line overflow-y-auto relative">
 
-        {/* 로고 (좌측 상단 고정) */}
+        {/* 로고 */}
         <div className="px-9 pt-8 pb-5 flex-shrink-0 max-w-[440px] w-full mx-auto">
           <div className="flex items-center gap-2">
             <div
@@ -92,9 +165,10 @@ export default function Login() {
             <input
               value={email}
               onChange={e => { setEmail(e.target.value); setError('') }}
-              onKeyDown={e => e.key === 'Enter' && handleLogin()}
+              onKeyDown={e => e.key === 'Enter' && !loading && handleLogin()}
+              disabled={loading}
               placeholder="계정 이메일"
-              className={`w-full h-12 px-4 border rounded-lg text-[14px] focus:outline-none focus:ring-2 transition-all placeholder:text-ink-muted ${
+              className={`w-full h-12 px-4 border rounded-lg text-[14px] focus:outline-none focus:ring-2 transition-all placeholder:text-ink-muted disabled:opacity-60 disabled:bg-gray-50 ${
                 error
                   ? 'border-red-400 focus:border-red-500 focus:ring-red-500/10'
                   : 'border-line focus:border-blue-500 focus:ring-blue-500/10'
@@ -106,9 +180,10 @@ export default function Login() {
                 type={showPw ? 'text' : 'password'}
                 value={password}
                 onChange={e => { setPassword(e.target.value); setError('') }}
-                onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                onKeyDown={e => e.key === 'Enter' && !loading && handleLogin()}
+                disabled={loading}
                 placeholder="비밀번호"
-                className={`w-full h-12 pl-4 pr-12 border rounded-lg text-[14px] focus:outline-none focus:ring-2 transition-all placeholder:text-ink-muted ${
+                className={`w-full h-12 pl-4 pr-12 border rounded-lg text-[14px] focus:outline-none focus:ring-2 transition-all placeholder:text-ink-muted disabled:opacity-60 disabled:bg-gray-50 ${
                   error
                     ? 'border-red-400 focus:border-red-500 focus:ring-red-500/10'
                     : 'border-line focus:border-blue-500 focus:ring-blue-500/10'
@@ -118,6 +193,7 @@ export default function Login() {
                 onClick={() => setShowPw(v => !v)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-blue-700 transition-colors"
                 type="button"
+                disabled={loading}
               >
                 {showPw ? (
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -183,33 +259,16 @@ export default function Login() {
             </button>
           </div>
 
-          {/* 테스트 계정 */}
-          <div className="mt-6 bg-gray-50 border border-line rounded-xl px-5 py-4">
-            <div className="text-center mb-2">
-              <span className="text-[12px] font-bold" style={{ color: '#1E3A8A' }}>🔑 테스트 계정</span>
-            </div>
-            <div className="text-[11.5px] text-ink-secondary text-center font-medium leading-[1.8]">
-              <div>
-                원장: <span className="font-semibold" style={{ color: '#1E3A8A' }}>owner@inanswer.com</span> / 1234
-              </div>
-              <div>
-                선생님: <span className="font-semibold" style={{ color: '#1E3A8A' }}>kim.teacher@example.com</span> / 1234
-              </div>
-            </div>
-          </div>
-
         </div>
       </div>
 
-      {/* 오른쪽 소개 (55%) - 연파랑 그라데이션 */}
+      {/* 오른쪽 소개 (55%) */}
       <div
         className="flex-1 relative overflow-hidden flex items-center justify-center px-12 max-lg:hidden"
         style={{
           background: 'linear-gradient(135deg, #DBEAFE 0%, #EFF6FF 50%, #BFDBFE 100%)',
         }}
       >
-
-        {/* 배경 장식 */}
         <div
           className="absolute -top-20 -right-20 w-[500px] h-[500px] rounded-full pointer-events-none"
           style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.25), transparent 70%)' }}
@@ -220,7 +279,6 @@ export default function Login() {
         />
 
         <div className="relative w-full max-w-[560px]">
-
           <div className="mb-4 flex justify-center">
             <div
               className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5"
@@ -243,7 +301,6 @@ export default function Login() {
             인로드 어드민으로 한 번에 관리하세요.
           </div>
 
-          {/* 기능 카드 */}
           <div className="grid grid-cols-2 gap-3.5">
             {[
               { icon: '📊', title: '로드맵 관리', desc: '학생별 월별 진행률' },

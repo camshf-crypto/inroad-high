@@ -1,193 +1,248 @@
 import { useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { studentState } from '../../_store/auth'
+import {
+  useMySaenggibu,
+  gradeToNum,
+  findItem,
+  getSubjectsInGrade,
+} from '../../_hooks/useMyHighSaenggibu'
+import {
+  useMyResearches,
+} from '../../_hooks/useMyHighResearch'
+import {
+  useMyReadings,
+} from '../../_hooks/useMyHighReading'
 
-const SUBJECTS = ['국어', '수학', '영어', '한국사', '통합사회', '통합과학', '과학', '사회', '정보', '진로와직업']
-const CREATIVE = ['자율활동', '동아리활동', '봉사활동', '진로활동']
+const CREATIVE: Array<'자율' | '동아리' | '진로'> = ['자율', '동아리', '진로']
+const CREATIVE_LABELS: Record<string, string> = {
+  '자율': '자율활동',
+  '동아리': '동아리활동',
+  '진로': '진로활동',
+}
 const GRADE_LIST = ['고1', '고2', '고3']
-
-// 탐구주제 목업 (실제로는 TopicTab 데이터와 연동)
-const TOPICS = [
-  { id: 1, grade: '고1', month: '7월', title: '기후변화와 식량 안보', subject: '과학', status: '완료' },
-  { id: 2, grade: '고2', month: '1월', title: '인공지능 윤리와 편향성 문제', subject: '정보', status: '검토중' },
-  { id: 3, grade: '고2', month: '5월', title: '양자컴퓨팅의 암호화 위협', subject: '수학', status: '진행중' },
-]
-
-// 독서 목업 (실제로는 BookTab 데이터와 연동)
-const BOOKS = [
-  { id: 1, grade: '고1', month: '7월', title: '사피엔스', author: '유발 하라리', subject: '역사', status: '완료' },
-  { id: 2, grade: '고2', month: '3월', title: '총균쇠', author: '재레드 다이아몬드', subject: '사회', status: '검토중' },
-  { id: 3, grade: '고2', month: '5월', title: '이기적 유전자', author: '리처드 도킨스', subject: '과학', status: '검토중' },
-]
-
-// AI 생성된 생기부 문구 목업
-const MOCK_RECORDS: Record<string, string> = {
-  'topic-1': '기후변화와 식량 안보의 연관성을 탐구하는 활동에서 농업 생산량 변화에 관한 데이터를 직접 수집하고 분석하여 지속가능한 농업 기술의 발전 방향을 체계적으로 제시함. 환경 변화가 사회 전반에 미치는 복합적 영향을 과학적 근거에 기반하여 논리적으로 설명하는 역량을 보여줌.',
-  'book-1': '유발 하라리의 「사피엔스」를 읽고 인류 문명의 발전 과정을 통해 AI 시대의 미래를 탐구함. 인지혁명·농업혁명·과학혁명의 흐름을 현대 기술 발전과 연결 지어 분석하고, 독서 후 AI와 인류의 미래에 대한 탐구 보고서를 작성하며 자신의 진로와의 연계성을 심화함.',
-}
-
-const initRecordData = () => {
-  const data: Record<string, Record<string, string>> = {}
-  GRADE_LIST.forEach(g => {
-    data[g] = {}
-    SUBJECTS.forEach(s => { data[g][s] = '' })
-    CREATIVE.forEach(c => { data[g][c] = '' })
-  })
-  data['고1']['과학'] = MOCK_RECORDS['topic-1'] || ''
-  data['고1']['역사'] = MOCK_RECORDS['book-1'] || ''
-  return data
-}
 
 export default function Record() {
   const student = useAtomValue(studentState)
-  const [selGrade, setSelGrade] = useState(student?.grade || '고1')
-  const [selItem, setSelItem] = useState<{ type: 'topic' | 'book', id: number } | null>(null)
-  const [recordData] = useState(initRecordData())
+  const [selGrade, setSelGrade] = useState<string>(student?.grade || '고1')
+  const [selItem, setSelItem] = useState<{ type: 'topic' | 'book', id: string } | null>(null)
   const [fullScreen, setFullScreen] = useState(false)
 
-  const gradeTopics = TOPICS.filter(t => t.grade === selGrade)
-  const gradeBooks = BOOKS.filter(b => b.grade === selGrade)
+  const gradeNum = gradeToNum(selGrade)
 
-  const getKey = (type: 'topic' | 'book', id: number) => `${type}-${id}`
+  // DB 조회
+  const { data: saenggibuItems = [], isLoading: loadingItems } = useMySaenggibu(gradeNum)
+  const { data: researches = [] } = useMyResearches()
+  const { data: readings = [] } = useMyReadings()
 
-  const GradeSheet = ({ grade, inModal = false }: { grade: string, inModal?: boolean }) => (
-    <div style={{ marginBottom: inModal ? 32 : 16 }}>
-      {inModal && (
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a1a', marginBottom: 12, paddingBottom: 8, borderBottom: '2px solid #1a1a1a' }}>
-          {grade}
-        </div>
-      )}
+  // 학년별 필터
+  const gradeTopics = researches.filter((r: any) => String(r.grade) === selGrade || String(r.grade) === String(gradeNum))
+  const gradeBooks = readings.filter((b: any) => String(b.grade) === selGrade || String(b.grade) === String(gradeNum))
 
-      {/* 세특 */}
-      <div style={{ marginBottom: inModal ? 20 : 12 }}>
-        <div style={{ fontSize: inModal ? 13 : 11, fontWeight: 700, color: '#1a1a1a', marginBottom: 6 }}>
-          5. 교과학습발달상황 · 세부능력 및 특기사항
-        </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #374151' }}>
-          <thead>
-            <tr style={{ background: '#F3F4F6' }}>
-              <th style={{ border: '1px solid #374151', padding: inModal ? '8px 12px' : '5px 8px', fontSize: inModal ? 12 : 10, fontWeight: 600, color: '#374151', width: 80, textAlign: 'center' as const }}>과목</th>
-              <th style={{ border: '1px solid #374151', padding: inModal ? '8px 12px' : '5px 8px', fontSize: inModal ? 12 : 10, fontWeight: 600, color: '#374151', textAlign: 'center' as const }}>세부능력 및 특기사항</th>
-            </tr>
-          </thead>
-          <tbody>
-            {SUBJECTS.map(subject => (
-              <tr key={subject}>
-                <td style={{ border: '1px solid #374151', padding: inModal ? '8px 12px' : '5px 8px', fontSize: inModal ? 12 : 10, fontWeight: 500, color: '#374151', textAlign: 'center' as const, background: '#F9FAFB', verticalAlign: 'top' as const, whiteSpace: 'nowrap' as const }}>
-                  {subject}
-                </td>
-                <td style={{ border: '1px solid #374151', padding: inModal ? '8px 12px' : '5px 8px', verticalAlign: 'top' as const }}>
-                  <div style={{ fontSize: inModal ? 12 : 10, color: recordData[grade]?.[subject] ? '#1a1a1a' : '#D1D5DB', lineHeight: 1.8, minHeight: inModal ? 50 : 32, whiteSpace: 'pre-wrap' as const }}>
-                    {recordData[grade]?.[subject] || '선생님이 작성 중이에요'}
-                  </div>
-                </td>
+  // 세특 과목 리스트 (생기부에 있는 것만)
+  const setechSubjects = getSubjectsInGrade(saenggibuItems)
+
+  // 현재 선택된 학년의 생기부 있는지
+  const hasAnyContent = saenggibuItems.length > 0
+
+  // 생기부 시트
+  const GradeSheet = ({ grade, inModal = false }: { grade: string, inModal?: boolean }) => {
+    // inModal에서 다른 학년 표시 시에도 같은 데이터 활용 (단순화 위해)
+    const isCurrentGrade = gradeToNum(grade) === gradeNum
+    const items = isCurrentGrade ? saenggibuItems : []
+    const subjects = isCurrentGrade ? setechSubjects : []
+
+    return (
+      <div className={inModal ? 'mb-8' : 'mb-4'}>
+        {inModal && (
+          <div className="text-[16px] font-extrabold text-ink mb-3 pb-2 border-b-2 border-ink tracking-tight">
+            {grade}
+          </div>
+        )}
+
+        {/* 세특 */}
+        <div className={inModal ? 'mb-5' : 'mb-3'}>
+          <div className={`font-bold text-ink mb-1.5 ${inModal ? 'text-[13px]' : 'text-[11px]'}`}>
+            5. 교과학습발달상황 · 세부능력 및 특기사항
+          </div>
+          <table className="w-full border-collapse border border-gray-700">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className={`border border-gray-700 font-bold text-gray-700 text-center w-24 ${inModal ? 'px-3 py-2 text-[12px]' : 'px-2 py-1.5 text-[10px]'}`}>
+                  과목
+                </th>
+                <th className={`border border-gray-700 font-bold text-gray-700 text-center ${inModal ? 'px-3 py-2 text-[12px]' : 'px-2 py-1.5 text-[10px]'}`}>
+                  세부능력 및 특기사항
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* 창의적 체험활동 */}
-      <div>
-        <div style={{ fontSize: inModal ? 13 : 11, fontWeight: 700, color: '#1a1a1a', marginBottom: 6 }}>
-          8. 창의적 체험활동상황
+            </thead>
+            <tbody>
+              {subjects.length === 0 ? (
+                <tr>
+                  <td colSpan={2} className="border border-gray-700 p-4 text-center text-[11px] text-ink-muted">
+                    아직 선생님이 작성한 세특 내용이 없어요.
+                  </td>
+                </tr>
+              ) : (
+                subjects.map(subject => {
+                  const item = findItem(items, '세특', subject)
+                  return (
+                    <tr key={subject}>
+                      <td className={`border border-gray-700 font-semibold text-gray-700 text-center bg-gray-50 align-top whitespace-nowrap ${inModal ? 'px-3 py-2 text-[12px]' : 'px-2 py-1.5 text-[10px]'}`}>
+                        {subject}
+                      </td>
+                      <td className={`border border-gray-700 align-top ${inModal ? 'px-3 py-2' : 'px-2 py-1.5'}`}>
+                        <div className={`leading-relaxed whitespace-pre-wrap ${
+                          item?.content ? 'text-ink' : 'text-gray-300'
+                        } ${inModal ? 'text-[12px] min-h-[50px]' : 'text-[10px] min-h-[32px]'}`}>
+                          {item?.content || '선생님이 작성 중이에요'}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
         </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #374151' }}>
-          <thead>
-            <tr style={{ background: '#F3F4F6' }}>
-              <th style={{ border: '1px solid #374151', padding: inModal ? '8px 12px' : '5px 8px', fontSize: inModal ? 12 : 10, fontWeight: 600, color: '#374151', width: 80, textAlign: 'center' as const }}>영역</th>
-              <th style={{ border: '1px solid #374151', padding: inModal ? '8px 12px' : '5px 8px', fontSize: inModal ? 12 : 10, fontWeight: 600, color: '#374151', textAlign: 'center' as const }}>특기사항</th>
-            </tr>
-          </thead>
-          <tbody>
-            {CREATIVE.map(area => (
-              <tr key={area}>
-                <td style={{ border: '1px solid #374151', padding: inModal ? '8px 12px' : '5px 8px', fontSize: inModal ? 12 : 10, fontWeight: 500, color: '#374151', textAlign: 'center' as const, background: '#F9FAFB', verticalAlign: 'top' as const, whiteSpace: 'nowrap' as const }}>
-                  {area}
-                </td>
-                <td style={{ border: '1px solid #374151', padding: inModal ? '8px 12px' : '5px 8px', verticalAlign: 'top' as const }}>
-                  <div style={{ fontSize: inModal ? 12 : 10, color: recordData[grade]?.[area] ? '#1a1a1a' : '#D1D5DB', lineHeight: 1.8, minHeight: inModal ? 50 : 32, whiteSpace: 'pre-wrap' as const }}>
-                    {recordData[grade]?.[area] || '선생님이 작성 중이에요'}
-                  </div>
-                </td>
+
+        {/* 창체 (자율/동아리/진로) */}
+        <div>
+          <div className={`font-bold text-ink mb-1.5 ${inModal ? 'text-[13px]' : 'text-[11px]'}`}>
+            8. 창의적 체험활동상황
+          </div>
+          <table className="w-full border-collapse border border-gray-700">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className={`border border-gray-700 font-bold text-gray-700 text-center w-24 ${inModal ? 'px-3 py-2 text-[12px]' : 'px-2 py-1.5 text-[10px]'}`}>
+                  영역
+                </th>
+                <th className={`border border-gray-700 font-bold text-gray-700 text-center ${inModal ? 'px-3 py-2 text-[12px]' : 'px-2 py-1.5 text-[10px]'}`}>
+                  특기사항
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {CREATIVE.map(cat => {
+                const item = findItem(items, cat, null)
+                return (
+                  <tr key={cat}>
+                    <td className={`border border-gray-700 font-semibold text-gray-700 text-center bg-gray-50 align-top whitespace-nowrap ${inModal ? 'px-3 py-2 text-[12px]' : 'px-2 py-1.5 text-[10px]'}`}>
+                      {CREATIVE_LABELS[cat]}
+                    </td>
+                    <td className={`border border-gray-700 align-top ${inModal ? 'px-3 py-2' : 'px-2 py-1.5'}`}>
+                      <div className={`leading-relaxed whitespace-pre-wrap ${
+                        item?.content ? 'text-ink' : 'text-gray-300'
+                      } ${inModal ? 'text-[12px] min-h-[50px]' : 'text-[10px] min-h-[32px]'}`}>
+                        {item?.content || '선생님이 작성 중이에요'}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 50px)', overflow: 'hidden', padding: '28px 32px', boxSizing: 'border-box' as const, gap: 16 }}>
+    <div className="flex h-full overflow-hidden px-7 py-6 gap-4 font-sans text-ink">
 
       {/* 왼쪽: 활동 목록 */}
-      <div style={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className="w-[260px] flex-shrink-0 flex flex-col overflow-hidden">
 
-        {/* 학년 탭 */}
-        <div style={{ display: 'flex', gap: 5, marginBottom: 14, flexShrink: 0 }}>
+        <div className="flex gap-1.5 mb-3.5 flex-shrink-0">
           {GRADE_LIST.map(g => (
-            <div key={g} onClick={() => { setSelGrade(g); setSelItem(null) }}
-              style={{ flex: 1, padding: '6px 0', borderRadius: 99, fontSize: 12, cursor: 'pointer', textAlign: 'center' as const, background: selGrade === g ? '#3B5BDB' : '#fff', color: selGrade === g ? '#fff' : '#6B7280', border: `0.5px solid ${selGrade === g ? '#3B5BDB' : '#E5E7EB'}`, fontWeight: selGrade === g ? 500 : 400 }}>
+            <button
+              key={g}
+              onClick={() => { setSelGrade(g); setSelItem(null) }}
+              className={`flex-1 py-1.5 rounded-full text-[12px] border font-semibold text-center transition-all ${
+                selGrade === g
+                  ? 'bg-brand-high text-white border-brand-high shadow-[0_2px_8px_rgba(37,99,235,0.15)]'
+                  : 'bg-white text-ink-secondary border-line hover:border-brand-high-light hover:text-brand-high-dark'
+              }`}
+            >
               {g}
-            </div>
+            </button>
           ))}
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="flex-1 overflow-y-auto flex flex-col gap-3">
 
-          {/* 탐구주제 */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ background: '#EEF2FF', color: '#3B5BDB', padding: '2px 8px', borderRadius: 99, border: '0.5px solid #BAC8FF' }}>🔬 탐구주제</span>
-              <span style={{ color: '#9CA3AF' }}>{gradeTopics.length}개</span>
+            <div className="text-[11px] font-bold text-ink-secondary mb-2 flex items-center gap-1.5">
+              <span className="bg-brand-high-pale text-brand-high-dark px-2 py-0.5 rounded-full border border-brand-high-light">
+                🔬 탐구주제
+              </span>
+              <span className="text-ink-muted">{gradeTopics.length}개</span>
             </div>
+
             {gradeTopics.length === 0 ? (
-              <div style={{ fontSize: 12, color: '#9CA3AF', textAlign: 'center' as const, padding: '12px 0' }}>없음</div>
-            ) : gradeTopics.map(topic => {
-              const key = getKey('topic', topic.id)
+              <div className="text-[12px] text-ink-muted text-center py-3">없음</div>
+            ) : gradeTopics.map((topic: any) => {
               const isSelected = selItem?.type === 'topic' && selItem?.id === topic.id
-              const hasRecord = !!MOCK_RECORDS[key]
               return (
-                <div key={topic.id} onClick={() => setSelItem({ type: 'topic', id: topic.id })}
-                  style={{ border: `0.5px solid ${isSelected ? '#3B5BDB' : '#E5E7EB'}`, borderRadius: 8, padding: '9px 11px', marginBottom: 6, cursor: 'pointer', background: isSelected ? '#EEF2FF' : '#fff' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                    <span style={{ fontSize: 10, color: '#6B7280' }}>{topic.month} · {topic.subject}</span>
-                    {hasRecord
-                      ? <span style={{ fontSize: 9, color: '#059669', background: '#ECFDF5', padding: '1px 6px', borderRadius: 99, border: '0.5px solid #6EE7B7' }}>문구완성</span>
-                      : <span style={{ fontSize: 9, color: '#D97706', background: '#FFF3E8', padding: '1px 6px', borderRadius: 99, border: '0.5px solid #FDBA74' }}>작성중</span>
-                    }
+                <div
+                  key={topic.id}
+                  onClick={() => setSelItem({ type: 'topic', id: topic.id })}
+                  className={`border rounded-xl px-3 py-2.5 mb-1.5 cursor-pointer transition-all ${
+                    isSelected
+                      ? 'border-brand-high bg-brand-high-pale shadow-[0_2px_8px_rgba(37,99,235,0.1)]'
+                      : 'border-line bg-white hover:border-brand-high-light hover:shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] text-ink-secondary font-medium">
+                      {topic.subject || '미분류'}
+                    </span>
+                    {topic.status === 'completed' && (
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                        완료
+                      </span>
+                    )}
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 500, color: '#1a1a1a', lineHeight: 1.4 }}>{topic.title}</div>
+                  <div className="text-[12px] font-semibold text-ink leading-snug line-clamp-2">{topic.topic}</div>
                 </div>
               )
             })}
           </div>
 
-          {/* 독서 */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ background: '#FFF7ED', color: '#D97706', padding: '2px 8px', borderRadius: 99, border: '0.5px solid #FDBA74' }}>📚 독서</span>
-              <span style={{ color: '#9CA3AF' }}>{gradeBooks.length}개</span>
+            <div className="text-[11px] font-bold text-ink-secondary mb-2 flex items-center gap-1.5">
+              <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
+                📚 독서
+              </span>
+              <span className="text-ink-muted">{gradeBooks.length}개</span>
             </div>
+
             {gradeBooks.length === 0 ? (
-              <div style={{ fontSize: 12, color: '#9CA3AF', textAlign: 'center' as const, padding: '12px 0' }}>없음</div>
-            ) : gradeBooks.map(book => {
-              const key = getKey('book', book.id)
+              <div className="text-[12px] text-ink-muted text-center py-3">없음</div>
+            ) : gradeBooks.map((book: any) => {
               const isSelected = selItem?.type === 'book' && selItem?.id === book.id
-              const hasRecord = !!MOCK_RECORDS[key]
               return (
-                <div key={book.id} onClick={() => setSelItem({ type: 'book', id: book.id })}
-                  style={{ border: `0.5px solid ${isSelected ? '#3B5BDB' : '#E5E7EB'}`, borderRadius: 8, padding: '9px 11px', marginBottom: 6, cursor: 'pointer', background: isSelected ? '#EEF2FF' : '#fff' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                    <span style={{ fontSize: 10, color: '#6B7280' }}>{book.month} · {book.subject}</span>
-                    {hasRecord
-                      ? <span style={{ fontSize: 9, color: '#059669', background: '#ECFDF5', padding: '1px 6px', borderRadius: 99, border: '0.5px solid #6EE7B7' }}>문구완성</span>
-                      : <span style={{ fontSize: 9, color: '#D97706', background: '#FFF3E8', padding: '1px 6px', borderRadius: 99, border: '0.5px solid #FDBA74' }}>작성중</span>
-                    }
+                <div
+                  key={book.id}
+                  onClick={() => setSelItem({ type: 'book', id: book.id })}
+                  className={`border rounded-xl px-3 py-2.5 mb-1.5 cursor-pointer transition-all ${
+                    isSelected
+                      ? 'border-brand-high bg-brand-high-pale shadow-[0_2px_8px_rgba(37,99,235,0.1)]'
+                      : 'border-line bg-white hover:border-brand-high-light hover:shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] text-ink-secondary font-medium">
+                      {book.subject || '미분류'}
+                    </span>
+                    {book.status === 'completed' && (
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                        완료
+                      </span>
+                    )}
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 500, color: '#1a1a1a' }}>{book.title}</div>
-                  <div style={{ fontSize: 11, color: '#9CA3AF' }}>{book.author}</div>
+                  <div className="text-[12px] font-semibold text-ink line-clamp-1">{book.book_title}</div>
+                  <div className="text-[11px] text-ink-muted font-medium line-clamp-1">{book.author}</div>
                 </div>
               )
             })}
@@ -196,59 +251,98 @@ export default function Record() {
       </div>
 
       {/* 오른쪽: 생기부 */}
-      <div style={{ flex: 1, background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
-        <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #E5E7EB', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>📋 나의 생기부</div>
-            <div style={{ display: 'flex', gap: 5 }}>
+      <div className="flex-1 bg-white border border-line rounded-2xl flex flex-col overflow-hidden min-w-0 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
+        <div className="px-5 py-3 border-b border-line-light flex-shrink-0 flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <div className="text-[14px] font-bold text-ink tracking-tight">📋 나의 생기부</div>
+            <div className="flex gap-1">
               {GRADE_LIST.map(g => (
-                <div key={g} onClick={() => setSelGrade(g)}
-                  style={{ padding: '3px 10px', borderRadius: 99, fontSize: 11, cursor: 'pointer', background: selGrade === g ? '#1a1a1a' : '#fff', color: selGrade === g ? '#fff' : '#6B7280', border: `0.5px solid ${selGrade === g ? '#1a1a1a' : '#E5E7EB'}` }}>
+                <button
+                  key={g}
+                  onClick={() => setSelGrade(g)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] border font-semibold transition-all ${
+                    selGrade === g
+                      ? 'bg-ink text-white border-ink'
+                      : 'bg-white text-ink-secondary border-line hover:border-ink-secondary'
+                  }`}
+                >
                   {g}
-                </div>
+                </button>
               ))}
             </div>
           </div>
-          <button onClick={() => setFullScreen(true)}
-            style={{ padding: '5px 12px', background: '#fff', color: '#3B5BDB', border: '0.5px solid #3B5BDB', borderRadius: 7, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+          <button
+            onClick={() => setFullScreen(true)}
+            className="px-3 py-1.5 bg-white text-brand-high-dark border border-brand-high-light rounded-lg text-[11px] font-semibold hover:bg-brand-high-pale transition-all"
+          >
             ⛶ 전체화면
           </button>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px' }}>
-          <GradeSheet grade={selGrade} />
+
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {loadingItems ? (
+            <div className="text-center py-10">
+              <div className="inline-block w-5 h-5 border-2 border-gray-200 border-t-brand-high rounded-full animate-spin" />
+              <div className="text-[12px] text-ink-muted mt-2">불러오는 중...</div>
+            </div>
+          ) : !hasAnyContent ? (
+            <div className="text-center py-20 text-ink-muted">
+              <div className="text-4xl mb-3">📋</div>
+              <div className="text-[14px] font-bold text-ink-secondary mb-2">
+                아직 선생님이 작성한 내용이 없어요
+              </div>
+              <div className="text-[12px] leading-relaxed">
+                탐구주제와 독서 활동을 꾸준히 하면<br />
+                선생님이 생기부를 작성해주실 거예요!
+              </div>
+            </div>
+          ) : (
+            <GradeSheet grade={selGrade} />
+          )}
         </div>
       </div>
 
       {/* 전체화면 모달 */}
       {fullScreen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: 16, width: '90vw', maxWidth: 960, maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ padding: '16px 24px', borderBottom: '0.5px solid #E5E7EB', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div
+          onClick={() => setFullScreen(false)}
+          className="fixed inset-0 bg-black/60 z-[300] flex items-center justify-center p-4"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-2xl w-[90vw] max-w-[960px] max-h-[92vh] flex flex-col overflow-hidden shadow-2xl"
+          >
+            <div className="px-6 py-4 border-b border-line-light flex-shrink-0 flex items-center justify-between flex-wrap gap-3">
               <div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a' }}>📋 나의 학교생활기록부</div>
-                <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{student?.name} · 고1 ~ 고3 전체</div>
+                <div className="text-[17px] font-extrabold text-ink tracking-tight">📋 나의 학교생활기록부</div>
+                <div className="text-[12px] text-ink-secondary mt-0.5 font-medium">
+                  {student?.name} · {selGrade}
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => window.print()}
-                  style={{ padding: '7px 16px', background: '#3B5BDB', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-brand-high text-white rounded-lg text-[12px] font-bold hover:bg-brand-high-dark transition-all shadow-[0_2px_8px_rgba(37,99,235,0.2)]"
+                >
                   🖨️ PDF 저장 / 인쇄
                 </button>
-                <button onClick={() => setFullScreen(false)}
-                  style={{ padding: '7px 16px', background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                <button
+                  onClick={() => setFullScreen(false)}
+                  className="px-4 py-2 bg-white text-ink-secondary border border-line rounded-lg text-[12px] font-semibold hover:bg-gray-50 transition-all"
+                >
                   닫기
                 </button>
               </div>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
-              <div style={{ textAlign: 'center' as const, fontSize: 20, fontWeight: 700, marginBottom: 28, color: '#1a1a1a' }}>
+
+            <div className="flex-1 overflow-y-auto px-8 py-7">
+              <div className="text-center text-[22px] font-extrabold mb-7 text-ink tracking-tight">
                 학교생활기록부
               </div>
-              <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 24, textAlign: 'center' as const }}>
+              <div className="text-[13px] text-ink-secondary mb-6 text-center font-semibold">
                 {student?.name}
               </div>
-              {GRADE_LIST.map(g => (
-                <GradeSheet key={g} grade={g} inModal={true} />
-              ))}
+              <GradeSheet grade={selGrade} inModal={true} />
             </div>
           </div>
         </div>

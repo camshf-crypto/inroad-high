@@ -17,7 +17,8 @@ export interface ITeacher {
 }
 
 export interface IAcademy {
-  academyCode: string | undefined
+  academyId: string | undefined      // ✅ 추가: academies.id (uuid) - DB 조회용
+  academyCode: string | undefined    // 학원 코드 (UI 노출용)
   academyName: string | undefined
   ownerName: string | undefined
   role: 'OWNER' | 'TEACHER'
@@ -26,6 +27,7 @@ export interface IAcademy {
 }
 
 const DEFAULT_ACADEMY: IAcademy = {
+  academyId: 'A10901-dev',
   academyCode: 'A10901',
   academyName: '인로드 학원',
   ownerName: '강원장',
@@ -34,13 +36,18 @@ const DEFAULT_ACADEMY: IAcademy = {
   plans: ['high', 'middle'],
 }
 
-// 캐시된 academyInfo에 plans 없으면 자동으로 기본값 병합
+// 캐시된 academyInfo 마이그레이션 (academyId 없으면 비워서 재로그인 유도)
 const savedAcademy = localStorage.getItem('academyInfo')
 if (savedAcademy) {
   try {
     const parsed = JSON.parse(savedAcademy)
     if (!parsed.plans) {
       localStorage.setItem('academyInfo', JSON.stringify({ ...parsed, plans: ['high', 'middle'] }))
+    }
+    // academyId 없는 옛 캐시는 지워서 재로그인 유도 (실제 DB 조회를 위해 필요)
+    if (!parsed.academyId && parsed.academyCode && parsed.academyCode !== 'A10901') {
+      localStorage.removeItem('academyInfo')
+      localStorage.removeItem('adminToken')
     }
   } catch {
     localStorage.removeItem('academyInfo')

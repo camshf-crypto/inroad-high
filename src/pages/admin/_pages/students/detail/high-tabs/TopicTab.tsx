@@ -1,260 +1,393 @@
-import { useState, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import {
+  useStudentResearches,
+  useResearchAnalyses,
+  useSendTeacherFeedback,
+  useCompleteResearch,
+  useUncompleteResearch,
+  buildMessages,
+  type Research,
+} from '../../../../_hooks/useHighResearch'
 
-// 파랑 테마
 const THEME = {
   accent: '#2563EB',
   accentDark: '#1E3A8A',
   accentBg: '#EFF6FF',
   accentBorder: '#93C5FD',
   accentShadow: 'rgba(37, 99, 235, 0.15)',
-  gradient: 'linear-gradient(135deg, #1E3A8A, #2563EB)',
 }
 
-const TOPICS = [
-  { id: 1, grade: '고1', month: '7월', title: '기후변화와 식량 안보', content: '기후변화로 인한 농업 생산량 변화를 데이터로 분석하고, 지속가능한 농업 기술 발전 방향을 제시하겠습니다.', subject: '지구과학·사회', status: '완료', history: [{ type: 'student', text: '기후변화와 식량 안보에 대해 탐구하고 싶어요.', date: '2025-01-15' }, { type: 'teacher', text: '좋은 주제예요! 수직농장 기술 쪽으로 구체화해보는 건 어떨까요?', date: '2025-01-17' }] },
-  { id: 2, grade: '고2', month: '1월', title: '인공지능 윤리와 편향성 문제', content: '머신러닝 모델의 학습 데이터 편향이 실제 사회적 차별로 이어지는 사례를 분석하겠습니다.', subject: '정보·윤리', status: '검토중', history: [{ type: 'student', text: '머신러닝 편향 문제에 대해 탐구하고 싶습니다.', date: '2025-01-10' }] },
-]
-
-const getStatusStyle = (s: string) => {
-  if (s === '완료') return { bg: '#ECFDF5', color: '#059669', border: '#6EE7B7' }
-  if (s === '검토중') return { bg: THEME.accentBg, color: THEME.accent, border: THEME.accentBorder }
-  return { bg: '#F3F4F6', color: '#6B7280', border: '#E5E7EB' }
-}
-
-const History = ({ history }: { history: any[] }) => (
-  <div className="mb-3.5">
-    <label className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-2 block">
-      💬 대화 히스토리
-    </label>
-    <div className="flex flex-col gap-2">
-      {history.map((h, i) => (
-        <div
-          key={i}
-          className="flex flex-col"
-          style={{ alignItems: h.type === 'teacher' ? 'flex-end' : 'flex-start' }}
-        >
-          <div className="text-[10px] text-ink-muted font-semibold mb-1">
-            {h.type === 'teacher' ? '👨‍🏫 선생님' : '👤 학생'} · {h.date}
-          </div>
-          <div
-            className="max-w-[85%] px-3.5 py-2.5 text-[12.5px] font-medium leading-[1.6]"
-            style={{
-              borderRadius: h.type === 'teacher' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-              background: h.type === 'teacher' ? THEME.accentBg : '#F8FAFC',
-              border: `1px solid ${h.type === 'teacher' ? `${THEME.accentBorder}60` : '#E5E7EB'}`,
-              color: h.type === 'teacher' ? THEME.accentDark : '#1a1a1a',
-            }}
-          >
-            {h.text}
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-)
-
-export default function TopicTab({ student, onOpenChat, openId, onClearOpenId }: {
+export default function TopicTab({ student, onOpenChat }: {
   student: any
   onOpenChat: (type: 'topic' | 'book', context: string) => void
   openId?: number | null
   onClearOpenId?: () => void
 }) {
-  const [topicGrade, setTopicGrade] = useState('전체')
-  const [feedback, setFeedback] = useState<Record<number, string>>({})
-  const [topicStatus, setTopicStatus] = useState<Record<number, string>>({})
-  const [openTopics, setOpenTopics] = useState<Record<number, boolean>>({})
+  const studentId: string = student.id
 
-  // openId가 들어오면 해당 항목 자동으로 열기
+  const [selResearchId, setSelResearchId] = useState<string | null>(null)
+  const [feedbackInput, setFeedbackInput] = useState('')
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false)
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const { data: researches = [], isLoading } = useStudentResearches(studentId)
+  const { data: analyses = [] } = useResearchAnalyses(selResearchId ?? undefined)
+
+  const selected = researches.find(r => r.id === selResearchId)
+  const messages = selected ? buildMessages(selected, analyses) : []
+  const isCompleted = selected?.status === 'completed'
+
   useEffect(() => {
-    if (openId != null) {
-      const topic = TOPICS.find(t => t.id === openId)
-      if (topic) {
-        setTopicGrade(topic.grade)
-        setOpenTopics(prev => ({ ...prev, [openId]: true }))
-        setTimeout(() => {
-          document.getElementById(`topic-${openId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        }, 100)
-      }
-      onClearOpenId?.()
+    if (!selResearchId && researches.length > 0) {
+      setSelResearchId(researches[0].id)
     }
-  }, [openId])
+  }, [researches, selResearchId])
 
-  const filteredTopics = TOPICS.filter(t => topicGrade === '전체' || t.grade === topicGrade)
+  useEffect(() => {
+    setIsFeedbackOpen(false)
+    setFeedbackInput('')
+  }, [selResearchId])
+
+  const chatEndRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages.length])
+
+  useEffect(() => {
+    if (isFeedbackOpen) {
+      setTimeout(() => textareaRef.current?.focus(), 100)
+    }
+  }, [isFeedbackOpen])
+
+  const sendFeedback = useSendTeacherFeedback(selResearchId ?? '', studentId)
+  const complete = useCompleteResearch(selResearchId ?? '')
+  const uncomplete = useUncompleteResearch(selResearchId ?? '')
+
+  const handleSend = () => {
+    if (!feedbackInput.trim() || !selResearchId || isCompleted) return
+    sendFeedback.mutate(feedbackInput.trim(), {
+      onSuccess: () => {
+        setFeedbackInput('')
+        setIsFeedbackOpen(false)
+      },
+    })
+  }
+
+  const handleCancel = () => {
+    setIsFeedbackOpen(false)
+    setFeedbackInput('')
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Escape') {
+      handleCancel()
+    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault()
+      handleSend()
+    }
+  }
+
+  const handleToggleComplete = () => {
+    if (!selResearchId) return
+    if (isCompleted) {
+      if (window.confirm('완료 처리를 해제할까요?')) uncomplete.mutate()
+    } else {
+      if (window.confirm('이 탐구주제를 완료 처리할까요? 완료 후에는 추가 피드백을 보낼 수 없어요.')) {
+        complete.mutate()
+      }
+    }
+  }
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="flex gap-4 h-full overflow-hidden font-sans text-ink">
 
-      {/* 필터 */}
-      <div className="flex gap-1.5 mb-4">
-        {['전체', '고1', '고2', '고3'].map(g => (
-          <button
-            key={g}
-            onClick={() => setTopicGrade(g)}
-            className="px-4 py-1.5 rounded-full text-[12px] font-semibold border transition-all"
-            style={{
-              background: topicGrade === g ? THEME.accent : '#fff',
-              color: topicGrade === g ? '#fff' : '#6B7280',
-              borderColor: topicGrade === g ? THEME.accent : '#E5E7EB',
-              boxShadow: topicGrade === g ? `0 2px 8px ${THEME.accentShadow}` : 'none',
-            }}
-          >
-            {g}
-          </button>
-        ))}
+      <div
+        className="w-[280px] flex-shrink-0 bg-white border border-line rounded-2xl flex flex-col overflow-hidden"
+        style={{ boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)' }}
+      >
+        <div className="px-4 py-3 border-b border-line flex-shrink-0">
+          <div className="text-[14px] font-bold text-ink tracking-tight">🔬 탐구주제</div>
+          <div className="text-[11px] text-ink-secondary mt-1 font-medium">
+            총 <span style={{ color: THEME.accentDark }} className="font-bold">{researches.length}개</span>
+            {researches.filter(r => r.status === 'completed').length > 0 && (
+              <>
+                {' '}· 완료{' '}
+                <span className="text-emerald-600 font-bold">
+                  {researches.filter(r => r.status === 'completed').length}개
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-3">
+          {isLoading ? (
+            <div className="text-center py-10">
+              <div
+                className="inline-block w-5 h-5 border-2 border-gray-200 rounded-full animate-spin"
+                style={{ borderTopColor: THEME.accent }}
+              />
+              <div className="text-[12px] text-ink-muted mt-2">불러오는 중...</div>
+            </div>
+          ) : researches.length === 0 ? (
+            <div className="text-center py-10 text-ink-muted">
+              <div className="text-3xl mb-2">🔬</div>
+              <div className="text-[12px]">학생이 작성한 탐구주제가 없어요.</div>
+            </div>
+          ) : (
+            researches.map(r => (
+              <ResearchCard
+                key={r.id}
+                research={r}
+                selected={selResearchId === r.id}
+                onClick={() => setSelResearchId(r.id)}
+              />
+            ))
+          )}
+        </div>
       </div>
 
-      {/* 탐구주제 리스트 */}
-      {filteredTopics.map(topic => {
-        const curStatus = topicStatus[topic.id] || topic.status
-        const sc = getStatusStyle(curStatus)
-        const isOpen = openTopics[topic.id] ?? true
-        const isHighlighted = openId === topic.id
-
-        return (
-          <div
-            key={topic.id}
-            id={`topic-${topic.id}`}
-            className="bg-white rounded-2xl p-5 mb-3.5 transition-all"
-            style={{
-              border: isHighlighted ? `2px solid ${THEME.accent}` : '1px solid #E5E7EB',
-              boxShadow: isHighlighted ? `0 8px 24px ${THEME.accentShadow}` : '0 2px 8px rgba(15, 23, 42, 0.04)',
-            }}
-          >
-            {/* 헤더 (클릭 펼치기/접기) */}
-            <div
-              onClick={() => setOpenTopics(prev => ({ ...prev, [topic.id]: !isOpen }))}
-              className="flex items-center justify-between cursor-pointer"
-            >
-              <div className="flex-1">
-                {/* 태그 */}
-                <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                  <span className="text-[11px] font-bold text-ink-secondary bg-gray-100 px-2.5 py-0.5 rounded-full">
-                    {topic.grade} · {topic.month}
-                  </span>
-                  <span
-                    className="text-[11px] font-bold px-2.5 py-0.5 rounded-full"
-                    style={{
-                      background: sc.bg,
-                      color: sc.color,
-                      border: `1px solid ${sc.border}60`,
-                    }}
-                  >
-                    {curStatus === '완료' ? '✓' : curStatus === '검토중' ? '⏳' : '○'} {curStatus}
-                  </span>
+      <div
+        className="flex-1 bg-white border border-line rounded-2xl flex flex-col overflow-hidden min-w-0"
+        style={{ boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)' }}
+      >
+        {!selected ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-ink-muted gap-2">
+            <div className="text-4xl">🔬</div>
+            <div className="text-[14px] font-semibold text-ink-secondary">탐구주제를 선택해주세요</div>
+            <div className="text-[12px]">왼쪽에서 탐구주제를 클릭하면 대화를 볼 수 있어요</div>
+          </div>
+        ) : (
+          <>
+            <div className="px-5 py-3 border-b border-line flex items-center justify-between flex-shrink-0 bg-white gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="text-[15px] font-bold text-ink tracking-tight mb-1.5 truncate">
+                  {selected.topic}
                 </div>
-
-                {/* 제목 */}
-                <div className="flex items-center gap-2 mb-2 flex-wrap">
-                  <span className="text-2xl">🔬</span>
-                  <div className="text-[16px] font-extrabold text-ink tracking-tight">{topic.title}</div>
+                <div className="flex gap-1.5 flex-wrap">
+                  {selected.subject && (
+                    <span
+                      className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                      style={{
+                        color: THEME.accentDark,
+                        background: THEME.accentBg,
+                        border: `1px solid ${THEME.accentBorder}60`,
+                      }}
+                    >
+                      {selected.subject}
+                    </span>
+                  )}
+                  {isCompleted ? (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      ✓ 완료됨
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                      ⏳ 진행 중
+                    </span>
+                  )}
                 </div>
+              </div>
 
-                {/* 연계 과목 */}
-                <span
-                  className="text-[11px] font-bold px-2.5 py-1 rounded-full inline-block"
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => onOpenChat('topic', selected.topic)}
+                  className="px-3 py-1.5 bg-white border rounded-lg text-[11.5px] font-bold transition-all hover:-translate-y-px"
+                  style={{ color: THEME.accent, borderColor: THEME.accentBorder }}
+                  title="챗봇으로 피드백 아이디어 얻기"
+                >
+                  ✨ 챗봇
+                </button>
+
+                <button
+                  onClick={handleToggleComplete}
+                  disabled={complete.isPending || uncomplete.isPending}
+                  className="px-3 py-1.5 rounded-lg text-[11.5px] font-bold transition-all disabled:opacity-60"
                   style={{
-                    color: THEME.accentDark,
-                    background: THEME.accentBg,
-                    border: `1px solid ${THEME.accentBorder}60`,
+                    background: isCompleted ? '#E5E7EB' : '#059669',
+                    color: isCompleted ? '#6B7280' : '#fff',
+                    boxShadow: isCompleted ? 'none' : '0 2px 6px rgba(5, 150, 105, 0.25)',
                   }}
                 >
-                  🎯 연계 과목: {topic.subject}
-                </span>
-              </div>
-              <div
-                className="text-ink-muted ml-3 transition-transform text-lg"
-                style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
-              >
-                ∨
+                  {isCompleted ? '↺ 완료 해제' : '✓ 완료 처리'}
+                </button>
               </div>
             </div>
 
-            {/* 펼친 컨텐츠 */}
-            {isOpen && (
-              <div className="mt-5 pt-5 border-t border-line">
-
-                {/* 학생 작성 내용 */}
-                <div className="mb-3.5">
-                  <label className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-2 block">
-                    📝 학생 작성 내용
-                  </label>
-                  <div className="bg-gray-50 border border-line rounded-lg px-4 py-3 text-[13px] font-medium text-ink leading-[1.7]">
-                    {topic.content}
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-gray-50">
+              {messages.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center text-ink-muted text-[13px]">
+                  아직 메시지가 없어요.
+                </div>
+              ) : messages.map((msg, i) => {
+                const isStudent = msg.role === 'student'
+                const showDate = i === 0 || messages[i - 1].date !== msg.date
+                return (
+                  <div key={i}>
+                    {showDate && (
+                      <div className="text-center my-2">
+                        <span className="text-[10px] font-semibold text-ink-muted bg-white border border-line px-3 py-1 rounded-full">
+                          {msg.date}
+                        </span>
+                      </div>
+                    )}
+                    <div className={`flex flex-col ${isStudent ? 'items-start' : 'items-end'}`}>
+                      <div className={`text-[10px] font-semibold text-ink-muted mb-1 ${isStudent ? 'ml-10' : 'mr-1'}`}>
+                        {isStudent ? `👤 ${student.name}` : '👨‍🏫 나 (원장)'}
+                      </div>
+                      <div className={`flex items-end gap-2 ${isStudent ? 'flex-row' : 'flex-row-reverse'}`}>
+                        {isStudent && (
+                          <div className="w-8 h-8 rounded-full bg-gray-300 text-white flex items-center justify-center text-[12px] font-bold flex-shrink-0">
+                            {student.name?.[0] ?? 'S'}
+                          </div>
+                        )}
+                        <div
+                          className="max-w-md px-4 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap"
+                          style={{
+                            background: isStudent ? '#fff' : THEME.accent,
+                            color: isStudent ? '#1a1a1a' : '#fff',
+                            border: isStudent ? '1px solid #E5E7EB' : 'none',
+                            borderRadius: isStudent ? '2px 14px 14px 14px' : '14px 2px 14px 14px',
+                            boxShadow: isStudent ? '0 1px 2px rgba(15, 23, 42, 0.04)' : `0 2px 8px ${THEME.accentShadow}`,
+                          }}
+                        >
+                          {msg.text}
+                        </div>
+                      </div>
+                    </div>
                   </div>
+                )
+              })}
+              <div ref={chatEndRef} />
+            </div>
+
+            {isCompleted ? (
+              <div className="px-4 py-3 border-t border-line bg-white flex-shrink-0">
+                <div className="text-center py-2 text-[12px] text-ink-muted font-medium">
+                  ✓ 완료 처리된 탐구주제예요. 추가 피드백은 완료 해제 후 가능해요.
                 </div>
-
-                {/* 히스토리 */}
-                <History history={topic.history} />
-
-                {/* 피드백 작성 */}
-                <div className="mb-3">
-                  <label className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-2 block">
+              </div>
+            ) : !isFeedbackOpen ? (
+              <div className="px-4 py-2.5 border-t border-line bg-white flex-shrink-0 flex justify-end">
+                <button
+                  onClick={() => setIsFeedbackOpen(true)}
+                  className="px-3.5 py-1.5 rounded-lg text-[12px] font-bold transition-all hover:-translate-y-px flex items-center gap-1.5"
+                  style={{
+                    background: THEME.accent,
+                    color: '#fff',
+                    boxShadow: `0 2px 6px ${THEME.accentShadow}`,
+                  }}
+                >
+                  ✏️ 피드백 작성
+                </button>
+              </div>
+            ) : (
+              <div className="border-t border-line bg-white flex-shrink-0">
+                <div className="px-4 py-2.5 border-b border-line-light flex items-center justify-between">
+                  <div className="text-[12px] font-bold text-ink flex items-center gap-1.5">
                     ✏️ 피드백 작성
-                  </label>
-                  <textarea
-                    value={feedback[topic.id] || ''}
-                    onChange={e => setFeedback(prev => ({ ...prev, [topic.id]: e.target.value }))}
-                    placeholder="탐구주제에 대한 피드백을 작성해주세요..."
-                    rows={3}
-                    className="w-full border border-line rounded-lg px-3.5 py-3 text-[13px] font-medium outline-none resize-y leading-[1.6] transition-all placeholder:text-ink-muted"
-                    onFocus={e => {
-                      e.target.style.borderColor = THEME.accent
-                      e.target.style.boxShadow = `0 0 0 3px ${THEME.accentShadow}`
-                    }}
-                    onBlur={e => {
-                      e.target.style.borderColor = '#E5E7EB'
-                      e.target.style.boxShadow = 'none'
-                    }}
-                  />
+                  </div>
+                  <button
+                    onClick={handleCancel}
+                    className="text-ink-muted hover:text-ink text-[14px] w-6 h-6 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-all"
+                  >
+                    ✕
+                  </button>
                 </div>
-
-                {/* 액션 버튼 */}
-                <div className="flex gap-2 flex-wrap">
-                  <button
-                    className="px-4 py-2 text-white rounded-lg text-[12px] font-bold transition-all hover:-translate-y-px"
-                    style={{
-                      background: THEME.accent,
-                      boxShadow: `0 4px 12px ${THEME.accentShadow}`,
-                    }}
-                  >
-                    📤 피드백 전달
-                  </button>
-                  <button
-                    onClick={() => onOpenChat('topic', topic.title)}
-                    className="px-4 py-2 bg-white border rounded-lg text-[12px] font-bold transition-all hover:-translate-y-px"
-                    style={{
-                      color: THEME.accent,
-                      borderColor: THEME.accent,
-                    }}
-                  >
-                    ✨ 챗봇으로 고도화
-                  </button>
-                  <button
-                    onClick={() => setTopicStatus(prev => ({ ...prev, [topic.id]: '완료' }))}
-                    className="px-4 py-2 rounded-lg text-[12px] font-bold transition-all ml-auto"
-                    style={{
-                      background: curStatus === '완료' ? '#059669' : '#E5E7EB',
-                      color: curStatus === '완료' ? '#fff' : '#9CA3AF',
-                      boxShadow: curStatus === '완료' ? '0 4px 12px rgba(16, 185, 129, 0.3)' : 'none',
-                    }}
-                  >
-                    {curStatus === '완료' ? '✓ 완료됨' : '완료 처리'}
-                  </button>
+                <div className="px-4 pt-3 pb-3">
+                  <textarea
+                    ref={textareaRef}
+                    value={feedbackInput}
+                    onChange={e => setFeedbackInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="피드백을 작성해주세요... (ESC로 취소 · Ctrl+Enter로 전송)"
+                    rows={4}
+                    disabled={sendFeedback.isPending}
+                    className="w-full border border-line rounded-xl px-3 py-2.5 text-[13px] outline-none resize-none leading-relaxed transition-colors font-sans disabled:bg-gray-50 disabled:opacity-70"
+                    onFocus={e => { e.target.style.borderColor = THEME.accent }}
+                    onBlur={e => { e.target.style.borderColor = '#E5E7EB' }}
+                  />
+                  <div className="flex items-center gap-2 mt-2.5">
+                    <button
+                      onClick={handleCancel}
+                      disabled={sendFeedback.isPending}
+                      className="px-4 py-2 bg-white text-ink-secondary border border-line rounded-lg text-[12px] font-semibold hover:bg-gray-50 transition-all disabled:opacity-60"
+                    >
+                      취소
+                    </button>
+                    <div className="text-[10px] text-ink-muted font-medium flex-1">
+                      💡 챗봇(✨)에게 물어본 답변을 참고해서 전달하세요
+                    </div>
+                    <button
+                      onClick={handleSend}
+                      disabled={!feedbackInput.trim() || sendFeedback.isPending}
+                      className="px-5 py-2 rounded-lg text-[12px] font-bold transition-all disabled:cursor-not-allowed"
+                      style={{
+                        background: feedbackInput.trim() && !sendFeedback.isPending ? THEME.accent : '#E5E7EB',
+                        color: feedbackInput.trim() && !sendFeedback.isPending ? '#fff' : '#9CA3AF',
+                        boxShadow: feedbackInput.trim() && !sendFeedback.isPending ? `0 2px 8px ${THEME.accentShadow}` : 'none',
+                      }}
+                    >
+                      {sendFeedback.isPending ? '전송 중...' : '전송 →'}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
-          </div>
-        )
-      })}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
 
-      {/* 빈 상태 */}
-      {filteredTopics.length === 0 && (
-        <div className="text-center py-16">
-          <div className="text-4xl mb-3">🔬</div>
-          <div className="text-[13px] text-ink-secondary font-medium">
-            해당 학년의 탐구주제가 없어요.
-          </div>
-        </div>
+function ResearchCard({
+  research,
+  selected,
+  onClick,
+}: {
+  research: Research
+  selected: boolean
+  onClick: () => void
+}) {
+  const isCompleted = research.status === 'completed'
+
+  return (
+    <div
+      onClick={onClick}
+      className="relative border rounded-xl px-3 py-2.5 mb-1.5 cursor-pointer transition-all"
+      style={{
+        borderColor: selected ? THEME.accent : '#E5E7EB',
+        background: selected ? THEME.accentBg : '#fff',
+        boxShadow: selected ? `0 2px 8px ${THEME.accentShadow}` : 'none',
+      }}
+    >
+      <div className="flex gap-1 mb-1.5 flex-wrap">
+        {isCompleted ? (
+          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+            ✓ 완료
+          </span>
+        ) : (
+          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+            ⏳ 진행
+          </span>
+        )}
+      </div>
+      <div className="text-[12.5px] font-semibold text-ink mb-1.5 leading-tight line-clamp-2">
+        {research.topic}
+      </div>
+      {research.subject && (
+        <span
+          className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+          style={{
+            color: THEME.accentDark,
+            background: THEME.accentBg,
+            border: `1px solid ${THEME.accentBorder}60`,
+          }}
+        >
+          {research.subject}
+        </span>
       )}
     </div>
   )

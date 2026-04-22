@@ -1,9 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-const SCHOOL_TYPES = ['중학교', '고등학교']
 const GRADES_MIDDLE = ['중1', '중2', '중3']
-const GRADES_HIGH = ['고1', '고2', '고3']
 
 export default function MiddleSignup() {
   const navigate = useNavigate()
@@ -17,7 +15,6 @@ export default function MiddleSignup() {
   const [showPw, setShowPw] = useState(false)
   const [showPwC, setShowPwC] = useState(false)
 
-  const [schoolType, setSchoolType] = useState('')
   const [schoolName, setSchoolName] = useState('')
   const [grade, setGrade] = useState('')
   const [academyCode, setAcademyCode] = useState('')
@@ -32,8 +29,6 @@ export default function MiddleSignup() {
 
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-
-  const gradeOptions = schoolType === '중학교' ? GRADES_MIDDLE : schoolType === '고등학교' ? GRADES_HIGH : []
 
   const formatPhone = (val: string) => {
     const num = val.replace(/\D/g, '')
@@ -89,7 +84,6 @@ export default function MiddleSignup() {
 
   const handleSignup = () => {
     setError('')
-    if (!schoolType) return setError('학교 종류를 선택해주세요.')
     if (!schoolName.trim()) return setError('학교 이름을 입력해주세요.')
     if (!grade) return setError('학년을 선택해주세요.')
     if (codeStatus !== 'ok') return setError('학원 코드를 먼저 확인해주세요.')
@@ -347,32 +341,14 @@ export default function MiddleSignup() {
           {/* ── STEP 3: 학교 · 학원 ── */}
           {step === 3 && (
             <div>
-              <div className="text-[15px] font-bold text-ink tracking-tight mb-1">학교 · 학원 정보</div>
-              <div className="text-[12px] text-ink-secondary mb-4">학교와 학원 정보를 입력해주세요.</div>
+              <div className="text-[15px] font-bold text-ink tracking-tight mb-1">진학 정보</div>
+              <div className="text-[12px] text-ink-secondary mb-4">등원하는 학교와 학원 코드를 입력해주세요.</div>
 
               <div className="flex flex-col gap-3">
 
+                {/* 중학교 이름 */}
                 <div>
-                  <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">학교 종류</label>
-                  <div className="flex gap-2">
-                    {SCHOOL_TYPES.map(t => (
-                      <button
-                        key={t}
-                        onClick={() => { setSchoolType(t); setGrade(''); setError('') }}
-                        className={`flex-1 h-10 rounded-lg text-[13px] font-semibold border-2 transition-all ${
-                          schoolType === t
-                            ? 'border-brand-middle bg-brand-middle-pale text-brand-middle-dark'
-                            : 'border-line bg-white text-ink-secondary hover:border-brand-middle-light'
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">학교 이름</label>
+                  <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">중학교 이름 🎓</label>
                   <input
                     value={schoolName}
                     onChange={e => { setSchoolName(e.target.value); setError('') }}
@@ -381,31 +357,27 @@ export default function MiddleSignup() {
                   />
                 </div>
 
+                {/* 학년 - 중1/중2/중3만 */}
                 <div>
                   <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">학년</label>
-                  {gradeOptions.length > 0 ? (
-                    <div className="flex gap-2">
-                      {gradeOptions.map(g => (
-                        <button
-                          key={g}
-                          onClick={() => { setGrade(g); setError('') }}
-                          className={`flex-1 h-10 rounded-lg text-[13px] font-semibold border-2 transition-all ${
-                            grade === g
-                              ? 'border-brand-middle bg-brand-middle-pale text-brand-middle-dark'
-                              : 'border-line bg-white text-ink-secondary hover:border-brand-middle-light'
-                          }`}
-                        >
-                          {g}
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-[11px] text-ink-muted py-2.5 px-3 bg-gray-50 rounded-lg border border-line">
-                      학교 종류를 먼저 선택해주세요.
-                    </div>
-                  )}
+                  <div className="flex gap-2">
+                    {GRADES_MIDDLE.map(g => (
+                      <button
+                        key={g}
+                        onClick={() => { setGrade(g); setError('') }}
+                        className={`flex-1 h-10 rounded-lg text-[13px] font-semibold border-2 transition-all ${
+                          grade === g
+                            ? 'border-brand-middle bg-brand-middle-pale text-brand-middle-dark'
+                            : 'border-line bg-white text-ink-secondary hover:border-brand-middle-light'
+                        }`}
+                      >
+                        {g}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
+                {/* 학원 코드 */}
                 <div>
                   <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">학원 코드</label>
                   <div className="flex gap-2">

@@ -127,96 +127,149 @@ export default function Simulation() {
     else { setQuestionType(id); setSelSchool(null); setSelUniv(''); setSelDept('') }
   }
 
-  // 목록 화면
+  // ═══════════════════════════════════════════
+  // 1. 목록 화면
+  // ═══════════════════════════════════════════
   if (step === 'list') {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: 'calc(100vh - 90px)', overflow: 'hidden', padding: '20px 24px' }}>
-        <div style={{ display: 'flex', gap: 16, flex: 1, overflow: 'hidden' }}>
-          <div style={{ width: 320, flexShrink: 0, background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ padding: '12px 14px', borderBottom: '0.5px solid #E5E7EB', flexShrink: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a' }}>면접 시뮬레이션</div>
-              <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>총 <span style={{ color: '#3B5BDB', fontWeight: 600 }}>{simHistory.length}개</span></div>
+      <div className="flex flex-col gap-3 h-full overflow-hidden px-6 py-5 font-sans text-ink">
+        <div className="flex gap-4 flex-1 overflow-hidden">
+
+          {/* 왼쪽: 시뮬레이션 목록 */}
+          <div className="w-[340px] flex-shrink-0 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
+            <div className="px-4 py-3 border-b border-line-light flex-shrink-0">
+              <div className="text-[14px] font-bold text-ink tracking-tight">면접 시뮬레이션</div>
+              <div className="text-[11px] text-ink-secondary mt-1 font-medium">
+                총 <span className="text-brand-high-dark font-bold">{simHistory.length}개</span>
+              </div>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px' }}>
+
+            <div className="flex-1 overflow-y-auto p-3">
               {simHistory.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px 0', color: '#9CA3AF', fontSize: 12 }}>
-                  <div style={{ fontSize: 28, marginBottom: 8 }}>🎙️</div>시뮬레이션 기록이 없어요.
+                <div className="text-center py-10 text-ink-muted">
+                  <div className="text-3xl mb-2">🎙️</div>
+                  <div className="text-[12px] font-medium">시뮬레이션 기록이 없어요.</div>
                 </div>
               ) : simHistory.map(s => (
-                <div key={s.id} onClick={() => { setSelSim(s); setIsPlaying(false) }}
-                  style={{ border: `0.5px solid ${selSim?.id === s.id ? '#3B5BDB' : '#E5E7EB'}`, borderRadius: 10, padding: '11px 13px', marginBottom: 7, cursor: 'pointer', background: selSim?.id === s.id ? '#EEF2FF' : '#fff', position: 'relative' }}>
-                  <div onClick={e => { e.stopPropagation(); setDeleteTarget(s.id) }}
-                    style={{ position: 'absolute', top: 8, right: 8, width: 18, height: 18, borderRadius: '50%', background: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#6B7280', cursor: 'pointer' }}>✕</div>
-                  <div style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 4 }}>{s.date}</div>
-                  <div style={{ fontSize: 12, fontWeight: 500, color: '#1a1a1a', marginBottom: 6, paddingRight: 20 }}>{s.title}</div>
-                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                    {s.tags.map((tag, i) => <span key={i} style={{ fontSize: 10, color: '#3B5BDB', background: '#EEF2FF', padding: '1px 7px', borderRadius: 99, border: '0.5px solid #BAC8FF' }}>{tag}</span>)}
+                <div
+                  key={s.id}
+                  onClick={() => { setSelSim(s); setIsPlaying(false) }}
+                  className={`border rounded-xl px-3 py-2.5 mb-1.5 cursor-pointer transition-all relative ${
+                    selSim?.id === s.id
+                      ? 'border-brand-high bg-brand-high-pale shadow-[0_2px_8px_rgba(37,99,235,0.1)]'
+                      : 'border-line bg-white hover:border-brand-high-light hover:shadow-sm'
+                  }`}
+                >
+                  <button
+                    onClick={e => { e.stopPropagation(); setDeleteTarget(s.id) }}
+                    className="absolute top-2 right-2 w-5 h-5 rounded-full bg-gray-100 hover:bg-red-100 hover:text-red-500 text-[10px] text-ink-secondary flex items-center justify-center transition-colors"
+                  >
+                    ✕
+                  </button>
+                  <div className="text-[10px] text-ink-muted mb-1 font-medium">{s.date}</div>
+                  <div className="text-[12px] font-semibold text-ink mb-1.5 pr-5">{s.title}</div>
+                  <div className="flex gap-1 flex-wrap">
+                    {s.tags.map((tag, i) => (
+                      <span key={i} className="text-[10px] font-bold text-brand-high-dark bg-brand-high-pale border border-brand-high-light px-2 py-0.5 rounded-full">
+                        {tag}
+                      </span>
+                    ))}
                   </div>
                 </div>
               ))}
             </div>
-            <div style={{ padding: '12px', borderTop: '0.5px solid #E5E7EB', flexShrink: 0 }}>
-              <button onClick={() => setStep('setup')}
-                style={{ width: '100%', height: 42, background: '#3B5BDB', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+
+            <div className="p-3 border-t border-line-light flex-shrink-0">
+              <button
+                onClick={() => setStep('setup')}
+                className="w-full h-11 bg-brand-high text-white rounded-xl text-[13px] font-bold hover:bg-brand-high-dark transition-all shadow-[0_2px_8px_rgba(37,99,235,0.2)]"
+              >
                 + 시작하기
               </button>
             </div>
           </div>
 
-          <div style={{ flex: 1, background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* 오른쪽: 상세 */}
+          <div className="flex-1 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
             {!selSim ? (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', gap: 8 }}>
-                <div style={{ fontSize: 32 }}>🎙️</div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: '#6B7280' }}>시뮬레이션을 선택해주세요</div>
-                <div style={{ fontSize: 12 }}>왼쪽에서 기록을 클릭하면 피드백을 볼 수 있어요</div>
+              <div className="flex-1 flex flex-col items-center justify-center text-ink-muted gap-2">
+                <div className="text-4xl">🎙️</div>
+                <div className="text-[14px] font-semibold text-ink-secondary">시뮬레이션을 선택해주세요</div>
+                <div className="text-[12px]">왼쪽에서 기록을 클릭하면 피드백을 볼 수 있어요</div>
               </div>
             ) : (
               <>
-                <div style={{ padding: '13px 16px', borderBottom: '0.5px solid #E5E7EB', flexShrink: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a1a', marginBottom: 4 }}>{selSim.title}</div>
-                  <div style={{ fontSize: 11, color: '#9CA3AF' }}>{selSim.date} · {selSim.duration}</div>
+                <div className="px-5 py-3.5 border-b border-line-light flex-shrink-0">
+                  <div className="text-[14px] font-bold text-ink tracking-tight mb-1">{selSim.title}</div>
+                  <div className="text-[11px] text-ink-muted font-medium">{selSim.date} · {selSim.duration}</div>
                 </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 10, padding: '14px 16px' }}>
-                    <div style={{ fontSize: 10, fontWeight: 500, color: '#9CA3AF', marginBottom: 10 }}>녹음 파일</div>
-                    <div style={{ background: '#F8F7F5', borderRadius: 9, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <button onClick={() => setIsPlaying(!isPlaying)}
-                        style={{ width: 36, height: 36, borderRadius: '50%', background: '#3B5BDB', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+
+                <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-gray-50">
+                  {/* 녹음 파일 */}
+                  <div className="bg-white border border-line rounded-xl px-4 py-3.5">
+                    <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2.5">녹음 파일</div>
+                    <div className="bg-gray-50 border border-line-light rounded-lg px-4 py-3 flex items-center gap-3">
+                      <button
+                        onClick={() => setIsPlaying(!isPlaying)}
+                        className="w-9 h-9 rounded-full bg-brand-high text-white cursor-pointer text-[14px] flex items-center justify-center flex-shrink-0 hover:bg-brand-high-dark transition-all shadow-[0_2px_8px_rgba(37,99,235,0.2)]"
+                      >
                         {isPlaying ? '⏸' : '▶'}
                       </button>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ height: 4, background: '#E5E7EB', borderRadius: 99, overflow: 'hidden', marginBottom: 6 }}>
-                          <div style={{ width: isPlaying ? '40%' : '0%', height: '100%', background: '#3B5BDB', borderRadius: 99, transition: 'width 0.3s' }} />
+                      <div className="flex-1">
+                        <div className="h-1 bg-gray-200 rounded-full overflow-hidden mb-1.5">
+                          <div
+                            className="h-full bg-brand-high rounded-full transition-all duration-300"
+                            style={{ width: isPlaying ? '40%' : '0%' }}
+                          />
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#9CA3AF' }}>
-                          <span>{isPlaying ? '00:05' : '00:00'}</span><span>{selSim.duration}</span>
+                        <div className="flex justify-between text-[11px] text-ink-muted font-medium">
+                          <span>{isPlaying ? '00:05' : '00:00'}</span>
+                          <span>{selSim.duration}</span>
                         </div>
                       </div>
                     </div>
-                    <div style={{ marginTop: 10 }}>
-                      <div style={{ fontSize: 10, fontWeight: 500, color: '#9CA3AF', marginBottom: 5 }}>음성 텍스트 변환</div>
-                      <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '10px 12px', fontSize: 13, color: '#374151', lineHeight: 1.8 }}>{selSim.transcript}</div>
+
+                    <div className="mt-3">
+                      <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">음성 텍스트 변환</div>
+                      <div className="bg-gray-50 border border-line-light rounded-lg px-3 py-2.5 text-[13px] text-ink leading-relaxed">
+                        {selSim.transcript}
+                      </div>
                     </div>
                   </div>
-                  <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 10, padding: '14px 16px' }}>
-                    <div style={{ fontSize: 10, fontWeight: 500, color: '#9CA3AF', marginBottom: 8 }}>선생님 피드백</div>
+
+                  {/* 피드백 */}
+                  <div className="bg-white border border-line rounded-xl px-4 py-3.5">
+                    <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">선생님 피드백</div>
                     {selSim.teacherFeedback ? (
-                      <div style={{ background: '#EEF2FF', border: '0.5px solid #BAC8FF', borderRadius: 8, padding: '10px 12px', fontSize: 13, color: '#1E3A8A', lineHeight: 1.8 }}>{selSim.teacherFeedback}</div>
+                      <div className="bg-brand-high-pale border border-brand-high-light rounded-lg px-3 py-2.5 text-[13px] text-brand-high-dark leading-relaxed">
+                        {selSim.teacherFeedback}
+                      </div>
                     ) : (
-                      <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#9CA3AF', textAlign: 'center' }}>선생님 피드백을 기다리는 중이에요.</div>
+                      <div className="bg-gray-50 rounded-lg px-3 py-2.5 text-[12px] text-ink-muted text-center">
+                        선생님 피드백을 기다리는 중이에요.
+                      </div>
                     )}
                   </div>
+
+                  {/* 태그 */}
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 500, color: '#6B7280', marginBottom: 8 }}>태그</div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {selSim.tags.map((tag: string, i: number) => <span key={i} style={{ fontSize: 11, color: '#3B5BDB', background: '#EEF2FF', padding: '3px 10px', borderRadius: 99, border: '0.5px solid #BAC8FF' }}>{tag}</span>)}
+                    <div className="text-[11px] font-bold text-ink-secondary mb-2">태그</div>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {selSim.tags.map((tag: string, i: number) => (
+                        <span key={i} className="text-[11px] font-semibold text-brand-high-dark bg-brand-high-pale border border-brand-high-light px-2.5 py-1 rounded-full">
+                          {tag}
+                        </span>
+                      ))}
                     </div>
                   </div>
-                  <div style={{ background: '#F8F7F5', borderRadius: 10, padding: '14px 16px' }}>
-                    <div style={{ fontSize: 11, fontWeight: 500, color: '#6B7280', marginBottom: 8 }}>답변한 질문</div>
+
+                  {/* 답변한 질문 */}
+                  <div className="bg-white border border-line rounded-xl px-4 py-3.5">
+                    <div className="text-[11px] font-bold text-ink-secondary mb-2">답변한 질문</div>
                     {MOCK_QUESTIONS.map((q, i) => (
-                      <div key={q.id} style={{ display: 'flex', gap: 8, marginBottom: 8, fontSize: 12, color: '#374151', lineHeight: 1.5 }}>
-                        <span style={{ color: '#F97316', flexShrink: 0, fontWeight: 600 }}>Q{i + 1}.</span>{q.text}
+                      <div key={q.id} className="flex gap-2 mb-2 text-[12px] text-ink leading-relaxed">
+                        <span className="text-orange-500 flex-shrink-0 font-extrabold">Q{i + 1}.</span>
+                        <span>{q.text}</span>
                       </div>
                     ))}
                   </div>
@@ -226,19 +279,34 @@ export default function Simulation() {
           </div>
         </div>
 
+        {/* 삭제 확인 모달 */}
         {deleteTarget !== null && (
-          <div onClick={() => setDeleteTarget(null)}
-            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div onClick={e => e.stopPropagation()}
-              style={{ background: '#fff', borderRadius: 16, padding: 28, width: 360, textAlign: 'center' }}>
-              <div style={{ fontSize: 28, marginBottom: 12 }}>⚠️</div>
-              <div style={{ fontSize: 16, fontWeight: 500, color: '#1a1a1a', marginBottom: 8 }}>시뮬레이션을 삭제하시겠어요?</div>
-              <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 24, lineHeight: 1.6 }}>삭제하면 녹음 파일과 피드백이 모두 사라져요.</div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => setDeleteTarget(null)}
-                  style={{ flex: 1, height: 42, background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>취소</button>
-                <button onClick={() => deleteSim(deleteTarget)}
-                  style={{ flex: 1, height: 42, background: '#DC2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>삭제</button>
+          <div
+            onClick={() => setDeleteTarget(null)}
+            className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4"
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              className="bg-white rounded-2xl p-7 w-full max-w-[400px] text-center shadow-2xl"
+            >
+              <div className="text-3xl mb-3">⚠️</div>
+              <div className="text-[16px] font-bold text-ink mb-2">시뮬레이션을 삭제하시겠어요?</div>
+              <div className="text-[13px] text-ink-secondary mb-6 leading-relaxed">
+                삭제하면 녹음 파일과 피드백이 모두 사라져요.
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setDeleteTarget(null)}
+                  className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-all"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={() => deleteSim(deleteTarget)}
+                  className="flex-1 h-11 bg-red-600 text-white rounded-lg text-[13px] font-bold hover:bg-red-700 transition-all shadow-[0_2px_8px_rgba(220,38,38,0.2)]"
+                >
+                  삭제
+                </button>
               </div>
             </div>
           </div>
@@ -247,50 +315,74 @@ export default function Simulation() {
     )
   }
 
-  // 설정 모달
+  // ═══════════════════════════════════════════
+  // 2. 설정 모달
+  // ═══════════════════════════════════════════
   if (step === 'setup') {
     return (
-      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ background: '#fff', borderRadius: 20, padding: 28, width: 520, maxHeight: '90vh', overflowY: 'auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div style={{ fontSize: 16, fontWeight: 500 }}>시뮬레이션 설정</div>
-            <div onClick={() => setStep('list')} style={{ cursor: 'pointer', color: '#6B7280', fontSize: 18 }}>✕</div>
+      <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-7 w-full max-w-[560px] max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-[16px] font-bold text-ink tracking-tight">시뮬레이션 설정</div>
+            <button onClick={() => setStep('list')} className="text-ink-secondary text-lg hover:text-ink">✕</button>
           </div>
-          <div style={{ background: 'linear-gradient(135deg, #F97316, #EF4444)', borderRadius: 12, padding: '16px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ fontSize: 36 }}>🤖</div>
+
+          {/* 헤더 배너 */}
+          <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-xl px-5 py-4 mb-5 flex items-center gap-3 shadow-[0_8px_20px_rgba(249,115,22,0.2)]">
+            <div className="text-4xl">🤖</div>
             <div>
-              <div style={{ fontSize: 12, background: 'rgba(255,255,255,0.3)', color: '#fff', padding: '2px 8px', borderRadius: 99, display: 'inline-block', marginBottom: 4 }}>기초부터 차근차근 해보자!</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>원하는 문제 유형을 골라주세요!</div>
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.9)' }}>하나만 선택해서 시작해요.</div>
+              <div className="text-[11px] bg-white/30 text-white px-2 py-0.5 rounded-full inline-block mb-1 font-semibold">
+                기초부터 차근차근 해보자!
+              </div>
+              <div className="text-[15px] font-extrabold text-white">원하는 문제 유형을 골라주세요!</div>
+              <div className="text-[12px] text-white/90 font-medium">하나만 선택해서 시작해요.</div>
             </div>
           </div>
 
           {/* 문제 유형 */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a', marginBottom: 10 }}>문제 유형 (1개 선택)</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="mb-5">
+            <div className="text-[13px] font-bold text-ink mb-2.5">문제 유형 (1개 선택)</div>
+            <div className="flex flex-col gap-2">
 
-              {/* 5개년 기출문제 */}
+              {/* 기출문제 */}
               <div>
-                <div onClick={() => toggleType('past')}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', border: `1.5px solid ${questionType === 'past' ? '#3B5BDB' : '#E5E7EB'}`, borderRadius: 10, cursor: 'pointer', background: questionType === 'past' ? '#EEF2FF' : '#fff' }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a' }}>5개년 핵심 기출문제</div>
-                    <div style={{ fontSize: 11, color: '#6B7280' }}>대학별 최근 5개년 기출 분석</div>
+                <button
+                  onClick={() => toggleType('past')}
+                  className={`w-full flex items-center justify-between px-4 py-3 border-[1.5px] rounded-xl transition-all ${
+                    questionType === 'past'
+                      ? 'border-brand-high bg-brand-high-pale'
+                      : 'border-line bg-white hover:border-brand-high-light'
+                  }`}
+                >
+                  <div className="text-left">
+                    <div className="text-[13px] font-bold text-ink">5개년 핵심 기출문제</div>
+                    <div className="text-[11px] text-ink-secondary font-medium">대학별 최근 5개년 기출 분석</div>
                   </div>
-                  {questionType === 'past' && <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#3B5BDB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11 }}>✓</div>}
-                </div>
+                  {questionType === 'past' && (
+                    <div className="w-5 h-5 rounded-full bg-brand-high flex items-center justify-center text-white text-[11px] font-bold">✓</div>
+                  )}
+                </button>
                 {questionType === 'past' && (
-                  <div style={{ background: '#F8F9FF', border: '0.5px solid #BAC8FF', borderRadius: 8, padding: '12px 14px', marginTop: 6 }}>
-                    <div style={{ fontSize: 11, fontWeight: 500, color: '#3B5BDB', marginBottom: 8 }}>🎓 기출문제 등록한 학교 선택</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {PAST_SCHOOLS.map((s, i) => (
-                        <div key={i} onClick={() => setSelSchool(selSchool?.univ === s.univ && selSchool?.dept === s.dept ? null : s)}
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', border: `0.5px solid ${selSchool?.univ === s.univ && selSchool?.dept === s.dept ? '#3B5BDB' : '#E5E7EB'}`, borderRadius: 8, cursor: 'pointer', background: selSchool?.univ === s.univ && selSchool?.dept === s.dept ? '#EEF2FF' : '#fff' }}>
-                          <span style={{ fontSize: 12, color: '#1a1a1a' }}>{s.univ} · {s.dept}</span>
-                          {selSchool?.univ === s.univ && selSchool?.dept === s.dept && <span style={{ fontSize: 11, color: '#3B5BDB' }}>✓</span>}
-                        </div>
-                      ))}
+                  <div className="bg-brand-high-pale/50 border border-brand-high-light rounded-lg px-4 py-3 mt-1.5">
+                    <div className="text-[11px] font-bold text-brand-high-dark mb-2">🎓 기출문제 등록한 학교 선택</div>
+                    <div className="flex flex-col gap-1.5">
+                      {PAST_SCHOOLS.map((s, i) => {
+                        const selected = selSchool?.univ === s.univ && selSchool?.dept === s.dept
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => setSelSchool(selected ? null : s)}
+                            className={`flex items-center justify-between px-3 py-2 border rounded-lg transition-all ${
+                              selected
+                                ? 'border-brand-high bg-brand-high-pale'
+                                : 'border-line bg-white hover:border-brand-high-light'
+                            }`}
+                          >
+                            <span className="text-[12px] text-ink">{s.univ} · {s.dept}</span>
+                            {selected && <span className="text-[11px] text-brand-high-dark font-bold">✓</span>}
+                          </button>
+                        )
+                      })}
                     </div>
                   </div>
                 )}
@@ -298,28 +390,46 @@ export default function Simulation() {
 
               {/* 생기부 예상문제 */}
               <div>
-                <div onClick={() => toggleType('expect')}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', border: `1.5px solid ${questionType === 'expect' ? '#3B5BDB' : '#E5E7EB'}`, borderRadius: 10, cursor: 'pointer', background: questionType === 'expect' ? '#EEF2FF' : '#fff' }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a' }}>생기부 예상문제</div>
-                    <div style={{ fontSize: 11, color: '#6B7280' }}>내 생기부 기반 예상 질문</div>
+                <button
+                  onClick={() => toggleType('expect')}
+                  className={`w-full flex items-center justify-between px-4 py-3 border-[1.5px] rounded-xl transition-all ${
+                    questionType === 'expect'
+                      ? 'border-brand-high bg-brand-high-pale'
+                      : 'border-line bg-white hover:border-brand-high-light'
+                  }`}
+                >
+                  <div className="text-left">
+                    <div className="text-[13px] font-bold text-ink">생기부 예상문제</div>
+                    <div className="text-[11px] text-ink-secondary font-medium">내 생기부 기반 예상 질문</div>
                   </div>
-                  {questionType === 'expect' && <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#3B5BDB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11 }}>✓</div>}
-                </div>
+                  {questionType === 'expect' && (
+                    <div className="w-5 h-5 rounded-full bg-brand-high flex items-center justify-center text-white text-[11px] font-bold">✓</div>
+                  )}
+                </button>
                 {questionType === 'expect' && (
-                  <div style={{ background: '#F8F9FF', border: '0.5px solid #BAC8FF', borderRadius: 8, padding: '12px 14px', marginTop: 6 }}>
-                    <div style={{ fontSize: 11, fontWeight: 500, color: '#3B5BDB', marginBottom: 8 }}>📋 생기부 예상질문 등록한 학교 선택</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {EXPECT_SCHOOLS.map((s, i) => (
-                        <div key={i} onClick={() => setSelSchool(selSchool?.univ === s.univ && selSchool?.dept === s.dept ? null : s)}
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', border: `0.5px solid ${selSchool?.univ === s.univ && selSchool?.dept === s.dept ? '#3B5BDB' : '#E5E7EB'}`, borderRadius: 8, cursor: 'pointer', background: selSchool?.univ === s.univ && selSchool?.dept === s.dept ? '#EEF2FF' : '#fff' }}>
-                          <div>
-                            <span style={{ fontSize: 12, color: '#1a1a1a' }}>{s.univ} · {s.dept}</span>
-                            <span style={{ fontSize: 10, color: '#6B7280', marginLeft: 6 }}>{s.grade}</span>
-                          </div>
-                          {selSchool?.univ === s.univ && selSchool?.dept === s.dept && <span style={{ fontSize: 11, color: '#3B5BDB' }}>✓</span>}
-                        </div>
-                      ))}
+                  <div className="bg-brand-high-pale/50 border border-brand-high-light rounded-lg px-4 py-3 mt-1.5">
+                    <div className="text-[11px] font-bold text-brand-high-dark mb-2">📋 생기부 예상질문 등록한 학교 선택</div>
+                    <div className="flex flex-col gap-1.5">
+                      {EXPECT_SCHOOLS.map((s, i) => {
+                        const selected = selSchool?.univ === s.univ && selSchool?.dept === s.dept
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => setSelSchool(selected ? null : s)}
+                            className={`flex items-center justify-between px-3 py-2 border rounded-lg transition-all ${
+                              selected
+                                ? 'border-brand-high bg-brand-high-pale'
+                                : 'border-line bg-white hover:border-brand-high-light'
+                            }`}
+                          >
+                            <div className="text-left">
+                              <span className="text-[12px] text-ink">{s.univ} · {s.dept}</span>
+                              <span className="text-[10px] text-ink-secondary ml-1.5 font-medium">{s.grade}</span>
+                            </div>
+                            {selected && <span className="text-[11px] text-brand-high-dark font-bold">✓</span>}
+                          </button>
+                        )
+                      })}
                     </div>
                   </div>
                 )}
@@ -327,74 +437,110 @@ export default function Simulation() {
 
               {/* AI 문제 생성 */}
               <div>
-                <div onClick={() => toggleType('ai')}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', border: `1.5px solid ${questionType === 'ai' ? '#3B5BDB' : '#E5E7EB'}`, borderRadius: 10, cursor: 'pointer', background: questionType === 'ai' ? '#EEF2FF' : '#fff' }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a' }}>AI 문제 생성</div>
-                    <div style={{ fontSize: 11, color: '#6B7280' }}>AI가 맞춤형 질문 생성</div>
+                <button
+                  onClick={() => toggleType('ai')}
+                  className={`w-full flex items-center justify-between px-4 py-3 border-[1.5px] rounded-xl transition-all ${
+                    questionType === 'ai'
+                      ? 'border-brand-high bg-brand-high-pale'
+                      : 'border-line bg-white hover:border-brand-high-light'
+                  }`}
+                >
+                  <div className="text-left">
+                    <div className="text-[13px] font-bold text-ink">AI 문제 생성</div>
+                    <div className="text-[11px] text-ink-secondary font-medium">AI가 맞춤형 질문 생성</div>
                   </div>
-                  {questionType === 'ai' && <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#3B5BDB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11 }}>✓</div>}
-                </div>
+                  {questionType === 'ai' && (
+                    <div className="w-5 h-5 rounded-full bg-brand-high flex items-center justify-center text-white text-[11px] font-bold">✓</div>
+                  )}
+                </button>
                 {questionType === 'ai' && (
-                  <div style={{ background: '#F8F9FF', border: '0.5px solid #BAC8FF', borderRadius: 8, padding: '12px 14px', marginTop: 6 }}>
-                    <div style={{ fontSize: 11, fontWeight: 500, color: '#3B5BDB', marginBottom: 8 }}>🤖 학교 · 학과 직접 선택</div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <select value={selUniv} onChange={e => setSelUniv(e.target.value)}
-                        style={{ flex: 1, height: 36, border: '0.5px solid #E5E7EB', borderRadius: 7, padding: '0 10px', fontSize: 12, outline: 'none', fontFamily: 'inherit', background: '#fff' }}>
+                  <div className="bg-brand-high-pale/50 border border-brand-high-light rounded-lg px-4 py-3 mt-1.5">
+                    <div className="text-[11px] font-bold text-brand-high-dark mb-2">🤖 학교 · 학과 직접 선택</div>
+                    <div className="flex gap-2">
+                      <select
+                        value={selUniv}
+                        onChange={e => setSelUniv(e.target.value)}
+                        className="flex-1 h-9 border border-line rounded-lg px-2.5 text-[12px] outline-none bg-white focus:border-brand-high transition-colors font-sans"
+                      >
                         <option value=''>학교 선택</option>
                         {ALL_UNIVS.map(u => <option key={u} value={u}>{u}</option>)}
                       </select>
-                      <select value={selDept} onChange={e => setSelDept(e.target.value)}
-                        style={{ flex: 1, height: 36, border: '0.5px solid #E5E7EB', borderRadius: 7, padding: '0 10px', fontSize: 12, outline: 'none', fontFamily: 'inherit', background: '#fff' }}>
+                      <select
+                        value={selDept}
+                        onChange={e => setSelDept(e.target.value)}
+                        className="flex-1 h-9 border border-line rounded-lg px-2.5 text-[12px] outline-none bg-white focus:border-brand-high transition-colors font-sans"
+                      >
                         <option value=''>학과 선택</option>
                         {ALL_DEPTS.map(d => <option key={d} value={d}>{d}</option>)}
                       </select>
                     </div>
                     {selUniv && selDept && (
-                      <div style={{ marginTop: 8, fontSize: 11, color: '#3B5BDB', background: '#EEF2FF', padding: '4px 10px', borderRadius: 6, display: 'inline-block' }}>
+                      <div className="mt-2 text-[11px] font-bold text-brand-high-dark bg-brand-high-pale px-2.5 py-1 rounded-md inline-block">
                         ✓ {selUniv} · {selDept}
                       </div>
                     )}
                   </div>
                 )}
               </div>
-
             </div>
           </div>
 
           {/* 꼬리질문 */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a', marginBottom: 10 }}>꼬리질문</div>
-            <div style={{ display: 'flex', gap: 10 }}>
+          <div className="mb-5">
+            <div className="text-[13px] font-bold text-ink mb-2.5">꼬리질문</div>
+            <div className="flex gap-2.5">
               {[{ val: true, label: 'ON' }, { val: false, label: 'OFF' }].map(o => (
-                <div key={String(o.val)} onClick={() => setTailQ(o.val)}
-                  style={{ flex: 1, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1.5px solid ${tailQ === o.val ? '#3B5BDB' : '#E5E7EB'}`, borderRadius: 10, cursor: 'pointer', background: tailQ === o.val ? '#EEF2FF' : '#fff', fontSize: 14, fontWeight: tailQ === o.val ? 600 : 400, color: tailQ === o.val ? '#3B5BDB' : '#6B7280' }}>
+                <button
+                  key={String(o.val)}
+                  onClick={() => setTailQ(o.val)}
+                  className={`flex-1 h-11 flex items-center justify-center border-[1.5px] rounded-xl text-[14px] transition-all ${
+                    tailQ === o.val
+                      ? 'border-brand-high bg-brand-high-pale text-brand-high-dark font-bold'
+                      : 'border-line bg-white text-ink-secondary hover:border-brand-high-light font-semibold'
+                  }`}
+                >
                   {o.label}
-                </div>
+                </button>
               ))}
             </div>
           </div>
 
           {/* 질문 방식 */}
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a', marginBottom: 10 }}>질문 방식</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="mb-6">
+            <div className="text-[13px] font-bold text-ink mb-2.5">질문 방식</div>
+            <div className="flex flex-col gap-2">
               {QUESTION_MODES.map(m => (
-                <div key={m.id} onClick={() => setQuestionMode(m.id)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', border: `1.5px solid ${questionMode === m.id ? '#3B5BDB' : '#E5E7EB'}`, borderRadius: 10, cursor: 'pointer', background: questionMode === m.id ? '#EEF2FF' : '#fff' }}>
-                  <span style={{ fontSize: 22 }}>{m.icon}</span>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a' }}>{m.label}</div>
-                    <div style={{ fontSize: 11, color: '#6B7280' }}>{m.desc}</div>
+                <button
+                  key={m.id}
+                  onClick={() => setQuestionMode(m.id)}
+                  className={`flex items-center gap-3 px-4 py-3 border-[1.5px] rounded-xl transition-all ${
+                    questionMode === m.id
+                      ? 'border-brand-high bg-brand-high-pale'
+                      : 'border-line bg-white hover:border-brand-high-light'
+                  }`}
+                >
+                  <span className="text-2xl">{m.icon}</span>
+                  <div className="text-left flex-1">
+                    <div className="text-[13px] font-bold text-ink">{m.label}</div>
+                    <div className="text-[11px] text-ink-secondary font-medium">{m.desc}</div>
                   </div>
-                  {questionMode === m.id && <div style={{ marginLeft: 'auto', width: 20, height: 20, borderRadius: '50%', background: '#3B5BDB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11 }}>✓</div>}
-                </div>
+                  {questionMode === m.id && (
+                    <div className="w-5 h-5 rounded-full bg-brand-high flex items-center justify-center text-white text-[11px] font-bold">✓</div>
+                  )}
+                </button>
               ))}
             </div>
           </div>
 
-          <button onClick={startSimulation} disabled={!canStart}
-            style={{ width: '100%', height: 48, background: canStart ? '#3B5BDB' : '#E5E7EB', color: canStart ? '#fff' : '#9CA3AF', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: canStart ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
+          <button
+            onClick={startSimulation}
+            disabled={!canStart}
+            className={`w-full h-12 rounded-xl text-[14px] font-bold transition-all ${
+              canStart
+                ? 'bg-brand-high text-white hover:bg-brand-high-dark shadow-[0_4px_12px_rgba(37,99,235,0.25)]'
+                : 'bg-gray-200 text-ink-muted cursor-not-allowed'
+            }`}
+          >
             다음으로
           </button>
         </div>
@@ -402,89 +548,135 @@ export default function Simulation() {
     )
   }
 
-  // 카운트다운
+  // ═══════════════════════════════════════════
+  // 3. 카운트다운
+  // ═══════════════════════════════════════════
   if (step === 'countdown') {
     const title = questionType === 'ai' ? `${selUniv} · ${selDept}` : `${selSchool?.univ} · ${selSchool?.dept}`
     return (
-      <div style={{ height: 'calc(100vh - 50px)', background: '#F8F7F5', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
-        <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
-          <span style={{ fontSize: 12, background: '#FFF3E8', color: '#F97316', padding: '4px 12px', borderRadius: 99, fontWeight: 500 }}>{QUESTION_TYPES.find(t => t.id === questionType)?.label}</span>
-          <span style={{ fontSize: 12, background: '#FEE2E2', color: '#DC2626', padding: '4px 12px', borderRadius: 99, fontWeight: 500 }}>꼬리질문 {tailQ ? 'ON' : 'OFF'}</span>
+      <div className="h-full bg-gray-50 flex flex-col items-center justify-center gap-5 font-sans text-ink">
+        <div className="flex gap-2.5 mb-2">
+          <span className="text-[12px] bg-orange-50 text-orange-600 border border-orange-200 px-3 py-1 rounded-full font-bold">
+            {QUESTION_TYPES.find(t => t.id === questionType)?.label}
+          </span>
+          <span className="text-[12px] bg-red-50 text-red-600 border border-red-200 px-3 py-1 rounded-full font-bold">
+            꼬리질문 {tailQ ? 'ON' : 'OFF'}
+          </span>
         </div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: '#1a1a1a', marginBottom: 4 }}>{title}</div>
-        <div style={{ fontSize: 80, marginBottom: 8 }}>🤖</div>
-        <div style={{ fontSize: 16, color: '#6B7280', textAlign: 'center', lineHeight: 1.8 }}>
-          잠시 후 면접이 시작돼요.<br />깊게 숨 한번 쉬고, 천천히 호흡을 가다듬어볼까요?
+        <div className="text-[18px] font-extrabold text-ink tracking-tight">{title}</div>
+        <div className="text-7xl mb-2 animate-bounce">🤖</div>
+        <div className="text-[16px] text-ink-secondary text-center leading-relaxed font-medium">
+          잠시 후 면접이 시작돼요.<br />
+          깊게 숨 한번 쉬고, 천천히 호흡을 가다듬어볼까요?
         </div>
-        <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#fff', border: '3px solid #EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 700, color: '#EF4444', marginTop: 8 }}>
+        <div className="w-20 h-20 rounded-full bg-white border-[3px] border-red-500 flex items-center justify-center text-3xl font-extrabold text-red-500 mt-3 shadow-[0_8px_24px_rgba(239,68,68,0.2)]">
           {countdown}
         </div>
       </div>
     )
   }
 
-  // 면접 화면
+  // ═══════════════════════════════════════════
+  // 4. 면접 화면
+  // ═══════════════════════════════════════════
   if (step === 'interview') {
     const curQ = MOCK_QUESTIONS[curQIdx]
     const title = questionType === 'ai' ? `${selUniv} · ${selDept}` : `${selSchool?.univ} · ${selSchool?.dept}`
     return (
-      <div style={{ height: 'calc(100vh - 50px)', background: '#111', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px' }}>
-          <div onClick={() => setStep('list')} style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', cursor: 'pointer' }}>← 처음으로</div>
-          <div style={{ fontSize: 14, fontWeight: 500, color: '#fff' }}>실전 면접 시뮬레이션</div>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>고민하는 시간도 성장의 일부예요!</div>
+      <div className="h-full bg-black flex flex-col overflow-hidden relative font-sans">
+        {/* 상단 바 */}
+        <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-5 py-3">
+          <button
+            onClick={() => setStep('list')}
+            className="text-[13px] text-white/80 hover:text-white font-semibold transition-colors"
+          >
+            ← 처음으로
+          </button>
+          <div className="text-[14px] font-bold text-white tracking-tight">실전 면접 시뮬레이션</div>
+          <div className="text-[12px] text-white/60 font-medium">고민하는 시간도 성장의 일부예요!</div>
         </div>
-        <div style={{ position: 'absolute', top: 44, left: 0, right: 0, zIndex: 10, display: 'flex', alignItems: 'center', gap: 8, padding: '6px 20px' }}>
-          <span style={{ fontSize: 11, background: '#FFF3E8', color: '#F97316', padding: '2px 8px', borderRadius: 99, fontWeight: 500 }}>{QUESTION_TYPES.find(t => t.id === questionType)?.label}</span>
-          <span style={{ fontSize: 11, background: '#FEE2E2', color: '#DC2626', padding: '2px 8px', borderRadius: 99, fontWeight: 500 }}>꼬리질문 {tailQ ? 'ON' : 'OFF'}</span>
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{title}</span>
+
+        {/* 서브 바 */}
+        <div className="absolute top-11 left-0 right-0 z-10 flex items-center gap-2 px-5 py-1.5">
+          <span className="text-[11px] bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-bold">
+            {QUESTION_TYPES.find(t => t.id === questionType)?.label}
+          </span>
+          <span className="text-[11px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-bold">
+            꼬리질문 {tailQ ? 'ON' : 'OFF'}
+          </span>
+          <span className="text-[11px] text-white/60 font-medium">{title}</span>
         </div>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 80, paddingBottom: 120 }}>
-          <div style={{ display: 'flex', gap: 4, width: '100%', height: '100%' }}>
+
+        {/* 타이머 */}
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10">
+          <div className="bg-black/70 backdrop-blur-sm rounded-full px-3.5 py-1 flex items-center gap-1.5 border border-white/20">
+            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-[14px] font-bold text-white font-mono">{formatTime(timer)} / 01:20</span>
+          </div>
+        </div>
+
+        {/* 면접관 영역 */}
+        <div className="flex-1 flex items-center justify-center pt-20 pb-32">
+          <div className="flex gap-1 w-full h-full">
             {INTERVIEWERS.map((iv, i) => (
-              <div key={iv.id} style={{ flex: 1, background: activeInterviewer === i ? '#1a1a2e' : '#0a0a0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: 4, transition: 'background 0.3s', border: activeInterviewer === i ? '1px solid rgba(59,91,219,0.5)' : 'none' }}>
-                <div style={{ fontSize: 64, marginBottom: 8 }}>{iv.emoji}</div>
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{iv.name}</div>
+              <div
+                key={iv.id}
+                className={`flex-1 flex flex-col items-center justify-center rounded transition-all ${
+                  activeInterviewer === i
+                    ? 'bg-indigo-950 border border-brand-high/50 shadow-[0_0_30px_rgba(37,99,235,0.2)]'
+                    : 'bg-gray-950'
+                }`}
+              >
+                <div className="text-6xl mb-2">{iv.emoji}</div>
+                <div className="text-[12px] text-white/40 font-medium">{iv.name}</div>
               </div>
             ))}
           </div>
         </div>
-        <div style={{ position: 'absolute', top: 80, left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
-          <div style={{ background: 'rgba(0,0,0,0.7)', borderRadius: 99, padding: '4px 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#EF4444' }} />
-            <span style={{ fontSize: 14, fontWeight: 600, color: '#fff', fontFamily: 'monospace' }}>{formatTime(timer)} / 01:20</span>
-          </div>
-        </div>
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10, background: 'linear-gradient(transparent, rgba(0,0,0,0.9))', padding: '20px 24px 24px' }}>
-          <div style={{ fontSize: 11, color: 'rgba(255,165,0,0.9)', marginBottom: 6 }}>
+
+        {/* 하단 질문 바 */}
+        <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/95 to-transparent px-6 py-5">
+          <div className="text-[11px] text-orange-300 mb-1.5 font-medium">
             *{QUESTION_TYPES.find(t => t.id === questionType)?.label} 중 {MOCK_QUESTIONS.length}문제가 무작위로 출제됩니다.
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ flex: 1 }}>
+
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
               {showQuestion ? (
-                <div style={{ fontSize: 20, fontWeight: 700, color: '#fff' }}>
-                  <span style={{ color: '#F97316' }}>질문 {curQIdx + 1}. </span>{curQ.text}
+                <div className="text-[20px] font-bold text-white">
+                  <span className="text-orange-400">질문 {curQIdx + 1}. </span>{curQ.text}
                 </div>
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: '#fff' }}>
-                    <span style={{ color: '#F97316' }}>질문 {curQIdx + 1}. </span>
-                    <span style={{ background: 'rgba(255,255,255,0.2)', borderRadius: 4, padding: '2px 8px', color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>음성으로 확인하세요</span>
+                <div className="flex items-center gap-2.5">
+                  <div className="text-[20px] font-bold text-white">
+                    <span className="text-orange-400">질문 {curQIdx + 1}. </span>
+                    <span className="bg-white/20 rounded px-2 py-0.5 text-white/50 text-[14px]">음성으로 확인하세요</span>
                   </div>
-                  <button onClick={() => setShowQuestion(true)}
-                    style={{ fontSize: 11, color: '#F97316', background: 'rgba(249,115,22,0.2)', border: '0.5px solid #F97316', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <button
+                    onClick={() => setShowQuestion(true)}
+                    className="text-[11px] text-orange-400 bg-orange-400/20 border border-orange-400 rounded-md px-2.5 py-1 hover:bg-orange-400/30 transition-all font-semibold"
+                  >
                     텍스트 보기
                   </button>
                 </div>
               )}
             </div>
-            <div style={{ display: 'flex', gap: 10, marginLeft: 20 }}>
-              <button onClick={() => setIsRecording(!isRecording)}
-                style={{ height: 44, padding: '0 20px', background: isRecording ? '#EF4444' : '#3B5BDB', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+
+            <div className="flex gap-2.5 flex-shrink-0">
+              <button
+                onClick={() => setIsRecording(!isRecording)}
+                className={`h-11 px-5 rounded-lg text-[13px] font-bold transition-all ${
+                  isRecording
+                    ? 'bg-red-500 hover:bg-red-600 text-white shadow-[0_4px_12px_rgba(239,68,68,0.3)] animate-pulse'
+                    : 'bg-brand-high hover:bg-brand-high-dark text-white shadow-[0_4px_12px_rgba(37,99,235,0.3)]'
+                }`}
+              >
                 {isRecording ? '⏹ 답변 종료' : '● 답변 시작'}
               </button>
-              <button onClick={nextQuestion}
-                style={{ height: 44, padding: '0 20px', background: 'rgba(255,255,255,0.15)', color: '#fff', border: '0.5px solid rgba(255,255,255,0.3)', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button
+                onClick={nextQuestion}
+                className="h-11 px-5 bg-white/15 hover:bg-white/25 text-white border border-white/30 rounded-lg text-[13px] font-semibold transition-all"
+              >
                 다음 질문 →
               </button>
             </div>
@@ -494,46 +686,67 @@ export default function Simulation() {
     )
   }
 
-  // 결과 화면
+  // ═══════════════════════════════════════════
+  // 5. 결과 화면
+  // ═══════════════════════════════════════════
   if (step === 'result') {
     return (
-      <div style={{ padding: '28px 32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-          <div onClick={() => setStep('list')}
-            style={{ width: 32, height: 32, borderRadius: 8, background: '#fff', border: '0.5px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14, color: '#6B7280' }}>←</div>
-          <div style={{ fontSize: 16, fontWeight: 500 }}>시뮬레이션 완료</div>
+      <div className="px-7 py-6 font-sans text-ink">
+        <div className="flex items-center gap-2.5 mb-5">
+          <button
+            onClick={() => setStep('list')}
+            className="w-8 h-8 rounded-lg bg-white border border-line flex items-center justify-center text-ink-secondary hover:bg-gray-50 transition-all"
+          >
+            ←
+          </button>
+          <div className="text-[16px] font-bold text-ink tracking-tight">시뮬레이션 완료</div>
         </div>
-        <div style={{ textAlign: 'center', padding: '40px 0', marginBottom: 24 }}>
-          <div style={{ fontSize: 52, marginBottom: 12 }}>🎉</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#1a1a1a', marginBottom: 6 }}>면접 시뮬레이션 완료!</div>
-          <div style={{ fontSize: 14, color: '#6B7280' }}>총 {MOCK_QUESTIONS.length}개 질문에 답변했어요.</div>
+
+        <div className="text-center py-10 mb-6">
+          <div className="text-6xl mb-3">🎉</div>
+          <div className="text-[22px] font-extrabold text-ink tracking-tight mb-1.5">면접 시뮬레이션 완료!</div>
+          <div className="text-[14px] text-ink-secondary font-medium">
+            총 {MOCK_QUESTIONS.length}개 질문에 답변했어요.
+          </div>
         </div>
-        <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, padding: '20px', marginBottom: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a1a', marginBottom: 14 }}>이번 시뮬레이션 요약</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+
+        {/* 요약 카드 */}
+        <div className="bg-white border border-line rounded-2xl p-5 mb-4 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
+          <div className="text-[14px] font-bold text-ink mb-3.5 tracking-tight">이번 시뮬레이션 요약</div>
+          <div className="grid grid-cols-3 gap-3 max-md:grid-cols-1">
             {[
               { label: '답변한 질문', val: `${MOCK_QUESTIONS.length}개` },
               { label: '문제 유형', val: QUESTION_TYPES.find(t => t.id === questionType)?.label || '' },
               { label: '꼬리질문', val: tailQ ? 'ON' : 'OFF' },
             ].map((s, i) => (
-              <div key={i} style={{ background: '#F8F7F5', borderRadius: 8, padding: '12px 14px', textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 4 }}>{s.label}</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>{s.val}</div>
+              <div key={i} className="bg-gray-50 border border-line-light rounded-xl px-4 py-3 text-center">
+                <div className="text-[11px] text-ink-muted mb-1 font-semibold">{s.label}</div>
+                <div className="text-[14px] font-bold text-ink">{s.val}</div>
               </div>
             ))}
           </div>
         </div>
-        <div style={{ background: '#EEF2FF', border: '0.5px solid #BAC8FF', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: '#3B5BDB', marginBottom: 4 }}>선생님 피드백 대기중</div>
-          <div style={{ fontSize: 12, color: '#6B7280', lineHeight: 1.6 }}>선생님이 녹음 내용을 분석하고 피드백을 남겨드릴 예정이에요.</div>
+
+        {/* 피드백 대기 */}
+        <div className="bg-brand-high-pale border border-brand-high-light rounded-xl px-5 py-4 mb-5">
+          <div className="text-[13px] font-bold text-brand-high-dark mb-1">💬 선생님 피드백 대기중</div>
+          <div className="text-[12px] text-ink-secondary leading-relaxed font-medium">
+            선생님이 녹음 내용을 분석하고 피드백을 남겨드릴 예정이에요.
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={() => { setStep('setup'); resetSetup() }}
-            style={{ flex: 1, height: 48, background: '#3B5BDB', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+
+        {/* 버튼 */}
+        <div className="flex gap-2.5 max-md:flex-col">
+          <button
+            onClick={() => { setStep('setup'); resetSetup() }}
+            className="flex-1 h-12 bg-brand-high text-white rounded-xl text-[14px] font-bold hover:bg-brand-high-dark transition-all shadow-[0_4px_12px_rgba(37,99,235,0.25)]"
+          >
             다시 시뮬레이션하기
           </button>
-          <button onClick={() => setStep('list')}
-            style={{ flex: 1, height: 48, background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 10, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
+          <button
+            onClick={() => setStep('list')}
+            className="flex-1 h-12 bg-white text-ink-secondary border border-line rounded-xl text-[14px] font-semibold hover:bg-gray-50 transition-all"
+          >
             목록으로
           </button>
         </div>

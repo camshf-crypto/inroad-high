@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSetAtom } from 'jotai'
 import { tokenState, studentState, academyState } from '../../_store/auth'
+import { supabase } from '../../../../lib/supabase'
 
 type Modal = 'findEmail' | 'findPw' | null
 
@@ -23,41 +24,144 @@ export default function MiddleLogin() {
   const [findResult, setFindResult] = useState('')
   const [findLoading, setFindLoading] = useState(false)
 
-  const handleLogin = () => {
-    if (!email || !password) { setError('이메일과 비밀번호를 입력해주세요.'); return }
+  const handleLogin = async () => {
+    if (!email || !password) { 
+      setError('이메일과 비밀번호를 입력해주세요.')
+      return 
+    }
+    
     setLoading(true)
     setError('')
-    setTimeout(() => {
-      if (email === 'middle@example.com' && password === '1234') {
-        setToken({ accessToken: 'middle-token-demo', expiresIn: '3600' })
-        setStudent({ id: 2, name: '이지원', grade: '중2', email: 'middle@example.com', role: 'STUDENT' })
-        setAcademy({ academyCode: 'ACA001', academyName: '대치 인데미학원', teacherName: '김선생님', teacherId: 1 })
-        navigate('/middle-student/roadmap')
-      } else {
-        setError('이메일 또는 비밀번호가 올바르지 않아요.')
+
+    try {
+      // 1️⃣ Supabase Auth 로그인
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (authError) {
+        if (authError.message.includes('Invalid login credentials')) {
+          setError('이메일 또는 비밀번호가 올바르지 않아요.')
+        } else if (authError.message.includes('Email not confirmed')) {
+          setError('이메일 인증이 완료되지 않았습니다.')
+        } else {
+          setError('로그인에 실패했습니다.')
+        }
+        setLoading(false)
+        return
       }
+
+      if (!authData.user) {
+        setError('로그인 정보를 가져올 수 없습니다.')
+        setLoading(false)
+        return
+      }
+
+      // 2️⃣ profiles 테이블에서 role 확인
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role, name, academy_id, grade, school, email')
+        .eq('id', authData.user.id)
+        .single()
+
+      if (profileError || !profile) {
+        setError('프로필 정보를 불러올 수 없습니다.')
+        await supabase.auth.signOut()
+        setLoading(false)
+        return
+      }
+
+      // 3️⃣ middle_student만 허용
+      if (profile.role !== 'middle_student') {
+        setError('중학생 계정만 접근 가능합니다.')
+        await supabase.auth.signOut()
+        setLoading(false)
+        return
+      }
+
+      // 4️⃣ 학원 정보 가져오기
+      let academyInfo = null
+      if (profile.academy_id) {
+        const { data: academy } = await supabase
+          .from('academies')
+          .select('*')
+          .eq('id', profile.academy_id)
+          .single()
+        academyInfo = academy
+      }
+
+      // 5️⃣ Jotai state 저장
+      setToken({
+        accessToken: authData.session?.access_token || '',
+        expiresIn: String(
+          authData.session?.expires_at || Date.now() / 1000 + 86400
+        ),
+      })
+
+      setStudent({
+        id: authData.user.id as any,
+        name: profile.name || '',
+        grade: profile.grade || '중1',
+        email: profile.email || email,
+        role: 'STUDENT',
+      })
+
+      if (academyInfo) {
+        setAcademy({
+          academyCode: academyInfo.academy_code || '',
+          academyName: academyInfo.name,
+          teacherName: '',
+          teacherId: undefined as any,
+        })
+      }
+
+      // 6️⃣ 로드맵 페이지로 이동
+      navigate('/middle-student/roadmap')
+
+    } catch (err) {
+      console.error('로그인 에러:', err)
+      setError('로그인 중 오류가 발생했습니다.')
       setLoading(false)
-    }, 800)
+    }
   }
 
   const handleFindEmail = () => {
-    if (!findName.trim() || !findPhone.trim()) { setFindResult('error:이름과 전화번호를 입력해주세요.'); return }
+    if (!findName.trim() || !findPhone.trim()) { 
+      setFindResult('error:이름과 전화번호를 입력해주세요.')
+      return 
+    }
     setFindLoading(true)
     setFindResult('')
     setTimeout(() => {
       setFindLoading(false)
-      setFindResult('ok:mi***@example.com')
-    }, 800)
+      setFindResult('error:현재 지원하지 않는 기능입니다. 학원에 문의해주세요.')
+    }, 500)
   }
 
-  const handleFindPw = () => {
-    if (!findEmail.trim()) { setFindResult('error:이메일을 입력해주세요.'); return }
+  const handleFindPw = async () => {
+    if (!findEmail.trim()) { 
+      setFindResult('error:이메일을 입력해주세요.')
+      return 
+    }
     setFindLoading(true)
     setFindResult('')
-    setTimeout(() => {
+    
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(findEmail, {
+        redirectTo: window.location.origin + '/middle-student/login',
+      })
+      
+      if (error) {
+        setFindResult('error:이메일 발송에 실패했습니다.')
+      } else {
+        setFindResult('ok:입력하신 이메일로 비밀번호 재설정 링크를 발송했어요.')
+      }
+    } catch (err) {
+      setFindResult('error:오류가 발생했습니다.')
+    } finally {
       setFindLoading(false)
-      setFindResult('ok:입력하신 이메일로 임시 비밀번호를 발송했어요.')
-    }, 800)
+    }
   }
 
   const closeModal = () => {
@@ -74,7 +178,7 @@ export default function MiddleLogin() {
       {/* 왼쪽 폼 (50%) */}
       <div className="flex-1 flex flex-col bg-white border-r border-line overflow-y-auto relative">
 
-        {/* 상단 로고 (그리팅 스타일) */}
+        {/* 상단 로고 */}
         <div className="absolute top-8 left-8 flex items-center gap-2">
           <span className="w-8 h-8 bg-gradient-to-br from-brand-middle-dark to-brand-middle rounded-lg flex items-center justify-center text-white font-black text-sm tracking-tighter">IR</span>
           <div className="font-extrabold text-[17px] text-ink tracking-tight">인로드</div>
@@ -95,9 +199,10 @@ export default function MiddleLogin() {
               <input
                 value={email}
                 onChange={e => { setEmail(e.target.value); setError('') }}
-                onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                onKeyDown={e => e.key === 'Enter' && !loading && handleLogin()}
+                disabled={loading}
                 placeholder="계정 이메일"
-                className={`w-full h-12 px-4 border rounded-lg text-[14px] focus:outline-none focus:ring-2 transition-all placeholder:text-ink-muted ${
+                className={`w-full h-12 px-4 border rounded-lg text-[14px] focus:outline-none focus:ring-2 transition-all placeholder:text-ink-muted disabled:opacity-60 disabled:bg-gray-50 ${
                   error
                     ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10'
                     : 'border-line focus:border-brand-middle focus:ring-brand-middle/10'
@@ -112,9 +217,10 @@ export default function MiddleLogin() {
                   type={showPw ? 'text' : 'password'}
                   value={password}
                   onChange={e => { setPassword(e.target.value); setError('') }}
-                  onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                  onKeyDown={e => e.key === 'Enter' && !loading && handleLogin()}
+                  disabled={loading}
                   placeholder="비밀번호"
-                  className={`w-full h-12 pl-4 pr-12 border rounded-lg text-[14px] focus:outline-none focus:ring-2 transition-all placeholder:text-ink-muted ${
+                  className={`w-full h-12 pl-4 pr-12 border rounded-lg text-[14px] focus:outline-none focus:ring-2 transition-all placeholder:text-ink-muted disabled:opacity-60 disabled:bg-gray-50 ${
                     error
                       ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10'
                       : 'border-line focus:border-brand-middle focus:ring-brand-middle/10'
@@ -122,6 +228,7 @@ export default function MiddleLogin() {
                 />
                 <button
                   onClick={() => setShowPw(v => !v)}
+                  disabled={loading}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-brand-middle-dark transition-colors"
                   type="button"
                 >
@@ -186,12 +293,6 @@ export default function MiddleLogin() {
               </button>
             </div>
 
-            {/* 테스트 계정 */}
-            <div className="mt-8 bg-gray-50 border border-line-light rounded-lg px-4 py-3 text-center">
-              <div className="text-[11px] font-bold text-ink-secondary mb-1">🔑 테스트 계정</div>
-              <div className="text-[12px] text-ink-secondary font-mono">middle@example.com / 1234</div>
-            </div>
-
           </div>
         </div>
       </div>
@@ -199,7 +300,6 @@ export default function MiddleLogin() {
       {/* 오른쪽 소개 (50%) */}
       <div className="flex-1 max-md:hidden flex flex-col items-center justify-center px-16 py-12 bg-gradient-to-br from-[#F0FDF4] to-[#F8FAFC] relative overflow-hidden">
         
-        {/* 배경 장식 */}
         <div
           className="absolute -top-24 -right-24 w-[500px] h-[500px] rounded-full pointer-events-none"
           style={{ background: 'radial-gradient(circle, rgba(16, 185, 129, 0.12), transparent 70%)' }}
@@ -209,7 +309,6 @@ export default function MiddleLogin() {
           style={{ background: 'radial-gradient(circle, rgba(16, 185, 129, 0.08), transparent 70%)' }}
         />
 
-        {/* 타이틀 */}
         <div className="relative text-center mb-12 max-w-[580px]">
           <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-middle-bg text-brand-middle-dark text-[12px] font-bold rounded-full border border-brand-middle-light mb-5">
             🌱 중학생 전용
@@ -226,7 +325,6 @@ export default function MiddleLogin() {
           </p>
         </div>
 
-        {/* 기능 카드 */}
         <div className="grid grid-cols-2 gap-4 w-full max-w-[520px] relative">
           {[
             { icon: '🗺️', title: '월별 커리큘럼', desc: '중1~중3 맞춤 수업 로드맵' },
@@ -316,7 +414,7 @@ export default function MiddleLogin() {
             {modal === 'findPw' && (
               <div>
                 <div className="text-[13px] text-ink-secondary mb-5 leading-relaxed">
-                  가입한 이메일로 임시 비밀번호를<br />발송해드려요.
+                  가입한 이메일로 비밀번호 재설정 링크를<br />발송해드려요.
                 </div>
                 <div className="mb-4">
                   <label className="text-[12px] font-semibold text-ink-secondary block mb-1.5">이메일</label>
@@ -349,7 +447,7 @@ export default function MiddleLogin() {
                       : 'bg-brand-middle hover:bg-brand-middle-hover hover:-translate-y-px hover:shadow-btn-middle'
                   }`}
                 >
-                  {findLoading ? '발송 중...' : '임시 비밀번호 발송'}
+                  {findLoading ? '발송 중...' : '재설정 링크 발송'}
                 </button>
               </div>
             )}

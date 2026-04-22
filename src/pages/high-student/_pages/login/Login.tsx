@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSetAtom } from 'jotai'
 import { tokenState, studentState, academyState } from '../../_store/auth'
+import { supabase } from '../../../../lib/supabase'
 
 type Modal = 'findEmail' | 'findPw' | null
 
-export default function Login() {
+export default function StudentLogin() {
   const navigate = useNavigate()
   const setToken = useSetAtom(tokenState)
   const setStudent = useSetAtom(studentState)
@@ -16,7 +17,6 @@ export default function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // 모달
   const [modal, setModal] = useState<Modal>(null)
   const [findName, setFindName] = useState('')
   const [findPhone, setFindPhone] = useState('')
@@ -24,43 +24,144 @@ export default function Login() {
   const [findResult, setFindResult] = useState('')
   const [findLoading, setFindLoading] = useState(false)
 
-  const handleLogin = () => {
-    if (!email || !password) { setError('이메일과 비밀번호를 입력해주세요.'); return }
+  const handleLogin = async () => {
+    if (!email || !password) { 
+      setError('이메일과 비밀번호를 입력해주세요.')
+      return 
+    }
+    
     setLoading(true)
     setError('')
-    setTimeout(() => {
-      if (email === 'student@example.com' && password === '1234') {
-        setToken({ accessToken: 'student-token-demo', expiresIn: '3600' })
-        setStudent({ id: 1, name: '강민서', grade: '고1', email: 'student@example.com', role: 'STUDENT' })
-        setAcademy({ academyCode: 'ACA001', academyName: '대치 인데미학원', teacherName: '김선생님', teacherId: 1 })
-        navigate('/student/roadmap')
-      } else {
-        setError('이메일 또는 비밀번호가 올바르지 않아요.')
+
+    try {
+      // 1️⃣ Supabase Auth 로그인
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (authError) {
+        if (authError.message.includes('Invalid login credentials')) {
+          setError('이메일 또는 비밀번호가 올바르지 않아요.')
+        } else if (authError.message.includes('Email not confirmed')) {
+          setError('이메일 인증이 완료되지 않았습니다.')
+        } else {
+          setError('로그인에 실패했습니다.')
+        }
+        setLoading(false)
+        return
       }
+
+      if (!authData.user) {
+        setError('로그인 정보를 가져올 수 없습니다.')
+        setLoading(false)
+        return
+      }
+
+      // 2️⃣ profiles 테이블에서 role 확인
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role, name, academy_id, grade, school, email')
+        .eq('id', authData.user.id)
+        .single()
+
+      if (profileError || !profile) {
+        setError('프로필 정보를 불러올 수 없습니다.')
+        await supabase.auth.signOut()
+        setLoading(false)
+        return
+      }
+
+      // 3️⃣ high_student만 허용
+      if (profile.role !== 'high_student') {
+        setError('고등학생 계정만 접근 가능합니다.')
+        await supabase.auth.signOut()
+        setLoading(false)
+        return
+      }
+
+      // 4️⃣ 학원 정보 가져오기
+      let academyInfo = null
+      if (profile.academy_id) {
+        const { data: academy } = await supabase
+          .from('academies')
+          .select('*')
+          .eq('id', profile.academy_id)
+          .single()
+        academyInfo = academy
+      }
+
+      // 5️⃣ Jotai state 저장
+      setToken({
+        accessToken: authData.session?.access_token || '',
+        expiresIn: String(
+          authData.session?.expires_at || Date.now() / 1000 + 86400
+        ),
+      })
+
+      setStudent({
+        id: authData.user.id as any,
+        name: profile.name || '',
+        grade: profile.grade || '고1',
+        email: profile.email || email,
+        role: 'STUDENT',
+      })
+
+      if (academyInfo) {
+        setAcademy({
+          academyCode: academyInfo.academy_code || '',
+          academyName: academyInfo.name,
+          teacherName: '',
+          teacherId: undefined as any,
+        })
+      }
+
+      // 6️⃣ 로드맵 페이지로 이동
+      navigate('/high-student/roadmap')
+
+    } catch (err) {
+      console.error('로그인 에러:', err)
+      setError('로그인 중 오류가 발생했습니다.')
       setLoading(false)
-    }, 800)
+    }
   }
 
   const handleFindEmail = () => {
-    if (!findName.trim() || !findPhone.trim()) { setFindResult('error:이름과 전화번호를 입력해주세요.'); return }
+    if (!findName.trim() || !findPhone.trim()) { 
+      setFindResult('error:이름과 전화번호를 입력해주세요.')
+      return 
+    }
     setFindLoading(true)
     setFindResult('')
-    // TODO: POST /api/student/find-email { name, phone }
     setTimeout(() => {
       setFindLoading(false)
-      setFindResult('ok:st***@example.com')
-    }, 800)
+      setFindResult('error:현재 지원하지 않는 기능입니다. 학원에 문의해주세요.')
+    }, 500)
   }
 
-  const handleFindPw = () => {
-    if (!findEmail.trim()) { setFindResult('error:이메일을 입력해주세요.'); return }
+  const handleFindPw = async () => {
+    if (!findEmail.trim()) { 
+      setFindResult('error:이메일을 입력해주세요.')
+      return 
+    }
     setFindLoading(true)
     setFindResult('')
-    // TODO: POST /api/student/reset-password { email }
-    setTimeout(() => {
+    
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(findEmail, {
+        redirectTo: window.location.origin + '/high-student/login',
+      })
+      
+      if (error) {
+        setFindResult('error:이메일 발송에 실패했습니다.')
+      } else {
+        setFindResult('ok:입력하신 이메일로 비밀번호 재설정 링크를 발송했어요.')
+      }
+    } catch (err) {
+      setFindResult('error:오류가 발생했습니다.')
+    } finally {
       setFindLoading(false)
-      setFindResult('ok:입력하신 이메일로 임시 비밀번호를 발송했어요.')
-    }, 800)
+    }
   }
 
   const closeModal = () => {
@@ -71,115 +172,175 @@ export default function Login() {
     setFindResult('')
   }
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%', height: 44, border: '0.5px solid #E5E7EB', borderRadius: 8,
-    padding: '0 14px', fontSize: 14, outline: 'none', boxSizing: 'border-box',
-  }
-
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#F8F7F5' }}>
+    <div className="flex h-screen bg-[#F8FAFC] font-sans text-ink">
 
-      {/* 왼쪽 폼 */}
-      <div style={{ width: 340, flexShrink: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 36px', background: '#fff', borderRight: '0.5px solid #E5E7EB' }}>
+      {/* 왼쪽 폼 (50%) */}
+      <div className="flex-1 flex flex-col bg-white border-r border-line overflow-y-auto relative">
 
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 24, fontWeight: 700, color: '#3B5BDB', marginBottom: 4 }}>인로드</div>
-          <div style={{ fontSize: 13, color: '#6B7280' }}>학생 로그인</div>
+        {/* 상단 로고 */}
+        <div className="absolute top-8 left-8 flex items-center gap-2">
+          <span className="w-8 h-8 bg-gradient-to-br from-brand-high-dark to-brand-high rounded-lg flex items-center justify-center text-white font-black text-sm tracking-tighter">IR</span>
+          <div className="font-extrabold text-[17px] text-ink tracking-tight">인로드</div>
         </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 16, fontWeight: 500, color: '#1a1a1a', marginBottom: 3 }}>로그인</div>
-          <div style={{ fontSize: 13, color: '#6B7280' }}>학생 계정으로 로그인하세요.</div>
-        </div>
+        {/* 가운데 정렬 폼 */}
+        <div className="flex-1 flex flex-col justify-center px-8">
+          <div className="w-full max-w-[360px] mx-auto">
 
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ fontSize: 11, fontWeight: 500, color: '#6B7280', display: 'block', marginBottom: 6 }}>이메일</label>
-          <input
-            value={email}
-            onChange={e => { setEmail(e.target.value); setError('') }}
-            onKeyDown={e => e.key === 'Enter' && handleLogin()}
-            placeholder="example@email.com"
-            style={{ ...inputStyle, borderColor: error ? '#DC2626' : '#E5E7EB' }}
-            onFocus={e => e.target.style.borderColor = '#3B5BDB'}
-            onBlur={e => e.target.style.borderColor = error ? '#DC2626' : '#E5E7EB'}
-          />
-        </div>
+            {/* 타이틀 */}
+            <div className="mb-8 text-center">
+              <h1 className="text-[28px] font-extrabold text-ink tracking-tight mb-2">로그인</h1>
+              <p className="text-[13px] text-ink-secondary">고등 학생 계정으로 로그인하세요.</p>
+            </div>
 
-        <div style={{ marginBottom: 8 }}>
-          <label style={{ fontSize: 11, fontWeight: 500, color: '#6B7280', display: 'block', marginBottom: 6 }}>비밀번호</label>
-          <div style={{ position: 'relative' }}>
-            <input
-              type={showPw ? 'text' : 'password'}
-              value={password}
-              onChange={e => { setPassword(e.target.value); setError('') }}
-              onKeyDown={e => e.key === 'Enter' && handleLogin()}
-              placeholder="••••••••"
-              style={{ ...inputStyle, paddingRight: 56, borderColor: error ? '#DC2626' : '#E5E7EB' }}
-              onFocus={e => e.target.style.borderColor = '#3B5BDB'}
-              onBlur={e => e.target.style.borderColor = error ? '#DC2626' : '#E5E7EB'}
-            />
-            <button onClick={() => setShowPw(v => !v)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: 12 }}>
-              {showPw ? '숨기기' : '보기'}
+            {/* 이메일 */}
+            <div className="mb-3">
+              <input
+                value={email}
+                onChange={e => { setEmail(e.target.value); setError('') }}
+                onKeyDown={e => e.key === 'Enter' && !loading && handleLogin()}
+                disabled={loading}
+                placeholder="계정 이메일"
+                className={`w-full h-12 px-4 border rounded-lg text-[14px] focus:outline-none focus:ring-2 transition-all placeholder:text-ink-muted disabled:opacity-60 disabled:bg-gray-50 ${
+                  error
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10'
+                    : 'border-line focus:border-brand-high focus:ring-brand-high/10'
+                }`}
+              />
+            </div>
+
+            {/* 비밀번호 */}
+            <div className="mb-3">
+              <div className="relative">
+                <input
+                  type={showPw ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => { setPassword(e.target.value); setError('') }}
+                  onKeyDown={e => e.key === 'Enter' && !loading && handleLogin()}
+                  disabled={loading}
+                  placeholder="비밀번호"
+                  className={`w-full h-12 pl-4 pr-12 border rounded-lg text-[14px] focus:outline-none focus:ring-2 transition-all placeholder:text-ink-muted disabled:opacity-60 disabled:bg-gray-50 ${
+                    error
+                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10'
+                      : 'border-line focus:border-brand-high focus:ring-brand-high/10'
+                  }`}
+                />
+                <button
+                  onClick={() => setShowPw(v => !v)}
+                  disabled={loading}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-brand-high-dark transition-colors"
+                  type="button"
+                >
+                  {showPw ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* 에러 */}
+            {error && (
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
+                <span className="text-sm">⚠️</span>
+                <span className="text-[12px] text-red-600 font-medium">{error}</span>
+              </div>
+            )}
+
+            {/* 로그인 버튼 */}
+            <button
+              onClick={handleLogin}
+              disabled={loading}
+              className={`w-full h-12 rounded-lg text-[14px] font-semibold text-white transition-all ${
+                loading
+                  ? 'bg-brand-high-light cursor-not-allowed'
+                  : 'bg-brand-high hover:bg-brand-high-hover hover:-translate-y-px hover:shadow-btn-high'
+              }`}
+            >
+              {loading ? '로그인 중...' : '이메일로 로그인'}
             </button>
+
+            {/* 구분선 */}
+            <div className="h-px bg-line my-6" />
+
+            {/* 아이디/비밀번호 찾기 + 회원가입 */}
+            <div className="flex items-center justify-center gap-4 text-[13px]">
+              <button
+                onClick={() => { setModal('findEmail'); setFindResult('') }}
+                className="text-ink-secondary hover:text-brand-high-dark transition-colors"
+              >
+                아이디 찾기
+              </button>
+              <span className="text-line">|</span>
+              <button
+                onClick={() => { setModal('findPw'); setFindResult('') }}
+                className="text-ink-secondary hover:text-brand-high-dark transition-colors"
+              >
+                비밀번호 찾기
+              </button>
+              <span className="text-line">|</span>
+              <button
+                onClick={() => navigate('/high-student/signup')}
+                className="text-brand-high-dark font-bold hover:text-brand-high transition-colors"
+              >
+                회원가입
+              </button>
+            </div>
+
           </div>
-        </div>
-
-        {/* 아이디 찾기 / 비밀번호 찾기 */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-          <span onClick={() => { setModal('findEmail'); setFindResult('') }}
-            style={{ fontSize: 11, color: '#9CA3AF', cursor: 'pointer' }}>
-            아이디 찾기
-          </span>
-          <span style={{ fontSize: 11, color: '#E5E7EB' }}>|</span>
-          <span onClick={() => { setModal('findPw'); setFindResult('') }}
-            style={{ fontSize: 11, color: '#9CA3AF', cursor: 'pointer' }}>
-            비밀번호 찾기
-          </span>
-        </div>
-
-        {error && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FEE2E2', borderRadius: 7, padding: '8px 12px', marginBottom: 4 }}>
-            <span style={{ fontSize: 13 }}>⚠️</span>
-            <span style={{ fontSize: 12, color: '#DC2626' }}>{error}</span>
-          </div>
-        )}
-
-        <button onClick={handleLogin} disabled={loading} style={{
-          width: '100%', height: 46, background: loading ? '#BAC8FF' : '#3B5BDB', color: '#fff',
-          border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 500,
-          cursor: loading ? 'not-allowed' : 'pointer', marginTop: 12,
-        }}>
-          {loading ? '로그인 중...' : '로그인'}
-        </button>
-
-        <div style={{ textAlign: 'center', marginTop: 14 }}>
-          <span style={{ fontSize: 12, color: '#9CA3AF' }}>아직 계정이 없으신가요? </span>
-          <span onClick={() => navigate('/student/signup')} style={{ fontSize: 12, color: '#3B5BDB', fontWeight: 600, cursor: 'pointer' }}>회원가입</span>
-        </div>
-
-        <div style={{ marginTop: 20, background: '#F8F7F5', borderRadius: 8, padding: '12px 14px' }}>
-          <div style={{ fontSize: 11, fontWeight: 500, color: '#6B7280', marginBottom: 4 }}>테스트 계정</div>
-          <div style={{ fontSize: 11, color: '#6B7280', lineHeight: 1.8 }}>student@example.com / 1234</div>
         </div>
       </div>
 
-      {/* 오른쪽 소개 */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60, background: '#F8F7F5' }}>
-        <div style={{ fontSize: 32, fontWeight: 700, color: '#1a1a1a', marginBottom: 12 }}>진로 진학, 지금 시작하세요</div>
-        <div style={{ fontSize: 15, color: '#6B7280', marginBottom: 48, textAlign: 'center', lineHeight: 1.6 }}>
-          탐구주제 설계부터 실전 면접 시뮬레이션까지<br />인로드와 함께 단계별로 준비하세요.
+      {/* 오른쪽 소개 (50%) */}
+      <div className="flex-1 max-md:hidden flex flex-col items-center justify-center px-16 py-12 bg-gradient-to-br from-[#EFF6FF] to-[#F8FAFC] relative overflow-hidden">
+        
+        <div
+          className="absolute -top-24 -right-24 w-[500px] h-[500px] rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(37, 99, 235, 0.12), transparent 70%)' }}
+        />
+        <div
+          className="absolute -bottom-32 -left-32 w-[400px] h-[400px] rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(37, 99, 235, 0.08), transparent 70%)' }}
+        />
+
+        <div className="relative text-center mb-12 max-w-[580px]">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-high-bg text-brand-high-dark text-[12px] font-bold rounded-full border border-brand-high-light mb-5">
+            🎓 고등학생 전용
+          </span>
+          <h1 className="text-[40px] max-md:text-3xl font-extrabold text-ink tracking-[-0.03em] leading-[1.2] mb-4">
+            대입 합격,<br />
+            <span className="bg-gradient-to-br from-brand-high-dark to-brand-high bg-clip-text text-transparent">
+              지금 시작하세요
+            </span>
+          </h1>
+          <p className="text-[15px] text-ink-secondary leading-[1.7]">
+            탐구주제 설계부터 실전 면접 시뮬레이션까지<br />
+            인로드와 함께 단계별로 준비하세요.
+          </p>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, width: '100%', maxWidth: 520 }}>
+
+        <div className="grid grid-cols-2 gap-4 w-full max-w-[520px] relative">
           {[
             { icon: '🗺️', title: '연간 로드맵', desc: '학년별 월별 맞춤 커리큘럼' },
             { icon: '🔬', title: '탐구주제 설계', desc: '세특라이트로 탐구 방향 잡기' },
             { icon: '🎤', title: '면접 시뮬레이션', desc: '실전처럼 연습하고 피드백 받기' },
             { icon: '📄', title: '제시문 면접', desc: 'SKY·교대 기출 제시문 풀기' },
           ].map((f, i) => (
-            <div key={i} style={{ background: '#fff', borderRadius: 12, padding: '20px 22px', border: '0.5px solid #E5E7EB' }}>
-              <div style={{ fontSize: 26, marginBottom: 10 }}>{f.icon}</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginBottom: 5 }}>{f.title}</div>
-              <div style={{ fontSize: 12, color: '#6B7280' }}>{f.desc}</div>
+            <div
+              key={i}
+              className="bg-white rounded-2xl px-5 py-4 border border-line hover:border-brand-high-light hover:shadow-[0_8px_24px_rgba(37,99,235,0.08)] hover:-translate-y-0.5 transition-all"
+            >
+              <div className="w-10 h-10 bg-brand-high-pale rounded-xl flex items-center justify-center text-xl mb-3 border border-brand-high-light">
+                {f.icon}
+              </div>
+              <div className="text-[13px] font-bold text-ink tracking-tight mb-1">{f.title}</div>
+              <div className="text-[11px] text-ink-secondary leading-relaxed">{f.desc}</div>
             </div>
           ))}
         </div>
@@ -187,84 +348,109 @@ export default function Login() {
 
       {/* 모달 */}
       {modal && (
-        <div onClick={closeModal} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, padding: 28, width: 380 }}>
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <div style={{ fontSize: 16, fontWeight: 600, color: '#1a1a1a' }}>
+        <div
+          onClick={closeModal}
+          className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center backdrop-blur-sm"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-2xl p-7 w-[420px] shadow-[0_20px_60px_rgba(15,23,42,0.25)]"
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div className="text-[18px] font-bold text-ink tracking-tight">
                 {modal === 'findEmail' ? '아이디 찾기' : '비밀번호 찾기'}
               </div>
-              <div onClick={closeModal} style={{ cursor: 'pointer', color: '#9CA3AF', fontSize: 18 }}>✕</div>
+              <button onClick={closeModal} className="text-ink-muted hover:text-ink text-xl transition-colors">✕</button>
             </div>
 
-            {/* 아이디 찾기 */}
             {modal === 'findEmail' && (
               <div>
-                <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 16 }}>가입 시 입력한 이름과 전화번호로 아이디를 찾을 수 있어요.</div>
-                <div style={{ marginBottom: 10 }}>
-                  <label style={{ fontSize: 11, fontWeight: 500, color: '#6B7280', display: 'block', marginBottom: 6 }}>이름</label>
-                  <input style={inputStyle} placeholder="홍길동" value={findName}
+                <div className="text-[13px] text-ink-secondary mb-5 leading-relaxed">
+                  가입 시 입력한 이름과 전화번호로<br />아이디를 찾을 수 있어요.
+                </div>
+                <div className="mb-3">
+                  <label className="text-[12px] font-semibold text-ink-secondary block mb-1.5">이름</label>
+                  <input
+                    className="w-full h-11 px-3.5 border border-line rounded-lg text-[14px] focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted"
+                    placeholder="홍길동"
+                    value={findName}
                     onChange={e => { setFindName(e.target.value); setFindResult('') }}
-                    onFocus={e => e.target.style.borderColor = '#3B5BDB'}
-                    onBlur={e => e.target.style.borderColor = '#E5E7EB'} />
+                  />
                 </div>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ fontSize: 11, fontWeight: 500, color: '#6B7280', display: 'block', marginBottom: 6 }}>전화번호</label>
-                  <input style={inputStyle} placeholder="010-0000-0000" value={findPhone}
+                <div className="mb-4">
+                  <label className="text-[12px] font-semibold text-ink-secondary block mb-1.5">전화번호</label>
+                  <input
+                    className="w-full h-11 px-3.5 border border-line rounded-lg text-[14px] focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted"
+                    placeholder="010-0000-0000"
+                    value={findPhone}
                     onChange={e => { setFindPhone(e.target.value); setFindResult('') }}
-                    onFocus={e => e.target.style.borderColor = '#3B5BDB'}
-                    onBlur={e => e.target.style.borderColor = '#E5E7EB'} />
+                  />
                 </div>
+
                 {findResult && (
-                  <div style={{
-                    padding: '10px 14px', borderRadius: 8, marginBottom: 14, fontSize: 13,
-                    background: findResult.startsWith('ok:') ? '#ECFDF5' : '#FEE2E2',
-                    color: findResult.startsWith('ok:') ? '#059669' : '#DC2626',
-                    border: `0.5px solid ${findResult.startsWith('ok:') ? '#6EE7B7' : '#FCA5A5'}`,
-                  }}>
+                  <div className={`px-4 py-3 rounded-lg mb-4 text-[13px] border ${
+                    findResult.startsWith('ok:')
+                      ? 'bg-brand-high-pale border-brand-high-light text-brand-high-dark font-semibold'
+                      : 'bg-red-50 border-red-200 text-red-600 font-medium'
+                  }`}>
                     {findResult.startsWith('ok:') ? `찾은 아이디: ${findResult.slice(3)}` : findResult.slice(6)}
                   </div>
                 )}
-                <button onClick={handleFindEmail} disabled={findLoading} style={{
-                  width: '100%', height: 44, background: findLoading ? '#BAC8FF' : '#3B5BDB',
-                  color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: 'pointer',
-                }}>
+
+                <button
+                  onClick={handleFindEmail}
+                  disabled={findLoading}
+                  className={`w-full h-11 rounded-lg text-[14px] font-semibold text-white transition-all ${
+                    findLoading
+                      ? 'bg-brand-high-light cursor-not-allowed'
+                      : 'bg-brand-high hover:bg-brand-high-hover hover:-translate-y-px hover:shadow-btn-high'
+                  }`}
+                >
                   {findLoading ? '찾는 중...' : '아이디 찾기'}
                 </button>
               </div>
             )}
 
-            {/* 비밀번호 찾기 */}
             {modal === 'findPw' && (
               <div>
-                <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 16 }}>가입한 이메일로 임시 비밀번호를 발송해드려요.</div>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ fontSize: 11, fontWeight: 500, color: '#6B7280', display: 'block', marginBottom: 6 }}>이메일</label>
-                  <input style={inputStyle} type="email" placeholder="example@email.com" value={findEmail}
+                <div className="text-[13px] text-ink-secondary mb-5 leading-relaxed">
+                  가입한 이메일로 비밀번호 재설정 링크를<br />발송해드려요.
+                </div>
+                <div className="mb-4">
+                  <label className="text-[12px] font-semibold text-ink-secondary block mb-1.5">이메일</label>
+                  <input
+                    className="w-full h-11 px-3.5 border border-line rounded-lg text-[14px] focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted"
+                    type="email"
+                    placeholder="example@email.com"
+                    value={findEmail}
                     onChange={e => { setFindEmail(e.target.value); setFindResult('') }}
                     onKeyDown={e => e.key === 'Enter' && handleFindPw()}
-                    onFocus={e => e.target.style.borderColor = '#3B5BDB'}
-                    onBlur={e => e.target.style.borderColor = '#E5E7EB'} />
+                  />
                 </div>
+
                 {findResult && (
-                  <div style={{
-                    padding: '10px 14px', borderRadius: 8, marginBottom: 14, fontSize: 13,
-                    background: findResult.startsWith('ok:') ? '#ECFDF5' : '#FEE2E2',
-                    color: findResult.startsWith('ok:') ? '#059669' : '#DC2626',
-                    border: `0.5px solid ${findResult.startsWith('ok:') ? '#6EE7B7' : '#FCA5A5'}`,
-                  }}>
+                  <div className={`px-4 py-3 rounded-lg mb-4 text-[13px] border ${
+                    findResult.startsWith('ok:')
+                      ? 'bg-brand-high-pale border-brand-high-light text-brand-high-dark font-semibold'
+                      : 'bg-red-50 border-red-200 text-red-600 font-medium'
+                  }`}>
                     {findResult.startsWith('ok:') ? findResult.slice(3) : findResult.slice(6)}
                   </div>
                 )}
-                <button onClick={handleFindPw} disabled={findLoading} style={{
-                  width: '100%', height: 44, background: findLoading ? '#BAC8FF' : '#3B5BDB',
-                  color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: 'pointer',
-                }}>
-                  {findLoading ? '발송 중...' : '임시 비밀번호 발송'}
+
+                <button
+                  onClick={handleFindPw}
+                  disabled={findLoading}
+                  className={`w-full h-11 rounded-lg text-[14px] font-semibold text-white transition-all ${
+                    findLoading
+                      ? 'bg-brand-high-light cursor-not-allowed'
+                      : 'bg-brand-high hover:bg-brand-high-hover hover:-translate-y-px hover:shadow-btn-high'
+                  }`}
+                >
+                  {findLoading ? '발송 중...' : '재설정 링크 발송'}
                 </button>
               </div>
             )}
-
           </div>
         </div>
       )}

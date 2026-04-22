@@ -1,6 +1,20 @@
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { academyState, tokenState, studentState } from '../_store/auth'
+import { supabase } from '../../../lib/supabase'
+
+const MENUS = [
+  { path: '/high-student/roadmap', label: '내 로드맵', icon: '⊞' },
+  { path: '/high-student/topic', label: '탐구주제', icon: '🔬' },
+  { path: '/high-student/book', label: '독서리스트', icon: '📚' },
+  { path: '/high-student/record', label: '나의 생기부', icon: '📋' },
+  { path: '/high-student/expect', label: '생기부 예상질문', icon: '💬' },
+  { path: '/high-student/past', label: '기출문제', icon: '🎓' },
+  { path: '/high-student/simulation', label: '면접 시뮬레이션', icon: '🎙️' },
+  { path: '/high-student/presentation', label: '제시문 면접', icon: '📄' },
+  { path: '/high-student/major', label: '전공특화문제', icon: '🧠' },
+  { path: '/high-student/mockexam', label: '면접 모의고사', icon: '📝' },
+]
 
 export default function Layout() {
   const navigate = useNavigate()
@@ -11,89 +25,102 @@ export default function Layout() {
   const setStudent = useSetAtom(studentState)
   const setAcademy = useSetAtom(academyState)
 
-  const menus = [
-    { path: '/student/roadmap', label: '내 로드맵', icon: '⊞' },
-    { path: '/student/topic', label: '탐구주제', icon: '🔬' },
-    { path: '/student/book', label: '독서리스트', icon: '📚' },
-    { path: '/student/record', label: '나의 생기부', icon: '📋' },
-    { path: '/student/expect', label: '생기부 예상질문', icon: '💬' },
-    { path: '/student/past', label: '기출문제', icon: '🎓' },
-    { path: '/student/simulation', label: '면접 시뮬레이션', icon: '🎙️' },
-    { path: '/student/presentation', label: '제시문 면접', icon: '📄' },
-    { path: '/student/major', label: '전공특화문제', icon: '🧠' },
-    { path: '/student/mockexam', label: '면접 모의고사', icon: '📝' },
-  ]
-
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
     setToken({ accessToken: undefined, expiresIn: undefined })
     setStudent(null)
     setAcademy({ academyCode: undefined, academyName: undefined, teacherName: undefined, teacherId: undefined })
-    navigate('/student/login')
+    navigate('/high-student/login')
   }
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#F8F7F5' }}>
+    <div className="flex h-screen bg-[#F8FAFC] font-sans">
+
       {/* 사이드바 */}
-      <div style={{ width: 200, background: '#fff', borderRight: '0.5px solid #E5E7EB', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-        <div style={{ padding: '20px 20px 16px' }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#3B5BDB', marginBottom: 2 }}>인로드</div>
+      <aside className="w-[220px] bg-white border-r border-line flex flex-col flex-shrink-0">
+        {/* 로고 + 학원 정보 */}
+        <div className="px-5 pt-4 pb-3 border-b border-line-light flex-shrink-0">
+          <div className="flex items-center gap-2 mb-2.5">
+            <span className="w-7 h-7 bg-gradient-to-br from-brand-high-dark to-brand-high rounded-lg flex items-center justify-center text-white font-black text-sm tracking-tighter">IR</span>
+            <div className="font-extrabold text-[17px] text-ink tracking-tight">인로드</div>
+            <span className="text-[10px] font-bold text-white bg-brand-high px-2 py-0.5 rounded-full">고등</span>
+          </div>
+
           {academy.academyName ? (
-            <>
-              <div style={{ fontSize: 10, color: '#6B7280' }}></div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#3B5BDB' }}>{academy.academyCode}</div>
-              <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{academy.academyName}</div>
-            </>
-          ) : (
-            <div onClick={() => navigate('/student/connect')} style={{ marginTop: 6, fontSize: 11, color: '#3B5BDB', border: '0.5px solid #3B5BDB', padding: '4px 10px', borderRadius: 6, cursor: 'pointer', display: 'inline-block' }}>
-              학원 연결하기
+            <div className="bg-brand-high-pale border border-brand-high-light rounded-lg px-3 py-2">
+              <div className="text-[12px] font-bold text-brand-high-dark">{academy.academyCode}</div>
+              <div className="text-[10px] text-ink-secondary mt-0.5">{academy.academyName}</div>
             </div>
+          ) : (
+            <button
+              onClick={() => navigate('/high-student/connect')}
+              className="w-full text-[12px] font-semibold text-brand-high-dark bg-brand-high-pale border border-brand-high-light rounded-lg px-3 py-2 hover:bg-brand-high hover:text-white transition-all"
+            >
+              + 학원 연결하기
+            </button>
           )}
-          <div style={{ marginTop: 8, fontSize: 10, color: '#fff', background: '#3B5BDB', padding: '2px 8px', borderRadius: 99, display: 'inline-block' }}>학생</div>
         </div>
 
-        <nav style={{ flex: 1, padding: '0 10px', overflowY: 'auto' }}>
-          {menus.map(m => {
+        {/* 메뉴 (스크롤 없이 딱 맞춤!) */}
+        <nav className="flex-1 px-2.5 py-2.5 flex flex-col">
+          {MENUS.map(m => {
             const isActive = location.pathname === m.path || location.pathname.startsWith(m.path)
             return (
-              <div key={m.path} onClick={() => navigate(m.path)}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderRadius: 8, marginBottom: 2, cursor: 'pointer', background: isActive ? '#EEF2FF' : 'transparent', color: isActive ? '#3B5BDB' : '#6B7280', fontSize: 13, fontWeight: isActive ? 500 : 400 }}>
-                <span style={{ fontSize: 15 }}>{m.icon}</span>
+              <button
+                key={m.path}
+                onClick={() => navigate(m.path)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg mb-0.5 transition-all text-[13px] ${
+                  isActive
+                    ? 'bg-brand-high-pale text-brand-high-dark font-semibold'
+                    : 'text-ink-secondary hover:bg-gray-50 hover:text-ink font-medium'
+                }`}
+              >
+                <span className="text-[15px]">{m.icon}</span>
                 {m.label}
-              </div>
+              </button>
             )
           })}
         </nav>
 
-        <div style={{ padding: '12px 10px', borderTop: '0.5px solid #E5E7EB' }}>
-          <div style={{ fontSize: 11, color: '#6B7280', padding: '0 12px' }}>© 2026 Inroad</div>
+        {/* Footer */}
+        <div className="px-5 py-2 border-t border-line-light flex-shrink-0">
+          <div className="text-[11px] text-ink-muted">© 2026 Inroad</div>
         </div>
-      </div>
+      </aside>
 
-      {/* 메인 */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* 메인 영역 */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+
         {/* GNB */}
-        <div style={{ height: 50, background: '#fff', borderBottom: '0.5px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a' }}>인로드</div>
-            <span style={{ fontSize: 11, color: '#fff', background: '#3B5BDB', padding: '2px 8px', borderRadius: 99 }}>학생</span>
+        <header className="h-12 bg-white border-b border-line flex items-center justify-between px-6 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="text-[13px] font-semibold text-ink">인로드</div>
             {student?.grade && (
-              <span style={{ fontSize: 11, color: '#3B5BDB', background: '#EEF2FF', padding: '2px 8px', borderRadius: 99, border: '0.5px solid #BAC8FF' }}>
+              <span className="text-[11px] font-semibold text-brand-high-dark bg-brand-high-bg px-2 py-0.5 rounded-full border border-brand-high-light">
                 {student.grade}
               </span>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ fontSize: 13, color: '#6B7280' }}>{student?.name}</div>
-            <div onClick={handleLogout} style={{ fontSize: 12, color: '#6B7280', cursor: 'pointer', padding: '5px 12px', border: '0.5px solid #E5E7EB', borderRadius: 6 }}>
+
+          <div className="flex items-center gap-3">
+            {student?.name && (
+              <div className="text-[13px] font-medium text-ink-secondary">
+                <span className="text-ink font-semibold">{student.name}</span>님
+              </div>
+            )}
+            <button
+              onClick={handleLogout}
+              className="text-[12px] font-medium text-ink-secondary px-3 py-1.5 border border-line rounded-lg hover:bg-gray-50 hover:border-ink-muted transition-all"
+            >
               로그아웃
-            </div>
+            </button>
           </div>
-        </div>
+        </header>
 
         {/* 콘텐츠 */}
-        <div style={{ flex: 1, overflow: 'hidden' }}>
+        <main className="flex-1 overflow-hidden bg-white">
           <Outlet />
-        </div>
+        </main>
       </div>
     </div>
   )

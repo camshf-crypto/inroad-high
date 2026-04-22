@@ -1,9 +1,16 @@
-import { useState } from 'react'
-
-const LABEL: React.CSSProperties = { fontSize: 11, fontWeight: 500, color: '#6B7280', marginBottom: 5, display: 'block' }
+import { useState, useRef, useEffect } from 'react'
+import {
+  useMyResearches,
+  useResearchAnalyses,
+  useCreateResearch,
+  useSendStudentMessage,
+  useDeleteResearch,
+  buildMessages,
+  type Research,
+} from '../../_hooks/useMyHighResearch'
+import SubjectSelect from '../../../../components/SubjectSelect'
 
 const GRADES = ['전체', '고1', '고2', '고3']
-const SUBJECTS = ['국어', '수학', '영어', '물리', '화학', '생물', '지구과학', '정보', '사회', '역사', '윤리', '경제', '정치', '심리학']
 const MAJORS = ['공학계열', '자연과학', '의약계열', '인문사회', '사범교육', '예체능', 'IT/소프트웨어', '경영/경제', '법학', '건축학', '환경공학', '항공우주', '식품영양', '간호학', '약학', '의학', '치의학', '수의학', '농업생명']
 
 const SETECH_DATA: any[] = [
@@ -19,27 +26,11 @@ const SETECH_DATA: any[] = [
   },
 ]
 
-const INIT_TOPICS = [
-  {
-    id: 1, grade: '고1', month: '7월', title: '기후변화와 식량 안보',
-    content: '기후변화로 인한 농업 생산량 변화를 데이터로 분석하고, 지속가능한 농업 기술 발전 방향을 제시하겠습니다.',
-    subject: '지구과학·사회',
-    feedback: '좋은 주제예요! 수직농장 기술 쪽으로 구체화해보는 건 어떨까요?',
-    feedbackDate: '2025-01-17', revision: '', revisionDate: '',
-  },
-  {
-    id: 2, grade: '고2', month: '1월', title: '인공지능 윤리와 편향성 문제',
-    content: '머신러닝 모델의 학습 데이터 편향이 실제 사회적 차별로 이어지는 사례를 분석하겠습니다.',
-    subject: '정보·윤리',
-    feedback: '', feedbackDate: '', revision: '', revisionDate: '',
-  },
-]
-
 export default function TopicList() {
-  const [topicGrade, setTopicGrade] = useState('전체')
-  const [topics, setTopics] = useState(INIT_TOPICS)
-  const [selTopic, setSelTopic] = useState<any>(null)
-  const [revisionInputs, setRevisionInputs] = useState<Record<number, string>>({})
+  const [selResearchId, setSelResearchId] = useState<string | null>(null)
+  const [messageInput, setMessageInput] = useState('')
+
+  // 세특 모달
   const [showModal, setShowModal] = useState(false)
   const [modalStep, setModalStep] = useState<1 | 2>(1)
   const [filterGrade, setFilterGrade] = useState('전체')
@@ -54,15 +45,42 @@ export default function TopicList() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [newTopic, setNewTopic] = useState({ title: '', subject: '', content: '' })
 
+  const chatEndRef = useRef<HTMLDivElement>(null)
+
+  // ─── DB 조회 ───
+  const { data: researches = [], isLoading } = useMyResearches()
+  const { data: analyses = [] } = useResearchAnalyses(selResearchId ?? undefined)
+  const createResearch = useCreateResearch()
+  const sendMessage = useSendStudentMessage(selResearchId ?? '')
+  const deleteResearch = useDeleteResearch()
+
+  const selected = researches.find(r => r.id === selResearchId)
+  const messages = selected ? buildMessages(selected, analyses) : []
+  const isCompleted = selected?.status === 'completed'
+
+  useEffect(() => {
+    if (!selResearchId && researches.length > 0) {
+      setSelResearchId(researches[0].id)
+    }
+  }, [researches, selResearchId])
+
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages.length])
+
   const isFilterEmpty = filterGrade === '전체' && filterMajor === '전체' && filterSubject === '전체'
-  const filtered = topics.filter(t => topicGrade === '전체' || t.grade === topicGrade)
   const filteredSetech = isFilterEmpty ? [] : SETECH_DATA.filter(s =>
     (filterGrade === '전체' || s.grade === filterGrade) &&
     (filterMajor === '전체' || s.major.includes(filterMajor) || s.school.includes(filterMajor)) &&
     (filterSubject === '전체' || s.subject === filterSubject)
   )
   const filteredMajorOptions = MAJORS.filter(m => filterMajorInput && m.includes(filterMajorInput))
-  const filteredSubjectOptions = SUBJECTS.filter(s => !filterSubjectInput || s.includes(filterSubjectInput))
+
+  // 세특 필터용 과목 (고정 배열)
+  const FILTER_SUBJECTS = ['국어', '수학', '영어', '물리', '화학', '생물', '지구과학', '정보', '사회', '역사', '윤리', '경제', '정치', '심리학']
+  const filteredSubjectOptions = FILTER_SUBJECTS.filter(s => !filterSubjectInput || s.includes(filterSubjectInput))
 
   const copyText = (text: string, id: string) => {
     navigator.clipboard.writeText(text)
@@ -70,21 +88,20 @@ export default function TopicList() {
     setTimeout(() => setCopiedId(null), 1500)
   }
 
-  const sendRevision = (topicId: number) => {
-    const text = revisionInputs[topicId] || ''
-    if (!text.trim()) return
-    const now = new Date()
-    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-    const updated = topics.map(t => t.id === topicId ? { ...t, revision: text.trim(), revisionDate: dateStr } : t)
-    setTopics(updated)
-    setSelTopic(updated.find(t => t.id === topicId))
-    setRevisionInputs(prev => ({ ...prev, [topicId]: '' }))
+  const handleSendMessage = () => {
+    if (!messageInput.trim() || !selResearchId || isCompleted) return
+    sendMessage.mutate(messageInput.trim(), {
+      onSuccess: () => setMessageInput(''),
+    })
   }
 
-  const deleteTopic = (topicId: number) => {
+  const handleDeleteTopic = (topicId: string) => {
     if (window.confirm('탐구주제를 삭제할까요?')) {
-      setTopics(prev => prev.filter(t => t.id !== topicId))
-      if (selTopic?.id === topicId) setSelTopic(null)
+      deleteResearch.mutate(topicId, {
+        onSuccess: () => {
+          if (selResearchId === topicId) setSelResearchId(null)
+        },
+      })
     }
   }
 
@@ -96,14 +113,19 @@ export default function TopicList() {
 
   const addTopic = () => {
     if (!newTopic.title.trim() || !newTopic.content.trim()) return
-    const now = new Date()
-    const t = {
-      id: topics.length + 1, grade: '고1', month: `${now.getMonth() + 1}월`,
-      title: newTopic.title, content: newTopic.content, subject: newTopic.subject,
-      feedback: '', feedbackDate: '', revision: '', revisionDate: '',
-    }
-    setTopics(prev => [...prev, t])
-    closeModal()
+    createResearch.mutate(
+      {
+        topic: newTopic.title,
+        subject: newTopic.subject || undefined,
+        content: newTopic.content,
+      },
+      {
+        onSuccess: (data: any) => {
+          closeModal()
+          if (data?.id) setSelResearchId(data.id)
+        },
+      },
+    )
   }
 
   const closeModal = () => {
@@ -113,190 +135,313 @@ export default function TopicList() {
     setNewTopic({ title: '', subject: '', content: '' })
   }
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: 'calc(100vh - 90px)', overflow: 'hidden', padding: '20px 24px' }}>
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSendMessage()
+    }
+  }
 
-      {/* 상단 헤더 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {GRADES.map(g => (
-            <div key={g} onClick={() => { setTopicGrade(g); setSelTopic(null) }}
-              style={{ padding: '7px 16px', borderRadius: 99, fontSize: 13, cursor: 'pointer', background: topicGrade === g ? '#3B5BDB' : '#fff', color: topicGrade === g ? '#fff' : '#6B7280', border: `0.5px solid ${topicGrade === g ? '#3B5BDB' : '#E5E7EB'}`, fontWeight: topicGrade === g ? 500 : 400 }}>
-              {g}
-            </div>
-          ))}
+  return (
+    <div className="flex flex-col gap-3 h-full overflow-hidden px-6 py-5 font-sans text-ink">
+
+      {/* 상단 필터 + 추가 */}
+      <div className="flex justify-between items-center flex-shrink-0 flex-wrap gap-2">
+        <div className="text-[14px] font-bold text-ink tracking-tight">
+          🔬 내 탐구주제
+          {researches.length > 0 && (
+            <span className="text-[11px] text-ink-secondary ml-2 font-medium">
+              총 {researches.length}개 · 완료 {researches.filter(r => r.status === 'completed').length}개
+            </span>
+          )}
         </div>
-        <button onClick={() => setShowModal(true)}
-          style={{ padding: '9px 18px', background: '#3B5BDB', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+        <button
+          onClick={() => setShowModal(true)}
+          className="px-4 py-2 bg-brand-high text-white rounded-lg text-[13px] font-semibold hover:bg-brand-high-dark transition-all shadow-[0_2px_8px_rgba(37,99,235,0.2)]"
+        >
           + 탐구주제 작성
         </button>
       </div>
 
-      {/* 메인 2단 레이아웃 */}
-      <div style={{ display: 'flex', gap: 16, flex: 1, overflow: 'hidden' }}>
+      {/* 좌우 패널 */}
+      <div className="flex gap-4 flex-1 overflow-hidden">
 
-        {/* 왼쪽 목록 */}
-        <div style={{ width: 300, flexShrink: 0, background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ padding: '12px 14px', borderBottom: '0.5px solid #E5E7EB', flexShrink: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a' }}>탐구주제</div>
-            <div style={{ fontSize: 11, color: '#6B7280', marginTop: 4 }}>
-              총 <span style={{ color: '#3B5BDB', fontWeight: 600 }}>{filtered.length}개</span> ·
-              피드백 <span style={{ color: '#059669', fontWeight: 600 }}>{filtered.filter(t => t.feedback).length}개</span>
+        {/* 왼쪽: 탐구주제 리스트 */}
+        <div className="w-[300px] flex-shrink-0 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
+          <div className="px-4 py-3 border-b border-line-light flex-shrink-0">
+            <div className="text-[13px] font-bold text-ink">탐구주제 목록</div>
+            <div className="text-[11px] text-ink-secondary mt-0.5 font-medium">
+              선생님과 대화하며 피드백 받으세요
             </div>
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px' }}>
-            {filtered.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: '#9CA3AF', fontSize: 12 }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>🔬</div>
-                탐구주제가 없어요.
+
+          <div className="flex-1 overflow-y-auto p-3">
+            {isLoading ? (
+              <div className="text-center py-10">
+                <div className="inline-block w-5 h-5 border-2 border-gray-200 border-t-brand-high rounded-full animate-spin" />
+                <div className="text-[12px] text-ink-muted mt-2">불러오는 중...</div>
               </div>
-            ) : filtered.map(topic => (
-              <div key={topic.id} onClick={() => setSelTopic(topic)}
-                style={{ border: `0.5px solid ${selTopic?.id === topic.id ? '#3B5BDB' : '#E5E7EB'}`, borderRadius: 10, padding: '11px 13px', marginBottom: 7, cursor: 'pointer', background: selTopic?.id === topic.id ? '#EEF2FF' : '#fff', position: 'relative' }}>
-                <div style={{ display: 'flex', gap: 5, marginBottom: 5 }}>
-                  <span style={{ fontSize: 10, color: '#6B7280', background: '#F3F4F6', padding: '1px 7px', borderRadius: 99 }}>{topic.grade} · {topic.month}</span>
-                  {topic.feedback && !topic.revision && (
-                    <span style={{ fontSize: 10, color: '#fff', background: '#F97316', padding: '1px 7px', borderRadius: 99 }}>💬 피드백</span>
-                  )}
+            ) : researches.length === 0 ? (
+              <div className="text-center py-10 text-ink-muted">
+                <div className="text-3xl mb-2">🔬</div>
+                <div className="text-[12px] mb-3">탐구주제가 없어요.</div>
+                <div className="text-[11px] leading-relaxed">
+                  우측 상단 '+ 탐구주제 작성' 버튼으로<br />
+                  첫 탐구주제를 만들어보세요!
                 </div>
-                <div style={{ fontSize: 12, color: '#1a1a1a', lineHeight: 1.5, fontWeight: 500, marginBottom: 4 }}>{topic.title}</div>
-                <span style={{ fontSize: 10, color: '#3B5BDB', background: '#EEF2FF', padding: '1px 7px', borderRadius: 99, border: '0.5px solid #BAC8FF' }}>{topic.subject}</span>
-                <div onClick={e => { e.stopPropagation(); deleteTopic(topic.id) }}
-                  style={{ position: 'absolute', top: 8, right: 8, fontSize: 12, color: '#9CA3AF', cursor: 'pointer', lineHeight: 1 }}>✕</div>
               </div>
-            ))}
+            ) : researches.map(topic => {
+              const hasTeacher = topic.id === selResearchId && analyses.some(a => a.teacher_feedback)
+              return (
+                <div
+                  key={topic.id}
+                  onClick={() => setSelResearchId(topic.id)}
+                  className={`relative border rounded-xl px-3 py-2.5 mb-1.5 cursor-pointer transition-all ${
+                    selResearchId === topic.id
+                      ? 'border-brand-high bg-brand-high-pale shadow-[0_2px_8px_rgba(37,99,235,0.1)]'
+                      : 'border-line bg-white hover:border-brand-high-light hover:shadow-sm'
+                  }`}
+                >
+                  <div className="flex gap-1 mb-1.5 flex-wrap">
+                    {topic.status === 'completed' ? (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                        ✓ 완료됨
+                      </span>
+                    ) : hasTeacher ? (
+                      <span className="text-[10px] font-bold text-brand-high-dark bg-brand-high-bg px-2 py-0.5 rounded-full">
+                        💬 선생님 답변 확인
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                        ⏳ 피드백 대기
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[12.5px] font-semibold text-ink mb-1.5 leading-tight line-clamp-2">
+                    {topic.topic}
+                  </div>
+                  {topic.subject && (
+                    <span className="text-[10px] font-bold text-brand-high-dark bg-brand-high-pale border border-brand-high-light px-2 py-0.5 rounded-full">
+                      {topic.subject}
+                    </span>
+                  )}
+                  <button
+                    onClick={e => { e.stopPropagation(); handleDeleteTopic(topic.id) }}
+                    className="absolute top-2 right-2 text-ink-muted hover:text-red-500 text-[12px] leading-none w-5 h-5 flex items-center justify-center rounded hover:bg-red-50 transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )
+            })}
           </div>
         </div>
 
-        {/* 오른쪽 상세 */}
-        <div style={{ flex: 1, background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {!selTopic ? (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', gap: 8 }}>
-              <div style={{ fontSize: 32 }}>🔬</div>
-              <div style={{ fontSize: 14, fontWeight: 500, color: '#6B7280' }}>탐구주제를 선택해주세요</div>
-              <div style={{ fontSize: 12 }}>왼쪽에서 탐구주제를 클릭하면 상세 내용을 볼 수 있어요</div>
+        {/* 오른쪽: 채팅 */}
+        <div className="flex-1 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
+          {!selected ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-ink-muted gap-2">
+              <div className="text-4xl">🔬</div>
+              <div className="text-[14px] font-semibold text-ink-secondary">탐구주제를 선택해주세요</div>
+              <div className="text-[12px]">왼쪽에서 탐구주제를 클릭하면 선생님과 대화할 수 있어요</div>
             </div>
           ) : (
             <>
-              <div style={{ padding: '13px 16px', borderBottom: '0.5px solid #E5E7EB', flexShrink: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a1a', marginBottom: 4 }}>{selTopic.title}</div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <span style={{ fontSize: 11, color: '#6B7280', background: '#F3F4F6', padding: '2px 8px', borderRadius: 99 }}>{selTopic.grade} · {selTopic.month}</span>
-                  <span style={{ fontSize: 11, color: '#3B5BDB', background: '#EEF2FF', padding: '2px 8px', borderRadius: 99, border: '0.5px solid #BAC8FF' }}>{selTopic.subject}</span>
+              {/* 헤더 */}
+              <div className="px-5 py-3 border-b border-line-light flex-shrink-0 bg-white flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[15px] font-bold text-ink tracking-tight mb-1.5 truncate">
+                    {selected.topic}
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {selected.subject && (
+                      <span className="text-[11px] font-bold text-brand-high-dark bg-brand-high-pale border border-brand-high-light px-2 py-0.5 rounded-full">
+                        {selected.subject}
+                      </span>
+                    )}
+                    {isCompleted && (
+                      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                        ✓ 완료됨
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {/* 내가 작성한 내용 - 오른쪽 */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                  <div style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 3 }}>나</div>
-                  <div style={{ maxWidth: 400, background: '#F3F4F6', border: '0.5px solid #E5E7EB', borderRadius: '12px 0 12px 12px', padding: '10px 14px', fontSize: 13, color: '#1a1a1a', lineHeight: 1.6 }}>
-                    {selTopic.content}
-                  </div>
-                </div>
-
-                {/* 선생님 피드백 - 왼쪽 */}
-                {selTopic.feedback ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                    <div style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 3 }}>선생님 · {selTopic.feedbackDate}</div>
-                    <div style={{ maxWidth: 400, background: '#EEF2FF', border: '0.5px solid #BAC8FF', borderRadius: '0 12px 12px 12px', padding: '10px 14px', fontSize: 13, color: '#1E3A8A', lineHeight: 1.6 }}>
-                      {selTopic.feedback}
+              {/* 채팅 */}
+              <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-gray-50">
+                {messages.map((msg, i) => {
+                  const isStudent = msg.role === 'student'
+                  const showDate = i === 0 || messages[i - 1].date !== msg.date
+                  return (
+                    <div key={i}>
+                      {showDate && (
+                        <div className="text-center my-2">
+                          <span className="text-[10px] font-semibold text-ink-muted bg-white border border-line px-3 py-1 rounded-full">
+                            {msg.date}
+                          </span>
+                        </div>
+                      )}
+                      <div className={`flex flex-col ${isStudent ? 'items-end' : 'items-start'}`}>
+                        <div className={`text-[10px] font-semibold text-ink-muted mb-1 ${isStudent ? 'mr-1' : 'ml-10'}`}>
+                          {isStudent ? '나' : '👨‍🏫 선생님'}
+                        </div>
+                        <div className={`flex items-end gap-2 ${isStudent ? 'flex-row-reverse' : 'flex-row'}`}>
+                          {!isStudent && (
+                            <div className="w-8 h-8 rounded-full bg-brand-high text-white flex items-center justify-center text-[12px] font-bold flex-shrink-0">
+                              T
+                            </div>
+                          )}
+                          <div className={`max-w-md px-4 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap ${
+                            isStudent
+                              ? 'bg-brand-high text-white rounded-[14px_2px_14px_14px]'
+                              : 'bg-white border border-line text-ink rounded-[2px_14px_14px_14px] shadow-sm'
+                          }`}>
+                            {msg.text}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 12, color: '#9CA3AF', textAlign: 'center', padding: '8px 0' }}>
-                    선생님 피드백을 기다리는 중이에요.
-                  </div>
-                )}
-
-                {/* 내가 수정한 내용 - 오른쪽 */}
-                {selTopic.revision && (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                    <div style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 3 }}>나 · {selTopic.revisionDate}</div>
-                    <div style={{ maxWidth: 400, background: '#F3F4F6', border: '0.5px solid #E5E7EB', borderRadius: '12px 0 12px 12px', padding: '10px 14px', fontSize: 13, color: '#1a1a1a', lineHeight: 1.6 }}>
-                      {selTopic.revision}
-                    </div>
-                  </div>
-                )}
+                  )
+                })}
+                <div ref={chatEndRef} />
               </div>
 
               {/* 입력창 */}
-              {selTopic.feedback && (
-                <div style={{ padding: '12px 16px', borderTop: '0.5px solid #E5E7EB', flexShrink: 0 }}>
-                  <textarea
-                    value={revisionInputs[selTopic.id] || ''}
-                    onChange={e => setRevisionInputs(prev => ({ ...prev, [selTopic.id]: e.target.value }))}
-                    placeholder="피드백을 반영한 수정 내용을 작성해주세요..."
-                    rows={3}
-                    style={{ width: '100%', border: '0.5px solid #E5E7EB', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', resize: 'none', fontFamily: 'inherit', lineHeight: 1.6, marginBottom: 8, boxSizing: 'border-box' as const }}
-                  />
-                  <button
-                    onClick={() => sendRevision(selTopic.id)}
-                    disabled={!(revisionInputs[selTopic.id] || '').trim()}
-                    style={{ padding: '8px 18px', background: (revisionInputs[selTopic.id] || '').trim() ? '#3B5BDB' : '#E5E7EB', color: (revisionInputs[selTopic.id] || '').trim() ? '#fff' : '#9CA3AF', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: (revisionInputs[selTopic.id] || '').trim() ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
-                    전달하기
-                  </button>
-                </div>
-              )}
+              <div className="px-4 py-3 border-t border-line-light bg-white flex-shrink-0">
+                {isCompleted ? (
+                  <div className="text-center py-3 text-[12px] text-ink-muted font-medium">
+                    ✓ 완료 처리된 탐구주제예요. 선생님께 새 메시지 전송 불가.
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex gap-2 items-end">
+                      <textarea
+                        value={messageInput}
+                        onChange={e => setMessageInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="선생님께 질문이나 탐구 방향을 작성해주세요... (Shift+Enter 줄바꿈)"
+                        rows={2}
+                        disabled={sendMessage.isPending}
+                        className="flex-1 border border-line rounded-xl px-3 py-2.5 text-[13px] outline-none resize-none leading-relaxed focus:border-brand-high transition-colors font-sans disabled:bg-gray-50 disabled:opacity-70"
+                      />
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={!messageInput.trim() || sendMessage.isPending}
+                        className={`px-5 py-3 rounded-xl text-[13px] font-bold transition-all flex-shrink-0 ${
+                          messageInput.trim() && !sendMessage.isPending
+                            ? 'bg-brand-high text-white hover:bg-brand-high-dark shadow-[0_2px_8px_rgba(37,99,235,0.2)]'
+                            : 'bg-gray-200 text-ink-muted cursor-not-allowed'
+                        }`}
+                      >
+                        {sendMessage.isPending ? '전송 중...' : '전송'}
+                      </button>
+                    </div>
+                    <div className="text-[10px] text-ink-muted mt-2 font-medium px-1">
+                      💡 선생님께 탐구 방향, 질문, 수정 내용을 자유롭게 작성해보세요
+                    </div>
+                  </>
+                )}
+              </div>
             </>
           )}
         </div>
       </div>
 
-      {/* 모달 */}
+      {/* 모달: 세특 사례 + 탐구 작성 */}
       {showModal && (
-        <div onClick={closeModal}
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ background: '#fff', borderRadius: 16, width: modalStep === 1 ? 920 : 520, maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ padding: '18px 24px', borderBottom: '0.5px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                {modalStep === 2 && <div onClick={() => setModalStep(1)} style={{ cursor: 'pointer', fontSize: 14, color: '#6B7280' }}>←</div>}
+        <div
+          onClick={closeModal}
+          className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className={`bg-white rounded-2xl max-h-[88vh] flex flex-col overflow-hidden shadow-2xl ${modalStep === 1 ? 'w-[920px]' : 'w-[520px]'} max-w-full`}
+          >
+            {/* 헤더 */}
+            <div className="px-6 py-4 border-b border-line-light flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                {modalStep === 2 && (
+                  <button
+                    onClick={() => setModalStep(1)}
+                    className="text-ink-secondary hover:text-ink text-[14px] transition-colors"
+                  >
+                    ←
+                  </button>
+                )}
                 <div>
-                  <div style={{ fontSize: 15, fontWeight: 500, color: '#1a1a1a' }}>{modalStep === 1 ? '세특 Lite 참고하기' : '탐구주제 작성'}</div>
-                  <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>{modalStep === 1 ? '학년, 학과, 과목을 선택해서 세특 사례를 찾아보세요' : '세특을 참고해서 내 탐구주제를 작성해요'}</div>
+                  <div className="text-[15px] font-bold text-ink tracking-tight">
+                    {modalStep === 1 ? '세특 Lite 참고하기' : '탐구주제 작성'}
+                  </div>
+                  <div className="text-[11px] text-ink-muted mt-0.5 font-medium">
+                    {modalStep === 1 ? '학년, 학과, 과목을 선택해서 세특 사례를 찾아보세요' : '세특을 참고해서 내 탐구주제를 작성해요'}
+                  </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {[1, 2].map(s => <div key={s} style={{ width: s === modalStep ? 20 : 8, height: 8, borderRadius: 99, background: s === modalStep ? '#3B5BDB' : s < modalStep ? '#059669' : '#E5E7EB', transition: 'all 0.2s' }} />)}
+              <div className="flex items-center gap-3">
+                <div className="flex gap-1.5">
+                  {[1, 2].map(s => (
+                    <div
+                      key={s}
+                      className={`h-2 rounded-full transition-all ${
+                        s === modalStep ? 'w-5 bg-brand-high' : s < modalStep ? 'w-2 bg-brand-high-dark' : 'w-2 bg-line'
+                      }`}
+                    />
+                  ))}
                 </div>
-                <div onClick={closeModal} style={{ cursor: 'pointer', color: '#6B7280', fontSize: 18 }}>✕</div>
+                <button
+                  onClick={closeModal}
+                  className="text-ink-muted hover:text-ink text-[18px] transition-colors"
+                >
+                  ✕
+                </button>
               </div>
             </div>
 
+            {/* Step 1: 세특 검색 */}
             {modalStep === 1 && (
-              <div style={{ flex: 1, overflow: 'hidden', display: 'flex' }}>
-                <div style={{ width: 260, flexShrink: 0, borderRight: '0.5px solid #E5E7EB', display: 'flex', flexDirection: 'column', background: '#FAFAFA', overflow: 'hidden' }}>
-                  <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 11, fontWeight: 500, color: '#6B7280', marginBottom: 8 }}>학년</div>
-                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+              <div className="flex-1 overflow-hidden flex">
+                <div className="w-[260px] flex-shrink-0 border-r border-line-light flex flex-col bg-gray-50 overflow-hidden">
+                  <div className="flex-1 overflow-y-auto p-4">
+                    <div className="mb-4">
+                      <div className="text-[11px] font-semibold text-ink-secondary mb-2">학년</div>
+                      <div className="flex gap-1.5 flex-wrap">
                         {GRADES.map(g => (
-                          <div key={g} onClick={() => { setFilterGrade(g); setExpandedSetech(null) }}
-                            style={{ padding: '4px 10px', borderRadius: 99, fontSize: 12, cursor: 'pointer', background: filterGrade === g ? '#3B5BDB' : '#fff', color: filterGrade === g ? '#fff' : '#6B7280', border: `0.5px solid ${filterGrade === g ? '#3B5BDB' : '#E5E7EB'}` }}>
+                          <button
+                            key={g}
+                            onClick={() => { setFilterGrade(g); setExpandedSetech(null) }}
+                            className={`px-2.5 py-1 rounded-full text-[12px] border transition-all ${
+                              filterGrade === g
+                                ? 'bg-brand-high text-white border-brand-high font-semibold'
+                                : 'bg-white text-ink-secondary border-line hover:border-brand-high-light'
+                            }`}
+                          >
                             {g}
-                          </div>
+                          </button>
                         ))}
                       </div>
                     </div>
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 11, fontWeight: 500, color: '#6B7280', marginBottom: 8 }}>지원학과 및 계열</div>
-                      <div style={{ position: 'relative' }}>
-                        <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: '#9CA3AF' }}>🔍</span>
-                        <input value={filterMajorInput}
+
+                    <div className="mb-4">
+                      <div className="text-[11px] font-semibold text-ink-secondary mb-2">지원학과 및 계열</div>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-ink-muted text-[12px]">🔍</span>
+                        <input
+                          value={filterMajorInput}
                           onChange={e => { setFilterMajorInput(e.target.value); setFilterMajor(e.target.value || '전체'); setShowMajorDrop(true) }}
                           onFocus={() => setShowMajorDrop(true)}
                           onBlur={() => setTimeout(() => setShowMajorDrop(false), 150)}
                           placeholder="학과 또는 계열 검색"
-                          style={{ width: '100%', height: 34, border: '0.5px solid #E5E7EB', borderRadius: 7, padding: '0 8px 0 26px', fontSize: 12, outline: 'none', fontFamily: 'inherit', background: '#fff', boxSizing: 'border-box' as const }} />
+                          className="w-full h-9 border border-line rounded-lg pl-7 pr-2 text-[12px] outline-none focus:border-brand-high transition-colors font-sans bg-white"
+                        />
                         {showMajorDrop && filteredMajorOptions.length > 0 && (
-                          <div style={{ position: 'absolute', top: 38, left: 0, right: 0, background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 8, zIndex: 10, maxHeight: 150, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                          <div className="absolute top-10 left-0 right-0 bg-white border border-line rounded-lg z-10 max-h-[150px] overflow-y-auto shadow-lg">
                             {filteredMajorOptions.map(m => (
-                              <div key={m} onClick={() => { setFilterMajorInput(m); setFilterMajor(m); setShowMajorDrop(false); setExpandedSetech(null) }}
-                                style={{ padding: '8px 12px', fontSize: 12, cursor: 'pointer', color: '#1a1a1a' }}
-                                onMouseEnter={e => (e.currentTarget.style.background = '#F8F7F5')}
-                                onMouseLeave={e => (e.currentTarget.style.background = '#fff')}>
+                              <div
+                                key={m}
+                                onClick={() => { setFilterMajorInput(m); setFilterMajor(m); setShowMajorDrop(false); setExpandedSetech(null) }}
+                                className="px-3 py-2 text-[12px] cursor-pointer text-ink hover:bg-brand-high-pale transition-colors"
+                              >
                                 {m}
                               </div>
                             ))}
@@ -304,30 +449,35 @@ export default function TopicList() {
                         )}
                       </div>
                       {filterMajor !== '전체' && (
-                        <div style={{ marginTop: 6 }}>
-                          <span style={{ fontSize: 11, background: '#EEF2FF', color: '#3B5BDB', padding: '3px 8px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            {filterMajor}<span onClick={() => { setFilterMajor('전체'); setFilterMajorInput('') }} style={{ cursor: 'pointer' }}>✕</span>
+                        <div className="mt-1.5">
+                          <span className="text-[11px] bg-brand-high-pale text-brand-high-dark px-2 py-0.5 rounded-full inline-flex items-center gap-1 font-semibold">
+                            {filterMajor}
+                            <button onClick={() => { setFilterMajor('전체'); setFilterMajorInput('') }} className="hover:text-brand-high-dark">✕</button>
                           </span>
                         </div>
                       )}
                     </div>
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 11, fontWeight: 500, color: '#6B7280', marginBottom: 8 }}>과목</div>
-                      <div style={{ position: 'relative' }}>
-                        <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: '#9CA3AF' }}>🔍</span>
-                        <input value={filterSubjectInput}
+
+                    <div className="mb-4">
+                      <div className="text-[11px] font-semibold text-ink-secondary mb-2">과목</div>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-ink-muted text-[12px]">🔍</span>
+                        <input
+                          value={filterSubjectInput}
                           onChange={e => { setFilterSubjectInput(e.target.value); setFilterSubject(e.target.value || '전체'); setShowSubjectDrop(true) }}
                           onFocus={() => setShowSubjectDrop(true)}
                           onBlur={() => setTimeout(() => setShowSubjectDrop(false), 150)}
                           placeholder="과목 검색 (예: 화학)"
-                          style={{ width: '100%', height: 34, border: '0.5px solid #E5E7EB', borderRadius: 7, padding: '0 8px 0 26px', fontSize: 12, outline: 'none', fontFamily: 'inherit', background: '#fff', boxSizing: 'border-box' as const }} />
+                          className="w-full h-9 border border-line rounded-lg pl-7 pr-2 text-[12px] outline-none focus:border-brand-high transition-colors font-sans bg-white"
+                        />
                         {showSubjectDrop && (
-                          <div style={{ position: 'absolute', top: 38, left: 0, right: 0, background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 8, zIndex: 10, maxHeight: 150, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                          <div className="absolute top-10 left-0 right-0 bg-white border border-line rounded-lg z-10 max-h-[150px] overflow-y-auto shadow-lg">
                             {filteredSubjectOptions.map(s => (
-                              <div key={s} onClick={() => { setFilterSubjectInput(s); setFilterSubject(s); setShowSubjectDrop(false); setExpandedSetech(null) }}
-                                style={{ padding: '8px 12px', fontSize: 12, cursor: 'pointer', color: '#1a1a1a' }}
-                                onMouseEnter={e => (e.currentTarget.style.background = '#F8F7F5')}
-                                onMouseLeave={e => (e.currentTarget.style.background = '#fff')}>
+                              <div
+                                key={s}
+                                onClick={() => { setFilterSubjectInput(s); setFilterSubject(s); setShowSubjectDrop(false); setExpandedSetech(null) }}
+                                className="px-3 py-2 text-[12px] cursor-pointer text-ink hover:bg-brand-high-pale transition-colors"
+                              >
                                 {s}
                               </div>
                             ))}
@@ -335,89 +485,129 @@ export default function TopicList() {
                         )}
                       </div>
                       {filterSubject !== '전체' && (
-                        <div style={{ marginTop: 6 }}>
-                          <span style={{ fontSize: 11, background: '#EEF2FF', color: '#3B5BDB', padding: '3px 8px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            {filterSubject}<span onClick={() => { setFilterSubject('전체'); setFilterSubjectInput('') }} style={{ cursor: 'pointer' }}>✕</span>
+                        <div className="mt-1.5">
+                          <span className="text-[11px] bg-brand-high-pale text-brand-high-dark px-2 py-0.5 rounded-full inline-flex items-center gap-1 font-semibold">
+                            {filterSubject}
+                            <button onClick={() => { setFilterSubject('전체'); setFilterSubjectInput('') }} className="hover:text-brand-high-dark">✕</button>
                           </span>
                         </div>
                       )}
                     </div>
+
                     {!isFilterEmpty && (
-                      <div style={{ fontSize: 11, color: '#9CA3AF', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span>총 <span style={{ color: '#3B5BDB', fontWeight: 600 }}>{filteredSetech.length}개</span></span>
-                        <span onClick={() => { setFilterGrade('전체'); setFilterMajor('전체'); setFilterMajorInput(''); setFilterSubject('전체'); setFilterSubjectInput(''); setExpandedSetech(null) }}
-                          style={{ color: '#6B7280', cursor: 'pointer', textDecoration: 'underline', fontSize: 11 }}>초기화</span>
+                      <div className="text-[11px] text-ink-muted flex items-center justify-between font-medium">
+                        <span>총 <span className="text-brand-high-dark font-bold">{filteredSetech.length}개</span></span>
+                        <button
+                          onClick={() => { setFilterGrade('전체'); setFilterMajor('전체'); setFilterMajorInput(''); setFilterSubject('전체'); setFilterSubjectInput(''); setExpandedSetech(null) }}
+                          className="text-ink-secondary hover:text-ink underline"
+                        >
+                          초기화
+                        </button>
                       </div>
                     )}
                   </div>
-                  <div style={{ padding: '12px 16px', borderTop: '0.5px solid #E5E7EB', flexShrink: 0 }}>
-                    <button onClick={() => setModalStep(2)}
-                      style={{ width: '100%', height: 36, background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+
+                  <div className="px-4 py-3 border-t border-line-light flex-shrink-0">
+                    <button
+                      onClick={() => setModalStep(2)}
+                      className="w-full h-9 bg-white text-ink-secondary border border-line rounded-lg text-[12px] font-medium hover:bg-gray-100 hover:border-ink-muted transition-all"
+                    >
                       세특 없이 직접 작성
                     </button>
                   </div>
                 </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
+
+                <div className="flex-1 overflow-y-auto p-5">
                   {isFilterEmpty ? (
-                    <div style={{ textAlign: 'center', padding: '60px 0', color: '#9CA3AF' }}>
-                      <div style={{ fontSize: 40, marginBottom: 14 }}>🔬</div>
-                      <div style={{ fontSize: 14, fontWeight: 500, color: '#6B7280', marginBottom: 8 }}>세특 사례를 선택해보세요</div>
-                      <div style={{ fontSize: 12, lineHeight: 1.8 }}>왼쪽에서 학년, 학과, 과목을 선택하면<br />관련 세특 사례를 볼 수 있어요</div>
+                    <div className="text-center py-16">
+                      <div className="text-4xl mb-3">🔬</div>
+                      <div className="text-[14px] font-semibold text-ink-secondary mb-1.5">세특 사례를 선택해보세요</div>
+                      <div className="text-[12px] text-ink-muted leading-relaxed">
+                        왼쪽에서 학년, 학과, 과목을 선택하면<br />관련 세특 사례를 볼 수 있어요
+                      </div>
                     </div>
                   ) : filteredSetech.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '60px 0', color: '#9CA3AF' }}>
-                      <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
-                      <div style={{ fontSize: 13 }}>해당 조건의 세특 사례가 없어요.</div>
-                      <div style={{ fontSize: 12, marginTop: 4 }}>필터를 조정해보세요.</div>
+                    <div className="text-center py-16">
+                      <div className="text-3xl mb-2">🔍</div>
+                      <div className="text-[13px] text-ink-muted font-medium">해당 조건의 세특 사례가 없어요.</div>
+                      <div className="text-[12px] text-ink-muted mt-1">필터를 조정해보세요.</div>
                     </div>
                   ) : filteredSetech.map((s: any) => (
-                    <div key={s.id} style={{ border: `0.5px solid ${expandedSetech === s.id ? '#3B5BDB' : '#E5E7EB'}`, borderRadius: 12, marginBottom: 10, overflow: 'hidden', background: expandedSetech === s.id ? '#FAFCFF' : '#fff' }}>
-                      <div onClick={() => setExpandedSetech(expandedSetech === s.id ? null : s.id)}
-                        style={{ padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5, flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: 11, fontWeight: 600, color: '#3B5BDB', background: '#EEF2FF', padding: '2px 8px', borderRadius: 99 }}>{s.subject}</span>
-                            <span style={{ fontSize: 11, color: '#059669', background: '#ECFDF5', padding: '2px 8px', borderRadius: 99 }}>{s.major}</span>
-                            <span style={{ fontSize: 11, color: '#6B7280', background: '#F3F4F6', padding: '2px 8px', borderRadius: 99 }}>{s.grade}</span>
-                            <span style={{ fontSize: 11, color: '#9CA3AF' }}>{s.school}</span>
+                    <div
+                      key={s.id}
+                      className={`border rounded-xl mb-2.5 overflow-hidden transition-all ${
+                        expandedSetech === s.id ? 'border-brand-high bg-brand-high-pale/20' : 'border-line bg-white'
+                      }`}
+                    >
+                      <div
+                        onClick={() => setExpandedSetech(expandedSetech === s.id ? null : s.id)}
+                        className="px-4 py-3 cursor-pointer flex items-center justify-between hover:bg-brand-high-pale/10 transition-colors"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                            <span className="text-[11px] font-bold text-brand-high-dark bg-brand-high-pale px-2 py-0.5 rounded-full">{s.subject}</span>
+                            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">{s.major}</span>
+                            <span className="text-[11px] font-medium text-ink-secondary bg-gray-100 px-2 py-0.5 rounded-full">{s.grade}</span>
+                            <span className="text-[11px] text-ink-muted font-medium">{s.school}</span>
                           </div>
-                          <div style={{ fontSize: 13, color: '#1a1a1a', lineHeight: 1.5 }}>{s.activity}</div>
+                          <div className="text-[13px] font-semibold text-ink leading-relaxed">{s.activity}</div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 12, flexShrink: 0 }}>
-                          <span style={{ fontSize: 11, color: '#9CA3AF' }}>👁 {s.views?.toLocaleString()}</span>
-                          <span style={{ fontSize: 14, color: '#9CA3AF', display: 'inline-block', transform: expandedSetech === s.id ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>∨</span>
+                        <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+                          <span className="text-[11px] text-ink-muted font-medium">👁 {s.views?.toLocaleString()}</span>
+                          <span className={`text-[14px] text-ink-muted transition-transform ${expandedSetech === s.id ? 'rotate-180' : ''}`}>∨</span>
                         </div>
                       </div>
+
                       {expandedSetech === s.id && (
-                        <div style={{ padding: '0 16px 16px', borderTop: '0.5px solid #E5E7EB' }}>
-                          {[{ label: '세특 활동', text: s.activity, id: `activity-${s.id}` }, { label: '탐구 역량', text: s.competency, id: `competency-${s.id}` }].map(item => (
-                            <div key={item.id} style={{ marginTop: 12 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                                <div style={{ fontSize: 12, fontWeight: 500, color: '#1a1a1a' }}>{item.label}</div>
-                                <button onClick={() => copyText(item.text, item.id)} style={{ fontSize: 11, color: copiedId === item.id ? '#059669' : '#6B7280', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        <div className="px-4 pb-4 border-t border-line-light">
+                          {[
+                            { label: '세특 활동', text: s.activity, id: `activity-${s.id}` },
+                            { label: '탐구 역량', text: s.competency, id: `competency-${s.id}` },
+                          ].map(item => (
+                            <div key={item.id} className="mt-3">
+                              <div className="flex items-center justify-between mb-1.5">
+                                <div className="text-[12px] font-bold text-ink">{item.label}</div>
+                                <button
+                                  onClick={() => copyText(item.text, item.id)}
+                                  className={`text-[11px] font-semibold transition-colors ${
+                                    copiedId === item.id ? 'text-emerald-600' : 'text-ink-secondary hover:text-brand-high-dark'
+                                  }`}
+                                >
                                   {copiedId === item.id ? '✓ 복사됨' : '📋 복사'}
                                 </button>
                               </div>
-                              <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#374151', lineHeight: 1.6 }}>{item.text}</div>
+                              <div className="bg-gray-50 border border-line-light rounded-lg px-3 py-2.5 text-[12px] text-ink leading-relaxed">
+                                {item.text}
+                              </div>
                             </div>
                           ))}
-                          <div style={{ marginTop: 12, marginBottom: 14 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                              <div style={{ fontSize: 12, fontWeight: 500, color: '#1a1a1a' }}>세특 탐구</div>
-                              <button onClick={() => copyText(s.topics.join('\n'), `topics-${s.id}`)} style={{ fontSize: 11, color: copiedId === `topics-${s.id}` ? '#059669' : '#6B7280', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+
+                          <div className="mt-3 mb-3.5">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <div className="text-[12px] font-bold text-ink">세특 탐구</div>
+                              <button
+                                onClick={() => copyText(s.topics.join('\n'), `topics-${s.id}`)}
+                                className={`text-[11px] font-semibold transition-colors ${
+                                  copiedId === `topics-${s.id}` ? 'text-emerald-600' : 'text-ink-secondary hover:text-brand-high-dark'
+                                }`}
+                              >
                                 {copiedId === `topics-${s.id}` ? '✓ 복사됨' : '📋 복사'}
                               </button>
                             </div>
-                            <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '10px 12px' }}>
+                            <div className="bg-gray-50 border border-line-light rounded-lg px-3 py-2.5">
                               {s.topics.map((t: string, i: number) => (
-                                <div key={i} style={{ display: 'flex', gap: 6, marginBottom: i < s.topics.length - 1 ? 6 : 0 }}>
-                                  <span style={{ color: '#3B5BDB', flexShrink: 0, fontSize: 12 }}>•</span>
-                                  <span style={{ fontSize: 12, color: '#374151', lineHeight: 1.6 }}>{t}</span>
+                                <div key={i} className={`flex gap-2 ${i < s.topics.length - 1 ? 'mb-1.5' : ''}`}>
+                                  <span className="text-brand-high-dark flex-shrink-0 text-[12px] font-bold">•</span>
+                                  <span className="text-[12px] text-ink leading-relaxed">{t}</span>
                                 </div>
                               ))}
                             </div>
                           </div>
-                          <button onClick={() => selectSetech(s)} style={{ width: '100%', height: 40, background: '#3B5BDB', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+
+                          <button
+                            onClick={() => selectSetech(s)}
+                            className="w-full h-10 bg-brand-high text-white rounded-lg text-[13px] font-bold hover:bg-brand-high-dark transition-all shadow-[0_2px_8px_rgba(37,99,235,0.2)]"
+                          >
                             이걸로 탐구주제 작성하기 →
                           </button>
                         </div>
@@ -428,44 +618,80 @@ export default function TopicList() {
               </div>
             )}
 
+            {/* Step 2: 탐구 작성 */}
             {modalStep === 2 && (
-              <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+              <div className="flex-1 overflow-y-auto px-6 py-5">
                 {selSetech && (
-                  <div style={{ background: '#EEF2FF', border: '0.5px solid #BAC8FF', borderRadius: 10, padding: '10px 14px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 11, background: '#3B5BDB', color: '#fff', padding: '2px 8px', borderRadius: 99, fontWeight: 500, flexShrink: 0 }}>참고</span>
-                    <span style={{ fontSize: 12, color: '#1E3A8A' }}>{selSetech.subject} · {selSetech.major} · {selSetech.school}</span>
-                    <button onClick={() => { setSelSetech(null); setNewTopic({ title: '', subject: '', content: '' }) }}
-                      style={{ marginLeft: 'auto', fontSize: 11, color: '#6B7280', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>제거</button>
+                  <div className="bg-brand-high-pale border border-brand-high-light rounded-xl px-4 py-3 mb-4 flex items-center gap-2">
+                    <span className="text-[11px] font-bold bg-brand-high text-white px-2 py-0.5 rounded-full flex-shrink-0">참고</span>
+                    <span className="text-[12px] text-brand-high-dark font-semibold flex-1 min-w-0 truncate">
+                      {selSetech.subject} · {selSetech.major} · {selSetech.school}
+                    </span>
+                    <button
+                      onClick={() => { setSelSetech(null); setNewTopic({ title: '', subject: '', content: '' }) }}
+                      className="text-[11px] text-ink-secondary hover:text-ink font-medium flex-shrink-0 transition-colors"
+                    >
+                      제거
+                    </button>
                   </div>
                 )}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+                <div className="flex flex-col gap-3.5">
                   <div>
-                    <label style={LABEL}>탐구 제목 *</label>
-                    <input value={newTopic.title} onChange={e => setNewTopic(p => ({ ...p, title: e.target.value }))}
+                    <label className="text-[11px] font-semibold text-ink-secondary mb-1 block">탐구 제목 *</label>
+                    <input
+                      value={newTopic.title}
+                      onChange={e => setNewTopic(p => ({ ...p, title: e.target.value }))}
                       placeholder="예: 기후변화가 농업 생산량에 미치는 영향 분석"
-                      style={{ width: '100%', height: 42, border: '0.5px solid #E5E7EB', borderRadius: 8, padding: '0 12px', fontSize: 13, outline: 'none', fontFamily: 'inherit' }} />
+                      className="w-full h-11 border border-line rounded-lg px-3 text-[13px] outline-none focus:border-brand-high transition-colors font-sans"
+                    />
                   </div>
+
+                  {/* 🎯 연계 과목 - 드롭다운 */}
                   <div>
-                    <label style={LABEL}>연계 과목</label>
-                    <input value={newTopic.subject} onChange={e => setNewTopic(p => ({ ...p, subject: e.target.value }))}
-                      placeholder="예: 지구과학·사회"
-                      style={{ width: '100%', height: 42, border: '0.5px solid #E5E7EB', borderRadius: 8, padding: '0 12px', fontSize: 13, outline: 'none', fontFamily: 'inherit' }} />
+                    <label className="text-[11px] font-semibold text-ink-secondary mb-1 block">
+                      연계 과목 <span className="text-ink-muted font-normal">(여러 개 선택 가능)</span>
+                    </label>
+                    <SubjectSelect
+                      value={newTopic.subject}
+                      onChange={v => setNewTopic(p => ({ ...p, subject: v }))}
+                      placeholder="과목을 선택하거나 직접 입력해주세요"
+                      multi
+                    />
                   </div>
+
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                      <label style={{ ...LABEL, marginBottom: 0 }}>탐구 내용 *</label>
-                      {selSetech && <span style={{ fontSize: 11, color: '#059669' }}>✓ 세특 내용이 자동으로 채워졌어요</span>}
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-semibold text-ink-secondary">탐구 내용 *</label>
+                      {selSetech && <span className="text-[11px] text-emerald-600 font-semibold">✓ 세특 내용이 자동으로 채워졌어요</span>}
                     </div>
-                    <textarea value={newTopic.content} onChange={e => setNewTopic(p => ({ ...p, content: e.target.value }))}
-                      placeholder="어떤 내용을 탐구하고 싶은지 자세히 작성해주세요" rows={6}
-                      style={{ width: '100%', border: '0.5px solid #E5E7EB', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', resize: 'none', fontFamily: 'inherit', lineHeight: 1.7 }} />
+                    <textarea
+                      value={newTopic.content}
+                      onChange={e => setNewTopic(p => ({ ...p, content: e.target.value }))}
+                      placeholder="어떤 내용을 탐구하고 싶은지 자세히 작성해주세요"
+                      rows={6}
+                      className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] outline-none resize-none leading-relaxed focus:border-brand-high transition-colors font-sans"
+                    />
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
-                  <button onClick={closeModal} style={{ flex: 1, height: 44, background: '#fff', color: '#6B7280', border: '0.5px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>취소</button>
-                  <button onClick={addTopic} disabled={!newTopic.title.trim() || !newTopic.content.trim()}
-                    style={{ flex: 1, height: 44, background: newTopic.title && newTopic.content ? '#3B5BDB' : '#E5E7EB', color: newTopic.title && newTopic.content ? '#fff' : '#9CA3AF', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: newTopic.title && newTopic.content ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
-                    작성하기
+
+                <div className="flex gap-2 mt-5">
+                  <button
+                    onClick={closeModal}
+                    className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-all"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={addTopic}
+                    disabled={!newTopic.title.trim() || !newTopic.content.trim() || createResearch.isPending}
+                    className={`flex-1 h-11 rounded-lg text-[13px] font-bold transition-all ${
+                      newTopic.title && newTopic.content && !createResearch.isPending
+                        ? 'bg-brand-high text-white hover:bg-brand-high-dark shadow-[0_2px_8px_rgba(37,99,235,0.2)]'
+                        : 'bg-gray-200 text-ink-muted cursor-not-allowed'
+                    }`}
+                  >
+                    {createResearch.isPending ? '저장 중...' : '작성하기'}
                   </button>
                 </div>
               </div>

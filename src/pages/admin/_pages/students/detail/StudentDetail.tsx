@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useStudent } from '../../../_hooks/useStudent'
 
 // 고등 (high-tabs)
 import RoadmapTab from './high-tabs/RoadmapTab'
@@ -22,22 +23,6 @@ import MiddleExpectTab from './middle-tabs/expect'
 import MiddlePastTab from './middle-tabs/past'
 import MiddleSimulationTab from './middle-tabs/simulation'
 import MiddlePresentationTab from './middle-tabs/presentation'
-
-const STUDENTS = [
-  { id: 1, name: '김민준', grade: '고2', type: 'high', month: '5월', pct: 25, files: 2, email: 'kim@example.com', joinDate: '2025-01-15' },
-  { id: 2, name: '이수현', grade: '고3', type: 'high', month: '7월', pct: 75, files: 5, email: 'lee@example.com', joinDate: '2025-01-10' },
-  { id: 3, name: '박지호', grade: '고1', type: 'high', month: '2월', pct: 100, files: 3, email: 'park@example.com', joinDate: '2025-02-01' },
-  { id: 4, name: '최유진', grade: '고2', type: 'high', month: '5월', pct: 40, files: 1, email: 'choi@example.com', joinDate: '2025-01-20' },
-  { id: 5, name: '정다은', grade: '고3', type: 'high', month: '8월', pct: 85, files: 4, email: 'jung@example.com', joinDate: '2025-01-05' },
-  { id: 101, name: '김서아', grade: '중2', type: 'middle', month: '4월', pct: 30, files: 1, email: 'kim2@example.com', joinDate: '2025-02-01' },
-  { id: 102, name: '이준혁', grade: '중3', type: 'middle', month: '6월', pct: 65, files: 3, email: 'lee2@example.com', joinDate: '2025-01-15' },
-  { id: 103, name: '박민아', grade: '중1', type: 'middle', month: '3월', pct: 20, files: 0, email: 'park2@example.com', joinDate: '2025-02-10' },
-  { id: 104, name: '최현우', grade: '중2', type: 'middle', month: '5월', pct: 50, files: 2, email: 'choi2@example.com', joinDate: '2025-01-20' },
-  { id: 105, name: '정수빈', grade: '중3', type: 'middle', month: '8월', pct: 80, files: 4, email: 'jung2@example.com', joinDate: '2025-01-05' },
-  { id: 106, name: '강지유', grade: '중1', type: 'middle', month: '2월', pct: 10, files: 0, email: 'kang2@example.com', joinDate: '2025-03-01' },
-  { id: 107, name: '윤채원', grade: '중2', type: 'middle', month: '4월', pct: 45, files: 2, email: 'yoon2@example.com', joinDate: '2025-01-28' },
-  { id: 108, name: '임도윤', grade: '중3', type: 'middle', month: '9월', pct: 90, files: 5, email: 'lim2@example.com', joinDate: '2025-01-08' },
-]
 
 const HIGH_TABS = [
   { key: 'roadmap', label: '🗺️ 로드맵' },
@@ -69,6 +54,8 @@ type MiddleTabType = 'roadmap' | 'lesson' | 'homework' | 'book' | 'expect' | 'pa
 export default function StudentDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+
+  // 🔑 모든 훅은 return 문 이전에 선언 (훅 순서 일관성 규칙)
   const [highTab, setHighTab] = useState<HighTabType>('roadmap')
   const [middleTab, setMiddleTab] = useState<MiddleTabType>('roadmap')
   const [openTopicId, setOpenTopicId] = useState<number | null>(null)
@@ -81,16 +68,63 @@ export default function StudentDetail() {
   const [chatLoading, setChatLoading] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
-  const student = STUDENTS.find(s => s.id === Number(id))
-  if (!student) return (
-    <div className="p-8 text-center text-ink-secondary">학생을 찾을 수 없어요.</div>
-  )
+  const { data: profile, isLoading, error } = useStudent(id)
+
+  // 🔑 useEffect도 return 전에 (훅이니까)
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chatMessages])
+
+  // 로딩 중 (훅 다 선언한 후에 return)
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-50px)]">
+        <div className="text-center">
+          <div className="inline-block w-6 h-6 border-2 border-gray-200 border-t-blue-600 rounded-full animate-spin mb-3" />
+          <div className="text-[13px] text-ink-secondary font-medium">학생 정보를 불러오는 중...</div>
+        </div>
+      </div>
+    )
+  }
+
+  // 에러 or 학생 없음
+  if (error || !profile) {
+    return (
+      <div className="p-8 text-center">
+        <div className="text-3xl mb-3">😢</div>
+        <div className="text-[15px] font-bold text-ink mb-1">학생을 찾을 수 없어요.</div>
+        {error && (
+          <div className="text-[12px] text-red-600 mb-4">{(error as Error).message}</div>
+        )}
+        <button
+          onClick={() => navigate('/admin/students')}
+          className="mt-4 px-4 py-2 text-[12px] font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+        >
+          학생 목록으로
+        </button>
+      </div>
+    )
+  }
+
+  // ✅ 탭 컴포넌트에 넘길 student 객체
+  const student = {
+    id: profile.id,
+    name: profile.name ?? '이름없음',
+    grade: profile.grade ?? '-',
+    type: profile.role === 'middle_student' ? 'middle' as const : 'high' as const,
+    email: profile.email ?? '-',
+    school: profile.school ?? '',
+    phone: profile.phone ?? '',
+    joinDate: profile.created_at ? profile.created_at.slice(0, 10) : '-',
+    month: '-',
+    pct: 0,
+    files: 0,
+  }
 
   const isMiddle = student.type === 'middle'
   const accentColor = isMiddle ? '#059669' : '#2563EB'
   const accentDark = isMiddle ? '#065F46' : '#1E3A8A'
   const accentBg = isMiddle ? '#ECFDF5' : '#EFF6FF'
-  const accentBorder = isMiddle ? '#6EE7B7' : '#93C5FD'
   const accentShadow = isMiddle ? 'rgba(16, 185, 129, 0.15)' : 'rgba(37, 99, 235, 0.15)'
 
   const goEditTopic = (id: number) => {
@@ -130,10 +164,6 @@ export default function StudentDetail() {
     }, 1000)
   }
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [chatMessages])
-
   const currentTabs = isMiddle ? MIDDLE_TABS : HIGH_TABS
   const currentTab = isMiddle ? middleTab : highTab
   const setCurrentTab = isMiddle
@@ -156,7 +186,7 @@ export default function StudentDetail() {
           {/* 헤더 */}
           <div className="flex items-center gap-3 mb-5">
             <button
-              onClick={() => navigate('/admin/students')}
+              onClick={() => navigate(isMiddle ? '/admin/middle-students' : '/admin/students')}
               className="w-9 h-9 rounded-lg bg-white border border-line flex items-center justify-center cursor-pointer text-base text-ink-secondary hover:bg-gray-50 transition-colors"
             >
               ←

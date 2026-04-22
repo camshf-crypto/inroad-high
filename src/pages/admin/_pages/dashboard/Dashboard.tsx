@@ -2,42 +2,7 @@ import { useAtomValue } from 'jotai'
 import { useNavigate } from 'react-router-dom'
 import { academyState, teachersState } from '../../_store/auth'
 import { useState } from 'react'
-
-const HIGH_STUDENTS = [
-  { id: 1, name: '김민준', grade: '고2', month: '4~5월', pct: 25, files: 2 },
-  { id: 2, name: '이수현', grade: '고3', month: '7~8월', pct: 75, files: 5 },
-  { id: 3, name: '박지호', grade: '고1', month: '1~2월', pct: 100, files: 3 },
-  { id: 4, name: '최유진', grade: '고2', month: '4~5월', pct: 40, files: 1 },
-  { id: 5, name: '정다은', grade: '고3', month: '9월', pct: 85, files: 4 },
-  { id: 6, name: '강민서', grade: '고1', month: '3월', pct: 100, files: 2 },
-  { id: 7, name: '윤서준', grade: '고2', month: '4~5월', pct: 60, files: 3 },
-  { id: 8, name: '임지수', grade: '고1', month: '3월', pct: 50, files: 1 },
-  { id: 9, name: '한지원', grade: '고3', month: '10~11월', pct: 90, files: 6 },
-  { id: 10, name: '오민석', grade: '고2', month: '6월', pct: 55, files: 2 },
-  { id: 11, name: '신예진', grade: '고1', month: '3월', pct: 30, files: 1 },
-  { id: 12, name: '권태양', grade: '고3', month: '7~8월', pct: 80, files: 4 },
-  { id: 13, name: '문지현', grade: '고2', month: '4~5월', pct: 35, files: 2 },
-  { id: 14, name: '배수현', grade: '고1', month: '1~2월', pct: 100, files: 3 },
-  { id: 15, name: '유재민', grade: '고3', month: '9월', pct: 70, files: 5 },
-  { id: 16, name: '홍서연', grade: '고2', month: '6월', pct: 45, files: 2 },
-  { id: 17, name: '전민호', grade: '고1', month: '4~5월', pct: 20, files: 1 },
-  { id: 18, name: '조아현', grade: '고3', month: '10~11월', pct: 95, files: 7 },
-  { id: 19, name: '임태준', grade: '고2', month: '4~5월', pct: 30, files: 1 },
-  { id: 20, name: '노지은', grade: '고1', month: '3월', pct: 65, files: 2 },
-]
-
-const MIDDLE_STUDENTS = [
-  { id: 101, name: '김서아', grade: '중2', month: '4월', pct: 30, files: 1 },
-  { id: 102, name: '이준혁', grade: '중3', month: '6월', pct: 65, files: 3 },
-  { id: 103, name: '박민아', grade: '중1', month: '3월', pct: 20, files: 0 },
-  { id: 104, name: '최현우', grade: '중2', month: '5월', pct: 50, files: 2 },
-  { id: 105, name: '정수빈', grade: '중3', month: '8월', pct: 80, files: 4 },
-  { id: 106, name: '강지유', grade: '중1', month: '2월', pct: 10, files: 0 },
-  { id: 107, name: '윤채원', grade: '중2', month: '4월', pct: 45, files: 2 },
-  { id: 108, name: '임도윤', grade: '중3', month: '9월', pct: 90, files: 5 },
-  { id: 109, name: '한지민', grade: '중1', month: '3월', pct: 15, files: 0 },
-  { id: 110, name: '오서현', grade: '중2', month: '6월', pct: 55, files: 2 },
-]
+import { useAcademyStudents } from '../../_hooks/useAcademyStudents'
 
 export default function Dashboard() {
   const academy = useAtomValue(academyState)
@@ -56,6 +21,9 @@ export default function Dashboard() {
 
   const isMiddle = schoolTab === 'middle'
 
+  // ✅ Supabase에서 학원 학생 목록 조회
+  const { data: studentsData, isLoading, error } = useAcademyStudents(schoolTab)
+
   // 동적 컬러 (중등=초록, 고등=파랑)
   const theme = isMiddle ? {
     accent: '#059669',
@@ -73,17 +41,24 @@ export default function Dashboard() {
     gradient: 'linear-gradient(135deg, #1E3A8A, #2563EB)',
   }
 
-  const allStudents = isMiddle ? MIDDLE_STUDENTS : HIGH_STUDENTS
+  // 실제 학생 목록 (진행률/파일수는 추후 RPC로 집계)
+  const allStudents = (studentsData ?? []).map(p => ({
+    id: p.id,
+    name: p.name ?? '이름없음',
+    grade: p.grade ?? '-',
+    school: p.school ?? '',
+    pct: 0,      // TODO: RPC로 집계
+    files: 0,    // TODO: RPC로 집계
+  }))
 
+  // 원장은 전체, 선생님은 담당만 (teachers는 아직 DB 연동 X, 일단 전체 반환)
   const myStudents = isOwner
     ? allStudents
-    : allStudents.filter(s => {
-        const myTeacher = teachers.find(t => t.id === academy.teacherId)
-        return myTeacher?.assignedStudents.includes(s.id)
-      })
+    : allStudents // TODO: teacher assignment DB 연동 후 필터링
 
-  const assignedIds = teachers.flatMap(t => t.assignedStudents)
-  const unassignedStudents = allStudents.filter(s => !assignedIds.includes(s.id))
+  // 미배정 학생 (teachers DB 연동 전에는 빈 배열로 처리)
+  const unassignedStudents: typeof allStudents = []
+
   const recentStudents = myStudents.slice(0, 20)
 
   const handleCopy = () => {
@@ -94,9 +69,9 @@ export default function Dashboard() {
 
   const stats = [
     { label: isOwner ? '전체 학생' : '담당 학생', val: `${myStudents.length}명`, accent: true },
-    { label: '이번 달 평균 진행률', val: myStudents.length > 0 ? `${Math.round(myStudents.reduce((a, s) => a + s.pct, 0) / myStudents.length)}%` : '0%', accent: false },
-    { label: '완료 미션', val: '142', accent: false },
-    { label: '업로드 파일', val: `${myStudents.reduce((a, s) => a + s.files, 0)}개`, accent: false },
+    { label: '이번 달 평균 진행률', val: '-', accent: false },
+    { label: '완료 미션', val: '-', accent: false },
+    { label: '업로드 파일', val: '-', accent: false },
   ]
 
   return (
@@ -139,6 +114,14 @@ export default function Dashboard() {
             >
               🌱 중등
             </button>
+          </div>
+        )}
+
+        {/* 에러 배너 */}
+        {error && (
+          <div className="rounded-xl px-5 py-3.5 mb-4 bg-red-50 border border-red-200">
+            <div className="text-[13px] font-bold text-red-700">⚠️ 학생 목록을 불러오지 못했어요</div>
+            <div className="text-[11px] text-red-600 mt-1">{(error as Error).message}</div>
           </div>
         )}
 
@@ -253,18 +236,27 @@ export default function Dashboard() {
             </button>
           </div>
 
-          {recentStudents.length === 0 ? (
+          {/* 로딩 */}
+          {isLoading ? (
+            <div className="px-10 py-12 text-center">
+              <div className="inline-block w-6 h-6 border-2 border-gray-200 rounded-full animate-spin mb-3"
+                   style={{ borderTopColor: theme.accent }} />
+              <div className="text-[13px] text-ink-secondary font-medium">학생 목록을 불러오는 중...</div>
+            </div>
+          ) : recentStudents.length === 0 ? (
             <div className="px-10 py-10 text-center">
               <div className="text-3xl mb-2">📋</div>
               <div className="text-[13px] text-ink-secondary font-medium">
-                담당 학생이 없어요. 원장님께 학생 배정을 요청해주세요.
+                {isOwner
+                  ? `아직 등록된 ${isMiddle ? '중등' : '고등'} 학생이 없어요. 학생 관리에서 등록해주세요.`
+                  : '담당 학생이 없어요. 원장님께 학생 배정을 요청해주세요.'}
               </div>
             </div>
           ) : (
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-[#F8FAFC]">
-                  {['학생', '학년', '현재 월', '진행률', '파일'].map((h, i) => (
+                  {['학생', '학년', '학교', '진행률', '파일'].map((h, i) => (
                     <th
                       key={i}
                       className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line"
@@ -300,7 +292,7 @@ export default function Dashboard() {
                         {s.grade}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-[13px] font-semibold text-ink">{s.month}</td>
+                    <td className="px-5 py-3 text-[13px] font-semibold text-ink-secondary">{s.school || '-'}</td>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
                         <div className="w-[100px] h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -308,7 +300,7 @@ export default function Dashboard() {
                             className="h-full rounded-full transition-all"
                             style={{
                               width: `${s.pct}%`,
-                              color: theme.accent,
+                              background: theme.accent,
                             }}
                           />
                         </div>

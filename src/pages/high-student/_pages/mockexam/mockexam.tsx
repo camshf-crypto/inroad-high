@@ -163,21 +163,21 @@ const MAJOR_QUESTIONS: Record<string, any[]> = {
   ],
 }
 
-const TYPE_COLOR: Record<string, any> = {
-  '자기소개': { bg: '#EEF2FF', color: '#3B5BDB', border: '#BAC8FF' },
-  '지원동기': { bg: '#EEF2FF', color: '#3B5BDB', border: '#BAC8FF' },
-  '인성': { bg: '#FFF3E8', color: '#D97706', border: '#FDBA74' },
-  '전공': { bg: '#F0FDF4', color: '#059669', border: '#6EE7B7' },
-  '생기부': { bg: '#F5F3FF', color: '#7C3AED', border: '#DDD6FE' },
-  '학업': { bg: '#F0FDF4', color: '#059669', border: '#6EE7B7' },
-  '진로': { bg: '#FFF7ED', color: '#D97706', border: '#FDBA74' },
-  '탐구': { bg: '#F0FDF4', color: '#059669', border: '#6EE7B7' },
-  '독서': { bg: '#FFF3E8', color: '#D97706', border: '#FDBA74' },
-  '성장': { bg: '#ECFDF5', color: '#059669', border: '#6EE7B7' },
-  '활동': { bg: '#EEF2FF', color: '#3B5BDB', border: '#BAC8FF' },
-  '전공연계': { bg: '#F5F3FF', color: '#7C3AED', border: '#DDD6FE' },
-  '기출': { bg: '#F5F3FF', color: '#7C3AED', border: '#DDD6FE' },
-  '학업연계': { bg: '#F0FDF4', color: '#059669', border: '#6EE7B7' },
+const TYPE_COLOR: Record<string, string> = {
+  '자기소개': 'bg-brand-high-pale text-brand-high-dark border-brand-high-light',
+  '지원동기': 'bg-brand-high-pale text-brand-high-dark border-brand-high-light',
+  '인성': 'bg-amber-50 text-amber-700 border-amber-200',
+  '전공': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  '생기부': 'bg-purple-50 text-purple-700 border-purple-200',
+  '학업': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  '진로': 'bg-amber-50 text-amber-700 border-amber-200',
+  '탐구': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  '독서': 'bg-amber-50 text-amber-700 border-amber-200',
+  '성장': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  '활동': 'bg-brand-high-pale text-brand-high-dark border-brand-high-light',
+  '전공연계': 'bg-purple-50 text-purple-700 border-purple-200',
+  '기출': 'bg-purple-50 text-purple-700 border-purple-200',
+  '학업연계': 'bg-emerald-50 text-emerald-700 border-emerald-200',
 }
 
 const initExamData = (grade: string) => {
@@ -232,7 +232,6 @@ export default function MockExam() {
   const selQ = mainQuestions.find(q => q.id === selMainQ)
   const selAns = selQ ? curExam?.mainAnswers[selQ.id] : null
 
-  // 면접 전부 완료 체크 (본 질문 + 꼬리 1개)
   const allMainDone = mainQuestions.every(q => {
     const ans = curExam?.mainAnswers[q.id]
     return ans?.submittedMain && ans?.submittedTail
@@ -241,7 +240,6 @@ export default function MockExam() {
   const answeredCount = mainQuestions.filter(q => curExam?.mainAnswers[q.id]?.submittedMain).length
   const majorAnsweredCount = majorQuestions.filter(q => curExam?.majorAnswers[q.id]?.answer?.trim()).length
 
-  // 본 질문 제출
   const submitMain = (qId: number) => {
     if (!inputAnswer.trim()) return
     setExamData(prev => {
@@ -254,7 +252,6 @@ export default function MockExam() {
     setInputAnswer('')
   }
 
-  // 꼬리질문 제출
   const submitTail = (qId: number) => {
     if (!inputTail.trim()) return
     setExamData(prev => {
@@ -266,7 +263,6 @@ export default function MockExam() {
     setInputTail('')
   }
 
-  // 전공특화 답변
   const updateMajorAnswer = (qId: number, value: string) => {
     setExamData(prev => {
       const next = JSON.parse(JSON.stringify(prev))
@@ -282,165 +278,242 @@ export default function MockExam() {
   }
 
   return (
-    <div style={{ height: 'calc(100vh - 50px)', overflow: 'hidden', padding: '20px 28px', boxSizing: 'border-box' as const, display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div className="h-full overflow-hidden px-6 py-5 flex flex-col gap-3 font-sans text-ink">
 
       {/* 헤더 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+      <div className="flex items-center justify-between flex-shrink-0 flex-wrap gap-3">
         <div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: '#1a1a1a' }}>면접 모의고사</div>
-          <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{student?.name} · {grade} · 분기별 실전 면접 대비</div>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <div style={{ background: '#EEF2FF', borderRadius: 8, padding: '6px 14px', textAlign: 'center' as const }}>
-            <div style={{ fontSize: 10, color: '#6B7280' }}>면접 답변</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#3B5BDB' }}>{answeredCount}/{mainQuestions.length}</div>
+          <div className="text-[18px] font-extrabold text-ink tracking-tight">면접 모의고사</div>
+          <div className="text-[12px] text-ink-secondary mt-0.5 font-medium">
+            {student?.name} · {grade} · 분기별 실전 면접 대비
           </div>
-          <div style={{ background: '#F0FDF4', borderRadius: 8, padding: '6px 14px', textAlign: 'center' as const }}>
-            <div style={{ fontSize: 10, color: '#6B7280' }}>전공 답변</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#059669' }}>{majorAnsweredCount}/{majorQuestions.length}</div>
+        </div>
+        <div className="flex gap-2">
+          <div className="bg-brand-high-pale border border-brand-high-light rounded-xl px-4 py-2 text-center">
+            <div className="text-[10px] text-ink-secondary font-semibold">면접 답변</div>
+            <div className="text-[15px] font-extrabold text-brand-high-dark">{answeredCount}/{mainQuestions.length}</div>
+          </div>
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2 text-center">
+            <div className="text-[10px] text-ink-secondary font-semibold">전공 답변</div>
+            <div className="text-[15px] font-extrabold text-emerald-700">{majorAnsweredCount}/{majorQuestions.length}</div>
           </div>
         </div>
       </div>
 
       {/* 시험 일정 탭 */}
-      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+      <div className="flex gap-2 flex-shrink-0">
         {schedule.map(s => {
           const unlocked = isUnlocked(s.period)
           const isSelected = selPeriod === s.period
           const answered = (MAIN_QUESTIONS[grade]?.[s.period] || []).filter(q => examData[s.period]?.mainAnswers[q.id]?.submittedMain).length
           const total = (MAIN_QUESTIONS[grade]?.[s.period] || []).length
           return (
-            <div key={s.period}
+            <button
+              key={s.period}
               onClick={() => { if (unlocked) { setSelPeriod(s.period); setSelMainQ(1); setActiveSection('main'); setInputAnswer(''); setInputTail('') } }}
-              style={{ flex: 1, border: `0.5px solid ${isSelected ? '#3B5BDB' : unlocked ? '#E5E7EB' : '#F3F4F6'}`, borderRadius: 8, padding: '6px 10px', cursor: unlocked ? 'pointer' : 'not-allowed', background: isSelected ? '#EEF2FF' : unlocked ? '#fff' : '#F9FAFB', opacity: unlocked ? 1 : 0.5 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: isSelected ? '#3B5BDB' : unlocked ? '#1a1a1a' : '#9CA3AF' }}>
+              disabled={!unlocked}
+              className={`flex-1 border rounded-xl px-3 py-2 text-left transition-all ${
+                isSelected
+                  ? 'border-brand-high bg-brand-high-pale shadow-[0_2px_8px_rgba(37,99,235,0.15)]'
+                  : unlocked
+                    ? 'border-line bg-white hover:border-brand-high-light'
+                    : 'border-line-light bg-gray-50 cursor-not-allowed opacity-50'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className={`text-[12px] font-bold ${
+                  isSelected ? 'text-brand-high-dark' : unlocked ? 'text-ink' : 'text-ink-muted'
+                }`}>
                   {!unlocked && '🔒 '}{s.period}
                 </div>
-                <span style={{ fontSize: 10, color: answered === total && unlocked ? '#059669' : '#6B7280', background: answered === total && unlocked ? '#ECFDF5' : '#F3F4F6', padding: '1px 6px', borderRadius: 99 }}>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  answered === total && unlocked
+                    ? 'text-emerald-700 bg-emerald-50'
+                    : 'text-ink-secondary bg-gray-100'
+                }`}>
                   {unlocked ? `${answered}/${total}` : '잠금'}
                 </span>
               </div>
-              <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 1 }}>{s.type} · {s.level}</div>
-              {s.aiGenerated && unlocked && <div style={{ fontSize: 9, color: '#7C3AED', background: '#F5F3FF', padding: '1px 5px', borderRadius: 99, marginTop: 2, display: 'inline-block' }}>✨ AI</div>}
-            </div>
+              <div className="text-[10px] text-ink-muted mt-0.5 font-medium">{s.type} · {s.level}</div>
+              {s.aiGenerated && unlocked && (
+                <div className="text-[9px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded-full mt-1 inline-block">
+                  ✨ AI
+                </div>
+              )}
+            </button>
           )
         })}
       </div>
 
       {/* 섹션 탭 */}
-      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+      <div className="flex gap-2 flex-shrink-0">
         {[
           { key: 'main', label: `📝 면접 질문 (${mainQuestions.length}문항)` },
           { key: 'major', label: `🧠 전공특화 (${majorQuestions.length}문항)` },
         ].map(tab => {
           const locked = tab.key === 'major' && !allMainDone
+          const isActive = activeSection === tab.key
           return (
-            <div key={tab.key}
+            <button
+              key={tab.key}
               onClick={() => { if (!locked) setActiveSection(tab.key as any) }}
-              style={{ padding: '7px 16px', borderRadius: 99, fontSize: 12, cursor: locked ? 'not-allowed' : 'pointer', background: activeSection === tab.key ? '#3B5BDB' : locked ? '#F3F4F6' : '#fff', color: activeSection === tab.key ? '#fff' : locked ? '#9CA3AF' : '#6B7280', border: `0.5px solid ${activeSection === tab.key ? '#3B5BDB' : locked ? '#F3F4F6' : '#E5E7EB'}`, fontWeight: activeSection === tab.key ? 500 : 400, display: 'flex', alignItems: 'center', gap: 4 }}>
+              disabled={locked}
+              className={`px-4 py-1.5 rounded-full text-[12px] border transition-all flex items-center gap-1 ${
+                isActive
+                  ? 'bg-brand-high text-white border-brand-high font-semibold shadow-[0_2px_8px_rgba(37,99,235,0.15)]'
+                  : locked
+                    ? 'bg-gray-100 text-ink-muted border-line-light cursor-not-allowed'
+                    : 'bg-white text-ink-secondary border-line hover:border-brand-high-light font-medium'
+              }`}
+            >
               {locked && '🔒 '}{tab.label}
-              {locked && <span style={{ fontSize: 10, color: '#9CA3AF' }}>(면접 완료 후 해제)</span>}
-            </div>
+              {locked && <span className="text-[10px] text-ink-muted">(면접 완료 후)</span>}
+            </button>
           )
         })}
       </div>
 
       {/* 면접 질문 섹션 */}
       {activeSection === 'main' && (
-        <div style={{ display: 'flex', gap: 14, flex: 1, overflow: 'hidden' }}>
+        <div className="flex gap-4 flex-1 overflow-hidden">
 
-          {/* 왼쪽 질문 목록 */}
-          <div style={{ width: 220, flexShrink: 0, background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ padding: '10px 14px', borderBottom: '0.5px solid #E5E7EB', flexShrink: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#1a1a1a' }}>본 질문 {mainQuestions.length}개</div>
-              <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>답변 제출 후 꼬리질문 공개</div>
+          {/* 왼쪽: 질문 목록 */}
+          <div className="w-[240px] flex-shrink-0 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
+            <div className="px-3 py-2.5 border-b border-line-light flex-shrink-0">
+              <div className="text-[13px] font-bold text-ink">본 질문 {mainQuestions.length}개</div>
+              <div className="text-[11px] text-ink-secondary mt-0.5 font-medium">답변 제출 후 꼬리질문 공개</div>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px' }}>
+            <div className="flex-1 overflow-y-auto p-2.5">
               {mainQuestions.map((q, i) => {
-                const tc = TYPE_COLOR[q.type] || TYPE_COLOR['인성']
                 const ans = curExam?.mainAnswers[q.id]
                 const isSelected = selMainQ === q.id
                 const isFullDone = ans?.submittedMain && ans?.submittedTail
                 return (
-                  <div key={q.id} onClick={() => selectQuestion(q.id)}
-                    style={{ border: `0.5px solid ${isSelected ? '#3B5BDB' : '#E5E7EB'}`, borderRadius: 8, padding: '9px 11px', marginBottom: 6, cursor: 'pointer', background: isSelected ? '#EEF2FF' : '#fff' }}>
-                    <div style={{ display: 'flex', gap: 5, marginBottom: 4 }}>
-                      <span style={{ fontSize: 10, fontWeight: 600, color: '#3B5BDB', background: '#EEF2FF', padding: '1px 6px', borderRadius: 99 }}>Q{i + 1}</span>
-                      <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99, background: tc.bg, color: tc.color, border: `0.5px solid ${tc.border}` }}>{q.type}</span>
+                  <button
+                    key={q.id}
+                    onClick={() => selectQuestion(q.id)}
+                    className={`w-full border rounded-xl px-3 py-2.5 mb-1.5 text-left transition-all ${
+                      isSelected
+                        ? 'border-brand-high bg-brand-high-pale shadow-[0_2px_8px_rgba(37,99,235,0.1)]'
+                        : 'border-line bg-white hover:border-brand-high-light hover:shadow-sm'
+                    }`}
+                  >
+                    <div className="flex gap-1 mb-1">
+                      <span className="text-[10px] font-bold text-brand-high-dark bg-brand-high-pale px-2 py-0.5 rounded-full">
+                        Q{i + 1}
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${TYPE_COLOR[q.type] || TYPE_COLOR['인성']}`}>
+                        {q.type}
+                      </span>
                     </div>
-                    <div style={{ fontSize: 11, color: '#1a1a1a', lineHeight: 1.4, marginBottom: 4 }}>{q.text}</div>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      {isFullDone
-                        ? <span style={{ fontSize: 9, color: '#059669', background: '#ECFDF5', padding: '1px 5px', borderRadius: 99, border: '0.5px solid #6EE7B7' }}>✓ 완료</span>
-                        : ans?.submittedMain
-                          ? <span style={{ fontSize: 9, color: '#7C3AED', background: '#F5F3FF', padding: '1px 5px', borderRadius: 99 }}>꼬리 대기</span>
-                          : <span style={{ fontSize: 9, color: '#D97706', background: '#FFF3E8', padding: '1px 5px', borderRadius: 99 }}>미작성</span>
-                      }
-                      {ans?.feedback && <span style={{ fontSize: 9, color: '#3B5BDB', background: '#EEF2FF', padding: '1px 5px', borderRadius: 99 }}>피드백</span>}
+                    <div className="text-[11px] text-ink leading-relaxed mb-1.5">{q.text}</div>
+                    <div className="flex gap-1 flex-wrap">
+                      {isFullDone ? (
+                        <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                          ✓ 완료
+                        </span>
+                      ) : ans?.submittedMain ? (
+                        <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">
+                          꼬리 대기
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
+                          미작성
+                        </span>
+                      )}
+                      {ans?.feedback && (
+                        <span className="text-[9px] font-bold text-brand-high-dark bg-brand-high-pale px-2 py-0.5 rounded-full">
+                          피드백
+                        </span>
+                      )}
                     </div>
-                  </div>
+                  </button>
                 )
               })}
             </div>
           </div>
 
-          {/* 오른쪽 답변 */}
-          <div style={{ flex: 1, background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+          {/* 오른쪽: 답변 */}
+          <div className="flex-1 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)] min-w-0">
             {!selQ ? (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', fontSize: 13 }}>질문을 선택해주세요</div>
+              <div className="flex-1 flex items-center justify-center text-ink-muted text-[13px]">
+                질문을 선택해주세요
+              </div>
             ) : (
               <>
-                <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #E5E7EB', flexShrink: 0, background: '#F8F9FF' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: '#3B5BDB', background: '#EEF2FF', padding: '2px 8px', borderRadius: 99 }}>Q{mainQuestions.findIndex(q => q.id === selQ.id) + 1}</span>
-                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: (TYPE_COLOR[selQ.type] || TYPE_COLOR['인성']).bg, color: (TYPE_COLOR[selQ.type] || TYPE_COLOR['인성']).color, border: `0.5px solid ${(TYPE_COLOR[selQ.type] || TYPE_COLOR['인성']).border}` }}>{selQ.type}</span>
-                    {selQ.aiGenerated && <span style={{ fontSize: 10, color: '#7C3AED', background: '#F5F3FF', padding: '2px 7px', borderRadius: 99 }}>✨ AI 생성</span>}
+                {/* 질문 헤더 */}
+                <div className="px-5 py-3 border-b border-line-light flex-shrink-0 bg-brand-high-pale/30">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <span className="text-[11px] font-bold text-brand-high-dark bg-brand-high-pale px-2.5 py-1 rounded-full">
+                      Q{mainQuestions.findIndex(q => q.id === selQ.id) + 1}
+                    </span>
+                    <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${TYPE_COLOR[selQ.type] || TYPE_COLOR['인성']}`}>
+                      {selQ.type}
+                    </span>
+                    {selQ.aiGenerated && (
+                      <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-1 rounded-full">
+                        ✨ AI 생성
+                      </span>
+                    )}
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', lineHeight: 1.6 }}>{selQ.text}</div>
+                  <div className="text-[15px] font-bold text-ink leading-relaxed">{selQ.text}</div>
                 </div>
 
-                <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {/* 답변 영역 */}
+                <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-gray-50">
 
                   {/* 본 질문 답변 */}
                   {!selAns?.submittedMain ? (
-                    <div style={{ border: '0.5px solid #E5E7EB', borderRadius: 10, padding: '12px 14px' }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: '#1a1a1a', marginBottom: 8 }}>✏️ 내 답변 작성</div>
+                    <div className="bg-white border border-line rounded-xl p-4">
+                      <div className="text-[12px] font-bold text-ink mb-2">✏️ 내 답변 작성</div>
                       <textarea
                         value={inputAnswer}
                         onChange={e => setInputAnswer(e.target.value)}
                         placeholder="답변을 작성해주세요..."
                         rows={4}
-                        style={{ width: '100%', border: '0.5px solid #E5E7EB', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none', resize: 'vertical' as const, fontFamily: 'inherit', lineHeight: 1.7, boxSizing: 'border-box' as const }} />
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-                        <span style={{ fontSize: 10, color: '#9CA3AF' }}>{inputAnswer.length}자</span>
-                        <button onClick={() => submitMain(selQ.id)}
+                        className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] outline-none resize-y leading-relaxed focus:border-brand-high transition-colors font-sans"
+                      />
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-[10px] text-ink-muted font-medium">{inputAnswer.length}자</span>
+                        <button
+                          onClick={() => submitMain(selQ.id)}
                           disabled={!inputAnswer.trim()}
-                          style={{ padding: '7px 20px', background: inputAnswer.trim() ? '#3B5BDB' : '#E5E7EB', color: inputAnswer.trim() ? '#fff' : '#9CA3AF', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: inputAnswer.trim() ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
+                          className={`px-5 py-2 rounded-lg text-[12px] font-bold transition-all ${
+                            inputAnswer.trim()
+                              ? 'bg-brand-high text-white hover:bg-brand-high-dark shadow-[0_2px_8px_rgba(37,99,235,0.2)]'
+                              : 'bg-gray-200 text-ink-muted cursor-not-allowed'
+                          }`}
+                        >
                           제출 → 꼬리질문 받기
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <div style={{ background: '#F0FDF4', border: '0.5px solid #6EE7B7', borderRadius: 10, padding: '12px 14px' }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: '#059669', marginBottom: 6 }}>✓ 제출된 답변</div>
-                      <div style={{ fontSize: 13, color: '#1a1a1a', lineHeight: 1.8 }}>{selAns.answer}</div>
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                      <div className="text-[12px] font-bold text-emerald-700 mb-1.5">✓ 제출된 답변</div>
+                      <div className="text-[13px] text-ink leading-relaxed">{selAns.answer}</div>
                       {selAns.feedback && (
-                        <div style={{ marginTop: 10, background: '#EEF2FF', border: '0.5px solid #BAC8FF', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#1E3A8A', lineHeight: 1.7 }}>
-                          💬 선생님 피드백: {selAns.feedback}
+                        <div className="mt-3 bg-brand-high-pale border border-brand-high-light rounded-lg px-3 py-2 text-[12px] text-brand-high-dark leading-relaxed">
+                          💬 <span className="font-bold">선생님 피드백:</span> {selAns.feedback}
                         </div>
                       )}
                     </div>
                   )}
 
-                  {/* 꼬리질문 - 본 질문 제출 후 공개 */}
+                  {/* 꼬리질문 */}
                   {selAns?.revealedTail && (
-                    <div style={{ border: `0.5px solid ${selAns.submittedTail ? '#6EE7B7' : '#BAC8FF'}`, borderRadius: 10, padding: '12px 14px', background: selAns.submittedTail ? '#F0FDF4' : '#F8F9FF' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                        <span style={{ fontSize: 10, fontWeight: 600, color: '#7C3AED', background: '#F5F3FF', padding: '2px 7px', borderRadius: 99, border: '0.5px solid #DDD6FE' }}>꼬리질문</span>
-                        <span style={{ fontSize: 13, color: '#374151', fontWeight: 600 }}>
-                          {TAIL_QUESTIONS[selQ.type] || '이 답변에서 가장 중요하게 생각한 부분은 무엇인가요?'}
+                    <div className={`border rounded-xl p-4 ${
+                      selAns.submittedTail
+                        ? 'border-emerald-200 bg-emerald-50'
+                        : 'border-purple-200 bg-purple-50/30'
+                    }`}>
+                      <div className="flex items-start gap-2 mb-2">
+                        <span className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-1 rounded-full flex-shrink-0">
+                          꼬리질문
                         </span>
+                        <div className="text-[13px] text-ink font-semibold leading-relaxed">
+                          {TAIL_QUESTIONS[selQ.type] || '이 답변에서 가장 중요하게 생각한 부분은 무엇인가요?'}
+                        </div>
                       </div>
                       {!selAns.submittedTail ? (
                         <>
@@ -449,21 +522,28 @@ export default function MockExam() {
                             onChange={e => setInputTail(e.target.value)}
                             placeholder="꼬리질문 답변을 작성해주세요..."
                             rows={3}
-                            style={{ width: '100%', border: '0.5px solid #E5E7EB', borderRadius: 8, padding: '8px 12px', fontSize: 12, outline: 'none', resize: 'none' as const, fontFamily: 'inherit', lineHeight: 1.6, boxSizing: 'border-box' as const }} />
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-                            <span style={{ fontSize: 10, color: '#9CA3AF' }}>{inputTail.length}자</span>
-                            <button onClick={() => submitTail(selQ.id)}
+                            className="w-full border border-line rounded-lg px-3 py-2.5 text-[12px] outline-none resize-none leading-relaxed focus:border-purple-500 transition-colors font-sans bg-white"
+                          />
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-[10px] text-ink-muted font-medium">{inputTail.length}자</span>
+                            <button
+                              onClick={() => submitTail(selQ.id)}
                               disabled={!inputTail.trim()}
-                              style={{ padding: '6px 16px', background: inputTail.trim() ? '#7C3AED' : '#E5E7EB', color: inputTail.trim() ? '#fff' : '#9CA3AF', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: inputTail.trim() ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
+                              className={`px-4 py-1.5 rounded-lg text-[12px] font-bold transition-all ${
+                                inputTail.trim()
+                                  ? 'bg-purple-600 text-white hover:bg-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.2)]'
+                                  : 'bg-gray-200 text-ink-muted cursor-not-allowed'
+                              }`}
+                            >
                               제출 완료
                             </button>
                           </div>
                         </>
                       ) : (
                         <>
-                          <div style={{ fontSize: 12, color: '#1a1a1a', lineHeight: 1.7 }}>{selAns.tailAnswer}</div>
+                          <div className="text-[12px] text-ink leading-relaxed">{selAns.tailAnswer}</div>
                           {selAns.tailFeedback && (
-                            <div style={{ background: '#EEF2FF', border: '0.5px solid #BAC8FF', borderRadius: 6, padding: '6px 10px', fontSize: 11, color: '#1E3A8A', lineHeight: 1.7, marginTop: 8 }}>
+                            <div className="bg-brand-high-pale border border-brand-high-light rounded-md px-3 py-2 text-[11px] text-brand-high-dark leading-relaxed mt-2">
                               💬 {selAns.tailFeedback}
                             </div>
                           )}
@@ -474,9 +554,9 @@ export default function MockExam() {
 
                   {/* 완료 메시지 */}
                   {selAns?.submittedMain && selAns?.submittedTail && (
-                    <div style={{ background: '#ECFDF5', border: '0.5px solid #6EE7B7', borderRadius: 10, padding: '12px 14px', textAlign: 'center' as const }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#059669' }}>✓ 이 질문 완료!</div>
-                      <div style={{ fontSize: 11, color: '#6B7280', marginTop: 4 }}>다음 질문으로 넘어가주세요</div>
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+                      <div className="text-[14px] font-bold text-emerald-700">✓ 이 질문 완료!</div>
+                      <div className="text-[11px] text-ink-secondary mt-1 font-medium">다음 질문으로 넘어가주세요</div>
                     </div>
                   )}
                 </div>
@@ -488,37 +568,51 @@ export default function MockExam() {
 
       {/* 전공특화 섹션 */}
       {activeSection === 'major' && (
-        <div style={{ flex: 1, overflow: 'hidden', background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '12px 16px', borderBottom: '0.5px solid #E5E7EB', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="flex-1 overflow-hidden bg-white border border-line rounded-2xl flex flex-col shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
+          <div className="px-5 py-3 border-b border-line-light flex-shrink-0 flex items-center justify-between">
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>전공특화 문제 ({curSchedule?.level})</div>
-              <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>총 {majorQuestions.length}문항 · 답변을 작성해주세요</div>
+              <div className="text-[14px] font-bold text-ink tracking-tight">전공특화 문제 ({curSchedule?.level})</div>
+              <div className="text-[11px] text-ink-secondary mt-0.5 font-medium">
+                총 {majorQuestions.length}문항 · 답변을 작성해주세요
+              </div>
             </div>
-            <div style={{ fontSize: 12, color: '#3B5BDB', fontWeight: 600 }}>
+            <div className="text-[13px] text-brand-high-dark font-bold">
               {majorAnsweredCount}/{majorQuestions.length} 작성완료
             </div>
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2.5">
             {majorQuestions.map((q, i) => {
               const ans = curExam?.majorAnswers[q.id]
               return (
-                <div key={q.id} style={{ border: '0.5px solid #E5E7EB', borderRadius: 10, padding: '12px 14px', background: ans?.answer?.trim() ? '#F0FDF4' : '#fff' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: '#3B5BDB', background: '#EEF2FF', padding: '2px 8px', borderRadius: 99, flexShrink: 0 }}>Q{i + 1}</span>
-                    <span style={{ fontSize: 13, color: '#1a1a1a', fontWeight: 500, lineHeight: 1.5 }}>{q.q}</span>
+                <div
+                  key={q.id}
+                  className={`border rounded-xl px-4 py-3 transition-all ${
+                    ans?.answer?.trim()
+                      ? 'border-emerald-200 bg-emerald-50'
+                      : 'border-line bg-white'
+                  }`}
+                >
+                  <div className="flex items-start gap-2 mb-2">
+                    <span className="text-[11px] font-bold text-brand-high-dark bg-brand-high-pale px-2 py-1 rounded-full flex-shrink-0">
+                      Q{i + 1}
+                    </span>
+                    <span className="text-[13px] text-ink font-semibold leading-relaxed">{q.q}</span>
                   </div>
                   <textarea
                     value={ans?.answer || ''}
                     onChange={e => updateMajorAnswer(q.id, e.target.value)}
                     placeholder="답변을 작성해주세요..."
                     rows={2}
-                    style={{ width: '100%', border: '0.5px solid #E5E7EB', borderRadius: 7, padding: '8px 10px', fontSize: 12, outline: 'none', resize: 'none' as const, fontFamily: 'inherit', lineHeight: 1.6, boxSizing: 'border-box' as const }} />
+                    className="w-full border border-line rounded-lg px-3 py-2 text-[12px] outline-none resize-none leading-relaxed focus:border-brand-high transition-colors font-sans bg-white"
+                  />
                   {ans?.score !== null && ans?.score !== undefined && (
-                    <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: ans.score === 100 ? '#059669' : ans.score === 50 ? '#D97706' : '#EF4444' }}>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className={`text-[12px] font-bold ${
+                        ans.score === 100 ? 'text-emerald-700' : ans.score === 50 ? 'text-amber-700' : 'text-red-600'
+                      }`}>
                         {ans.score === 100 ? '○ 정답' : ans.score === 50 ? '△ 부분정답' : '✕ 오답'}
                       </span>
-                      {ans.feedback && <span style={{ fontSize: 11, color: '#6B7280' }}>{ans.feedback}</span>}
+                      {ans.feedback && <span className="text-[11px] text-ink-secondary font-medium">{ans.feedback}</span>}
                     </div>
                   )}
                 </div>
