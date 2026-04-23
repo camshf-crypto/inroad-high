@@ -1,11 +1,13 @@
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { academyState, tokenState, studentState } from '../_store/auth'
+import { supabase } from '../../../lib/supabase'
 
 const MENUS = [
   { path: '/middle-student/roadmap', label: '내 커리큘럼', icon: '⊞' },
   { path: '/middle-student/lesson', label: '수업 영상', icon: '🎬' },
   { path: '/middle-student/homework', label: '숙제', icon: '📝' },
+  { path: '/middle-student/suhaeng', label: '수행평가', icon: '🎯', isNew: true },
   { path: '/middle-student/book', label: '독서리스트', icon: '📚' },
   { path: '/middle-student/expect', label: '자소서 · 예상질문', icon: '💬' },
   { path: '/middle-student/past', label: '기출문제', icon: '🎓' },
@@ -22,7 +24,10 @@ export default function MiddleLayout() {
   const setStudent = useSetAtom(studentState)
   const setAcademy = useSetAtom(academyState)
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Supabase 로그아웃
+    await supabase.auth.signOut()
+    // Jotai state 초기화
     setToken({ accessToken: undefined, expiresIn: undefined })
     setStudent(null)
     setAcademy({ academyCode: undefined, academyName: undefined, teacherName: undefined, teacherId: undefined })
@@ -65,14 +70,19 @@ export default function MiddleLayout() {
               <button
                 key={m.path}
                 onClick={() => navigate(m.path)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg mb-0.5 transition-all text-[13px] ${
+                className={`relative w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg mb-0.5 transition-all text-[13px] ${
                   isActive
                     ? 'bg-brand-middle-pale text-brand-middle-dark font-semibold'
                     : 'text-ink-secondary hover:bg-gray-50 hover:text-ink font-medium'
                 }`}
               >
                 <span className="text-[15px]">{m.icon}</span>
-                {m.label}
+                <span className="flex-1 text-left">{m.label}</span>
+                {m.isNew && (
+                  <span className="text-[9px] font-extrabold text-white bg-gradient-to-r from-amber-500 to-orange-500 px-1.5 py-0.5 rounded-full tracking-tight shadow-sm">
+                    NEW
+                  </span>
+                )}
               </button>
             )
           })}

@@ -39,6 +39,7 @@ import MiddleExpect from './pages/middle-student/_pages/expect/Expect'
 import MiddlePast from './pages/middle-student/_pages/past/Past'
 import MiddleSimulation from './pages/middle-student/_pages/simulation/Simulation'
 import MiddlePresentation from './pages/middle-student/_pages/presentation/Presentation'
+import MiddleSuhaeng from './pages/middle-student/_pages/suhaeng/Suhaeng'
 
 // Master
 import MasterLayout from './pages/master/_layout/Layout'
@@ -54,87 +55,99 @@ import MasterStaff from './pages/master/_pages/staff/Staff'
 import MasterLessons from './pages/master/_pages/lessons/Lessons'
 
 const router = createBrowserRouter([
-  // 루트 → admin 로그인
   {
     path: '/',
     element: <Navigate to="/admin/login" replace />,
   },
-
-  // ===== 학원 어드민 =====
-  { path: '/admin/login', element: <AdminLogin /> },
   {
-    path: '/admin',
-    element: <AdminLayout />,
+    path: 'admin',
     children: [
-      { index: true, element: <Dashboard /> },
-      { path: 'students', element: <Students /> },
-      { path: 'students/:id', element: <StudentDetail /> },
-      { path: 'middle-students', element: <Students /> },
-      { path: 'middle-students/:id', element: <StudentDetail /> },
-      { path: 'academy', element: <Academy /> },
-      { path: 'billing', element: <Billing /> },
-      { path: 'settings', element: <Settings /> },
-    ],
+      { path: 'login', element: <AdminLogin /> },
+      {
+        path: '',
+        element: <AdminLayout />,
+        children: [
+          { path: '', element: <Dashboard /> },
+          { path: 'students', element: <Students /> },
+          { path: 'students/:id', element: <StudentDetail /> },
+          { path: 'middle-students', element: <Students /> },
+          { path: 'middle-students/:id', element: <StudentDetail /> },
+          { path: 'academy', element: <Academy /> },
+          { path: 'billing', element: <Billing /> },
+          { path: 'settings', element: <Settings /> },
+        ]
+      }
+    ]
   },
-
-  // ===== 고등 학생 =====
-  { path: '/high-student/login', element: <StudentLogin /> },
-  { path: '/high-student/signup', element: <StudentSignup /> },
   {
-    path: '/high-student',
-    element: <StudentLayout />,
+    path: 'high-student',
     children: [
-      { path: 'roadmap', element: <Roadmap /> },
-      { path: 'topic', element: <TopicList /> },
-      { path: 'book', element: <BookList /> },
-      { path: 'record', element: <Record /> },
-      { path: 'mockexam', element: <MockExam /> },
-      { path: 'connect', element: <Connect /> },
-      { path: 'expect', element: <Expect /> },
-      { path: 'past', element: <Past /> },
-      { path: 'simulation', element: <Simulation /> },
-      { path: 'presentation', element: <Presentation /> },
-      { path: 'major', element: <Major /> },
-      { path: 'major/grade', element: <Major /> },
-      { path: 'major/chapter', element: <Major /> },
-    ],
+      { path: 'login', element: <StudentLogin /> },
+      { path: 'signup', element: <StudentSignup /> },
+      {
+        path: '',
+        element: <StudentLayout />,
+        children: [
+          { path: 'roadmap', element: <Roadmap /> },
+          { path: 'topic', element: <TopicList /> },
+          { path: 'book', element: <BookList /> },
+          { path: 'record', element: <Record /> },
+          { path: 'mockexam', element: <MockExam /> },
+          { path: 'connect', element: <Connect /> },
+          { path: 'expect', element: <Expect /> },
+          { path: 'past', element: <Past /> },
+          { path: 'simulation', element: <Simulation /> },
+          { path: 'presentation', element: <Presentation /> },
+          { path: 'major', element: <Major /> },
+          { path: 'major/grade', element: <Major /> },
+          { path: 'major/chapter', element: <Major /> },
+        ]
+      }
+    ]
   },
-
-  // ===== 중등 학생 =====
-  { path: '/middle-student/login', element: <MiddleLogin /> },
-  { path: '/middle-student/signup', element: <MiddleSignup /> },
   {
-    path: '/middle-student',
-    element: <MiddleLayout />,
+    path: 'middle-student',
     children: [
-      { path: 'roadmap', element: <MiddleRoadmap /> },
-      { path: 'lesson', element: <MiddleLesson /> },
-      { path: 'homework', element: <MiddleHomework /> },
-      { path: 'book', element: <MiddleBookList /> },
-      { path: 'expect', element: <MiddleExpect /> },
-      { path: 'past', element: <MiddlePast /> },
-      { path: 'simulation', element: <MiddleSimulation /> },
-      { path: 'presentation', element: <MiddlePresentation /> },
-    ],
+      { path: 'login', element: <MiddleLogin /> },
+      { path: 'signup', element: <MiddleSignup /> },
+      {
+        path: '',
+        element: <MiddleLayout />,
+        children: [
+          { path: 'roadmap', element: <MiddleRoadmap /> },
+          { path: 'lesson', element: <MiddleLesson /> },
+          { path: 'homework', element: <MiddleHomework /> },
+          { path: 'suhaeng', element: <MiddleSuhaeng /> },
+          { path: 'book', element: <MiddleBookList /> },
+          { path: 'expect', element: <MiddleExpect /> },
+          { path: 'past', element: <MiddlePast /> },
+          { path: 'simulation', element: <MiddleSimulation /> },
+          { path: 'presentation', element: <MiddlePresentation /> },
+        ]
+      }
+    ]
   },
-
-  // ===== 마스터 (본사) =====
-  { path: '/master/login', element: <MasterLogin /> },
   {
-    path: '/master',
-    element: <MasterLayout />,
+    path: 'master',
     children: [
-      { index: true, element: <MasterDashboard /> },
-      { path: 'academies', element: <MasterAcademies /> },
-      { path: 'academies/:id', element: <MasterAcademyDetail /> },
-      { path: 'lessons', element: <MasterLessons /> },
-      { path: 'billing', element: <MasterBilling /> },
-      { path: 'notices', element: <MasterNotices /> },
-      { path: 'data', element: <MasterData /> },
-      { path: 'audit', element: <MasterAudit /> },
-      { path: 'staff', element: <MasterStaff /> },
-    ],
-  },
+      { path: 'login', element: <MasterLogin /> },
+      {
+        path: '',
+        element: <MasterLayout />,
+        children: [
+          { path: '', element: <MasterDashboard /> },
+          { path: 'academies', element: <MasterAcademies /> },
+          { path: 'academies/:id', element: <MasterAcademyDetail /> },
+          { path: 'lessons', element: <MasterLessons /> },
+          { path: 'billing', element: <MasterBilling /> },
+          { path: 'notices', element: <MasterNotices /> },
+          { path: 'data', element: <MasterData /> },
+          { path: 'audit', element: <MasterAudit /> },
+          { path: 'staff', element: <MasterStaff /> },
+        ]
+      }
+    ]
+  }
 ])
 
 export const Router = () => <RouterProvider router={router} />

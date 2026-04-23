@@ -1,211 +1,263 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAtomValue } from 'jotai'
 import { studentState, academyState } from '../../_store/auth'
 
-const TYPE_COLOR: Record<string, { cls: string; label: string }> = {
-    E: { cls: 'bg-[#EEF2FF] text-[#3B5BDB]', label: '표현' },
-    U: { cls: 'bg-amber-50 text-amber-700', label: '이해' },
-    S: { cls: 'bg-brand-middle-bg text-brand-middle-dark', label: '자기계발' },
-    M: { cls: 'bg-[#F5F3FF] text-[#7C3AED]', label: '면접' },
+const TYPE_COLOR: Record<string, { cls: string; label: string; icon: string }> = {
+    S:  { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: '수행평가', icon: '📝' },
+    P:  { cls: 'bg-indigo-50 text-indigo-700 border-indigo-200', label: '스피치', icon: '🎤' },
+    I:  { cls: 'bg-pink-50 text-pink-700 border-pink-200', label: '면접', icon: '🎯' },
+    J:  { cls: 'bg-amber-50 text-amber-700 border-amber-200', label: '자소서', icon: '📋' },
+    R:  { cls: 'bg-blue-50 text-blue-700 border-blue-200', label: '주제탐구', icon: '🔬' },
+    C:  { cls: 'bg-lime-50 text-lime-700 border-lime-200', label: '진로', icon: '🏫' },
+}
+
+const RATIO: Record<string, { label: string; pct: number; weeks: number; type: string }[]> = {
+    '중1': [
+        { label: '수행평가', pct: 40, weeks: 13, type: 'S' },
+        { label: '스피치',   pct: 20, weeks: 6,  type: 'P' },
+        { label: '자소서',   pct: 10, weeks: 3,  type: 'J' },
+        { label: '주제탐구', pct: 10, weeks: 3,  type: 'R' },
+        { label: '면접',     pct: 10, weeks: 3,  type: 'I' },
+        { label: '진로',     pct: 10, weeks: 4,  type: 'C' },
+    ],
+    '중2': [
+        { label: '수행평가', pct: 35, weeks: 11, type: 'S' },
+        { label: '스피치',   pct: 20, weeks: 6,  type: 'P' },
+        { label: '면접',     pct: 15, weeks: 5,  type: 'I' },
+        { label: '자소서',   pct: 15, weeks: 5,  type: 'J' },
+        { label: '주제탐구', pct: 10, weeks: 3,  type: 'R' },
+        { label: '진로',     pct: 5,  weeks: 2,  type: 'C' },
+    ],
+    '중3': [
+        { label: '면접',     pct: 50, weeks: 16, type: 'I' },
+        { label: '자소서',   pct: 15, weeks: 5,  type: 'J' },
+        { label: '스피치',   pct: 10, weeks: 3,  type: 'P' },
+        { label: '수행평가', pct: 10, weeks: 3,  type: 'S' },
+        { label: '진로',     pct: 10, weeks: 3,  type: 'C' },
+        { label: '주제탐구', pct: 5,  weeks: 2,  type: 'R' },
+    ],
 }
 
 const CURRICULUM: Record<string, any[]> = {
     '중1': [
         {
-            m: '1월', theme: '방학특강 · 자기PR + 진로탐색', freq: '주 1회 (4주)', missions: [
-                { t: '말하는 나를 발견하다 — 자기PR 마인드셋', ok: false, type: 'E' },
-                { t: '생각을 기획하는 힘 — 나만의 동아리 설계 입문', ok: false, type: 'E' },
-                { t: '진로 키워드 탐색 스피치 — 꿈 찾기 활동', ok: false, type: 'S' },
-                { t: '직업탐색 스피치 — 내가 되고 싶은 직업군 발표', ok: false, type: 'S' },
+            m: '1M', theme: '시작하기 (OT + 기초)',
+            weeks: [
+                { w: '1주', t: 'OT · 수행평가 이해', d: '1년 로드맵, 수행평가 구조', type: 'S', ok: false },
+                { w: '2주', t: '자기소개 스피치', d: '30초 자기PR 녹화', type: 'P', ok: false },
+                { w: '3주', t: '흥미·강점 진단', d: '홀랜드 검사', type: 'C', ok: false },
+                { w: '4주', t: '직업 탐색', d: '6대 직업군 조사', type: 'C', ok: false },
             ]
         },
         {
-            m: '2월', theme: '방학특강 · 독서 + 자기주도학습', freq: '주 1회 (4주)', missions: [
-                { t: '책 속의 나를 말하다 — 독서기록장 작성', ok: false, type: 'E' },
-                { t: '자기주도적 학습 스피치 — 정의와 사례', ok: false, type: 'U' },
-                { t: '학습법/목표관리 스피치 — 과목별 학습법 기초', ok: false, type: 'U' },
-                { t: '진로 발표회 — 진로 주제 첫 발표 및 피드백', ok: false, type: 'S' },
+            m: '2M', theme: '논술·서술 기초',
+            weeks: [
+                { w: '1주', t: '답안 구조 이해', d: '두괄식 구조 학습', type: 'S', ok: false },
+                { w: '2주', t: '문단 쓰기', d: '200→400자 훈련', type: 'S', ok: false },
+                { w: '3주', t: '주장 글쓰기', d: '근거 제시법', type: 'S', ok: false },
+                { w: '4주', t: '실전 논술 1차', d: '첨삭·피드백', type: 'S', ok: false },
             ]
         },
         {
-            m: '3월', theme: '나의 강점 + 설득 스피치', freq: '주 1회 (4주)', missions: [
-                { t: '나의 강점을 말하다 — VIA 강점 진단 기초', ok: false, type: 'E' },
-                { t: '한줄의 근거로 설득하기 — 1문장 주장 훈련', ok: false, type: 'E' },
-                { t: '셀프리더십 스피치 — 학교생활 중 리더십 활동', ok: false, type: 'U' },
-                { t: '진로 뉴스 발표 — 관련 기사 요약 및 의견 말하기', ok: false, type: 'S' },
+            m: '3M', theme: '주제탐구 + 스피치',
+            weeks: [
+                { w: '1주', t: '주제 발굴', d: '질문 만들기', type: 'R', ok: false },
+                { w: '2주', t: '자료 조사법', d: '출처 표기', type: 'R', ok: false },
+                { w: '3주', t: '발성·호흡', d: '복식 호흡', type: 'P', ok: false },
+                { w: '4주', t: '자세·제스처', d: '눈 맞춤 훈련', type: 'P', ok: false },
             ]
         },
         {
-            m: '5월', theme: '수행평가 대비 + 토론 입문', freq: '주 1회 (4주)', missions: [
-                { t: '실전 발표 마스터 — 수행평가 대비 발표준비', ok: false, type: 'E' },
-                { t: '토론 스피치 — 시사 주제 찬성/반대 기초', ok: false, type: 'U' },
-                { t: '문해력 스피치 1 — 1문장 핵심 요약 훈련', ok: false, type: 'U' },
-                { t: '동아리 면접 연습 — 시뮬레이션 기초', ok: false, type: 'S' },
+            m: '4M', theme: '수행평가 유형별 ①',
+            weeks: [
+                { w: '1주', t: '국어 수행평가 실전', d: '실제 기출 연습', type: 'S', ok: false },
+                { w: '2주', t: '사회 수행평가 실전', d: '실제 기출 연습', type: 'S', ok: false },
+                { w: '3주', t: '1분 스피치', d: '즉흥 발표', type: 'P', ok: false },
+                { w: '4주', t: '발표 실전', d: '과목별 시뮬', type: 'P', ok: false },
             ]
         },
         {
-            m: '7월', theme: '스토리텔링 + 문해력', freq: '주 1회 (4주)', missions: [
-                { t: '나만의 스토리텔링 — 내가 겪은 일 말하기', ok: false, type: 'E' },
-                { t: '문해력 스피치 2 — 2문장 작품 핵심 요약', ok: false, type: 'U' },
-                { t: '논리적/비판적 스피치 — 중요 사건 글쓰기 입문', ok: false, type: 'U' },
-                { t: '모의 발표/피드백 — 실제 발표 적용 피드백', ok: false, type: 'M' },
+            m: '5M', theme: '고교 탐색 시작',
+            weeks: [
+                { w: '1주', t: '고교 중요성', d: '합격 사례 분석', type: 'C', ok: false },
+                { w: '2주', t: '자사고·특목고 이해', d: '유형 비교', type: 'C', ok: false },
+                { w: '3주', t: '면접 맛보기', d: '면접이란?', type: 'I', ok: false },
+                { w: '4주', t: '인성 면접 기초', d: '기본 질문 대응', type: 'I', ok: false },
             ]
         },
         {
-            m: '8월', theme: '방학특강 · 자소서 + 인성', freq: '주 1회 (4주)', missions: [
-                { t: '자기소개서 작성 스피치 1 — 고입 개념 이해', ok: false, type: 'S' },
-                { t: '탐구 보고서 스피치 — 자사고/특목고 자소서 이해', ok: false, type: 'S' },
-                { t: '인성/가치관 스피치 — 인생에서 중요한 기준 찾기', ok: false, type: 'U' },
-                { t: '디자인씽킹 스피치 — 공감·문제정의 프로세스', ok: false, type: 'U' },
+            m: '6M', theme: '수행평가 유형별 ②',
+            weeks: [
+                { w: '1주', t: '과학 수행평가', d: '실험 보고서 기초', type: 'S', ok: false },
+                { w: '2주', t: '역사 수행평가', d: '주제탐구 연결', type: 'S', ok: false },
+                { w: '3주', t: '탐구 보고서 작성', d: '보고서 구조', type: 'R', ok: false },
+                { w: '4주', t: '생기부 항목 이해', d: '세특·활동', type: 'J', ok: false },
             ]
         },
         {
-            m: '10월', theme: '리더십 + 생활기록부', freq: '주 1회 (4주)', missions: [
-                { t: '리더는 말로 이끈다 — 리더십 영상 보고 발표', ok: false, type: 'E' },
-                { t: '스토리텔링 스피치 — 레고 활용 스토리텔링 실습', ok: false, type: 'U' },
-                { t: '생활기록부 스피치 — 항목 이해 및 발표 스피치화', ok: false, type: 'S' },
-                { t: '면접 스피치 1 — 자사고/특목고 면접 중요성 이해', ok: false, type: 'M' },
+            m: '7M', theme: '종합 실전',
+            weeks: [
+                { w: '1주', t: '실전 논술 2차', d: '심화 첨삭', type: 'S', ok: false },
+                { w: '2주', t: '스토리텔링 스피치', d: '경험 발표', type: 'P', ok: false },
+                { w: '3주', t: '생기부 작성법', d: '항목별 글쓰기', type: 'J', ok: false },
+                { w: '4주', t: '모의 면접 1차', d: '1:1 면접', type: 'I', ok: false },
             ]
         },
         {
-            m: '12월', theme: '면접 스피치 + 진로 발표회', freq: '주 1회 (4주)', missions: [
-                { t: '면접 스피치 2 — 우아한 대화법 5원칙 소개', ok: false, type: 'M' },
-                { t: '면접 스피치 3 — 고입대비 면접 시뮬레이션 입문', ok: false, type: 'M' },
-                { t: '모의 발표/피드백 — 파트너러키 경영', ok: false, type: 'U' },
-                { t: '진로 발표회 — 1년 진로 주제 최종 발표', ok: false, type: 'S' },
+            m: '8M', theme: '마무리 + 포트폴리오',
+            weeks: [
+                { w: '1주', t: '실전 논술 3차', d: '최종 완성본', type: 'S', ok: false },
+                { w: '2주', t: '자기소개서 기초', d: '첫 초안 작성', type: 'J', ok: false },
+                { w: '3주', t: '스피치 완성', d: '녹화·피드백', type: 'P', ok: false },
+                { w: '4주', t: '학부모 발표회', d: '1년 포트폴리오 발표', type: 'P', ok: false },
             ]
         },
     ],
     '중2': [
         {
-            m: '1월', theme: '방학특강 · 실전발표 + 자소서', freq: '주 1회 (4주)', missions: [
-                { t: '실전 발표 마스터 심화 — 수행평가 실전까지', ok: false, type: 'E' },
-                { t: '자기소개서 작성 스피치 2 — 세부항목 분석', ok: false, type: 'S' },
-                { t: '토론 스피치 심화 — 찬반/중립 토론 기법 A-Z', ok: false, type: 'U' },
-                { t: '진로 키워드 심화 — 학과 연결 자기소개서 초안', ok: false, type: 'S' },
+            m: '1M', theme: '중2 전략 재설정',
+            weeks: [
+                { w: '1주', t: '중2 OT · 내신 전략', d: '수행평가 50% 재설정', type: 'S', ok: false },
+                { w: '2주', t: '중1 리뷰 + 목표 TOP3', d: '지망 고교 3개 선정', type: 'C', ok: false },
+                { w: '3주', t: '국어 논술 심화', d: '기출 분석', type: 'S', ok: false },
+                { w: '4주', t: '사회 논술 심화', d: '이슈 기반 글쓰기', type: 'S', ok: false },
             ]
         },
         {
-            m: '2월', theme: '방학특강 · 스토리텔링 심화', freq: '주 1회 (4주)', missions: [
-                { t: '나만의 스토리텔링 심화 — 창작 이야기 완성', ok: false, type: 'E' },
-                { t: '문해력 스피치 2 심화 — 문학작품 핵심 요약', ok: false, type: 'U' },
-                { t: '셀프리더십 심화 — 활동별로 만들기', ok: false, type: 'U' },
-                { t: '탐구 보고서 심화 — 자기소개서 작성 준비', ok: false, type: 'S' },
+            m: '2M', theme: '논술·서술 심화',
+            weeks: [
+                { w: '1주', t: '역사 논술', d: '연대·인과 구조', type: 'S', ok: false },
+                { w: '2주', t: '수학 서술', d: '풀이 서술법', type: 'S', ok: false },
+                { w: '3주', t: '통합 논술 실전', d: '3과목 통합', type: 'S', ok: false },
+                { w: '4주', t: '설득 스피치', d: '설득 구조 훈련', type: 'P', ok: false },
             ]
         },
         {
-            m: '3월', theme: '논리/비판 스피치 심화', freq: '주 1회 (4주)', missions: [
-                { t: '한줄의 근거 심화 — 1문장 논리 설득 발표', ok: false, type: 'E' },
-                { t: '논리적/비판적 스피치 심화 — 글쓰기 완성', ok: false, type: 'U' },
-                { t: '동아리 면접 연습 심화 — 면접관 역할 실습', ok: false, type: 'S' },
-                { t: '디자인씽킹 심화 — 아이디어→프로토타입 제작', ok: false, type: 'U' },
+            m: '3M', theme: '주제탐구 심화',
+            weeks: [
+                { w: '1주', t: '역사 탐구', d: '주제 2개 선정', type: 'R', ok: false },
+                { w: '2주', t: '과학 탐구', d: '실험·분석·결론', type: 'R', ok: false },
+                { w: '3주', t: '기가 보고서', d: '탐구 활동 실무', type: 'R', ok: false },
+                { w: '4주', t: '토론 스피치', d: '찬반 토론 기초', type: 'P', ok: false },
             ]
         },
         {
-            m: '5월', theme: '생기부 + 면접 스피치 심화', freq: '주 1회 (4주)', missions: [
-                { t: '생활기록부 스피치 심화 — 세특 항목 분석 발표', ok: false, type: 'S' },
-                { t: '면접 스피치 1 심화 — 기출문제 대비 연습', ok: false, type: 'M' },
-                { t: '리더는 말로 이끈다 심화 — 리더십 관련 영상 발표', ok: false, type: 'E' },
-                { t: '인성/가치관 심화 — 비전/사명/핵심가치 설정', ok: false, type: 'U' },
+            m: '4M', theme: '고입 전형 이해 + 내신 전략',
+            weeks: [
+                { w: '1주', t: '고입 전형 구조', d: '1·2단계 이해', type: 'I', ok: false },
+                { w: '2주', t: '내신 반영 분석', d: '학교별 비율', type: 'J', ok: false },
+                { w: '3주', t: '합격 내신 갭 분석', d: '필요 등급', type: 'J', ok: false },
+                { w: '4주', t: '목표 전략서 작성', d: '등급·계획', type: 'J', ok: false },
             ]
         },
         {
-            m: '7월', theme: '면접 스피치 실전', freq: '주 1회 (4주)', missions: [
-                { t: '면접 스피치 2 심화 — 5원칙 적용 실전 연습', ok: false, type: 'M' },
-                { t: '면접 스피치 3 심화 — 3P 스피치 목적·사람·장소', ok: false, type: 'M' },
-                { t: '스토리텔링 스피치 심화 — 고입대비 스토리 구성', ok: false, type: 'U' },
-                { t: '모의 발표/피드백 — 면접 실제 적용 피드백', ok: false, type: 'M' },
+            m: '5M', theme: '자기주도학습계획서 기초',
+            weeks: [
+                { w: '1주', t: '자소서 항목 이해', d: '요구 포인트', type: 'J', ok: false },
+                { w: '2주', t: 'STAR 경험 정리', d: '구조화', type: 'J', ok: false },
+                { w: '3주', t: '초안 작성', d: '항목별 초안', type: 'J', ok: false },
+                { w: '4주', t: '발표 스피치 심화', d: '자세 완성', type: 'P', ok: false },
             ]
         },
         {
-            m: '8월', theme: '방학특강 · 자소서 완성', freq: '주 1회 (4주)', missions: [
-                { t: '자기소개서 완성본 작성 — 지원학교 맞춤 초안', ok: false, type: 'S' },
-                { t: '책 속의 나를 심화 — 독서스피치 완성', ok: false, type: 'E' },
-                { t: '자기주도적 학습 심화 — 사례 발표 및 피드백', ok: false, type: 'U' },
-                { t: '진로 뉴스 발표 심화 — 찬반 토론 연계', ok: false, type: 'S' },
+            m: '6M', theme: '면접 기초 시작',
+            weeks: [
+                { w: '1주', t: '인성 면접 유형', d: '공동체·리더십', type: 'I', ok: false },
+                { w: '2주', t: '두괄식 답변 구조', d: '답변 훈련', type: 'I', ok: false },
+                { w: '3주', t: '답변집 20개 제작', d: '녹화·피드백', type: 'I', ok: false },
+                { w: '4주', t: '스피치 실전', d: '과목별 발표', type: 'P', ok: false },
             ]
         },
         {
-            m: '10월', theme: '면접 기출 + 생기부 완성', freq: '주 1회 (4주)', missions: [
-                { t: '면접 기출 집중 — 자사고/특목고 최근 5개년', ok: false, type: 'M' },
-                { t: '생활기록부 완성 스피치 — 항목별 최종 점검', ok: false, type: 'S' },
-                { t: '문해력 프로젝트 2 심화 — 핵심 논리 구조화', ok: false, type: 'U' },
-                { t: '나의 강점 심화 — VIA 강점 발표 완성본', ok: false, type: 'E' },
+            m: '7M', theme: '면접 심화 + 학교별 기출',
+            weeks: [
+                { w: '1주', t: '지원동기 답변', d: '학교+진로 연결', type: 'I', ok: false },
+                { w: '2주', t: '기출 분석', d: '지망별 3년 기출', type: 'S', ok: false },
+                { w: '3주', t: '수행평가 종합 1', d: '국·사·역 통합', type: 'S', ok: false },
+                { w: '4주', t: '수행평가 종합 2', d: '과·기가 통합', type: 'S', ok: false },
             ]
         },
         {
-            m: '12월', theme: '면접 시뮬레이션 + 자소서 최종', freq: '주 1회 (4주)', missions: [
-                { t: '면접 시뮬레이션 — 실전 모의면접 1회차', ok: false, type: 'M' },
-                { t: '면접 시뮬레이션 — 실전 모의면접 2회차', ok: false, type: 'M' },
-                { t: '자기소개서 최종 점검 — 제출본 완성', ok: false, type: 'S' },
-                { t: '진로 발표회 — 2년 성장 스토리 최종 발표', ok: false, type: 'S' },
+            m: '8M', theme: '중간 점검 + 중3 준비',
+            weeks: [
+                { w: '1주', t: '성과 점검 발표회', d: '1년 발표', type: 'P', ok: false },
+                { w: '2주', t: '취약점 진단', d: '우선순위 재설정', type: 'S', ok: false },
+                { w: '3주', t: '중3 대비 계획', d: '방학 플랜', type: 'C', ok: false },
+                { w: '4주', t: '중3 로드맵 발표', d: '중간 리포트', type: 'P', ok: false },
             ]
         },
     ],
     '중3': [
         {
-            m: '1월', theme: '방학특강 · 면접 기출 집중', freq: '주 1회 (4주)', missions: [
-                { t: '자사고/특목고 면접 기출 분석 — 학교별 경향', ok: false, type: 'M' },
-                { t: '면접 시뮬레이션 실전 1 — 면접관 피드백', ok: false, type: 'M' },
-                { t: '자기소개서 최종 완성 — 지원 학교별 맞춤 작성', ok: false, type: 'S' },
-                { t: '실전 스피치 마스터 — 면접 답변 스피치 완성', ok: false, type: 'E' },
+            m: '1M', theme: '전형 완전 정복 + 개인 전략',
+            weeks: [
+                { w: '1주', t: 'OT · 개인 진단', d: '개인 강점 분석', type: 'I', ok: false },
+                { w: '2주', t: '고입 전형 완전 이해', d: '자사고·특목·영재', type: 'I', ok: false },
+                { w: '3주', t: '3지망 확정', d: '1·2·3지망 분석', type: 'C', ok: false },
+                { w: '4주', t: '맞춤 합격 전략', d: '합격 포지셔닝', type: 'C', ok: false },
             ]
         },
         {
-            m: '2월', theme: '방학특강 · 면접 실전 2', freq: '주 1회 (4주)', missions: [
-                { t: '면접 시뮬레이션 실전 2 — 꼬리질문 대비', ok: false, type: 'M' },
-                { t: 'SKY·교대 제시문 분석 — 입시 연계 특강', ok: false, type: 'M' },
-                { t: '생활기록부 최종 스피치 — 면접 연계 답변 완성', ok: false, type: 'S' },
-                { t: '인성/가치관 최종 — 면접 질문 대비 핵심 정리', ok: false, type: 'U' },
+            m: '2M', theme: '자기주도학습계획서 완성',
+            weeks: [
+                { w: '1주', t: '항목 분석', d: '평가 기준 파악', type: 'J', ok: false },
+                { w: '2주', t: '3년 경험 정리', d: 'STAR 구조', type: 'J', ok: false },
+                { w: '3주', t: '항목별 초안', d: '4개 문항', type: 'J', ok: false },
+                { w: '4주', t: '완성본 제출', d: '학교별 맞춤', type: 'J', ok: false },
             ]
         },
         {
-            m: '3월', theme: '면접 실전 3 + 논리 스피치', freq: '주 1회 (4주)', missions: [
-                { t: '면접 시뮬레이션 실전 3 — 3P 스피치 완성도 점검', ok: false, type: 'M' },
-                { t: '논리적/비판적 스피치 최종 — 실전 면접 답변 적용', ok: false, type: 'U' },
-                { t: '탐구 보고서 최종 — 면접 예상문제 연결', ok: false, type: 'S' },
-                { t: '리더십 발표 최종 — 면접 리더십 질문 대비', ok: false, type: 'E' },
+            m: '3M', theme: '독서 면접 대비',
+            weeks: [
+                { w: '1주', t: '독서 면접 유형', d: '자사고 유형', type: 'I', ok: false },
+                { w: '2주', t: '전공별 독서 3권', d: '계열별 선정', type: 'R', ok: false },
+                { w: '3주', t: '책 기반 질문 대비', d: '답변 구조', type: 'I', ok: false },
+                { w: '4주', t: '심층 토론 연습', d: '꼬리질문 대응', type: 'I', ok: false },
             ]
         },
         {
-            m: '5월', theme: '실전 모의면접 + 포트폴리오', freq: '주 1회 (4주)', missions: [
-                { t: '실전 모의면접 4회차 — 학교별 시나리오 적용', ok: false, type: 'M' },
-                { t: '답변 분석 리포트 — 개인별 약점 집중 보완', ok: false, type: 'M' },
-                { t: '디자인씽킹 최종 발표 — 포트폴리오 완성', ok: false, type: 'U' },
-                { t: '진로 발표회 — 3년 성장 스토리 및 진학 목표 발표', ok: false, type: 'S' },
+            m: '4M', theme: '인성 면접 훈련',
+            weeks: [
+                { w: '1주', t: '인성 평가 요소', d: '학교별 중시도', type: 'I', ok: false },
+                { w: '2주', t: '리더십 답변 (STAR)', d: '구조화', type: 'I', ok: false },
+                { w: '3주', t: '배려·성실성 답변', d: '갈등 해결 사례', type: 'I', ok: false },
+                { w: '4주', t: '답변집 30개 제작', d: '녹화 피드백', type: 'I', ok: false },
             ]
         },
         {
-            m: '7월', theme: '면접 최종 점검', freq: '주 1~2회', missions: [
-                { t: '면접 최종 점검 1 — 자사고 지원 대비', ok: false, type: 'M' },
-                { t: '면접 최종 점검 2 — 특목고 지원 대비', ok: false, type: 'M' },
-                { t: '자기소개서 제출 직전 검토 — 최종 수정', ok: false, type: 'S' },
-                { t: '실전 모의면접 5회차 — 최종 피드백', ok: false, type: 'M' },
+            m: '5M', theme: '전공·학업 면접',
+            weeks: [
+                { w: '1주', t: '지원동기 완성', d: '학교+진로 연결', type: 'I', ok: false },
+                { w: '2주', t: '학업 계획 답변', d: '입학 후 설계', type: 'I', ok: false },
+                { w: '3주', t: '전공 지식 대응', d: '모르는 질문 대처', type: 'I', ok: false },
+                { w: '4주', t: '답변집 30개 완성', d: '전공·학업', type: 'I', ok: false },
             ]
         },
         {
-            m: '8월', theme: '방학특강 · 합격 스피치 완성', freq: '주 1회 (4주)', missions: [
-                { t: '자사고 원서접수 대비 — 학교별 면접 특징 분석', ok: false, type: 'M' },
-                { t: '면접 최종 시뮬레이션 — 실전 면접관 투입', ok: false, type: 'M' },
-                { t: '생활기록부 면접 연계 최종 — 예상 질문 100개', ok: false, type: 'S' },
-                { t: '합격 스피치 완성 — 3년 집대성 면접 답변 정리', ok: false, type: 'M' },
+            m: '6M', theme: '학교별 기출 & 맞춤',
+            weeks: [
+                { w: '1주', t: '1지망 기출 5년', d: '심층 분석', type: 'S', ok: false },
+                { w: '2주', t: '1지망 답변집 40개', d: '학교 맞춤', type: 'I', ok: false },
+                { w: '3주', t: '2지망 답변집 30개', d: '차별화', type: 'I', ok: false },
+                { w: '4주', t: '3지망 답변집 30개', d: '안정성', type: 'I', ok: false },
             ]
         },
         {
-            m: '10월', theme: '면접 시즌 D-DAY', freq: '면접일 맞춤', missions: [
-                { t: '면접 D-30 — 개인별 최약점 집중 보완', ok: false, type: 'M' },
-                { t: '면접 D-20 — 실전 모의면접 최종 점검', ok: false, type: 'M' },
-                { t: '면접 D-10 — 멘탈 관리 및 최종 리허설', ok: false, type: 'M' },
-                { t: '면접 D-1 — 합격 스피치 마지막 점검', ok: false, type: 'M' },
+            m: '7M', theme: 'AI 압박면접 & 실전',
+            weeks: [
+                { w: '1주', t: 'AI 모의면접 1차', d: '전체 녹화·분석', type: 'I', ok: false },
+                { w: '2주', t: '꼬리질문 대응', d: '압박 대응', type: 'I', ok: false },
+                { w: '3주', t: 'AI 모의면접 2차', d: '난이도 상승', type: 'I', ok: false },
+                { w: '4주', t: '대면 모의 면접', d: '실제 면접관 투입', type: 'I', ok: false },
             ]
         },
         {
-            m: '12월', theme: '합격 후 + 고등 준비', freq: '필요시', missions: [
-                { t: '합격 후 진로 발표 — 입학 후 계획 스피치', ok: false, type: 'S' },
-                { t: '후배를 위한 발표 — 3년 경험 공유 스피치', ok: false, type: 'U' },
-                { t: '고등 준비 스피치 — 자사고/특목고 입학 대비', ok: false, type: 'E' },
-                { t: '3년 진로 발표회 — 최종 성장 스토리 발표', ok: false, type: 'S' },
+            m: '8M', theme: '최종 리허설 & 파이널',
+            weeks: [
+                { w: '1주', t: '최종 점검', d: '약점 보완', type: 'S', ok: false },
+                { w: '2주', t: '리허설 1차 (1·2지망)', d: '완전 실전', type: 'P', ok: false },
+                { w: '3주', t: '리허설 2차 (3지망)', d: '최종 피드백', type: 'P', ok: false },
+                { w: '4주', t: '파이널 · 1:1 면접', d: 'D-day 직전', type: 'I', ok: false },
             ]
         },
     ],
@@ -214,22 +266,21 @@ const CURRICULUM: Record<string, any[]> = {
 export default function MiddleRoadmap() {
     const student = useAtomValue(studentState)
     const academy = useAtomValue(academyState)
-    const navigate = useNavigate()
     const [selMonth, setSelMonth] = useState<number | null>(null)
+    const [selGrade, setSelGrade] = useState<string>(student?.grade || '중1')
 
-    const grade = student?.grade || '중1'
-    const roadmap = CURRICULUM[grade] || CURRICULUM['중1']
-    const curMonth = new Date().getMonth() + 1 + '월'
+    const roadmap = CURRICULUM[selGrade] || CURRICULUM['중1']
+    const ratio = RATIO[selGrade] || RATIO['중1']
 
-    const totalMissions = roadmap.reduce((a: number, m: any) => a + m.missions.length, 0)
-    const doneMissions = roadmap.reduce((a: number, m: any) => a + m.missions.filter((x: any) => x.ok).length, 0)
-    const overallPct = totalMissions > 0 ? Math.round(doneMissions / totalMissions * 100) : 0
+    const totalWeeks = roadmap.reduce((a: number, m: any) => a + m.weeks.length, 0)
+    const doneWeeks = roadmap.reduce((a: number, m: any) => a + m.weeks.filter((x: any) => x.ok).length, 0)
+    const overallPct = totalWeeks > 0 ? Math.round(doneWeeks / totalWeeks * 100) : 0
     const selected = selMonth !== null ? roadmap[selMonth] : null
 
     return (
         <div className="h-full overflow-y-auto px-8 py-7 box-border font-sans text-ink">
 
-            {/* 학생 헤더 */}
+            {/* 헤더 */}
             <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
                 <div className="flex items-center gap-2.5">
                     <div className="w-9 h-9 rounded-full bg-brand-middle text-white flex items-center justify-center text-[13px] font-bold">
@@ -237,42 +288,86 @@ export default function MiddleRoadmap() {
                     </div>
                     <div>
                         <div className="text-[15px] font-bold text-ink">{student?.name}</div>
-                        <div className="text-[11px] text-ink-secondary font-medium">{grade} · {academy.academyName || '학원 미연결'}</div>
+                        <div className="text-[11px] text-ink-secondary font-medium">{selGrade} · {academy?.academyName || '학원 미연결'}</div>
                     </div>
                 </div>
 
-                {/* 스탯 */}
+                <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+                    {['중1', '중2', '중3'].map(g => (
+                        <button
+                            key={g}
+                            onClick={() => { setSelGrade(g); setSelMonth(null) }}
+                            className={`px-4 py-1.5 rounded-md text-[12px] font-bold transition-all ${
+                                selGrade === g
+                                    ? 'bg-white text-brand-middle-dark shadow-sm'
+                                    : 'text-ink-secondary hover:text-ink'
+                            }`}
+                        >
+                            {g} {g === student?.grade && <span className="text-[9px] text-amber-500 ml-0.5">내</span>}
+                        </button>
+                    ))}
+                </div>
+
                 <div className="flex items-center gap-2">
                     <div className="bg-gradient-to-br from-brand-middle-dark to-brand-middle rounded-xl px-4 py-2 shadow-[0_4px_12px_rgba(16,185,129,0.2)]">
-                        <div className="text-[10px] text-white/80 mb-0.5 font-medium">전체 진행률</div>
+                        <div className="text-[10px] text-white/80 mb-0.5 font-medium">진행률</div>
                         <div className="text-[15px] font-extrabold text-white">{overallPct}%</div>
                     </div>
-                    {[
-                        { label: '완료 미션', val: `${doneMissions}/${totalMissions}` },
-                        { label: '현재 월', val: curMonth },
-                        { label: '소속 학원', val: academy.academyName || '미소속' },
-                    ].map((s, i) => (
-                        <div key={i} className="bg-white border border-line rounded-xl px-4 py-2">
-                            <div className="text-[10px] text-ink-secondary mb-0.5 font-medium">{s.label}</div>
-                            <div className="text-[15px] font-extrabold text-ink">{s.val}</div>
-                        </div>
-                    ))}
+                    <div className="bg-white border border-line rounded-xl px-4 py-2">
+                        <div className="text-[10px] text-ink-secondary mb-0.5 font-medium">완료</div>
+                        <div className="text-[15px] font-extrabold text-ink">{doneWeeks}/{totalWeeks}주</div>
+                    </div>
                 </div>
             </div>
 
-            {/* 월 그리드 + 미션 패널 */}
-            <div className={`grid gap-4 items-start ${selected ? 'grid-cols-[1fr_320px] max-lg:grid-cols-1' : 'grid-cols-1'}`}>
+            {/* 비율 요약 바 */}
+            <div className="bg-white border border-line rounded-xl p-4 mb-4 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
+                <div className="flex items-center justify-between mb-2">
+                    <div className="text-[13px] font-extrabold text-ink">{selGrade} 커리큘럼 구성 (32주)</div>
+                    <div className="text-[11px] text-ink-secondary">총 {totalWeeks}주</div>
+                </div>
+                <div className="flex w-full h-2 rounded-full overflow-hidden mb-2">
+                    {ratio.map((r, i) => {
+                        const color = TYPE_COLOR[r.type]
+                        const bgCls = color.cls.split(' ')[0].replace('bg-', 'bg-').replace('-50', '-400')
+                        return (
+                            <div
+                                key={i}
+                                style={{ width: `${r.pct}%` }}
+                                className={bgCls}
+                                title={`${r.label} ${r.pct}%`}
+                            />
+                        )
+                    })}
+                </div>
+                <div className="flex flex-wrap gap-2.5 text-[11px]">
+                    {ratio.map((r, i) => {
+                        const c = TYPE_COLOR[r.type]
+                        return (
+                            <div key={i} className={`flex items-center gap-1 px-2 py-0.5 rounded-full border ${c.cls}`}>
+                                <span>{c.icon}</span>
+                                <span className="font-semibold">{r.label}</span>
+                                <span className="font-extrabold">{r.pct}%</span>
+                                <span className="text-ink-muted">({r.weeks}주)</span>
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
+
+            {/* 월 그리드 + 주차 패널 */}
+            <div className={`grid gap-4 items-start ${selected ? 'grid-cols-[1fr_340px] max-lg:grid-cols-1' : 'grid-cols-1'}`}>
 
                 {/* 왼쪽: 월 그리드 */}
                 <div className="bg-white border border-line rounded-2xl p-5 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
                     <div className="text-[14px] font-bold text-ink mb-1 tracking-tight">연간 커리큘럼 진행 현황</div>
-                    <div className="text-[11px] text-ink-secondary mb-4">월을 클릭하면 상세 수업을 확인할 수 있어요.</div>
+                    <div className="text-[11px] text-ink-secondary mb-4">월을 클릭하면 주차별 수업을 확인할 수 있어요.</div>
 
                     <div className="grid grid-cols-4 max-md:grid-cols-2 gap-2.5">
                         {roadmap.map((m: any, i: number) => {
-                            const done = m.missions.filter((x: any) => x.ok).length
-                            const pct = Math.round(done / m.missions.length * 100)
-                            const isCur = m.m === curMonth
+                            const done = m.weeks.filter((x: any) => x.ok).length
+                            const total = m.weeks.length
+                            const pct = Math.round(done / total * 100)
                             const isSel = selMonth === i
                             return (
                                 <div
@@ -281,83 +376,96 @@ export default function MiddleRoadmap() {
                                     className={`border rounded-xl p-3 cursor-pointer transition-all hover:-translate-y-0.5 ${
                                         isSel
                                             ? 'border-brand-middle bg-brand-middle-pale shadow-[0_4px_16px_rgba(16,185,129,0.12)]'
-                                            : isCur
+                                            : pct === 100
                                                 ? 'border-brand-middle-light bg-brand-middle-pale/50 hover:shadow-sm'
                                                 : 'border-line bg-white hover:border-brand-middle-light hover:shadow-sm'
                                     }`}
                                 >
-                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold mb-2 ${
-                                        isSel || isCur
-                                            ? 'bg-brand-middle text-white'
-                                            : pct === 100
-                                                ? 'bg-brand-middle-bg text-brand-middle-dark'
-                                                : 'bg-gray-100 text-ink-secondary'
-                                    }`}>
-                                        {pct === 100 ? '✓' : m.m.replace('월', '')}
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className={`w-9 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold ${
+                                            isSel
+                                                ? 'bg-brand-middle text-white'
+                                                : pct === 100
+                                                    ? 'bg-brand-middle-bg text-brand-middle-dark'
+                                                    : 'bg-gray-100 text-ink-secondary'
+                                        }`}>
+                                            {pct === 100 ? '✓' : m.m}
+                                        </div>
+                                        <div className="text-[10px] text-ink-muted font-medium">{done}/{total}</div>
                                     </div>
-                                    <div className="text-[12.5px] font-bold text-ink mb-0.5">{m.m}</div>
-                                    <div className="text-[10px] text-ink-secondary mb-2 leading-[1.4] h-7 line-clamp-2">{m.theme}</div>
-                                    <div className="h-1 bg-gray-100 rounded-full overflow-hidden mb-1">
+                                    <div className="text-[12.5px] font-bold text-ink mb-0.5 leading-tight line-clamp-2 min-h-[32px]">{m.theme}</div>
+                                    <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
                                         <div
                                             className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-brand-middle-dark' : 'bg-brand-middle'}`}
                                             style={{ width: `${pct}%` }}
                                         />
                                     </div>
-                                    <div className="text-[10px] text-ink-muted font-medium">{done}/{m.missions.length} 완료</div>
                                 </div>
                             )
                         })}
                     </div>
                 </div>
 
-                {/* 오른쪽: 미션 패널 */}
+                {/* 오른쪽: 주차별 패널 (스크롤 X, 컴팩트) */}
                 {selected && selMonth !== null && (
-                    <div className="bg-white border-2 border-brand-middle rounded-2xl p-5 sticky top-0 max-h-[calc(100vh-200px)] overflow-y-auto shadow-[0_8px_24px_rgba(16,185,129,0.12)]">
-                        <div className="flex items-start justify-between mb-4">
+                    <div className="bg-white border-2 border-brand-middle rounded-2xl p-4 shadow-[0_8px_24px_rgba(16,185,129,0.12)]">
+                        <div className="flex items-start justify-between mb-3">
                             <div>
-                                <div className="text-[15px] font-extrabold text-ink tracking-tight">{selected.m}</div>
-                                <div className="text-[11px] text-ink-secondary mt-1 font-medium">{selected.theme}</div>
-                                <div className="text-[10px] text-brand-middle-dark mt-1 font-semibold">⏰ {selected.freq}</div>
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <span className="text-[10px] font-extrabold text-white bg-brand-middle px-2 py-0.5 rounded">{selected.m}</span>
+                                    <span className="text-[10px] font-semibold text-ink-muted">{selGrade}</span>
+                                </div>
+                                <div className="text-[13px] font-extrabold text-ink tracking-tight leading-tight">{selected.theme}</div>
                             </div>
                             <button
                                 onClick={() => setSelMonth(null)}
-                                className="text-ink-muted hover:text-ink text-base leading-none w-6 h-6 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors"
+                                className="text-ink-muted hover:text-ink text-base leading-none w-6 h-6 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors flex-shrink-0"
                             >
                                 ✕
                             </button>
                         </div>
 
-                        <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">수업 목록</div>
+                        <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">주차별 수업</div>
 
-                        {selected.missions.map((ms: any, mi: number) => {
-                            const tc = TYPE_COLOR[ms.type]
-                            return (
-                                <div
-                                    key={mi}
-                                    className={`px-3 py-2.5 rounded-lg mb-1.5 border transition-all ${
-                                        ms.ok
-                                            ? 'bg-brand-middle-pale border-brand-middle-light'
-                                            : 'bg-gray-50 border-line hover:border-brand-middle-light'
-                                    }`}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] text-white flex-shrink-0 ${
-                                            ms.ok ? 'bg-brand-middle' : 'bg-gray-300'
-                                        }`}>
-                                            {ms.ok ? '✓' : ''}
+                        <div className="space-y-1.5">
+                            {selected.weeks.map((wk: any, wi: number) => {
+                                const tc = TYPE_COLOR[wk.type]
+                                return (
+                                    <div
+                                        key={wi}
+                                        className={`px-2.5 py-2 rounded-lg border transition-all ${
+                                            wk.ok
+                                                ? 'bg-brand-middle-pale border-brand-middle-light'
+                                                : 'bg-gray-50 border-line hover:border-brand-middle-light hover:shadow-sm cursor-pointer'
+                                        }`}
+                                    >
+                                        <div className="flex items-start gap-2">
+                                            <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] text-white flex-shrink-0 mt-0.5 ${
+                                                wk.ok ? 'bg-brand-middle' : 'bg-gray-300'
+                                            }`}>
+                                                {wk.ok ? '✓' : ''}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                                                    <span className="text-[10px] font-extrabold text-brand-middle-dark">{wk.w}</span>
+                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${tc.cls}`}>
+                                                        {tc.icon} {tc.label}
+                                                    </span>
+                                                </div>
+                                                <div className={`text-[12px] font-bold leading-[1.3] mb-0.5 ${
+                                                    wk.ok ? 'text-brand-middle-dark' : 'text-ink'
+                                                }`}>
+                                                    {wk.t}
+                                                </div>
+                                                <div className="text-[10.5px] text-ink-secondary leading-[1.4]">
+                                                    {wk.d}
+                                                </div>
+                                            </div>
                                         </div>
-                                        <span className={`text-[12px] flex-1 leading-[1.5] ${
-                                            ms.ok ? 'text-brand-middle-dark font-semibold' : 'text-ink'
-                                        }`}>
-                                            {ms.t}
-                                        </span>
-                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${tc.cls}`}>
-                                            {tc.label}
-                                        </span>
                                     </div>
-                                </div>
-                            )
-                        })}
+                                )
+                            })}
+                        </div>
                     </div>
                 )}
             </div>
