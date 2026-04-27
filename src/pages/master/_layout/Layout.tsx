@@ -60,7 +60,7 @@ export default function MasterLayout() {
         <div className="px-5 py-5 border-b border-white/15 relative">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xl">🏢</span>
-            <div className="text-[17px] font-extrabold tracking-tight">INROAD</div>
+            <div className="text-[17px] font-extrabold tracking-tight">BIKUS</div>
             <span className="text-[9px] font-bold bg-white/20 backdrop-blur-sm px-1.5 py-0.5 rounded-full">
               MASTER
             </span>

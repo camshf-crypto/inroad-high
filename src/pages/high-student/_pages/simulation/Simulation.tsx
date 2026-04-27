@@ -1,4 +1,17 @@
 import { useState, useEffect, useRef } from 'react'
+import {
+  useMySimulations,
+  useSimulationQuestions,
+  useCreateSimulation,
+  useAddSimulationQuestion,
+  useSubmitSimulationAnswer,
+  useCompleteSimulation,
+  useDeleteSimulation,
+  uploadRecording,
+  getQuestionTypeLabel,
+  formatSimDuration,
+  type Simulation,
+} from '../../_hooks/useMyHighSimulation'
 
 const QUESTION_TYPES = [
   { id: 'past', label: '5개년 핵심 기출문제', desc: '대학별 최근 5개년 기출 분석' },
@@ -38,6 +51,26 @@ const MOCK_QUESTIONS = [
   { id: 5, text: '10년 후 본인의 모습을 어떻게 그리고 있나요?' },
 ]
 
+// 꼬리질문 풀 (AI 생성 전 임시 - 추후 OpenAI API로 동적 생성)
+const TAIL_QUESTION_POOL = [
+  '방금 말씀하신 내용 중 가장 자랑스러운 점은?',
+  '그 경험에서 배운 점을 지금 어떻게 적용하고 있나요?',
+  '구체적으로 어떤 활동을 하셨나요?',
+  '그 결정을 후회한 적은 없나요?',
+  '비슷한 상황이 다시 생기면 어떻게 할 건가요?',
+  '그 일에서 가장 어려웠던 점은 무엇이었나요?',
+  '주변 사람들의 반응은 어땠나요?',
+  '그 경험 이후로 본인이 어떻게 변했나요?',
+  '한 가지 더 자세히 설명해주실 수 있나요?',
+  '그렇게 생각하는 이유가 있나요?',
+]
+
+// 꼬리질문 랜덤 선택 (추후 AI로 교체)
+function generateTailQuestion(mainQuestion: string, _studentAnswer?: string): string {
+  // TODO: AI 연동 시 mainQuestion + studentAnswer를 OpenAI API에 전달
+  return TAIL_QUESTION_POOL[Math.floor(Math.random() * TAIL_QUESTION_POOL.length)]
+}
+
 const INTERVIEWERS = [
   { id: 1, emoji: '👨‍💼', name: '면접관 1' },
   { id: 2, emoji: '👨‍🏫', name: '면접관 2' },
@@ -54,30 +87,50 @@ export default function Simulation() {
   const [selDept, setSelDept] = useState('')
   const [countdown, setCountdown] = useState(10)
   const [curQIdx, setCurQIdx] = useState(0)
+  // 현재 질문이 본/꼬리 중 무엇인지
+  const [isOnTail, setIsOnTail] = useState(false)
+  // 동적으로 생성된 꼬리질문 캐시 (DB id를 키로)
+  const [tailQuestions, setTailQuestions] = useState<Record<number, { id: string; text: string }>>({})
   const [timer, setTimer] = useState(80)
   const [timerRunning, setTimerRunning] = useState(false)
   const [showQuestion, setShowQuestion] = useState(true)
   const [isRecording, setIsRecording] = useState(false)
   const [activeInterviewer, setActiveInterviewer] = useState(0)
-  const [selSim, setSelSim] = useState<any>(null)
+  const [selSim, setSelSim] = useState<Simulation | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [currentSimId, setCurrentSimId] = useState<string | null>(null)
+  const [interviewStartTime, setInterviewStartTime] = useState<number>(0)
   const timerRef = useRef<any>(null)
   const interviewerRef = useRef<any>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
 
-  const [simHistory, setSimHistory] = useState([
-    { id: 1, date: '2026.04.14', title: '가천대학교 간호학과', tags: ['인성 질문', '기본질문', '꼬리질문'], duration: '00:13', transcript: '인로드니까 어... 그렇지 그렇지 어려운 상황에 타인의 도움 경험이 있습니다. 그를 통해 저는 공감을 배웠습니다.', teacherFeedback: '' },
-    { id: 2, date: '2026.04.10', title: '서울대학교 컴퓨터공학부', tags: ['전공 질문', '기출문제'], duration: '00:18', transcript: '고2 때 들은 인공지능 수업이 가장 인상 깊었습니다. 음... 그래서 AI에 관심을 갖게 됐어요.', teacherFeedback: '답변 구조가 좋아요!' },
-    { id: 3, date: '2026.04.05', title: '연세대학교 의과대학', tags: ['인성 질문', '생기부 예상'], duration: '00:21', transcript: '저는 봉사활동을 통해 의사라는 직업에 관심을 갖게 됐습니다.', teacherFeedback: '' },
-  ])
+  // ───── DB ─────
+  const { data: simHistory = [], isLoading } = useMySimulations()
+  const { data: simQuestions = [] } = useSimulationQuestions(selSim?.id)
 
+  // ───── Mutations ─────
+  const createSim = useCreateSimulation()
+  const addQuestion = useAddSimulationQuestion()
+  const submitAnswer = useSubmitSimulationAnswer()
+  const completeSim = useCompleteSimulation()
+  const deleteSim = useDeleteSimulation()
+
+  // 카운트다운
   useEffect(() => {
     if (step !== 'countdown') return
-    if (countdown <= 0) { setStep('interview'); setTimerRunning(true); return }
+    if (countdown <= 0) { 
+      setStep('interview')
+      setTimerRunning(true)
+      setInterviewStartTime(Date.now())
+      return
+    }
     const t = setTimeout(() => setCountdown(c => c - 1), 1000)
     return () => clearTimeout(t)
   }, [step, countdown])
 
+  // 질문 타이머
   useEffect(() => {
     if (!timerRunning) return
     if (timer <= 0) { setTimerRunning(false); return }
@@ -85,6 +138,7 @@ export default function Simulation() {
     return () => clearTimeout(timerRef.current)
   }, [timerRunning, timer])
 
+  // 면접관 활성화 애니메이션
   useEffect(() => {
     if (step !== 'interview') return
     interviewerRef.current = setInterval(() => setActiveInterviewer(Math.floor(Math.random() * 3)), 3000)
@@ -93,9 +147,166 @@ export default function Simulation() {
 
   const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 
-  const nextQuestion = () => {
-    if (curQIdx >= MOCK_QUESTIONS.length - 1) { setStep('result'); return }
-    setCurQIdx(i => i + 1); setTimer(80); setTimerRunning(true); setIsRecording(false)
+  // ─────────────────────────────────────────────
+  // 녹음 시작
+  // ─────────────────────────────────────────────
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mediaRecorder = new MediaRecorder(stream)
+      mediaRecorderRef.current = mediaRecorder
+      audioChunksRef.current = []
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data)
+      }
+
+      mediaRecorder.start()
+      setIsRecording(true)
+    } catch (e: any) {
+      alert('마이크 접근 권한이 필요해요: ' + e.message)
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // 녹음 종료 + 업로드
+  // ─────────────────────────────────────────────
+  const stopRecording = async (): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const mediaRecorder = mediaRecorderRef.current
+      if (!mediaRecorder) {
+        resolve(null)
+        return
+      }
+
+      mediaRecorder.onstop = async () => {
+        // 트랙 모두 정지
+        mediaRecorder.stream.getTracks().forEach(track => track.stop())
+
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        if (blob.size === 0 || !currentSimId) {
+          resolve(null)
+          return
+        }
+
+        try {
+          const url = await uploadRecording(blob, currentSimId, `q${curQIdx + 1}-${Date.now()}.webm`)
+          resolve(url)
+        } catch (e) {
+          console.error('녹음 업로드 실패', e)
+          resolve(null)
+        }
+      }
+
+      mediaRecorder.stop()
+      setIsRecording(false)
+    })
+  }
+
+  // ─────────────────────────────────────────────
+  // 다음 질문 (본 → 꼬리 → 다음 본 → ...)
+  // ─────────────────────────────────────────────
+  const nextQuestion = async () => {
+    // 녹음 중이면 종료 + 업로드 + 저장
+    let recordingUrl: string | null = null
+    if (isRecording && currentSimId) {
+      recordingUrl = await stopRecording()
+    }
+
+    // 현재 질문 ID 찾기
+    let curQuestionId: string | null = null
+    if (isOnTail) {
+      // 꼬리질문은 캐시에서
+      curQuestionId = tailQuestions[curQIdx]?.id || null
+    } else {
+      // 본질문은 DB에서
+      const mainQ = simQuestions.find(q => q.order === curQIdx + 1 && !q.is_tail)
+      curQuestionId = mainQ?.id || null
+    }
+
+    // 답변 저장
+    if (curQuestionId && currentSimId) {
+      const durationUsed = (isOnTail ? 60 : 80) - timer
+      await submitAnswer.mutateAsync({
+        questionId: curQuestionId,
+        simulationId: currentSimId,
+        recordingUrl: recordingUrl || undefined,
+        durationSec: durationUsed,
+      })
+    }
+
+    // 꼬리질문 ON이고 현재 본질문이면 → 꼬리질문으로
+    if (tailQ && !isOnTail && currentSimId) {
+      const mainQ = simQuestions.find(q => q.order === curQIdx + 1 && !q.is_tail)
+      if (mainQ) {
+        // 꼬리질문 생성 + DB 저장
+        const tailText = generateTailQuestion(mainQ.question_text)
+        try {
+          const newTail = await addQuestion.mutateAsync({
+            simulationId: currentSimId,
+            order: 100 + curQIdx,  // 꼬리는 100+ order로 구분
+            questionText: tailText,
+            isTail: true,
+            parentQuestionId: mainQ.id,
+          })
+          setTailQuestions(prev => ({ ...prev, [curQIdx]: { id: newTail.id, text: tailText } }))
+          setIsOnTail(true)
+          setTimer(60)
+          setTimerRunning(true)
+          return
+        } catch (e) {
+          console.error('꼬리질문 생성 실패', e)
+        }
+      }
+    }
+
+    // 마지막 본질문(+꼬리)이면 완료
+    if (curQIdx >= MOCK_QUESTIONS.length - 1) {
+      if (currentSimId) {
+        const totalDuration = Math.floor((Date.now() - interviewStartTime) / 1000)
+        const totalQuestions = tailQ ? MOCK_QUESTIONS.length * 2 : MOCK_QUESTIONS.length
+        await completeSim.mutateAsync({
+          simulationId: currentSimId,
+          durationSec: totalDuration,
+          questionCount: totalQuestions,
+        })
+      }
+      setStep('result')
+      return
+    }
+
+    // 다음 본질문으로
+    setCurQIdx(i => i + 1)
+    setIsOnTail(false)
+    setTimer(80)
+    setTimerRunning(true)
+  }
+
+  // ─────────────────────────────────────────────
+  // 답변 시작/종료 토글
+  // ─────────────────────────────────────────────
+  const toggleRecording = async () => {
+    if (isRecording) {
+      const recordingUrl = await stopRecording()
+      // 현재 질문 ID
+      let curQuestionId: string | null = null
+      if (isOnTail) {
+        curQuestionId = tailQuestions[curQIdx]?.id || null
+      } else {
+        const mainQ = simQuestions.find(q => q.order === curQIdx + 1 && !q.is_tail)
+        curQuestionId = mainQ?.id || null
+      }
+      if (curQuestionId && currentSimId) {
+        await submitAnswer.mutateAsync({
+          questionId: curQuestionId,
+          simulationId: currentSimId,
+          recordingUrl: recordingUrl || undefined,
+          durationSec: (isOnTail ? 60 : 80) - timer,
+        })
+      }
+    } else {
+      await startRecording()
+    }
   }
 
   const getSelectedTitle = () => {
@@ -105,26 +316,86 @@ export default function Simulation() {
 
   const canStart = questionType && tailQ !== null && questionMode && getSelectedTitle()
 
-  const startSimulation = () => {
+  // ─────────────────────────────────────────────
+  // 시뮬레이션 시작 (DB 생성 + 질문 등록)
+  // ─────────────────────────────────────────────
+  const startSimulation = async () => {
     if (!canStart) return
-    setCountdown(10); setStep('countdown'); setCurQIdx(0); setTimer(80)
-    setShowQuestion(questionMode !== 'voice')
+
+    try {
+      const univ = questionType === 'ai' ? selUniv : selSchool?.univ
+      const dept = questionType === 'ai' ? selDept : selSchool?.dept
+      const grade = questionType === 'expect' ? selSchool?.grade : undefined
+
+      // 1. 시뮬레이션 생성
+      const newSim = await createSim.mutateAsync({
+        questionType,
+        tailQuestionEnabled: !!tailQ,
+        questionMode,
+        university: univ,
+        department: dept,
+        grade,
+      })
+
+      setCurrentSimId(newSim.id)
+
+      // 2. 질문 5개 추가
+      for (let i = 0; i < MOCK_QUESTIONS.length; i++) {
+        await addQuestion.mutateAsync({
+          simulationId: newSim.id,
+          order: i + 1,
+          questionText: MOCK_QUESTIONS[i].text,
+        })
+      }
+
+      // 3. 카운트다운 시작
+      setCountdown(10)
+      setStep('countdown')
+      setCurQIdx(0)
+      setIsOnTail(false)
+      setTailQuestions({})
+      setTimer(80)
+      setShowQuestion(questionMode !== 'voice')
+    } catch (e: any) {
+      alert('시뮬레이션 시작 실패: ' + e.message)
+    }
   }
 
-  const deleteSim = (id: number) => {
-    setSimHistory(prev => prev.filter(s => s.id !== id))
-    if (selSim?.id === id) setSelSim(null)
-    setDeleteTarget(null)
+  // 삭제
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteSim.mutateAsync(id)
+      if (selSim?.id === id) setSelSim(null)
+      setDeleteTarget(null)
+    } catch (e: any) {
+      alert('삭제 실패: ' + e.message)
+    }
   }
 
   const resetSetup = () => {
     setQuestionType(''); setTailQ(null); setQuestionMode('')
     setSelSchool(null); setSelUniv(''); setSelDept('')
+    setCurrentSimId(null)
+    setIsOnTail(false)
+    setTailQuestions({})
   }
 
   const toggleType = (id: string) => {
     if (questionType === id) { setQuestionType(''); setSelSchool(null); setSelUniv(''); setSelDept('') }
     else { setQuestionType(id); setSelSchool(null); setSelUniv(''); setSelDept('') }
+  }
+
+  // 시뮬레이션 제목 만들기
+  const getSimTitle = (sim: Simulation) => {
+    if (sim.university && sim.department) return `${sim.university} · ${sim.department}`
+    return getQuestionTypeLabel(sim.question_type)
+  }
+
+  // 시뮬레이션 태그
+  const getSimTags = (sim: Simulation) => {
+    const tags = [getQuestionTypeLabel(sim.question_type)]
+    if (sim.tail_question_enabled) tags.push('꼬리질문')
+    return tags
   }
 
   // ═══════════════════════════════════════════
@@ -145,7 +416,11 @@ export default function Simulation() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-3">
-              {simHistory.length === 0 ? (
+              {isLoading ? (
+                <div className="text-center py-10 text-ink-muted">
+                  <div className="text-[12px] font-medium">불러오는 중...</div>
+                </div>
+              ) : simHistory.length === 0 ? (
                 <div className="text-center py-10 text-ink-muted">
                   <div className="text-3xl mb-2">🎙️</div>
                   <div className="text-[12px] font-medium">시뮬레이션 기록이 없어요.</div>
@@ -166,10 +441,12 @@ export default function Simulation() {
                   >
                     ✕
                   </button>
-                  <div className="text-[10px] text-ink-muted mb-1 font-medium">{s.date}</div>
-                  <div className="text-[12px] font-semibold text-ink mb-1.5 pr-5">{s.title}</div>
+                  <div className="text-[10px] text-ink-muted mb-1 font-medium">
+                    {new Date(s.created_at).toLocaleDateString('ko-KR')}
+                  </div>
+                  <div className="text-[12px] font-semibold text-ink mb-1.5 pr-5">{getSimTitle(s)}</div>
                   <div className="flex gap-1 flex-wrap">
-                    {s.tags.map((tag, i) => (
+                    {getSimTags(s).map((tag, i) => (
                       <span key={i} className="text-[10px] font-bold text-brand-high-dark bg-brand-high-pale border border-brand-high-light px-2 py-0.5 rounded-full">
                         {tag}
                       </span>
@@ -200,49 +477,44 @@ export default function Simulation() {
             ) : (
               <>
                 <div className="px-5 py-3.5 border-b border-line-light flex-shrink-0">
-                  <div className="text-[14px] font-bold text-ink tracking-tight mb-1">{selSim.title}</div>
-                  <div className="text-[11px] text-ink-muted font-medium">{selSim.date} · {selSim.duration}</div>
+                  <div className="text-[14px] font-bold text-ink tracking-tight mb-1">{getSimTitle(selSim)}</div>
+                  <div className="text-[11px] text-ink-muted font-medium">
+                    {new Date(selSim.created_at).toLocaleDateString('ko-KR')} · {formatSimDuration(selSim.duration_sec)}
+                  </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-gray-50">
                   {/* 녹음 파일 */}
                   <div className="bg-white border border-line rounded-xl px-4 py-3.5">
                     <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2.5">녹음 파일</div>
-                    <div className="bg-gray-50 border border-line-light rounded-lg px-4 py-3 flex items-center gap-3">
-                      <button
-                        onClick={() => setIsPlaying(!isPlaying)}
-                        className="w-9 h-9 rounded-full bg-brand-high text-white cursor-pointer text-[14px] flex items-center justify-center flex-shrink-0 hover:bg-brand-high-dark transition-all shadow-[0_2px_8px_rgba(37,99,235,0.2)]"
-                      >
-                        {isPlaying ? '⏸' : '▶'}
-                      </button>
-                      <div className="flex-1">
-                        <div className="h-1 bg-gray-200 rounded-full overflow-hidden mb-1.5">
-                          <div
-                            className="h-full bg-brand-high rounded-full transition-all duration-300"
-                            style={{ width: isPlaying ? '40%' : '0%' }}
-                          />
-                        </div>
-                        <div className="flex justify-between text-[11px] text-ink-muted font-medium">
-                          <span>{isPlaying ? '00:05' : '00:00'}</span>
-                          <span>{selSim.duration}</span>
-                        </div>
+                    {selSim.recording_url ? (
+                      <audio
+                        src={selSim.recording_url}
+                        controls
+                        className="w-full"
+                      />
+                    ) : (
+                      <div className="bg-gray-50 border border-line-light rounded-lg px-4 py-3 text-[12px] text-ink-muted text-center">
+                        녹음 파일 없음
                       </div>
-                    </div>
+                    )}
 
-                    <div className="mt-3">
-                      <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">음성 텍스트 변환</div>
-                      <div className="bg-gray-50 border border-line-light rounded-lg px-3 py-2.5 text-[13px] text-ink leading-relaxed">
-                        {selSim.transcript}
+                    {selSim.transcript && (
+                      <div className="mt-3">
+                        <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">음성 텍스트 변환</div>
+                        <div className="bg-gray-50 border border-line-light rounded-lg px-3 py-2.5 text-[13px] text-ink leading-relaxed">
+                          {selSim.transcript}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   {/* 피드백 */}
                   <div className="bg-white border border-line rounded-xl px-4 py-3.5">
                     <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">선생님 피드백</div>
-                    {selSim.teacherFeedback ? (
+                    {selSim.teacher_feedback ? (
                       <div className="bg-brand-high-pale border border-brand-high-light rounded-lg px-3 py-2.5 text-[13px] text-brand-high-dark leading-relaxed">
-                        {selSim.teacherFeedback}
+                        {selSim.teacher_feedback}
                       </div>
                     ) : (
                       <div className="bg-gray-50 rounded-lg px-3 py-2.5 text-[12px] text-ink-muted text-center">
@@ -255,7 +527,7 @@ export default function Simulation() {
                   <div>
                     <div className="text-[11px] font-bold text-ink-secondary mb-2">태그</div>
                     <div className="flex gap-1.5 flex-wrap">
-                      {selSim.tags.map((tag: string, i: number) => (
+                      {getSimTags(selSim).map((tag, i) => (
                         <span key={i} className="text-[11px] font-semibold text-brand-high-dark bg-brand-high-pale border border-brand-high-light px-2.5 py-1 rounded-full">
                           {tag}
                         </span>
@@ -266,10 +538,19 @@ export default function Simulation() {
                   {/* 답변한 질문 */}
                   <div className="bg-white border border-line rounded-xl px-4 py-3.5">
                     <div className="text-[11px] font-bold text-ink-secondary mb-2">답변한 질문</div>
-                    {MOCK_QUESTIONS.map((q, i) => (
-                      <div key={q.id} className="flex gap-2 mb-2 text-[12px] text-ink leading-relaxed">
-                        <span className="text-orange-500 flex-shrink-0 font-extrabold">Q{i + 1}.</span>
-                        <span>{q.text}</span>
+                    {simQuestions.length === 0 ? (
+                      <div className="text-[12px] text-ink-muted">질문 정보 없음</div>
+                    ) : simQuestions.map((q) => (
+                      <div key={q.id} className="mb-3 last:mb-0">
+                        <div className="flex gap-2 mb-1 text-[12px] text-ink leading-relaxed">
+                          <span className="text-orange-500 flex-shrink-0 font-extrabold">Q{q.order}.</span>
+                          <span>{q.question_text}</span>
+                        </div>
+                        {q.recording_url && (
+                          <div className="ml-6 mt-1.5">
+                            <audio src={q.recording_url} controls className="h-7 w-full max-w-md" />
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -302,10 +583,11 @@ export default function Simulation() {
                   취소
                 </button>
                 <button
-                  onClick={() => deleteSim(deleteTarget)}
-                  className="flex-1 h-11 bg-red-600 text-white rounded-lg text-[13px] font-bold hover:bg-red-700 transition-all shadow-[0_2px_8px_rgba(220,38,38,0.2)]"
+                  onClick={() => deleteTarget && handleDelete(deleteTarget)}
+                  disabled={deleteSim.isPending}
+                  className="flex-1 h-11 bg-red-600 text-white rounded-lg text-[13px] font-bold hover:bg-red-700 transition-all shadow-[0_2px_8px_rgba(220,38,38,0.2)] disabled:opacity-50"
                 >
-                  삭제
+                  {deleteSim.isPending ? '삭제 중...' : '삭제'}
                 </button>
               </div>
             </div>
@@ -534,14 +816,14 @@ export default function Simulation() {
 
           <button
             onClick={startSimulation}
-            disabled={!canStart}
+            disabled={!canStart || createSim.isPending}
             className={`w-full h-12 rounded-xl text-[14px] font-bold transition-all ${
-              canStart
+              canStart && !createSim.isPending
                 ? 'bg-brand-high text-white hover:bg-brand-high-dark shadow-[0_4px_12px_rgba(37,99,235,0.25)]'
                 : 'bg-gray-200 text-ink-muted cursor-not-allowed'
             }`}
           >
-            다음으로
+            {createSim.isPending ? '준비 중...' : '다음으로'}
           </button>
         </div>
       </div>
@@ -580,14 +862,27 @@ export default function Simulation() {
   // 4. 면접 화면
   // ═══════════════════════════════════════════
   if (step === 'interview') {
-    const curQ = MOCK_QUESTIONS[curQIdx]
+    const curMainQ = MOCK_QUESTIONS[curQIdx]
+    const curTailQ = tailQuestions[curQIdx]
+    const currentText = isOnTail ? (curTailQ?.text || '') : curMainQ.text
+    const totalSteps = tailQ ? MOCK_QUESTIONS.length * 2 : MOCK_QUESTIONS.length
+    const currentStep = isOnTail ? curQIdx * 2 + 2 : curQIdx * 2 + 1
+    const stepDisplay = tailQ ? `${currentStep} / ${totalSteps}` : `${curQIdx + 1} / ${MOCK_QUESTIONS.length}`
+    const maxTime = isOnTail ? 60 : 80
     const title = questionType === 'ai' ? `${selUniv} · ${selDept}` : `${selSchool?.univ} · ${selSchool?.dept}`
     return (
       <div className="h-full bg-black flex flex-col overflow-hidden relative font-sans">
         {/* 상단 바 */}
         <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-5 py-3">
           <button
-            onClick={() => setStep('list')}
+            onClick={() => {
+              if (window.confirm('정말 종료하시겠어요? 진행 중인 답변은 저장되지 않을 수 있어요.')) {
+                if (mediaRecorderRef.current && isRecording) {
+                  mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop())
+                }
+                setStep('list')
+              }
+            }}
             className="text-[13px] text-white/80 hover:text-white font-semibold transition-colors"
           >
             ← 처음으로
@@ -611,7 +906,12 @@ export default function Simulation() {
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10">
           <div className="bg-black/70 backdrop-blur-sm rounded-full px-3.5 py-1 flex items-center gap-1.5 border border-white/20">
             <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-[14px] font-bold text-white font-mono">{formatTime(timer)} / 01:20</span>
+            <span className="text-[14px] font-bold text-white font-mono">
+              {formatTime(timer)} / {formatTime(maxTime)}
+            </span>
+            {isOnTail && (
+              <span className="text-[11px] text-orange-300 font-bold ml-1">꼬리</span>
+            )}
           </div>
         </div>
 
@@ -637,19 +937,25 @@ export default function Simulation() {
         {/* 하단 질문 바 */}
         <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/95 to-transparent px-6 py-5">
           <div className="text-[11px] text-orange-300 mb-1.5 font-medium">
-            *{QUESTION_TYPES.find(t => t.id === questionType)?.label} 중 {MOCK_QUESTIONS.length}문제가 무작위로 출제됩니다.
+            *{QUESTION_TYPES.find(t => t.id === questionType)?.label} · 진행 {stepDisplay}
+            {isOnTail && ' · 🔗 꼬리질문'}
           </div>
 
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1 min-w-0">
               {showQuestion ? (
                 <div className="text-[20px] font-bold text-white">
-                  <span className="text-orange-400">질문 {curQIdx + 1}. </span>{curQ.text}
+                  <span className={isOnTail ? "text-amber-300" : "text-orange-400"}>
+                    {isOnTail ? `꼬리질문. ` : `질문 ${curQIdx + 1}. `}
+                  </span>
+                  {currentText}
                 </div>
               ) : (
                 <div className="flex items-center gap-2.5">
                   <div className="text-[20px] font-bold text-white">
-                    <span className="text-orange-400">질문 {curQIdx + 1}. </span>
+                    <span className={isOnTail ? "text-amber-300" : "text-orange-400"}>
+                      {isOnTail ? `꼬리질문. ` : `질문 ${curQIdx + 1}. `}
+                    </span>
                     <span className="bg-white/20 rounded px-2 py-0.5 text-white/50 text-[14px]">음성으로 확인하세요</span>
                   </div>
                   <button
@@ -664,8 +970,9 @@ export default function Simulation() {
 
             <div className="flex gap-2.5 flex-shrink-0">
               <button
-                onClick={() => setIsRecording(!isRecording)}
-                className={`h-11 px-5 rounded-lg text-[13px] font-bold transition-all ${
+                onClick={toggleRecording}
+                disabled={submitAnswer.isPending}
+                className={`h-11 px-5 rounded-lg text-[13px] font-bold transition-all disabled:opacity-50 ${
                   isRecording
                     ? 'bg-red-500 hover:bg-red-600 text-white shadow-[0_4px_12px_rgba(239,68,68,0.3)] animate-pulse'
                     : 'bg-brand-high hover:bg-brand-high-dark text-white shadow-[0_4px_12px_rgba(37,99,235,0.3)]'
@@ -694,7 +1001,7 @@ export default function Simulation() {
       <div className="px-7 py-6 font-sans text-ink">
         <div className="flex items-center gap-2.5 mb-5">
           <button
-            onClick={() => setStep('list')}
+            onClick={() => { setStep('list'); resetSetup() }}
             className="w-8 h-8 rounded-lg bg-white border border-line flex items-center justify-center text-ink-secondary hover:bg-gray-50 transition-all"
           >
             ←
@@ -706,7 +1013,7 @@ export default function Simulation() {
           <div className="text-6xl mb-3">🎉</div>
           <div className="text-[22px] font-extrabold text-ink tracking-tight mb-1.5">면접 시뮬레이션 완료!</div>
           <div className="text-[14px] text-ink-secondary font-medium">
-            총 {MOCK_QUESTIONS.length}개 질문에 답변했어요.
+            총 {tailQ ? MOCK_QUESTIONS.length * 2 : MOCK_QUESTIONS.length}개 질문에 답변했어요. 녹음이 저장되었어요!
           </div>
         </div>
 
@@ -715,7 +1022,7 @@ export default function Simulation() {
           <div className="text-[14px] font-bold text-ink mb-3.5 tracking-tight">이번 시뮬레이션 요약</div>
           <div className="grid grid-cols-3 gap-3 max-md:grid-cols-1">
             {[
-              { label: '답변한 질문', val: `${MOCK_QUESTIONS.length}개` },
+              { label: '답변한 질문', val: `${tailQ ? MOCK_QUESTIONS.length * 2 : MOCK_QUESTIONS.length}개` },
               { label: '문제 유형', val: QUESTION_TYPES.find(t => t.id === questionType)?.label || '' },
               { label: '꼬리질문', val: tailQ ? 'ON' : 'OFF' },
             ].map((s, i) => (
@@ -744,7 +1051,7 @@ export default function Simulation() {
             다시 시뮬레이션하기
           </button>
           <button
-            onClick={() => setStep('list')}
+            onClick={() => { setStep('list'); resetSetup() }}
             className="flex-1 h-12 bg-white text-ink-secondary border border-line rounded-xl text-[14px] font-semibold hover:bg-gray-50 transition-all"
           >
             목록으로

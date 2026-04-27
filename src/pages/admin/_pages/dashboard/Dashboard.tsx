@@ -323,13 +323,13 @@ export default function Dashboard() {
 
       {/* Footer */}
       <div className="bg-white border-t border-line px-8 py-3.5 flex items-center justify-between flex-shrink-0">
-        <div className="text-[11px] text-ink-muted font-medium">인로드 학원 관리 서비스</div>
+        <div className="text-[11px] text-ink-muted font-medium">비커스 학원 관리 서비스</div>
         <div className="flex gap-4">
           <button className="text-[11px] text-ink-muted font-medium hover:text-brand-dark transition-colors">이용약관</button>
           <button className="text-[11px] text-ink-muted font-medium hover:text-brand-dark transition-colors">개인정보처리방침</button>
           <button className="text-[11px] text-ink-muted font-medium hover:text-brand-dark transition-colors">고객센터</button>
         </div>
-        <div className="text-[10px] text-ink-muted font-medium">© 2026 Inroad. All rights reserved.</div>
+        <div className="text-[10px] text-ink-muted font-medium">© 2026 BIKUS. All rights reserved.</div>
       </div>
     </div>
   )

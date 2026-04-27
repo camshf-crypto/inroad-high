@@ -1,322 +1,454 @@
 import { useState } from 'react'
+import {
+  useStudentPresentationExams,
+  useStudentPresentationQuestions,
+  useSeedDetails,
+  useUpdateMainIntentFeedback,
+  useUpdateFirstFeedback,
+  useUpdateFinalFeedback,
+  useUpdateTailFeedback,
+  useDeleteStudentPresentation,
+  getQuestionStep,
+} from '../../../../_hooks/useHighPresentation'
 
-// 파랑 테마
-const THEME = {
-  accent: '#2563EB',
-  accentDark: '#1E3A8A',
-  accentBg: '#EFF6FF',
-  accentBorder: '#93C5FD',
-  accentShadow: 'rgba(37, 99, 235, 0.15)',
-  gradient: 'linear-gradient(135deg, #1E3A8A, #2563EB)',
-}
+const STEP_LABELS_WITH_TAIL = ['1차 답변', '1차 피드백', '2차 답변', '최종 피드백', '꼬리 답변', '꼬리 피드백']
+const STEP_LABELS_NO_TAIL = ['1차 답변', '1차 피드백', '2차 답변', '최종 피드백']
 
-const PRESENTATIONS = [
-  {
-    id: 1, date: '2025-03-20', university: '서울대학교', type: '제시문 면접', status: '완료',
-    text: `[제시문 가]\n인공지능 기술의 발전으로 인해 많은 직업이 자동화될 것으로 예측된다. 일부 학자들은 이러한 변화가 새로운 직업 창출로 이어질 것이라 주장하지만, 다른 학자들은 불평등 심화를 우려한다.\n\n[제시문 나]\n역사적으로 기술 혁명은 단기적으로 일자리를 감소시켰지만 장기적으로는 더 많은 일자리를 창출했다. 산업혁명 당시 방직기 도입으로 많은 직공들이 일자리를 잃었지만, 결국 더 많은 고용이 이루어졌다.`,
-    question: '제시문 가와 나를 바탕으로 인공지능 기술 발전이 사회에 미치는 영향을 논하고, 이에 대한 본인의 견해를 말하시오.',
-    intent: '제시문 가와 나의 상반된 관점을 파악하고, 기술 발전에 대한 균형 잡힌 시각을 갖고 있는지 평가합니다. 단순한 찬반이 아닌 복합적 사고력과 논리적 근거 제시 능력을 봅니다.',
-    answer: '인공지능 기술의 발전은 단기적으로 일자리 감소를 야기할 수 있지만, 장기적으로는 새로운 산업과 직업을 창출할 것입니다.',
-    prevFeedback: '제시문을 잘 이해하고 있어요. 다만 본인의 견해 부분에서 더 구체적인 근거를 들었으면 좋겠어요.',
-    upgradedAnswer: '',
-    finalFeedback: '',
-    answered: true,
-  },
-  {
-    id: 2, date: '2025-04-05', university: '연세대학교', type: '제시문 면접', status: '완료',
-    text: `[제시문]\n최근 빅데이터와 AI를 활용한 개인 맞춤형 서비스가 급증하고 있다. 이는 소비자 편의를 높이지만, 개인정보 침해와 프라이버시 문제를 야기한다는 비판도 있다.`,
-    question: '제시문을 바탕으로 개인정보 보호와 기술 발전의 균형에 대해 본인의 생각을 말하시오.',
-    intent: '개인정보 보호와 기술 혁신 사이의 트레이드오프를 이해하는지 평가합니다. 사회적 가치와 기술 발전의 균형에 대한 본인만의 관점을 논리적으로 표현할 수 있는지 봅니다.',
-    answer: '',
-    prevFeedback: '',
-    upgradedAnswer: '',
-    finalFeedback: '',
-    answered: false,
-  },
-]
-
-const STEP_LABELS = ['첫 답변', '1차 피드백', '업그레이드', '최종 피드백']
+type ActiveTab = 'intent' | string  // 'intent' or questionId
 
 export default function PresentationTab({ student }: { student: any }) {
-  const [presentations, setPresentations] = useState(PRESENTATIONS)
-  const [selPres, setSelPres] = useState<any>(PRESENTATIONS[0])
+  const studentId: string = student.id
+
+  const [selExamId, setSelExamId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<ActiveTab>('intent')
   const [feedback, setFeedback] = useState<Record<string, string>>({})
-  const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [showAiPanel, setShowAiPanel] = useState(false)
 
-  const getStep = (p: any) => {
-    if (!p.answered) return 0
-    if (!p.prevFeedback) return 1
-    if (!p.upgradedAnswer) return 2
-    if (!p.finalFeedback) return 3
-    return 4
+  const { data: exams = [], isLoading: loadingExams } = useStudentPresentationExams(studentId)
+  const { data: questions = [], isLoading: loadingQ } = useStudentPresentationQuestions(selExamId ?? undefined)
+  const selExam = exams.find(e => e.id === selExamId) ?? null
+  const { data: seed } = useSeedDetails(selExam?.seed_id)
+
+  const updateMain = useUpdateMainIntentFeedback()
+  const updateFirst = useUpdateFirstFeedback()
+  const updateFinal = useUpdateFinalFeedback()
+  const updateTail = useUpdateTailFeedback()
+  const deleteExam = useDeleteStudentPresentation()
+
+  const selQ = activeTab !== 'intent' ? questions.find(q => q.id === activeTab) : null
+  const step = selQ ? getQuestionStep(selQ) : 0
+  const STEP_LABELS = selQ?.tail_question ? STEP_LABELS_WITH_TAIL : STEP_LABELS_NO_TAIL
+
+  // 첫 회차 자동 선택
+  if (!selExamId && exams.length > 0) {
+    setTimeout(() => setSelExamId(exams[0].id), 0)
   }
 
-  const sendFeedback = (type: 'first' | 'final') => {
-    if (!selPres) return
-    const key = type === 'first' ? String(selPres.id) : `${selPres.id}_final`
-    const val = feedback[key] || ''
-    if (!val.trim()) return
-    if (type === 'first') {
-      const updated = presentations.map(p => p.id === selPres.id ? { ...p, prevFeedback: val } : p)
-      setPresentations(updated)
-      setSelPres({ ...selPres, prevFeedback: val })
-    } else {
-      const updated = presentations.map(p => p.id === selPres.id ? { ...p, finalFeedback: val } : p)
-      setPresentations(updated)
-      setSelPres({ ...selPres, finalFeedback: val })
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteExam.mutateAsync({ examId: id, studentId })
+      if (selExamId === id) {
+        setSelExamId(null)
+        setActiveTab('intent')
+      }
+      setDeleteTarget(null)
+    } catch (e: any) {
+      alert('삭제 실패: ' + e.message)
     }
-    setFeedback(prev => ({ ...prev, [key]: '' }))
   }
 
-  const deletePres = (id: number) => {
-    setPresentations(prev => prev.filter(p => p.id !== id))
-    if (selPres?.id === id) setSelPres(null)
-    setDeleteTarget(null)
+  const sendIntentFb = () => {
+    if (!selExam) return
+    const key = `intent_${selExam.id}`
+    const val = (feedback[key] || '').trim()
+    if (!val) return
+    updateMain.mutate(
+      { examId: selExam.id, feedback: val },
+      { onSuccess: () => setFeedback(prev => ({ ...prev, [key]: '' })) }
+    )
   }
 
-  const handleTextareaFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
-    e.target.style.borderColor = THEME.accent
-    e.target.style.boxShadow = `0 0 0 3px ${THEME.accentShadow}`
+  const sendFirstFb = () => {
+    if (!selQ || !selExamId) return
+    const key = `${selQ.id}_first`
+    const val = (feedback[key] || '').trim()
+    if (!val) return
+    updateFirst.mutate(
+      { questionId: selQ.id, examId: selExamId, feedback: val },
+      { onSuccess: () => setFeedback(prev => ({ ...prev, [key]: '' })) }
+    )
   }
-  const handleTextareaBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
-    e.target.style.borderColor = '#E5E7EB'
-    e.target.style.boxShadow = 'none'
+
+  const sendFinalFb = () => {
+    if (!selQ || !selExamId) return
+    const key = `${selQ.id}_final`
+    const val = (feedback[key] || '').trim()
+    if (!val) return
+    updateFinal.mutate(
+      { questionId: selQ.id, examId: selExamId, feedback: val },
+      { onSuccess: () => setFeedback(prev => ({ ...prev, [key]: '' })) }
+    )
+  }
+
+  const sendTailFb = () => {
+    if (!selQ || !selExamId) return
+    const key = `${selQ.id}_tail`
+    const val = (feedback[key] || '').trim()
+    if (!val) return
+    updateTail.mutate(
+      { questionId: selQ.id, examId: selExamId, feedback: val },
+      { onSuccess: () => setFeedback(prev => ({ ...prev, [key]: '' })) }
+    )
   }
 
   return (
-    <div className="flex gap-4 h-full overflow-hidden">
+    <div style={{ display: 'flex', gap: 16, flex: 1, overflow: 'hidden', height: '100%' }}>
 
-      {/* ==================== 왼쪽 목록 ==================== */}
-      <div className="w-[300px] flex-shrink-0 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
-        <div className="px-4 py-3 border-b border-line flex-shrink-0">
-          <div className="text-[14px] font-extrabold text-ink tracking-tight">📄 제시문 목록</div>
-          <div className="text-[11px] font-medium text-ink-secondary mt-1">
-            총 <span className="font-bold" style={{ color: THEME.accent }}>{presentations.length}개</span> ·
-            완료 <span className="text-green-600 font-bold">{presentations.filter(p => p.answered).length}개</span>
+      {/* ━━━━━ 왼쪽: 회차 목록 ━━━━━ */}
+      <div style={{ width: 320, flexShrink: 0, background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid #E5E7EB', flexShrink: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>📜 제시문 면접 회차</div>
+          <div style={{ fontSize: 11, color: '#6B7280', marginTop: 4 }}>
+            총 <span style={{ color: '#2563EB', fontWeight: 700 }}>{exams.length}회</span>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-3 py-3">
-          {presentations.length === 0 ? (
-            <div className="text-center py-10 text-ink-muted">
-              <div className="text-3xl mb-2">📝</div>
-              <div className="text-[12px] font-medium">제시문이 없어요.</div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
+          {loadingExams ? (
+            <div style={{ textAlign: 'center', padding: '30px 0', color: '#9CA3AF', fontSize: 12 }}>불러오는 중...</div>
+          ) : exams.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: '#9CA3AF' }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>📜</div>
+              <div style={{ fontSize: 12 }}>회차 기록이 없어요</div>
             </div>
-          ) : presentations.map(p => {
-            const isSelected = selPres?.id === p.id
+          ) : exams.map((exam, i) => {
+            const isSelected = selExamId === exam.id
             return (
-              <div
-                key={p.id}
-                onClick={() => setSelPres(p)}
-                className="rounded-xl px-3.5 py-3 mb-2 cursor-pointer transition-all relative"
-                style={{
-                  border: `1px solid ${isSelected ? THEME.accent : '#E5E7EB'}`,
-                  background: isSelected ? THEME.accentBg : '#fff',
-                  boxShadow: isSelected ? `0 2px 8px ${THEME.accentShadow}` : 'none',
-                }}
-              >
-                <button
-                  onClick={e => { e.stopPropagation(); setDeleteTarget(p.id) }}
-                  className="absolute top-2 right-2 w-5 h-5 rounded-full bg-gray-100 hover:bg-red-100 hover:text-red-600 flex items-center justify-center text-[10px] text-ink-secondary transition-colors"
+              <div key={exam.id} style={{ marginBottom: 10 }}>
+                <div
+                  onClick={() => { setSelExamId(exam.id); setActiveTab('intent'); setShowAiPanel(false) }}
+                  style={{
+                    border: `1px solid ${isSelected ? '#2563EB' : '#E5E7EB'}`,
+                    borderRadius: 10,
+                    padding: '12px 14px',
+                    cursor: 'pointer',
+                    background: isSelected ? '#EFF6FF' : '#fff',
+                    position: 'relative',
+                  }}
                 >
-                  ✕
-                </button>
-                <div className="flex items-center justify-between mb-1.5 pr-6">
-                  <span className="text-[11px] font-semibold text-ink-secondary">📅 {p.date}</span>
-                  <span
-                    className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(exam.id) }}
                     style={{
-                      background: p.status === '완료' ? '#ECFDF5' : THEME.accentBg,
-                      color: p.status === '완료' ? '#059669' : THEME.accent,
-                      border: `1px solid ${p.status === '완료' ? '#6EE7B7' : THEME.accentBorder}60`,
+                      position: 'absolute', top: 8, right: 8,
+                      width: 20, height: 20, borderRadius: '50%',
+                      background: '#F3F4F6', border: 'none',
+                      fontSize: 10, color: '#6B7280', cursor: 'pointer',
                     }}
                   >
-                    {p.status === '완료' ? '✓ 완료' : p.status}
-                  </span>
+                    ✕
+                  </button>
+                  <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, marginBottom: 4, paddingRight: 24 }}>
+                    #{exams.length - i} · {new Date(exam.created_at).toLocaleDateString('ko-KR')}
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a', marginBottom: 4 }}>
+                    📜 {exam.passage_title}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#6B7280' }}>
+                    🎓 {exam.university} · {exam.category}
+                  </div>
                 </div>
-                <div className="text-[13px] font-bold text-ink mb-0.5">🎓 {p.university}</div>
-                <div className="text-[11px] font-medium text-ink-secondary mb-2">{p.type}</div>
-                {p.answered ? (
-                  <span className="text-[10px] font-bold text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
-                    ✓ {getStep(p)}/4단계
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                    ⏳ 미답변
-                  </span>
-                )}
               </div>
             )
           })}
         </div>
       </div>
 
-      {/* ==================== 오른쪽 상세 ==================== */}
-      <div className="flex-1 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_2px_8px_rgba(15,23,42,0.04)] min-w-0">
-        {!selPres ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-ink-muted gap-2">
-            <div className="text-4xl">📝</div>
-            <div className="text-[14px] font-bold text-ink-secondary">제시문을 선택해주세요</div>
+      {/* ━━━━━ 가운데: 탭 + 본문 ━━━━━ */}
+      <div style={{ flex: 1, background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+        {!selExam ? (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', gap: 8 }}>
+            <div style={{ fontSize: 36 }}>📜</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#6B7280' }}>회차를 선택해주세요</div>
           </div>
         ) : (
           <>
-            {/* 헤더 */}
-            <div className="px-5 py-4 border-b border-line flex-shrink-0">
-              <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-                <div>
-                  <div className="text-[15px] font-extrabold text-ink tracking-tight">
-                    🎓 {selPres.university} · {selPres.type}
-                  </div>
-                  <div className="text-[11px] font-semibold text-ink-secondary mt-0.5">📅 {selPres.date}</div>
-                </div>
-                <span
-                  className="text-[11px] font-bold px-3 py-1 rounded-full"
-                  style={{
-                    background: selPres.answered ? '#ECFDF5' : '#FFF3E8',
-                    color: selPres.answered ? '#059669' : '#D97706',
-                    border: `1px solid ${selPres.answered ? '#6EE7B7' : '#FDBA74'}`,
-                  }}
-                >
-                  {selPres.answered ? '✓ 답변완료' : '⏳ 미답변'}
-                </span>
-              </div>
-
-              {/* 4단계 진행 */}
-              <div className="flex">
-                {STEP_LABELS.map((label, i) => {
-                  const step = getStep(selPres)
-                  const stepNum = i + 1
-                  const isDone = stepNum < step
-                  const isOn = stepNum === step
-                  return (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-1 relative">
-                      {i < 3 && (
-                        <div
-                          className="absolute top-[11px] left-[55%] w-[90%] h-0.5 z-0"
-                          style={{ background: isDone ? '#059669' : '#E5E7EB' }}
-                        />
-                      )}
-                      <div
-                        className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-extrabold z-10 relative"
-                        style={{
-                          background: isDone ? '#059669' : isOn ? THEME.accent : '#F3F4F6',
-                          color: isDone || isOn ? '#fff' : '#9CA3AF',
-                          border: `2px solid ${isDone ? '#059669' : isOn ? THEME.accent : '#E5E7EB'}`,
-                        }}
-                      >
-                        {isDone ? '✓' : stepNum}
-                      </div>
-                      <div
-                        className="text-[10px] whitespace-nowrap"
-                        style={{
-                          color: isDone ? '#059669' : isOn ? THEME.accentDark : '#9CA3AF',
-                          fontWeight: isOn ? 700 : 500,
-                        }}
-                      >
-                        {label}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+            {/* 탭 헤더 */}
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid #E5E7EB', flexShrink: 0, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {/* 의도파악 탭 */}
+              <button
+                onClick={() => { setActiveTab('intent'); setShowAiPanel(false) }}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: 8,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  border: `1px solid ${activeTab === 'intent' ? '#2563EB' : '#E5E7EB'}`,
+                  background: activeTab === 'intent' ? '#2563EB' : '#fff',
+                  color: activeTab === 'intent' ? '#fff' : '#6B7280',
+                }}
+              >
+                🌟 의도파악
+              </button>
+              {/* 질문 탭 */}
+              {questions.map((q) => {
+                const isActive = activeTab === q.id
+                const isCompleted = !!q.final_feedback && (!q.tail_question || !!q.tail_feedback)
+                return (
+                  <button
+                    key={q.id}
+                    onClick={() => { setActiveTab(q.id); setShowAiPanel(false) }}
+                    style={{
+                      padding: '8px 18px',
+                      borderRadius: 8,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      border: `1px solid ${isActive ? '#2563EB' : '#E5E7EB'}`,
+                      background: isActive ? '#2563EB' : isCompleted ? '#ECFDF5' : '#fff',
+                      color: isActive ? '#fff' : isCompleted ? '#059669' : '#6B7280',
+                    }}
+                  >
+                    Q{q.order}{isCompleted && ' ✓'}
+                  </button>
+                )
+              })}
             </div>
 
-            {/* 바디 */}
-            <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
+            {/* 본문 (전체 스크롤) */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px' }}>
 
-              {/* 제시문 */}
-              <div className="bg-gray-50 border border-line rounded-xl px-5 py-4">
-                <div className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-2">📄 제시문</div>
-                <div className="text-[13px] font-medium text-ink leading-[1.9] whitespace-pre-wrap">{selPres.text}</div>
-              </div>
-
-              {/* 질문 */}
-              <div
-                className="rounded-xl px-5 py-4"
-                style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}
-              >
-                <div className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: THEME.accent }}>
-                  📌 질문
-                </div>
-                <div className="text-[14px] font-bold leading-[1.7]" style={{ color: THEME.accentDark }}>
-                  {selPres.question}
-                </div>
-              </div>
-
-              {/* 질문 의도 */}
-              <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
-                <div className="text-[11px] font-bold uppercase tracking-wider mb-2 text-amber-700">
-                  💡 질문 의도
-                </div>
-                <div className="text-[13px] font-medium text-amber-800 leading-[1.7]">{selPres.intent}</div>
-              </div>
-
-              {/* 히스토리 */}
-              <div className="bg-white border border-line rounded-xl px-5 py-4">
-                <div className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-4">
-                  💬 답변 · 피드백 히스토리
-                </div>
-                <div className="flex flex-col gap-4">
-
-                  {/* Step 1 */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-[10px] font-extrabold text-white bg-ink-muted px-2 py-0.5 rounded-full">
-                        Step 1
-                      </span>
-                      <span className="text-[11px] font-semibold text-ink-secondary">학생 첫 답변</span>
+              {/* ═══ 의도파악 탭 ═══ */}
+              {activeTab === 'intent' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {/* 헤더 */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, gap: 8, flexWrap: 'wrap' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>
+                      🌟 원질문 의도파악
                     </div>
-                    <div className="bg-gray-50 border border-line rounded-lg px-3 py-2.5 text-[13px] font-medium text-ink leading-[1.8]">
-                      {selPres.answered ? selPres.answer : <span className="text-ink-muted">아직 학생이 답변을 작성하지 않았어요.</span>}
+                    <span style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: '3px 12px',
+                      borderRadius: 99,
+                      background: selExam.main_intent_feedback ? '#ECFDF5' : selExam.main_intent_answer ? '#FFF3E8' : '#F3F4F6',
+                      color: selExam.main_intent_feedback ? '#059669' : selExam.main_intent_answer ? '#D97706' : '#6B7280',
+                      border: `1px solid ${selExam.main_intent_feedback ? '#6EE7B7' : selExam.main_intent_answer ? '#FDBA74' : '#E5E7EB'}`,
+                    }}>
+                      {selExam.main_intent_feedback ? '✓ 피드백완료' : selExam.main_intent_answer ? '피드백 대기' : '미답변'}
+                    </span>
+                  </div>
+
+                  {/* 질문 */}
+                  {seed?.main_intent_question && (
+                    <div style={{ background: '#F8F7F5', borderRadius: 10, padding: '14px 16px' }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', marginBottom: 6, letterSpacing: '0.5px' }}>📌 질문</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', lineHeight: 1.6 }}>
+                        {seed.main_intent_question}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 정답 의도 (참고) */}
+                  {seed?.main_author_intent && (
+                    <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10, padding: '14px 16px' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#2563EB', marginBottom: 6 }}>📖 정답 의도 (참고)</div>
+                      <div style={{ fontSize: 12, color: '#1E3A8A', lineHeight: 1.7 }}>{seed.main_author_intent}</div>
+                    </div>
+                  )}
+
+                  {/* 학생 답변 */}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#6B7280', padding: '3px 10px', borderRadius: 99 }}>학생 답변</span>
+                    </div>
+                    <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '11px 14px', fontSize: 13, color: '#374151', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                      {selExam.main_intent_answer || <span style={{ color: '#9CA3AF' }}>아직 학생이 답변을 작성하지 않았어요.</span>}
+                      {selExam.main_intent_recording_url && <audio src={selExam.main_intent_recording_url} controls style={{ width: '100%', height: 28, marginTop: 8 }} />}
                     </div>
                   </div>
 
-                  {/* Step 2 */}
-                  {selPres.answered && (
+                  {/* 선생님 피드백 */}
+                  {selExam.main_intent_answer && (
                     <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span
-                          className="text-[10px] font-extrabold text-white px-2 py-0.5 rounded-full"
-                          style={{ background: THEME.accent }}
-                        >
-                          Step 2
-                        </span>
-                        <span className="text-[11px] font-semibold text-ink-secondary">선생님 1차 피드백</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#2563EB', padding: '3px 10px', borderRadius: 99 }}>선생님 피드백</span>
                       </div>
-                      {selPres.prevFeedback ? (
-                        <div
-                          className="rounded-lg px-3 py-2.5 text-[13px] font-medium leading-[1.8]"
+                      {selExam.main_intent_feedback ? (
+                        <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '11px 14px', fontSize: 13, color: '#1E3A8A', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                          {selExam.main_intent_feedback}
+                        </div>
+                      ) : (
+                        <>
+                          <textarea
+                            value={feedback[`intent_${selExam.id}`] || ''}
+                            onChange={e => setFeedback(prev => ({ ...prev, [`intent_${selExam.id}`]: e.target.value }))}
+                            placeholder="의도파악에 대한 피드백을 작성해주세요..."
+                            rows={4}
+                            style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: 8, padding: '11px 14px', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7 }}
+                          />
+                          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                            <button
+                              onClick={sendIntentFb}
+                              disabled={updateMain.isPending || !(feedback[`intent_${selExam.id}`] || '').trim()}
+                              style={{
+                                padding: '8px 16px',
+                                background: (feedback[`intent_${selExam.id}`] || '').trim() ? '#2563EB' : '#E5E7EB',
+                                color: (feedback[`intent_${selExam.id}`] || '').trim() ? '#fff' : '#9CA3AF',
+                                border: 'none',
+                                borderRadius: 7,
+                                fontSize: 12,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {updateMain.isPending ? '전달중...' : '의도파악 피드백 전달'}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ═══ 질문 탭 ═══ */}
+              {activeTab !== 'intent' && selQ && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {/* 헤더 */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, gap: 8, flexWrap: 'wrap' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>
+                      Q{selQ.order} · 메인 질문
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      {selQ.first_answer && (
+                        <button
+                          onClick={() => setShowAiPanel(v => !v)}
                           style={{
-                            background: THEME.accentBg,
-                            border: `1px solid ${THEME.accentBorder}60`,
-                            color: THEME.accentDark,
+                            padding: '6px 12px',
+                            borderRadius: 8,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            background: showAiPanel ? '#2563EB' : '#EFF6FF',
+                            color: showAiPanel ? '#fff' : '#2563EB',
+                            border: '1px solid #2563EB',
                           }}
                         >
-                          {selPres.prevFeedback}
+                          ✨ AI 분석 {showAiPanel ? '닫기' : '보기'}
+                        </button>
+                      )}
+                      <span style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        padding: '3px 12px',
+                        borderRadius: 99,
+                        background: selQ.first_answer ? '#ECFDF5' : '#FFF3E8',
+                        color: selQ.first_answer ? '#059669' : '#D97706',
+                        border: `1px solid ${selQ.first_answer ? '#6EE7B7' : '#FDBA74'}`,
+                      }}>
+                        {selQ.first_answer ? '답변진행중' : '미답변'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 스테퍼 */}
+                  <div style={{ display: 'flex' }}>
+                    {STEP_LABELS.map((label, i) => {
+                      const stepNum = i + 1
+                      const isDone = stepNum < step
+                      const isOn = stepNum === step
+                      return (
+                        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative' }}>
+                          {i < STEP_LABELS.length - 1 && (
+                            <div style={{
+                              position: 'absolute', top: 11, left: '55%', width: '90%', height: 1.5,
+                              background: isDone ? '#059669' : '#E5E7EB',
+                            }} />
+                          )}
+                          <div style={{
+                            width: 24, height: 24, borderRadius: '50%',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 10, fontWeight: 700, zIndex: 1, position: 'relative',
+                            background: isDone ? '#059669' : isOn ? '#2563EB' : '#F3F4F6',
+                            color: isDone || isOn ? '#fff' : '#9CA3AF',
+                            border: `2px solid ${isDone ? '#059669' : isOn ? '#2563EB' : '#E5E7EB'}`,
+                          }}>
+                            {isDone ? '✓' : stepNum}
+                          </div>
+                          <div style={{
+                            fontSize: 10,
+                            color: isDone ? '#059669' : isOn ? '#2563EB' : '#9CA3AF',
+                            fontWeight: isOn ? 700 : 500,
+                            whiteSpace: 'nowrap',
+                          }}>
+                            {label}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* 질문 */}
+                  <div style={{ background: '#F8F7F5', borderRadius: 10, padding: '14px 16px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', marginBottom: 6, letterSpacing: '0.5px' }}>📌 질문</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a', lineHeight: 1.6 }}>
+                      {selQ.question}
+                    </div>
+                  </div>
+
+                  {selQ.author_intent && (
+                    <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10, padding: '14px 16px' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#2563EB', marginBottom: 6 }}>💡 질문 의도</div>
+                      <div style={{ fontSize: 12, color: '#1E3A8A', lineHeight: 1.7 }}>{selQ.author_intent}</div>
+                    </div>
+                  )}
+
+                  {/* Step 1 - 1차 답변 */}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#6B7280', padding: '3px 10px', borderRadius: 99 }}>Step 1</span>
+                      <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>학생 1차 답변</span>
+                    </div>
+                    <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '11px 14px', fontSize: 13, color: '#374151', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                      {selQ.first_answer || <span style={{ color: '#9CA3AF' }}>아직 학생이 답변을 작성하지 않았어요.</span>}
+                      {selQ.first_recording_url && <audio src={selQ.first_recording_url} controls style={{ width: '100%', height: 28, marginTop: 8 }} />}
+                    </div>
+                  </div>
+
+                  {/* Step 2 - 1차 피드백 */}
+                  {selQ.first_answer && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#2563EB', padding: '3px 10px', borderRadius: 99 }}>Step 2</span>
+                        <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>선생님 1차 피드백</span>
+                      </div>
+                      {selQ.first_feedback ? (
+                        <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '11px 14px', fontSize: 13, color: '#1E3A8A', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                          {selQ.first_feedback}
                         </div>
                       ) : (
                         <>
                           <textarea
-                            value={feedback[String(selPres.id)] || ''}
-                            onChange={e => setFeedback(prev => ({ ...prev, [String(selPres.id)]: e.target.value }))}
-                            placeholder="학생 답변에 대한 피드백을 작성해주세요..."
-                            rows={3}
-                            className="w-full border border-line rounded-lg px-3 py-2.5 text-[12px] font-medium outline-none resize-y leading-[1.7] transition-all placeholder:text-ink-muted"
-                            onFocus={handleTextareaFocus}
-                            onBlur={handleTextareaBlur}
+                            value={feedback[`${selQ.id}_first`] || ''}
+                            onChange={e => setFeedback(prev => ({ ...prev, [`${selQ.id}_first`]: e.target.value }))}
+                            placeholder="학생의 1차 답변에 대한 피드백을 작성해주세요..."
+                            rows={4}
+                            style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: 8, padding: '11px 14px', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7 }}
                           />
-                          <div className="flex gap-2 mt-2">
+                          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                             <button
-                              onClick={() => sendFeedback('first')}
-                              className="px-4 py-2 text-white rounded-lg text-[12px] font-bold transition-all hover:-translate-y-px"
-                              style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
+                              onClick={sendFirstFb}
+                              disabled={updateFirst.isPending || !(feedback[`${selQ.id}_first`] || '').trim()}
+                              style={{
+                                padding: '8px 16px',
+                                background: (feedback[`${selQ.id}_first`] || '').trim() ? '#2563EB' : '#E5E7EB',
+                                color: (feedback[`${selQ.id}_first`] || '').trim() ? '#fff' : '#9CA3AF',
+                                border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                              }}
                             >
-                              📤 1차 피드백 전달
-                            </button>
-                            <button
-                              className="px-4 py-2 bg-white border rounded-lg text-[12px] font-bold transition-all hover:-translate-y-px"
-                              style={{ color: THEME.accent, borderColor: THEME.accent }}
-                            >
-                              ✨ AI 제안
+                              {updateFirst.isPending ? '전달중...' : '1차 피드백 전달'}
                             </button>
                           </div>
                         </>
@@ -324,61 +456,52 @@ export default function PresentationTab({ student }: { student: any }) {
                     </div>
                   )}
 
-                  {/* Step 3 */}
-                  {selPres.prevFeedback && (
+                  {/* Step 3 - 2차 답변 */}
+                  {selQ.first_feedback && (
                     <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-[10px] font-extrabold text-white bg-ink-muted px-2 py-0.5 rounded-full">
-                          Step 3
-                        </span>
-                        <span className="text-[11px] font-semibold text-ink-secondary">학생 업그레이드 답변</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#6B7280', padding: '3px 10px', borderRadius: 99 }}>Step 3</span>
+                        <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>학생 2차 답변</span>
                       </div>
-                      <div className="bg-gray-50 border border-line rounded-lg px-3 py-2.5 text-[13px] font-medium text-ink leading-[1.8]">
-                        {selPres.upgradedAnswer || <span className="text-ink-muted">학생이 아직 업그레이드 답변을 작성하지 않았어요.</span>}
+                      <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '11px 14px', fontSize: 13, color: '#374151', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                        {selQ.second_answer || <span style={{ color: '#9CA3AF' }}>학생이 아직 2차 답변을 작성하지 않았어요.</span>}
+                        {selQ.second_recording_url && <audio src={selQ.second_recording_url} controls style={{ width: '100%', height: 28, marginTop: 8 }} />}
                       </div>
                     </div>
                   )}
 
-                  {/* Step 4 */}
-                  {selPres.upgradedAnswer && (
+                  {/* Step 4 - 최종 피드백 */}
+                  {selQ.second_answer && (
                     <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-[10px] font-extrabold text-white bg-green-600 px-2 py-0.5 rounded-full">
-                          Step 4
-                        </span>
-                        <span className="text-[11px] font-semibold text-ink-secondary">선생님 최종 피드백</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#059669', padding: '3px 10px', borderRadius: 99 }}>Step 4</span>
+                        <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>선생님 최종 피드백</span>
                       </div>
-                      {selPres.finalFeedback ? (
-                        <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2.5 text-[13px] font-medium text-green-800 leading-[1.8]">
-                          {selPres.finalFeedback}
+                      {selQ.final_feedback ? (
+                        <div style={{ background: '#ECFDF5', border: '1px solid #6EE7B7', borderRadius: 8, padding: '11px 14px', fontSize: 13, color: '#065F46', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                          {selQ.final_feedback}
                         </div>
                       ) : (
                         <>
                           <textarea
-                            value={feedback[`${selPres.id}_final`] || ''}
-                            onChange={e => setFeedback(prev => ({ ...prev, [`${selPres.id}_final`]: e.target.value }))}
-                            placeholder="업그레이드된 답변에 대한 최종 피드백을 작성해주세요..."
-                            rows={3}
-                            className="w-full border border-line rounded-lg px-3 py-2.5 text-[12px] font-medium outline-none resize-y leading-[1.7] transition-all placeholder:text-ink-muted"
-                            onFocus={e => {
-                              e.target.style.borderColor = '#059669'
-                              e.target.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.1)'
-                            }}
-                            onBlur={handleTextareaBlur}
+                            value={feedback[`${selQ.id}_final`] || ''}
+                            onChange={e => setFeedback(prev => ({ ...prev, [`${selQ.id}_final`]: e.target.value }))}
+                            placeholder="2차 답변에 대한 최종 피드백을 작성해주세요..."
+                            rows={4}
+                            style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: 8, padding: '11px 14px', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7 }}
                           />
-                          <div className="flex gap-2 mt-2">
+                          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                             <button
-                              onClick={() => sendFeedback('final')}
-                              className="px-4 py-2 bg-green-600 text-white rounded-lg text-[12px] font-bold hover:bg-green-700 transition-all hover:-translate-y-px"
-                              style={{ boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }}
+                              onClick={sendFinalFb}
+                              disabled={updateFinal.isPending || !(feedback[`${selQ.id}_final`] || '').trim()}
+                              style={{
+                                padding: '8px 16px',
+                                background: (feedback[`${selQ.id}_final`] || '').trim() ? '#059669' : '#E5E7EB',
+                                color: (feedback[`${selQ.id}_final`] || '').trim() ? '#fff' : '#9CA3AF',
+                                border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                              }}
                             >
-                              ✓ 최종 피드백 전달
-                            </button>
-                            <button
-                              className="px-4 py-2 bg-white border rounded-lg text-[12px] font-bold transition-all hover:-translate-y-px"
-                              style={{ color: THEME.accent, borderColor: THEME.accent }}
-                            >
-                              ✨ AI 제안
+                              {updateFinal.isPending ? '전달중...' : '최종 피드백 전달'}
                             </button>
                           </div>
                         </>
@@ -386,48 +509,110 @@ export default function PresentationTab({ student }: { student: any }) {
                     </div>
                   )}
 
+                  {/* Step 5 - 꼬리 답변 */}
+                  {selQ.tail_question && selQ.final_feedback && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#6B7280', padding: '3px 10px', borderRadius: 99 }}>Step 5</span>
+                        <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>🔗 꼬리질문 답변</span>
+                      </div>
+                      <div style={{ background: '#FFF3E8', border: '1px solid #FDBA74', borderRadius: 8, padding: '10px 14px', marginBottom: 8 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#D97706', marginBottom: 4 }}>꼬리질문</div>
+                        <div style={{ fontSize: 12, color: '#9A3412', lineHeight: 1.6, fontWeight: 600 }}>{selQ.tail_question}</div>
+                      </div>
+                      <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '11px 14px', fontSize: 13, color: '#374151', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                        {selQ.tail_answer || <span style={{ color: '#9CA3AF' }}>학생이 아직 꼬리 답변을 작성하지 않았어요.</span>}
+                        {selQ.tail_recording_url && <audio src={selQ.tail_recording_url} controls style={{ width: '100%', height: 28, marginTop: 8 }} />}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Step 6 - 꼬리 피드백 */}
+                  {selQ.tail_answer && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#059669', padding: '3px 10px', borderRadius: 99 }}>Step 6</span>
+                        <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>꼬리 피드백</span>
+                      </div>
+                      {selQ.tail_feedback ? (
+                        <div style={{ background: '#ECFDF5', border: '1px solid #6EE7B7', borderRadius: 8, padding: '11px 14px', fontSize: 13, color: '#065F46', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                          {selQ.tail_feedback}
+                        </div>
+                      ) : (
+                        <>
+                          <textarea
+                            value={feedback[`${selQ.id}_tail`] || ''}
+                            onChange={e => setFeedback(prev => ({ ...prev, [`${selQ.id}_tail`]: e.target.value }))}
+                            placeholder="꼬리질문 답변에 대한 피드백을 작성해주세요..."
+                            rows={3}
+                            style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: 8, padding: '11px 14px', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7 }}
+                          />
+                          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                            <button
+                              onClick={sendTailFb}
+                              disabled={updateTail.isPending || !(feedback[`${selQ.id}_tail`] || '').trim()}
+                              style={{
+                                padding: '8px 16px',
+                                background: (feedback[`${selQ.id}_tail`] || '').trim() ? '#059669' : '#E5E7EB',
+                                color: (feedback[`${selQ.id}_tail`] || '').trim() ? '#fff' : '#9CA3AF',
+                                border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                              }}
+                            >
+                              {updateTail.isPending ? '전달중...' : '꼬리 피드백 전달'}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
+
             </div>
           </>
         )}
       </div>
 
-      {/* ==================== 삭제 확인 모달 ==================== */}
-      {deleteTarget !== null && (
-        <div
-          onClick={() => setDeleteTarget(null)}
-          className="fixed inset-0 z-[200] flex items-center justify-center"
-          style={{ background: 'rgba(15, 23, 42, 0.55)', backdropFilter: 'blur(4px)' }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            className="bg-white rounded-2xl p-7 w-[380px] text-center shadow-[0_20px_60px_rgba(0,0,0,0.25)]"
-          >
-            <div className="text-3xl mb-3">⚠️</div>
-            <div className="text-[17px] font-extrabold text-ink mb-2">제시문을 삭제하시겠어요?</div>
-            <div className="text-[13px] font-medium text-ink-secondary mb-6 leading-[1.6]">
-              삭제하면 답변과 피드백이<br />모두 사라져요.
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors"
-              >
-                취소
-              </button>
-              <button
-                onClick={() => deletePres(deleteTarget)}
-                className="flex-1 h-11 bg-red-600 text-white rounded-lg text-[13px] font-bold hover:bg-red-700 transition-all hover:-translate-y-px"
-                style={{ boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)' }}
-              >
-                🗑️ 삭제
-              </button>
+      {/* ━━━━━ 오른쪽: AI 분석 패널 ━━━━━ */}
+      {showAiPanel && selQ && (
+        <div style={{ width: 440, flexShrink: 0, background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid #E5E7EB', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#EFF6FF' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#1E3A8A' }}>✨ AI 답변 분석</div>
+            <button
+              onClick={() => setShowAiPanel(false)}
+              style={{ width: 28, height: 28, background: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#6B7280', fontSize: 14 }}
+            >✕</button>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 18px' }}>
+            <div style={{ background: '#F8F7F5', border: '1px dashed #D1D5DB', borderRadius: 12, padding: '40px 20px', textAlign: 'center', color: '#6B7280' }}>
+              <div style={{ fontSize: 36, marginBottom: 10 }}>🤖</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#374151', marginBottom: 6 }}>AI 분석 준비 중</div>
+              <div style={{ fontSize: 12, lineHeight: 1.7 }}>
+                제시문 면접에 맞는 분석 프롬프트가<br />
+                준비되면 여기에 표시될 예정이에요.
+              </div>
             </div>
           </div>
         </div>
       )}
 
+      {/* 삭제 모달 */}
+      {deleteTarget !== null && (
+        <div onClick={() => setDeleteTarget(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, padding: 28, width: 380, textAlign: 'center' }}>
+            <div style={{ fontSize: 28, marginBottom: 12 }}>⚠️</div>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>회차를 삭제하시겠어요?</div>
+            <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 20 }}>학생 답변과 녹음이 모두 사라져요.</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setDeleteTarget(null)} style={{ flex: 1, height: 42, background: '#fff', color: '#6B7280', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>취소</button>
+              <button onClick={() => deleteTarget && handleDelete(deleteTarget)} disabled={deleteExam.isPending}
+                style={{ flex: 1, height: 42, background: '#DC2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                {deleteExam.isPending ? '삭제중...' : '삭제'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

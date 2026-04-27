@@ -175,7 +175,7 @@ export default function RoadmapTab({ student }: { student: any }) {
   }
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto' }}>
+    <div>
 
       {/* 스탯 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
@@ -228,7 +228,7 @@ export default function RoadmapTab({ student }: { student: any }) {
 
         {/* 오른쪽: 미션 패널 */}
         {selected && selMonth !== null && (
-          <div style={{ ...SEC, borderColor: '#059669', position: 'sticky', top: 0, maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
+          <div style={{ ...SEC, borderColor: '#059669', position: 'sticky', top: 0 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700 }}>{selected.m}</div>

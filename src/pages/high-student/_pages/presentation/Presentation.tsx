@@ -1,845 +1,807 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '../../../../lib/supabase'
+import {
+  useAvailablePresentations,
+  useMyPresentationExams,
+  useExamQuestions,
+  useCreatePresentationExam,
+  useSubmitMainIntentAnswer,
+  useSubmitFirstAnswer,
+  useSubmitSecondAnswer,
+  useSubmitTailAnswer,
+  useCompletePresentationExam,
+  useDeletePresentationExam,
+  uploadPresentationRecording,
+  getPresentationStatusLabel,
+  PRESENTATION_CATEGORIES,
+  type PresentationSeed,
+} from '../../_hooks/useMyHighPresentation'
 
-const SNU_LOGO = "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/..." // 기존 데이터 그대로 유지
-const KOREA_LOGO = "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/..." // 기존 데이터 그대로 유지
-const YONSEI_LOGO = "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/..." // 기존 데이터 그대로 유지
-const EDU_LOGO = "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/..." // 기존 데이터 그대로 유지
-
-const SKY_SCHOOLS = [
-  { id: 1, name: '서울대학교', color: '#1E40AF', bg: '#EEF2FF', logo: SNU_LOGO, type: 'sky' },
-  { id: 2, name: '고려대학교', color: '#991B1B', bg: '#FEF2F2', logo: KOREA_LOGO, type: 'sky' },
-  { id: 3, name: '연세대학교', color: '#1E40AF', bg: '#EFF6FF', logo: YONSEI_LOGO, type: 'sky' },
-]
-
-const EDUCATION_SCHOOLS = [
-  { id: 10, name: '서울교육대학교', shortName: '서울교대', color: '#065F46', bg: '#ECFDF5', logo: EDU_LOGO, type: 'edu' },
-  { id: 11, name: '경인교육대학교', shortName: '경인교대', color: '#065F46', bg: '#ECFDF5', logo: EDU_LOGO, type: 'edu' },
-  { id: 12, name: '공주교육대학교', shortName: '공주교대', color: '#065F46', bg: '#ECFDF5', logo: EDU_LOGO, type: 'edu' },
-  { id: 13, name: '광주교육대학교', shortName: '광주교대', color: '#065F46', bg: '#ECFDF5', logo: EDU_LOGO, type: 'edu' },
-  { id: 14, name: '대구교육대학교', shortName: '대구교대', color: '#065F46', bg: '#ECFDF5', logo: EDU_LOGO, type: 'edu' },
-  { id: 15, name: '부산교육대학교', shortName: '부산교대', color: '#065F46', bg: '#ECFDF5', logo: EDU_LOGO, type: 'edu' },
-  { id: 16, name: '전주교육대학교', shortName: '전주교대', color: '#065F46', bg: '#ECFDF5', logo: EDU_LOGO, type: 'edu' },
-  { id: 17, name: '진주교육대학교', shortName: '진주교대', color: '#065F46', bg: '#ECFDF5', logo: EDU_LOGO, type: 'edu' },
-  { id: 18, name: '청주교육대학교', shortName: '청주교대', color: '#065F46', bg: '#ECFDF5', logo: EDU_LOGO, type: 'edu' },
-  { id: 19, name: '춘천교육대학교', shortName: '춘천교대', color: '#065F46', bg: '#ECFDF5', logo: EDU_LOGO, type: 'edu' },
-  { id: 20, name: '한국교원대학교', shortName: '한국교원대', color: '#1E3A5F', bg: '#EFF6FF', logo: EDU_LOGO, type: 'edu' },
-  { id: 21, name: '이화여자대학교 사범대학', shortName: '이화 사범대', color: '#831843', bg: '#FDF2F8', logo: EDU_LOGO, type: 'edu' },
-]
-
-const TRACKS_SNU = [
-  { id: 'human', name: '인문학', sub: '국어, 사회', icon: '📖' },
-  { id: 'humansocial', name: '인문사회학', sub: '국어, 사회, 도덕', icon: '🏛️' },
-  { id: 'social', name: '사회과학', sub: '국어, 사회', icon: '📊' },
-  { id: 'science', name: '자연계열', sub: '수학, 과학', icon: '🔬' },
-]
-
-const TRACKS_SKY = [
-  { id: 'humansocial', name: '인문사회학', sub: '국어, 사회, 도덕', icon: '🏛️' },
-  { id: 'science', name: '자연계열', sub: '수학, 과학', icon: '🔬' },
-]
-
-const YEARS = [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016]
-
-const PROBLEMS: Record<string, any[]> = {
-  '1-social-2025': [
-    {
-      id: 1, title: '문제 1번', subject: '사회과학', totalQ: 2,
-      pdfUrl: null,
-      pdfMock: '(가)\n사회 불평등은 단순히 경제적 차원에 그치지 않고 교육, 문화, 건강 등 다양한 영역으로 확산된다. 특히 디지털 전환 시대에는 정보 접근성의 격차가 새로운 불평등의 축으로 부상하고 있다...\n\n(나)\n역사적으로 기술 혁신은 단기적으로는 일부 계층에게 불리하게 작용했지만, 장기적으로는 전반적인 생활 수준 향상에 기여했다.',
-      questions: [
-        { id: 1, text: '제시문 (가)와 (나)를 바탕으로 기술 발전과 사회적 불평등의 관계를 분석하시오.', intent: ['제시문의 핵심 논지를 정확히 파악하는지 확인', '기술 발전과 불평등의 인과관계를 논리적으로 연결할 수 있는지 평가'], answer: '', teacherFeedback: '', upgradedAnswer: '', finalFeedback: '', tails: [] },
-        { id: 2, text: '현대 사회에서 디지털 불평등을 해소하기 위한 정책적 방안을 두 가지 이상 제시하시오.', intent: ['현실적이고 구체적인 정책 제안 능력 평가', '문제 해결형 사고방식을 갖추고 있는지 확인'], answer: '', teacherFeedback: '', upgradedAnswer: '', finalFeedback: '', tails: [] },
-      ],
+function useMyProfile() {
+  return useQuery({
+    queryKey: ['my-profile-for-presentation'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return null
+      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+      return data
     },
-  ],
-  '10-2025': [
-    {
-      id: 1, title: '문제 1번', subject: '교직적성', totalQ: 2,
-      pdfUrl: null,
-      pdfMock: '(가)\n교사는 지식 전달자인 동시에 학생의 전인적 성장을 돕는 조력자이다...\n\n(나)\n한 초등학교 교사는 수업 중 갈등을 겪는 두 학생 사이에서 중재자 역할을 하며 공감하는 방식으로 문제를 해결하였다...',
-      questions: [
-        { id: 1, text: '제시문 (가)와 (나)를 바탕으로 미래 사회에서 초등교사에게 필요한 핵심 역량을 논하시오.', intent: ['교직에 대한 소명의식과 이해도 평가'], answer: '', teacherFeedback: '', upgradedAnswer: '', finalFeedback: '', tails: [] },
-        { id: 2, text: '(나)의 사례에서 교사가 취한 태도를 평가하고, 본인이 유사한 상황에 처한다면 어떻게 대처할지 서술하시오.', intent: ['갈등 해결 능력과 공감 능력 평가'], answer: '', teacherFeedback: '', upgradedAnswer: '', finalFeedback: '', tails: [] },
-      ],
-    },
-  ],
+    refetchInterval: 2000,
+  })
 }
 
-const STEP_LABELS = ['첫 답변', '1차 피드백', '업그레이드', '최종 피드백', '꼬리질문']
+const THEME = {
+  accent: '#2563EB',
+  accentDark: '#1E3A8A',
+  accentBg: '#EFF6FF',
+  accentBorder: '#93C5FD',
+  accentShadow: 'rgba(37, 99, 235, 0.15)',
+}
 
-const MicBtn = ({ recording, onClick }: { recording: boolean; onClick: () => void }) => (
-  <button
-    onClick={onClick}
-    className={`w-9 h-9 rounded-lg text-[15px] flex items-center justify-center flex-shrink-0 border transition-all ${
-      recording
-        ? 'bg-red-50 text-red-500 border-red-200 animate-pulse'
-        : 'bg-brand-high-pale text-brand-high-dark border-brand-high-light hover:bg-brand-high hover:text-white'
-    }`}
-  >
-    {recording ? '⏹' : '🎙️'}
-  </button>
-)
+const ALL_UNIVS = ['서울대학교', '연세대학교', '고려대학교', '한양대학교', '성균관대학교', '중앙대학교', '경희대학교']
 
-const SubmitBtn = ({ label, onClick, disabled, accentColor }: { label: string; onClick: () => void; disabled: boolean; accentColor?: string }) => (
-  <button
-    onClick={onClick}
-    disabled={disabled}
-    className={`h-9 px-4 rounded-lg text-[12px] font-bold flex-shrink-0 transition-all ${
-      !disabled
-        ? accentColor === 'emerald'
-          ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-[0_2px_8px_rgba(5,150,105,0.2)]'
-          : 'bg-brand-high text-white hover:bg-brand-high-dark shadow-[0_2px_8px_rgba(37,99,235,0.2)]'
-        : 'bg-gray-200 text-ink-muted cursor-not-allowed'
-    }`}
-  >
-    {label}
-  </button>
-)
+type Phase = 'list' | 'select' | 'exam' | 'done'
+type ActiveTab = 'intent' | string  // 'intent' or questionId
+type QPhase = 'first' | 'firstFeedback' | 'second' | 'finalFeedback' | 'tail' | 'tailFeedback'
 
 export default function Presentation() {
-  const [step, setStep] = useState<'school' | 'list' | 'solve'>('school')
-  const [selSchool, setSelSchool] = useState<any>(null)
-  const [selTrack, setSelTrack] = useState<any>(null)
-  const [selYear, setSelYear] = useState(2025)
-  const [selProblem, setSelProblem] = useState<any>(null)
-  const [showTrackModal, setShowTrackModal] = useState(false)
-  const [showEduModal, setShowEduModal] = useState(false)
-  const [problems, setProblems] = useState(PROBLEMS)
+  const { data: myProfile } = useMyProfile()
 
-  const [answers, setAnswers] = useState<Record<string, string>>({})
-  const [upgradedAnswers, setUpgradedAnswers] = useState<Record<string, string>>({})
-  const [tailAnswers, setTailAnswers] = useState<Record<string, string>>({})
-  const [recordings, setRecordings] = useState<Record<string, boolean>>({})
-  const [editingStep1, setEditingStep1] = useState<Record<string, boolean>>({})
-  const [editingStep3, setEditingStep3] = useState<Record<string, boolean>>({})
-  const [openIntents, setOpenIntents] = useState<Record<string, boolean>>({})
+  const [phase, setPhase] = useState<Phase>('list')
+  const [selUniv, setSelUniv] = useState('')
+  const [selCategory, setSelCategory] = useState('')
+  const [selSeed, setSelSeed] = useState<PresentationSeed | null>(null)
+  const [selExamId, setSelExamId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<ActiveTab>('intent')
+  const [qPhase, setQPhase] = useState<QPhase>('first')
+  const [answerInput, setAnswerInput] = useState('')
+  const [isRecording, setIsRecording] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
-  const [leftWidth, setLeftWidth] = useState(50)
-  const isDragging = useRef(false)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const answerStartRef = useRef<number>(0)
 
-  const isEdu = selSchool?.type === 'edu'
-  const accent = isEdu ? 'emerald' : 'blue'
+  const { data: myExams = [] } = useMyPresentationExams()
+  const { data: availableSeeds = [] } = useAvailablePresentations(selUniv, selCategory)
+  const selExam = useMemo(() => myExams.find(e => e.id === selExamId), [myExams, selExamId])
+  const { data: examQuestions = [] } = useExamQuestions(selExamId || undefined)
+  const { data: seed } = useQuery({
+    queryKey: ['presentation-seed', selExam?.seed_id],
+    queryFn: async () => {
+      if (!selExam) return null
+      const { data } = await supabase.from('high_passage_seed').select('*').eq('id', selExam.seed_id).single()
+      return data
+    },
+    enabled: !!selExam,
+  })
 
-  const problemKey = selSchool
-    ? isEdu ? `${selSchool.id}-${selYear}`
-      : selTrack ? `${selSchool.id}-${selTrack.id}-${selYear}` : ''
-    : ''
-  const curProblems = problems[problemKey] || []
+  const createExam = useCreatePresentationExam()
+  const submitMainIntent = useSubmitMainIntentAnswer()
+  const submitFirst = useSubmitFirstAnswer()
+  const submitSecond = useSubmitSecondAnswer()
+  const submitTail = useSubmitTailAnswer()
+  const completeExam = useCompletePresentationExam()
+  const deleteExam = useDeletePresentationExam()
 
-  const handleDragStart = useCallback(() => { isDragging.current = true }, [])
-  const handleDragEnd = useCallback(() => { isDragging.current = false }, [])
-  const handleDragMove = useCallback((e: React.MouseEvent) => {
-    if (!isDragging.current || !containerRef.current) return
-    const rect = containerRef.current.getBoundingClientRect()
-    const pct = ((e.clientX - rect.left) / rect.width) * 100
-    setLeftWidth(Math.min(75, Math.max(25, pct)))
-  }, [])
+  // 현재 활성 질문
+  const activeQuestion = activeTab !== 'intent' ? examQuestions.find(q => q.id === activeTab) : null
 
-  const getProblemStatus = (p: any) => {
-    const all = p.questions.every((q: any) => q.answer)
-    if (all) return 'done'
-    const any = p.questions.some((q: any) => q.answer)
-    if (any) return 'doing'
-    return 'new'
-  }
-
-  const getQStep = (q: any) => {
-    if (!q.answer) return 1
-    if (!q.teacherFeedback) return 2
-    if (!q.upgradedAnswer) return 3
-    if (!q.finalFeedback) return 4
-    return 5
-  }
-
-  const updateQuestion = (problemId: number, questionId: number, patch: any) => {
-    const updated = { ...problems }
-    updated[problemKey] = updated[problemKey].map((p: any) =>
-      p.id === problemId
-        ? { ...p, questions: p.questions.map((q: any) => q.id === questionId ? { ...q, ...patch } : q) }
-        : p
-    )
-    setProblems(updated)
-    if (selProblem?.id === problemId) {
-      setSelProblem((prev: any) => ({
-        ...prev,
-        questions: prev.questions.map((q: any) => q.id === questionId ? { ...q, ...patch } : q)
-      }))
+  // 탭 변경 시 답변 입력 비우고 phase 초기화
+  const switchTab = (tab: ActiveTab) => {
+    setActiveTab(tab)
+    setAnswerInput('')
+    if (tab !== 'intent') {
+      const q = examQuestions.find(qq => qq.id === tab)
+      if (q) {
+        // 질문 진행 단계 추론
+        if (q.tail_feedback) setQPhase('tailFeedback')
+        else if (q.tail_answer) setQPhase('tailFeedback')
+        else if (q.final_feedback && q.tail_question) setQPhase('tail')
+        else if (q.final_feedback) setQPhase('finalFeedback')
+        else if (q.second_answer) setQPhase('finalFeedback')
+        else if (q.first_feedback) setQPhase('second')
+        else if (q.first_answer) setQPhase('firstFeedback')
+        else setQPhase('first')
+      }
     }
   }
 
-  const submitAnswer = (problemId: number, q: any) => {
-    const key = `${problemId}-${q.id}`
-    const val = answers[key] || ''
-    if (!val.trim()) return
-    updateQuestion(problemId, q.id, { answer: val, teacherFeedback: '', upgradedAnswer: '', finalFeedback: '', tails: [] })
-    setAnswers(p => ({ ...p, [key]: '' }))
-    setEditingStep1(p => ({ ...p, [key]: false }))
-    setRecordings(p => ({ ...p, [key]: false }))
+  // 녹음
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mr = new MediaRecorder(stream)
+      mediaRecorderRef.current = mr
+      audioChunksRef.current = []
+      mr.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
+      mr.start()
+      answerStartRef.current = Date.now()
+      setIsRecording(true)
+    } catch (e: any) {
+      alert('마이크 권한 필요: ' + e.message)
+    }
   }
 
-  const submitUpgrade = (problemId: number, q: any) => {
-    const key = `${problemId}-${q.id}`
-    const val = upgradedAnswers[key] || ''
-    if (!val.trim()) return
-    updateQuestion(problemId, q.id, { upgradedAnswer: val, finalFeedback: '', tails: [] })
-    setUpgradedAnswers(p => ({ ...p, [key]: '' }))
-    setEditingStep3(p => ({ ...p, [key]: false }))
-    setRecordings(p => ({ ...p, [`${key}-up`]: false }))
+  const stopRecording = async (label: string): Promise<{ url: string | null; duration: number }> => {
+    return new Promise((resolve) => {
+      const mr = mediaRecorderRef.current
+      if (!mr || !selExamId) { resolve({ url: null, duration: 0 }); return }
+      mr.onstop = async () => {
+        mr.stream.getTracks().forEach(t => t.stop())
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        const duration = Math.floor((Date.now() - answerStartRef.current) / 1000)
+        if (blob.size === 0) { resolve({ url: null, duration }); return }
+        try {
+          const url = await uploadPresentationRecording(blob, selExamId, `${label}-${Date.now()}.webm`)
+          resolve({ url, duration })
+        } catch {
+          resolve({ url: null, duration })
+        }
+      }
+      mr.stop()
+      setIsRecording(false)
+    })
   }
 
-  const submitTail = (problemId: number, q: any, tailIdx: number) => {
-    const key = `${problemId}-${q.id}-tail-${tailIdx}`
-    const val = tailAnswers[key] || ''
-    if (!val.trim()) return
-    const newTails = [...(q.tails || [])].map((t: any, i: number) =>
-      i === tailIdx ? { ...t, answer: val } : t
-    )
-    updateQuestion(problemId, q.id, { tails: newTails })
-    setTailAnswers(p => ({ ...p, [key]: '' }))
-    setRecordings(p => ({ ...p, [key]: false }))
+  const handleStartExam = async () => {
+    if (!selSeed) return
+    try {
+      const exam = await createExam.mutateAsync({ seedId: selSeed.id })
+      setSelExamId(exam.id)
+      setActiveTab('intent')
+      setPhase('exam')
+    } catch (e: any) {
+      alert('시작 실패: ' + e.message)
+    }
   }
 
-  const SchoolLogo = ({ school, size = 48 }: { school: any; size?: number }) => (
-    <div
-      style={{ width: size, height: size, background: school.bg, borderColor: school.color + '30' }}
-      className="rounded-full overflow-hidden border flex items-center justify-center flex-shrink-0"
-    >
-      {school.logo ? (
-        <img src={school.logo} alt={school.name} className="w-full h-full object-cover" />
-      ) : (
-        <span style={{ color: school.color, fontSize: size * 0.35 }} className="font-extrabold">
-          {(school.shortName || school.name)[0]}
-        </span>
-      )}
-    </div>
-  )
+  // 의도파악 답변 제출
+  const handleSubmitMainIntent = async () => {
+    if (!selExamId || !answerInput.trim()) return
+    let url: string | null = null, duration = 0
+    if (isRecording) {
+      const r = await stopRecording('intent')
+      url = r.url; duration = r.duration
+    }
+    try {
+      await submitMainIntent.mutateAsync({
+        examId: selExamId, answer: answerInput,
+        recordingUrl: url || undefined, durationSec: duration,
+      })
+      setAnswerInput('')
+      // 첫 질문 탭으로 자동 이동
+      if (examQuestions.length > 0) {
+        switchTab(examQuestions[0].id)
+      }
+    } catch (e: any) {
+      alert('저장 실패: ' + e.message)
+    }
+  }
 
-  // ═══════════════════════════════════════════════
-  // 1. 학교 선택 화면
-  // ═══════════════════════════════════════════════
-  if (step === 'school') {
+  // 1차/2차/꼬리 답변 제출
+  const handleSubmitAnswer = async () => {
+    if (!activeQuestion || !selExamId || !answerInput.trim()) return
+    let url: string | null = null, duration = 0
+    if (isRecording) {
+      const r = await stopRecording(qPhase)
+      url = r.url; duration = r.duration
+    }
+    try {
+      const args = {
+        questionId: activeQuestion.id, examId: selExamId,
+        answer: answerInput, recordingUrl: url || undefined, durationSec: duration,
+      }
+      if (qPhase === 'first') { await submitFirst.mutateAsync(args); setQPhase('firstFeedback') }
+      else if (qPhase === 'second') { await submitSecond.mutateAsync(args); setQPhase('finalFeedback') }
+      else if (qPhase === 'tail') { await submitTail.mutateAsync(args); setQPhase('tailFeedback') }
+      setAnswerInput('')
+    } catch (e: any) {
+      alert('저장 실패: ' + e.message)
+    }
+  }
+
+  // 다음 단계
+  const goNext = () => {
+    if (qPhase === 'firstFeedback') { setQPhase('second'); return }
+    if (qPhase === 'finalFeedback') {
+      if (activeQuestion?.tail_question) setQPhase('tail')
+      else nextQuestion()
+      return
+    }
+    if (qPhase === 'tailFeedback') { nextQuestion(); return }
+  }
+
+  const nextQuestion = async () => {
+    const curIdx = examQuestions.findIndex(q => q.id === activeTab)
+    if (curIdx + 1 >= examQuestions.length) {
+      // 마지막 → 완료
+      if (selExamId) await completeExam.mutateAsync(selExamId)
+      setPhase('done')
+      return
+    }
+    switchTab(examQuestions[curIdx + 1].id)
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteExam.mutateAsync(id)
+      if (selExamId === id) setSelExamId(null)
+      setDeleteTarget(null)
+    } catch (e: any) {
+      alert('삭제 실패: ' + e.message)
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // 1. 목록
+  // ═══════════════════════════════════════════
+  if (phase === 'list') {
     return (
-      <div className="px-7 py-6 font-sans text-ink">
-        <div className="text-[18px] font-bold text-ink tracking-tight mb-1">SKY·교대 제시문 면접</div>
-
-        <div className="bg-gradient-to-br from-brand-high to-indigo-500 rounded-2xl px-7 py-6 mb-7 mt-4 flex items-center justify-between shadow-[0_8px_24px_rgba(37,99,235,0.2)]">
+      <div className="flex flex-col gap-4 h-full overflow-hidden px-6 py-5">
+        <div className="flex items-center justify-between">
           <div>
-            <div className="text-[20px] font-extrabold text-white mb-1.5 tracking-tight">합격을 노리는 최상위권 학생들을 위해!</div>
-            <div className="text-[13px] text-white/90 font-medium">최근 9개년 기출을 분석한 맞춤형 문제로 실전 같은 제시문 면접을 경험하세요.</div>
+            <div className="text-[15px] font-extrabold text-ink">📜 제시문 면접</div>
+            <div className="text-[12px] text-ink-secondary mt-1">
+              {myProfile?.name && `${myProfile.name} 학생 · `}총 {myExams.length}회 진행
+            </div>
           </div>
-          <div className="text-5xl">🎓</div>
-        </div>
-
-        <div className="text-[14px] font-bold text-ink mb-3.5">학교 선택하기</div>
-
-        <div className="grid grid-cols-4 gap-3.5 max-lg:grid-cols-2 max-md:grid-cols-1">
-          {SKY_SCHOOLS.map(s => (
-            <button
-              key={s.id}
-              onClick={() => { setSelSchool(s); setSelTrack(null); setShowTrackModal(true) }}
-              style={{ background: s.bg, borderColor: s.color + '30' }}
-              className="border rounded-2xl p-7 text-center hover:shadow-[0_8px_24px_rgba(37,99,235,0.12)] hover:-translate-y-0.5 transition-all"
-            >
-              <div className="flex justify-center mb-3.5">
-                <SchoolLogo school={s} size={64} />
-              </div>
-              <div style={{ color: s.color }} className="text-[15px] font-extrabold mb-3">{s.name}</div>
-              <div
-                style={{ color: s.color, borderColor: s.color }}
-                className="inline-block px-5 py-1.5 bg-white border rounded-lg text-[13px] font-bold"
-              >
-                선택하기
-              </div>
-            </button>
-          ))}
-
           <button
-            onClick={() => setShowEduModal(true)}
-            className="bg-emerald-50 border border-emerald-200 rounded-2xl p-7 text-center hover:shadow-[0_8px_24px_rgba(5,150,105,0.12)] hover:-translate-y-0.5 transition-all"
+            onClick={() => setPhase('select')}
+            className="px-5 py-2.5 text-white rounded-lg text-[13px] font-bold"
+            style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
           >
-            <div className="flex justify-center mb-3.5">
-              <div className="w-16 h-16 rounded-full overflow-hidden bg-emerald-50 border border-emerald-200 flex items-center justify-center">
-                <img src={EDU_LOGO} alt="교육대학교" className="w-full h-full object-cover" />
-              </div>
-            </div>
-            <div className="text-[15px] font-extrabold text-emerald-700 mb-3">교육대학교</div>
-            <div className="inline-block px-5 py-1.5 bg-white text-emerald-700 border border-emerald-600 rounded-lg text-[13px] font-bold">
-              선택하기
-            </div>
+            + 새 회차 시작
           </button>
         </div>
 
-        {/* 교대 선택 모달 */}
-        {showEduModal && (
-          <div
-            onClick={() => setShowEduModal(false)}
-            className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4"
-          >
-            <div
-              onClick={e => e.stopPropagation()}
-              className="bg-white rounded-2xl p-7 w-full max-w-[560px] max-h-[80vh] overflow-y-auto shadow-2xl"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-[16px] font-bold text-ink tracking-tight">교육대학교 선택</div>
-                <button onClick={() => setShowEduModal(false)} className="text-ink-secondary text-lg hover:text-ink">✕</button>
-              </div>
-
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-[12px] text-emerald-800 mb-5 leading-relaxed">
-                💡 교대 제시문 면접은 <span className="font-bold">교직적성·인성 면접</span>으로, 학교를 선택하면 바로 문제 목록으로 이동합니다.
-              </div>
-
-              <div className="grid grid-cols-3 gap-2.5 max-md:grid-cols-2">
-                {EDUCATION_SCHOOLS.map(s => (
-                  <button
-                    key={s.id}
-                    onClick={() => { setSelSchool(s); setShowEduModal(false); setStep('list') }}
-                    style={{ background: s.bg, borderColor: s.color + '30' }}
-                    className="border rounded-xl p-3.5 text-center hover:-translate-y-0.5 hover:shadow-md transition-all"
-                  >
-                    <div className="flex justify-center mb-2">
-                      <SchoolLogo school={s} size={44} />
-                    </div>
-                    <div style={{ color: s.color }} className="text-[12px] font-extrabold">{s.shortName}</div>
-                  </button>
-                ))}
-              </div>
+        <div className="flex-1 overflow-y-auto">
+          {myExams.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-ink-muted gap-3">
+              <div className="text-5xl">📜</div>
+              <div className="text-[14px] font-bold text-ink">아직 진행한 회차가 없어요</div>
+              <div className="text-[12px]">위 '+ 새 회차 시작' 버튼을 눌러 시작하세요</div>
             </div>
-          </div>
-        )}
-
-        {/* 계열 선택 모달 */}
-        {showTrackModal && (
-          <div
-            onClick={() => setShowTrackModal(false)}
-            className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4"
-          >
-            <div
-              onClick={e => e.stopPropagation()}
-              className="bg-white rounded-2xl p-7 w-full max-w-[500px] shadow-2xl"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-[16px] font-bold text-ink tracking-tight">계열 선택</div>
-                <button onClick={() => setShowTrackModal(false)} className="text-ink-secondary text-lg hover:text-ink">✕</button>
-              </div>
-
-              <div className="bg-brand-high-pale border border-brand-high-light rounded-xl px-4 py-3 text-[13px] text-brand-high-dark leading-relaxed mb-5">
-                SKY 면접과 유사한 <span className="font-bold">제시문 기반 면접 문제</span>를 풀어보는 시간이에요!<br />
-                전공과 관련된 계열을 골라야 문제를 만들 수 있어요.
-              </div>
-
-              <div className="flex flex-col gap-2 mb-5">
-                {(selSchool?.id === 1 ? TRACKS_SNU : TRACKS_SKY).map(t => (
-                  <button
-                    key={t.id}
-                    onClick={() => setSelTrack(t)}
-                    className={`flex items-center gap-3 px-4 py-3.5 border rounded-xl transition-all ${
-                      selTrack?.id === t.id
-                        ? 'border-brand-high bg-brand-high-pale'
-                        : 'border-line bg-white hover:border-brand-high-light'
-                    }`}
+          ) : (
+            <div className="grid grid-cols-1 gap-3">
+              {myExams.map(exam => {
+                const sl = getPresentationStatusLabel(exam.status)
+                return (
+                  <div
+                    key={exam.id}
+                    onClick={() => {
+                      setSelExamId(exam.id)
+                      setActiveTab('intent')
+                      setPhase('exam')
+                    }}
+                    className="bg-white border border-line rounded-2xl p-5 cursor-pointer hover:shadow-md transition-all hover:border-blue-300 relative"
                   >
-                    <div className="text-2xl">{t.icon}</div>
-                    <div className="text-left flex-1">
-                      <div className="text-[14px] font-bold text-ink">{t.name}</div>
-                      <div className="text-[11px] text-ink-secondary font-medium">{t.sub}</div>
+                    <button
+                      onClick={e => { e.stopPropagation(); setDeleteTarget(exam.id) }}
+                      className="absolute top-3 right-3 w-7 h-7 rounded-full bg-gray-100 hover:bg-red-100 hover:text-red-600 text-[12px] text-ink-secondary flex items-center justify-center transition-colors"
+                    >
+                      ✕
+                    </button>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="text-[16px] font-extrabold text-ink">📜 {exam.passage_title}</div>
+                      <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
+                        style={{ background: sl.bg, color: sl.color }}>
+                        {sl.label}
+                      </span>
                     </div>
-                    {selTrack?.id === t.id && (
-                      <div className="w-5 h-5 rounded-full bg-brand-high flex items-center justify-center text-white text-[11px] font-bold">✓</div>
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={() => { if (selTrack) { setShowTrackModal(false); setStep('list') } }}
-                disabled={!selTrack}
-                className={`w-full h-11 rounded-xl text-[14px] font-bold transition-all ${
-                  selTrack
-                    ? 'bg-brand-high text-white hover:bg-brand-high-dark shadow-[0_2px_8px_rgba(37,99,235,0.2)]'
-                    : 'bg-gray-200 text-ink-muted cursor-not-allowed'
-                }`}
-              >
-                확인
-              </button>
+                    <div className="text-[12px] text-ink-secondary">
+                      🎓 {exam.university} · {exam.category} · 📅 {new Date(exam.created_at).toLocaleDateString('ko-KR')}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
-          </div>
+          )}
+        </div>
+
+        {deleteTarget !== null && (
+          <DeleteModal
+            onCancel={() => setDeleteTarget(null)}
+            onConfirm={() => handleDelete(deleteTarget)}
+            isLoading={deleteExam.isPending}
+          />
         )}
       </div>
     )
   }
 
-  // ═══════════════════════════════════════════════
-  // 2. 문제 목록 화면
-  // ═══════════════════════════════════════════════
-  if (step === 'list') {
+  // ═══════════════════════════════════════════
+  // 2. 학교/계열 선택
+  // ═══════════════════════════════════════════
+  if (phase === 'select') {
     return (
-      <div className="px-7 py-6 font-sans text-ink">
-        <div className="flex items-center gap-2.5 mb-5">
-          <button
-            onClick={() => { setStep('school'); setSelTrack(null); setSelSchool(null) }}
-            className="w-8 h-8 rounded-lg bg-white border border-line flex items-center justify-center text-ink-secondary hover:bg-gray-50 transition-all"
-          >
-            ←
+      <div className="flex flex-col h-full overflow-hidden px-6 py-5">
+        <div className="flex items-center gap-2 mb-4">
+          <button onClick={() => setPhase('list')} className="text-[12px] font-semibold text-ink-secondary hover:text-ink">
+            ← 뒤로
           </button>
-          <div className="text-[16px] font-bold text-ink tracking-tight">SKY·교대 제시문 면접</div>
+          <div className="text-[15px] font-extrabold text-ink">학교 · 계열 선택</div>
         </div>
 
-        <div className={`${isEdu ? 'bg-emerald-50 border-emerald-200' : 'bg-brand-high-pale border-brand-high-light'} border rounded-2xl px-5 py-4 mb-5 flex items-center gap-3.5`}>
-          <SchoolLogo school={selSchool} size={48} />
-          <div>
-            <div className="text-[16px] font-extrabold text-ink tracking-tight">
-              {selYear}년 {selSchool?.name} {isEdu ? '' : `${selTrack?.name} 계열`}
+        <div className="bg-white border border-line rounded-2xl p-6 mb-4">
+          <div className="grid grid-cols-2 gap-4 mb-5">
+            <div>
+              <div className="text-[12px] font-bold text-ink mb-2">🎓 학교</div>
+              <select
+                value={selUniv}
+                onChange={e => { setSelUniv(e.target.value); setSelSeed(null) }}
+                className="w-full h-11 border border-line rounded-lg px-3 text-[13px] outline-none bg-white focus:border-blue-500"
+              >
+                <option value="">전체 학교</option>
+                {ALL_UNIVS.map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
             </div>
-            <div className="text-[12px] text-ink-secondary mt-0.5 font-medium">
-              {isEdu ? '교직적성·인성 면접' : selTrack?.sub}
+            <div>
+              <div className="text-[12px] font-bold text-ink mb-2">📚 계열</div>
+              <select
+                value={selCategory}
+                onChange={e => { setSelCategory(e.target.value); setSelSeed(null) }}
+                className="w-full h-11 border border-line rounded-lg px-3 text-[13px] outline-none bg-white focus:border-blue-500"
+              >
+                <option value="">전체 계열</option>
+                {PRESENTATION_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
             </div>
           </div>
-        </div>
 
-        {/* 연도 탭 */}
-        <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
-          {YEARS.map(y => (
-            <button
-              key={y}
-              onClick={() => setSelYear(y)}
-              className={`px-4 py-1.5 rounded-full text-[13px] border font-semibold whitespace-nowrap transition-all ${
-                selYear === y
-                  ? isEdu
-                    ? 'bg-emerald-600 text-white border-emerald-600'
-                    : 'bg-brand-high text-white border-brand-high'
-                  : 'bg-white text-ink-secondary border-line hover:border-brand-high-light'
-              }`}
-            >
-              {y}
-            </button>
-          ))}
-        </div>
-
-        <div className="text-[13px] text-ink-secondary mb-3.5 font-medium">총 {curProblems.length}문제</div>
-
-        {curProblems.length === 0 ? (
-          <div className="text-center py-16 text-ink-muted">
-            <div className="text-4xl mb-3">📄</div>
-            <div className="text-[14px] font-medium">해당 연도의 문제가 없어요.</div>
+          <div className="text-[12px] font-bold text-ink mb-2">
+            📜 제시문 선택 ({availableSeeds.length}개)
           </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3.5 max-md:grid-cols-1">
-            {curProblems.map((p: any) => {
-              const status = getProblemStatus(p)
-              const statusStyle =
-                status === 'done' ? { bg: 'bg-emerald-50', emoji: '✅' }
-                : status === 'doing' ? { bg: 'bg-amber-50', emoji: '📝' }
-                : { bg: 'bg-gray-100', emoji: '💡' }
-
+          <div className="flex flex-col gap-2 max-h-[400px] overflow-y-auto">
+            {availableSeeds.length === 0 ? (
+              <div className="text-center py-8 text-ink-muted text-[12px]">
+                해당 조건의 제시문이 없어요. 다른 학교/계열을 선택해보세요.
+              </div>
+            ) : availableSeeds.map(seedItem => {
+              const isSelected = selSeed?.id === seedItem.id
               return (
-                <div
-                  key={p.id}
-                  className="bg-white border border-line rounded-2xl p-5 shadow-[0_4px_16px_rgba(15,23,42,0.04)] hover:shadow-[0_6px_20px_rgba(15,23,42,0.08)] transition-all"
+                <button
+                  key={seedItem.id}
+                  onClick={() => setSelSeed(seedItem)}
+                  className="text-left rounded-xl px-4 py-3 transition-all"
+                  style={{
+                    border: `2px solid ${isSelected ? THEME.accent : '#E5E7EB'}`,
+                    background: isSelected ? THEME.accentBg : '#fff',
+                  }}
                 >
-                  <div className="flex items-center gap-2.5 mb-3.5">
-                    <div className={`w-10 h-10 rounded-full ${statusStyle.bg} flex items-center justify-center text-lg`}>
-                      {statusStyle.emoji}
-                    </div>
-                    <div>
-                      <div className="text-[15px] font-bold text-ink tracking-tight">{p.title}</div>
-                      <div className="text-[11px] text-ink-secondary font-medium">총 {p.totalQ}문항 | {p.subject}</div>
-                    </div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[13px] font-extrabold text-ink">{seedItem.passage_title}</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      style={{ background: '#FEF3C7', color: '#92400E' }}>
+                      {seedItem.difficulty}
+                    </span>
                   </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => { setSelProblem(p); setStep('solve') }}
-                      className={`flex-1 h-9 rounded-lg text-[13px] font-bold transition-all text-white shadow-sm ${
-                        status === 'done'
-                          ? 'bg-emerald-600 hover:bg-emerald-700'
-                          : status === 'doing'
-                            ? 'bg-amber-500 hover:bg-amber-600'
-                            : isEdu
-                              ? 'bg-emerald-600 hover:bg-emerald-700'
-                              : 'bg-brand-high hover:bg-brand-high-dark'
-                      }`}
-                    >
-                      {status === 'done' ? '다시 풀기' : status === 'doing' ? '이어서 풀기' : '문제 풀기'}
-                    </button>
-                    <button className="flex-1 h-9 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-all">
-                      피드백 확인
-                    </button>
+                  <div className="text-[11px] text-ink-secondary">
+                    🎓 {seedItem.university} · {seedItem.category}
                   </div>
-                </div>
+                </button>
               )
             })}
           </div>
-        )}
+        </div>
+
+        <button
+          onClick={handleStartExam}
+          disabled={!selSeed || createExam.isPending}
+          className="w-full h-12 text-white rounded-xl text-[14px] font-bold disabled:opacity-50"
+          style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
+        >
+          {createExam.isPending ? '준비 중...' : '🚀 회차 시작'}
+        </button>
       </div>
     )
   }
 
-  // ═══════════════════════════════════════════════
-  // 3. 문제 풀기 화면
-  // ═══════════════════════════════════════════════
-  if (step === 'solve' && selProblem) {
-    const accentBgCls = isEdu ? 'bg-emerald-50' : 'bg-brand-high-pale'
-    const accentBorderCls = isEdu ? 'border-emerald-200' : 'border-brand-high-light'
-    const accentTextCls = isEdu ? 'text-emerald-700' : 'text-brand-high-dark'
-
+  // ═══════════════════════════════════════════
+  // 3. 응시 화면 (왼쪽 제시문 고정 + 오른쪽 탭)
+  // ═══════════════════════════════════════════
+  if (phase === 'exam' && selExam) {
     return (
-      <div
-        ref={containerRef}
-        onMouseMove={handleDragMove}
-        onMouseUp={handleDragEnd}
-        onMouseLeave={handleDragEnd}
-        className="flex flex-col h-full overflow-hidden font-sans text-ink"
-      >
-        {/* 상단 헤더 */}
-        <div className="h-12 bg-white border-b border-line flex items-center justify-between px-6 flex-shrink-0">
-          <button
-            onClick={() => setStep('list')}
-            className="text-[13px] text-ink-secondary hover:text-ink font-semibold transition-colors"
-          >
-            ← 목록으로
-          </button>
-          <div className="text-[13px] font-bold text-ink tracking-tight">
-            {selYear}학년도 {selSchool?.shortName || selSchool?.name} {isEdu ? '교직적성' : selTrack?.name} · {selProblem.title}
-          </div>
+      <div className="flex flex-col h-full overflow-hidden px-6 py-5">
+        {/* 헤더 */}
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <div className="flex items-center gap-2">
-            <SchoolLogo school={selSchool} size={24} />
-            <span className="text-[12px] text-ink-secondary font-semibold">{selSchool?.shortName || selSchool?.name}</span>
+            <button
+              onClick={() => { setSelExamId(null); setPhase('list') }}
+              className="text-[12px] font-semibold text-ink-secondary hover:text-ink"
+            >
+              ← 목록
+            </button>
+            <div className="text-[15px] font-extrabold text-ink">📜 {selExam.passage_title}</div>
+            {seed && (
+              <span className="text-[11px] font-medium text-ink-secondary">
+                🎓 {seed.university} · {seed.category}
+              </span>
+            )}
           </div>
         </div>
 
-        {/* 좌우 분할 */}
-        <div className="flex flex-1 overflow-hidden">
+        {/* 좌우 반반 */}
+        <div className="flex-1 grid grid-cols-2 gap-4 overflow-hidden">
 
-          {/* 왼쪽: 제시문 */}
-          <div
-            style={{ width: `${leftWidth}%` }}
-            className="border-r border-line overflow-y-auto p-6 bg-gray-50 flex-shrink-0"
-          >
-            <div className="text-[11px] font-bold text-ink-muted mb-2.5 tracking-widest uppercase">제시문</div>
-            {selProblem.pdfUrl ? (
-              <embed src={selProblem.pdfUrl} type="application/pdf" width="100%" className="min-h-[600px] rounded-lg" />
-            ) : (
-              <div
-                className="bg-white border border-line rounded-xl px-6 py-5 text-[14px] text-ink leading-[2] whitespace-pre-line"
-                style={{ fontFamily: 'Georgia, serif' }}
-              >
-                {selProblem.pdfMock}
+          {/* ━━━ 왼쪽: 제시문 (스크롤 없이 한 화면에) ━━━ */}
+          <div className="bg-white border border-line rounded-2xl p-6 flex flex-col overflow-hidden">
+            <div className="flex items-center gap-2 mb-3 flex-shrink-0">
+              <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider">📜 제시문</span>
+              {seed?.difficulty && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#FEF3C7', color: '#92400E' }}>
+                  난이도 {seed.difficulty}
+                </span>
+              )}
+            </div>
+            {!seed ? (
+              <div className="flex-1 flex items-center justify-center text-ink-muted">불러오는 중...</div>
+            ) : seed.passage_pdf_url ? (
+              <iframe src={seed.passage_pdf_url} className="flex-1 w-full border border-line rounded-lg" />
+            ) : seed.passage_text ? (
+              <div className="bg-gray-50 border border-line rounded-xl p-5 text-[14px] leading-[2] text-ink whitespace-pre-wrap flex-1">
+                {seed.passage_text}
               </div>
+            ) : (
+              <div className="text-ink-muted">제시문이 등록되지 않았어요.</div>
             )}
           </div>
 
-          {/* 드래그 핸들 */}
-          <div
-            onMouseDown={handleDragStart}
-            className={`w-1.5 bg-line cursor-col-resize flex-shrink-0 flex items-center justify-center hover:bg-brand-high transition-colors`}
-          >
-            <div className="w-0.5 h-10 bg-ink-muted rounded-full" />
-          </div>
+          {/* ━━━ 오른쪽: 탭 + 동적 화면 (전체 스크롤) ━━━ */}
+          <div className="bg-white border border-line rounded-2xl flex flex-col overflow-hidden">
+            {/* 탭 (고정) */}
+            <div className="px-5 py-3 border-b border-line flex-shrink-0 flex gap-1.5 overflow-x-auto">
+              {/* 의도파악 탭 */}
+              <button
+                onClick={() => switchTab('intent')}
+                className="px-3 py-1.5 rounded-lg text-[12px] font-bold transition-all flex-shrink-0"
+                style={{
+                  background: activeTab === 'intent' ? THEME.accent : '#F3F4F6',
+                  color: activeTab === 'intent' ? '#fff' : '#6B7280',
+                }}
+              >
+                🌟 의도파악
+              </button>
+              {/* 질문 탭 (동적) */}
+              {examQuestions.map((q, i) => {
+                const isActive = activeTab === q.id
+                const isCompleted = !!q.final_feedback && (!q.tail_question || !!q.tail_feedback)
+                return (
+                  <button
+                    key={q.id}
+                    onClick={() => switchTab(q.id)}
+                    className="px-3 py-1.5 rounded-lg text-[12px] font-bold transition-all flex-shrink-0"
+                    style={{
+                      background: isActive ? THEME.accent : isCompleted ? '#D1FAE5' : '#F3F4F6',
+                      color: isActive ? '#fff' : isCompleted ? '#065F46' : '#6B7280',
+                    }}
+                  >
+                    Q{i + 1}{isCompleted && ' ✓'}
+                  </button>
+                )
+              })}
+            </div>
 
-          {/* 오른쪽: 답변 */}
-          <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-8 bg-gray-50">
-            {selProblem.questions.map((q: any, qi: number) => {
-              const qKey = `${selProblem.id}-${q.id}`
-              const qStep = getQStep(q)
-
-              return (
-                <div
-                  key={q.id}
-                  className={qi < selProblem.questions.length - 1 ? 'border-b border-line-light pb-8' : ''}
-                >
-                  {/* 질문 */}
-                  <div className={`${accentBgCls} border ${accentBorderCls} rounded-xl px-4 py-3 mb-2.5`}>
-                    <div className={`text-[11px] font-bold ${accentTextCls} mb-1`}>문제 {qi + 1}.</div>
-                    <div className="text-[13px] font-semibold leading-relaxed text-ink">{q.text}</div>
-                  </div>
-
-                  {/* 5단계 스테퍼 */}
-                  <div className="flex items-start mb-4">
-                    {STEP_LABELS.map((label, i) => {
-                      const stepNum = i + 1
-                      const isDone = stepNum < qStep
-                      const isOn = stepNum === qStep
-                      return (
-                        <div key={i} className="flex-1 flex flex-col items-center gap-1 relative">
-                          {i < STEP_LABELS.length - 1 && (
-                            <div className={`absolute top-3 left-[55%] w-[90%] h-[1.5px] z-0 ${isDone ? 'bg-emerald-500' : 'bg-line'}`} />
-                          )}
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold z-10 border-2 transition-all ${
-                            isDone
-                              ? 'bg-emerald-500 text-white border-emerald-500'
-                              : isOn
-                                ? isEdu
-                                  ? 'bg-emerald-600 text-white border-emerald-600'
-                                  : 'bg-brand-high text-white border-brand-high shadow-[0_2px_8px_rgba(37,99,235,0.3)]'
-                                : 'bg-gray-100 text-ink-muted border-line'
-                          }`}>
-                            {isDone ? '✓' : stepNum}
-                          </div>
-                          <div className={`text-[10px] font-semibold whitespace-nowrap ${
-                            isDone ? 'text-emerald-600' : isOn ? accentTextCls : 'text-ink-muted'
-                          }`}>
-                            {label}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-
-                  {/* 질문 의도 (접기) */}
-                  <div className="mb-3">
-                    <button
-                      onClick={() => setOpenIntents(p => ({ ...p, [qKey]: !p[qKey] }))}
-                      className={`w-full flex items-center gap-1.5 px-3 py-2 rounded-lg border transition-all ${
-                        openIntents[qKey]
-                          ? 'bg-amber-50 border-amber-300'
-                          : 'bg-gray-50 border-line'
-                      }`}
-                    >
-                      <span className={`text-[11px] font-semibold ${openIntents[qKey] ? 'text-amber-700' : 'text-ink-secondary'}`}>
-                        💡 질문 의도 파악
-                      </span>
-                      <span className="ml-auto text-[10px] text-ink-muted">{openIntents[qKey] ? '▲' : '▼'}</span>
-                    </button>
-                    {openIntents[qKey] && (
-                      <div className="bg-amber-50/50 border border-amber-200 border-t-0 rounded-b-lg px-4 py-2.5 -mt-px">
-                        <ul className="pl-4 m-0 list-disc">
-                          {(q.intent || []).map((item: string, idx: number) => (
-                            <li key={idx} className="text-[12px] text-amber-800 leading-relaxed">{item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Step 1 */}
-                  <div className="bg-white border border-line rounded-xl px-4 py-3 mb-2.5">
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <span className={`text-[10px] font-bold text-white px-2 py-0.5 rounded-full ${qStep > 1 ? 'bg-emerald-600' : 'bg-ink-secondary'}`}>
-                        Step 1
-                      </span>
-                      <span className="text-[11px] font-semibold text-ink-secondary">내 첫 답변</span>
-                    </div>
-                    {q.answer && !editingStep1[qKey] ? (
-                      <div>
-                        <div className="bg-gray-50 border border-line-light rounded-lg px-3 py-2.5 text-[13px] text-ink leading-relaxed mb-2">
-                          {q.answer}
-                        </div>
-                        <div className="flex justify-end">
-                          <button
-                            onClick={() => { setEditingStep1(p => ({ ...p, [qKey]: true })); setAnswers(p => ({ ...p, [qKey]: q.answer })) }}
-                            className="text-[11px] font-semibold text-ink-secondary bg-white border border-line rounded-md px-3 py-1 hover:bg-gray-50 transition-all"
-                          >
-                            ✏️ 수정
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        {recordings[qKey] && (
-                          <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2 flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                            <span className="text-[12px] text-red-600 font-bold">녹음 중...</span>
-                          </div>
-                        )}
-                        <textarea
-                          value={answers[qKey] || ''}
-                          onChange={e => setAnswers(p => ({ ...p, [qKey]: e.target.value }))}
-                          placeholder="답변을 작성하거나 마이크로 녹음해주세요..."
-                          rows={4}
-                          className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] outline-none resize-y leading-relaxed focus:border-brand-high transition-colors font-sans"
-                        />
-                        <div className="flex gap-2 mt-2 justify-end">
-                          {editingStep1[qKey] && (
-                            <button
-                              onClick={() => { setEditingStep1(p => ({ ...p, [qKey]: false })); setAnswers(p => ({ ...p, [qKey]: '' })) }}
-                              className="h-9 px-3 bg-white text-ink-secondary border border-line rounded-lg text-[12px] font-semibold hover:bg-gray-50 transition-all"
-                            >
-                              취소
-                            </button>
-                          )}
-                          <MicBtn recording={recordings[qKey] || false} onClick={() => setRecordings(p => ({ ...p, [qKey]: !p[qKey] }))} />
-                          <SubmitBtn
-                            label={editingStep1[qKey] ? '수정 완료' : '답변 제출'}
-                            onClick={() => submitAnswer(selProblem.id, q)}
-                            disabled={!(answers[qKey] || '').trim()}
-                            accentColor={accent}
-                          />
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Step 2 */}
-                  {q.answer && (
-                    <div className="bg-white border border-line rounded-xl px-4 py-3 mb-2.5">
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <span className={`text-[10px] font-bold text-white px-2 py-0.5 rounded-full ${
-                          qStep > 2 ? 'bg-emerald-600' : isEdu ? 'bg-emerald-600' : 'bg-brand-high'
-                        }`}>
-                          Step 2
-                        </span>
-                        <span className="text-[11px] font-semibold text-ink-secondary">선생님 1차 피드백</span>
-                      </div>
-                      {q.teacherFeedback ? (
-                        <div className={`${accentBgCls} border ${accentBorderCls} rounded-lg px-3 py-2.5 text-[13px] ${accentTextCls} leading-relaxed`}>
-                          {q.teacherFeedback}
-                        </div>
-                      ) : (
-                        <div className="bg-gray-50 rounded-lg px-3 py-2.5 text-[12px] text-ink-muted text-center">
-                          선생님 피드백을 기다리는 중이에요 ✏️
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Step 3 */}
-                  {q.teacherFeedback && (
-                    <div className="bg-white border border-line rounded-xl px-4 py-3 mb-2.5">
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <span className={`text-[10px] font-bold text-white px-2 py-0.5 rounded-full ${qStep > 3 ? 'bg-emerald-600' : 'bg-ink-secondary'}`}>
-                          Step 3
-                        </span>
-                        <span className="text-[11px] font-semibold text-ink-secondary">업그레이드 답변</span>
-                      </div>
-                      {q.upgradedAnswer && !editingStep3[qKey] ? (
-                        <div>
-                          <div className="bg-gray-50 border border-line-light rounded-lg px-3 py-2.5 text-[13px] text-ink leading-relaxed mb-2">
-                            {q.upgradedAnswer}
-                          </div>
-                          <div className="flex justify-end">
-                            <button
-                              onClick={() => { setEditingStep3(p => ({ ...p, [qKey]: true })); setUpgradedAnswers(p => ({ ...p, [qKey]: q.upgradedAnswer })) }}
-                              className="text-[11px] font-semibold text-ink-secondary bg-white border border-line rounded-md px-3 py-1 hover:bg-gray-50 transition-all"
-                            >
-                              ✏️ 수정
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[12px] text-amber-800 font-medium mb-2">
-                            💡 선생님 피드백을 반영해서 답변을 업그레이드해보세요!
-                          </div>
-                          {recordings[`${qKey}-up`] && (
-                            <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2 flex items-center gap-2">
-                              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                              <span className="text-[12px] text-red-600 font-bold">녹음 중...</span>
-                            </div>
-                          )}
-                          <textarea
-                            value={upgradedAnswers[qKey] || ''}
-                            onChange={e => setUpgradedAnswers(p => ({ ...p, [qKey]: e.target.value }))}
-                            placeholder="피드백을 반영한 업그레이드 답변을 작성하거나 마이크로 녹음해주세요..."
-                            rows={4}
-                            className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] outline-none resize-y leading-relaxed focus:border-brand-high transition-colors font-sans"
-                          />
-                          <div className="flex gap-2 mt-2 justify-end">
-                            {editingStep3[qKey] && (
-                              <button
-                                onClick={() => { setEditingStep3(p => ({ ...p, [qKey]: false })); setUpgradedAnswers(p => ({ ...p, [qKey]: '' })) }}
-                                className="h-9 px-3 bg-white text-ink-secondary border border-line rounded-lg text-[12px] font-semibold hover:bg-gray-50 transition-all"
-                              >
-                                취소
-                              </button>
-                            )}
-                            <MicBtn recording={recordings[`${qKey}-up`] || false} onClick={() => setRecordings(p => ({ ...p, [`${qKey}-up`]: !p[`${qKey}-up`] }))} />
-                            <SubmitBtn
-                              label={editingStep3[qKey] ? '수정 완료' : '업그레이드 제출'}
-                              onClick={() => submitUpgrade(selProblem.id, q)}
-                              disabled={!(upgradedAnswers[qKey] || '').trim()}
-                              accentColor={accent}
-                            />
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Step 4 */}
-                  {q.upgradedAnswer && (
-                    <div className="bg-white border border-line rounded-xl px-4 py-3 mb-2.5">
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <span className="text-[10px] font-bold text-white bg-emerald-600 px-2 py-0.5 rounded-full">Step 4</span>
-                        <span className="text-[11px] font-semibold text-ink-secondary">선생님 최종 피드백</span>
-                      </div>
-                      {q.finalFeedback ? (
-                        <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5 text-[13px] text-emerald-900 leading-relaxed">
-                          {q.finalFeedback}
-                        </div>
-                      ) : (
-                        <div className="bg-gray-50 rounded-lg px-3 py-2.5 text-[12px] text-ink-muted text-center">
-                          선생님 최종 피드백을 기다리는 중이에요 ✏️
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Step 5 - 꼬리질문 */}
-                  {q.finalFeedback && q.tails && q.tails.length > 0 && (
-                    <div className="bg-white border border-line rounded-xl px-4 py-3">
-                      <div className="flex items-center gap-1.5 mb-3">
-                        <span className="text-[10px] font-bold text-white bg-brand-high px-2 py-0.5 rounded-full">Step 5</span>
-                        <span className="text-[11px] font-semibold text-ink-secondary">꼬리질문</span>
-                      </div>
-                      {q.tails.map((tail: any, ti: number) => {
-                        const tailKey = `${qKey}-tail-${ti}`
-                        return (
-                          <div key={ti} className={ti < q.tails.length - 1 ? 'mb-4' : ''}>
-                            <div className="flex items-start gap-2 px-3 py-2 bg-gray-50 border border-line-light rounded-lg mb-2 text-[12px] text-ink leading-relaxed">
-                              <span className="text-[10px] font-bold text-brand-high-dark bg-brand-high-pale px-2 py-0.5 rounded-full flex-shrink-0 mt-0.5">
-                                꼬리 {ti + 1}
-                              </span>
-                              <span className="leading-relaxed">{typeof tail === 'string' ? tail : tail.text}</span>
-                            </div>
-                            {recordings[tailKey] && (
-                              <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-1.5 flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                                <span className="text-[12px] text-red-600 font-bold">녹음 중...</span>
-                              </div>
-                            )}
-                            {tail.answer ? (
-                              <div className="bg-gray-50 border border-line-light rounded-lg px-3 py-2.5 text-[13px] text-ink leading-relaxed">
-                                {tail.answer}
-                              </div>
-                            ) : (
-                              <div className="bg-gray-50 rounded-lg p-2.5 border border-line-light">
-                                <textarea
-                                  value={tailAnswers[tailKey] || ''}
-                                  onChange={e => setTailAnswers(p => ({ ...p, [tailKey]: e.target.value }))}
-                                  placeholder="꼬리질문에 대한 답변을 작성하거나 마이크로 녹음해주세요..."
-                                  rows={2}
-                                  className="w-full border border-line rounded-lg px-2.5 py-2 text-[12px] outline-none resize-none leading-relaxed bg-white focus:border-brand-high transition-colors font-sans"
-                                />
-                                <div className="flex gap-2 mt-2 justify-end">
-                                  <MicBtn recording={recordings[tailKey] || false} onClick={() => setRecordings(p => ({ ...p, [tailKey]: !p[tailKey] }))} />
-                                  <button
-                                    onClick={() => submitTail(selProblem.id, q, ti)}
-                                    disabled={!(tailAnswers[tailKey] || '').trim()}
-                                    className={`h-9 px-4 rounded-lg text-[12px] font-bold transition-all ${
-                                      (tailAnswers[tailKey] || '').trim()
-                                        ? 'bg-brand-high text-white hover:bg-brand-high-dark shadow-[0_2px_8px_rgba(37,99,235,0.2)]'
-                                        : 'bg-gray-200 text-ink-muted cursor-not-allowed'
-                                    }`}
-                                  >
-                                    제출
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+            {/* 탭 내용 (전체 스크롤) */}
+            <div className="flex-1 overflow-y-auto p-5">
+              {activeTab === 'intent' ? (
+                <IntentTab
+                  exam={selExam}
+                  seed={seed}
+                  answerInput={answerInput}
+                  setAnswerInput={setAnswerInput}
+                  isRecording={isRecording}
+                  startRecording={startRecording}
+                  onSubmit={handleSubmitMainIntent}
+                  isPending={submitMainIntent.isPending}
+                />
+              ) : activeQuestion ? (
+                <QuestionTab
+                  question={activeQuestion}
+                  qIdx={examQuestions.findIndex(q => q.id === activeTab)}
+                  qPhase={qPhase}
+                  answerInput={answerInput}
+                  setAnswerInput={setAnswerInput}
+                  isRecording={isRecording}
+                  startRecording={startRecording}
+                  onSubmit={handleSubmitAnswer}
+                  onNext={goNext}
+                  isPending={submitFirst.isPending || submitSecond.isPending || submitTail.isPending}
+                />
+              ) : null}
+            </div>
           </div>
         </div>
+      </div>
+    )
+  }
+
+  // ═══════════════════════════════════════════
+  // 4. 완료
+  // ═══════════════════════════════════════════
+  if (phase === 'done') {
+    return (
+      <div className="px-7 py-6 flex flex-col items-center justify-center h-full">
+        <div className="text-6xl mb-3">🎉</div>
+        <div className="text-[22px] font-extrabold text-ink mb-2">제시문 면접 완료!</div>
+        <div className="text-[14px] text-ink-secondary mb-6 text-center max-w-md">
+          모든 답변이 저장되었어요.<br />
+          선생님이 피드백을 작성하면 알려드릴게요.
+        </div>
+        <button
+          onClick={() => { setSelExamId(null); setPhase('list') }}
+          className="px-6 py-3 text-white rounded-xl text-[14px] font-bold"
+          style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
+        >
+          목록으로
+        </button>
       </div>
     )
   }
 
   return null
+}
+
+// ═══════════════════════════════════════════
+// 🌟 의도파악 탭
+// ═══════════════════════════════════════════
+function IntentTab({ exam, seed, answerInput, setAnswerInput, isRecording, startRecording, onSubmit, isPending }: any) {
+  return (
+    <div className="flex flex-col gap-3">
+      {/* 질문 */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <div className="text-[10px] font-bold text-blue-700 mb-2">🌟 원질문 의도파악</div>
+        <div className="text-[14px] font-bold text-blue-900 leading-[1.7]">{seed?.main_intent_question}</div>
+      </div>
+
+      {/* 학생이 이미 답변했으면 결과 */}
+      {exam.main_intent_answer ? (
+        <div className="flex flex-col gap-3">
+          <div className="bg-gray-50 border border-line rounded-xl p-4">
+            <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">📝 내 답변</div>
+            <div className="text-[13px] text-ink leading-[1.8] whitespace-pre-wrap">{exam.main_intent_answer}</div>
+          </div>
+          {exam.main_intent_feedback ? (
+            <div className="bg-white border border-line rounded-xl p-4">
+              <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">💬 선생님 피드백</div>
+              <div className="text-[13px] text-ink leading-[1.8] whitespace-pre-wrap">{exam.main_intent_feedback}</div>
+            </div>
+          ) : (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 text-center text-[12px] text-blue-700 font-semibold">
+              ⏳ 선생님 피드백을 기다리는 중이에요
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <textarea
+            value={answerInput}
+            onChange={e => setAnswerInput(e.target.value)}
+            placeholder="제시문을 읽고 저자의 의도를 본인의 말로 설명해보세요..."
+            rows={12}
+            className="border border-line rounded-xl px-4 py-3 text-[13px] font-medium outline-none resize-none leading-[1.8]"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={startRecording}
+              disabled={isRecording}
+              className="px-4 py-3 rounded-lg text-[13px] font-bold border-2 disabled:opacity-50"
+              style={isRecording 
+                ? { borderColor: '#EF4444', background: '#FEE2E2', color: '#DC2626' }
+                : { borderColor: THEME.accent, background: '#fff', color: THEME.accent }
+              }
+            >
+              {isRecording ? '🔴' : '🎙️'}
+            </button>
+            <button
+              onClick={onSubmit}
+              disabled={!answerInput.trim() || isPending}
+              className="flex-1 h-12 text-white rounded-lg text-[13px] font-bold disabled:opacity-50"
+              style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
+            >
+              {isPending ? '저장 중...' : '✅ 의도파악 답변 제출'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════
+// 질문 탭 (1차/2차/꼬리)
+// ═══════════════════════════════════════════
+function QuestionTab({ question, qIdx, qPhase, answerInput, setAnswerInput, isRecording, startRecording, onSubmit, onNext, isPending }: any) {
+  const phaseLabel: Record<QPhase, { title: string; bg: string; color: string }> = {
+    first: { title: '1차 답변', bg: '#DBEAFE', color: '#1E40AF' },
+    firstFeedback: { title: '1차 피드백', bg: '#FEF3C7', color: '#92400E' },
+    second: { title: '2차 답변', bg: '#DBEAFE', color: '#1E40AF' },
+    finalFeedback: { title: '최종 피드백', bg: '#D1FAE5', color: '#065F46' },
+    tail: { title: '🔗 꼬리질문', bg: '#DBEAFE', color: '#1E40AF' },
+    tailFeedback: { title: '꼬리 피드백', bg: '#D1FAE5', color: '#065F46' },
+  }
+  const cur = phaseLabel[qPhase as QPhase]
+  const isTailPhase = qPhase === 'tail' || qPhase === 'tailFeedback'
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* 헤더 */}
+      <div className="flex items-center gap-2">
+        <div className="text-[13px] font-extrabold text-ink">질문 {qIdx + 1}</div>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: cur.bg, color: cur.color }}>
+          {cur.title}
+        </span>
+      </div>
+
+      {/* 질문 + 의도 */}
+      <div className="bg-white border border-line rounded-xl p-4">
+        <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">
+          {isTailPhase ? '🔗 꼬리질문' : '📌 질문'}
+        </div>
+        <div className="text-[14px] font-bold text-ink leading-[1.7] mb-3">
+          {isTailPhase ? question.tail_question : question.question}
+        </div>
+        {!isTailPhase && question.author_intent && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5">
+            <div className="text-[10px] font-bold text-blue-700 mb-1">💡 질문 의도 (참고)</div>
+            <div className="text-[11px] text-blue-900 leading-[1.6]">{question.author_intent}</div>
+          </div>
+        )}
+      </div>
+
+      {/* 단계별 화면 */}
+      <div>
+        {qPhase === 'first' && (
+          <AnswerInput
+            answerInput={answerInput} setAnswerInput={setAnswerInput}
+            isRecording={isRecording} startRecording={startRecording}
+            onSubmit={onSubmit} isPending={isPending}
+            placeholder="1차 답변을 작성해주세요..."
+            submitLabel="✅ 1차 답변 제출"
+          />
+        )}
+
+        {qPhase === 'firstFeedback' && (
+          <FeedbackView
+            answer={question.first_answer}
+            feedback={question.first_feedback}
+            isWaiting={!question.first_feedback}
+            onNext={onNext}
+            nextLabel="📝 2차 답변하러 가기"
+          />
+        )}
+
+        {qPhase === 'second' && (
+          <>
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-3 text-[12px] text-blue-800">
+              <strong>1차 피드백:</strong> {question.first_feedback}
+            </div>
+            <AnswerInput
+              answerInput={answerInput} setAnswerInput={setAnswerInput}
+              isRecording={isRecording} startRecording={startRecording}
+              onSubmit={onSubmit} isPending={isPending}
+              placeholder="피드백을 참고해 답변을 보완해주세요..."
+              submitLabel="✅ 2차 답변 제출"
+            />
+          </>
+        )}
+
+        {qPhase === 'finalFeedback' && (
+          <FeedbackView
+            answer={question.second_answer}
+            feedback={question.final_feedback}
+            isWaiting={!question.final_feedback}
+            onNext={onNext}
+            nextLabel={question.tail_question ? '🔗 꼬리질문 답변하기' : '➡️ 다음 질문'}
+          />
+        )}
+
+        {qPhase === 'tail' && (
+          <AnswerInput
+            answerInput={answerInput} setAnswerInput={setAnswerInput}
+            isRecording={isRecording} startRecording={startRecording}
+            onSubmit={onSubmit} isPending={isPending}
+            placeholder="꼬리질문에 답변해주세요..."
+            submitLabel="✅ 꼬리 답변 제출"
+          />
+        )}
+
+        {qPhase === 'tailFeedback' && (
+          <FeedbackView
+            answer={question.tail_answer}
+            feedback={question.tail_feedback}
+            isWaiting={!question.tail_feedback}
+            onNext={onNext}
+            nextLabel="➡️ 다음 질문"
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function AnswerInput({ answerInput, setAnswerInput, isRecording, startRecording, onSubmit, isPending, placeholder, submitLabel }: any) {
+  return (
+    <div className="flex flex-col gap-3">
+      <textarea
+        value={answerInput}
+        onChange={e => setAnswerInput(e.target.value)}
+        placeholder={placeholder}
+        rows={12}
+        autoFocus
+        className="border border-line rounded-xl px-4 py-3 text-[13px] font-medium outline-none resize-none leading-[1.8]"
+      />
+      <div className="flex gap-2">
+        <button
+          onClick={startRecording}
+          disabled={isRecording}
+          className="px-4 py-3 rounded-lg text-[13px] font-bold border-2 disabled:opacity-50"
+          style={isRecording 
+            ? { borderColor: '#EF4444', background: '#FEE2E2', color: '#DC2626' }
+            : { borderColor: '#2563EB', background: '#fff', color: '#2563EB' }
+          }
+        >
+          {isRecording ? '🔴' : '🎙️'}
+        </button>
+        <button
+          onClick={onSubmit}
+          disabled={!answerInput.trim() || isPending}
+          className="flex-1 h-12 bg-blue-600 text-white rounded-lg text-[13px] font-bold disabled:opacity-50 hover:bg-blue-700"
+        >
+          {isPending ? '저장 중...' : submitLabel}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function FeedbackView({ answer, feedback, isWaiting, onNext, nextLabel }: any) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="bg-white border border-line rounded-xl p-4">
+        <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">📝 내 답변</div>
+        <div className="text-[13px] text-ink leading-[1.8] whitespace-pre-wrap">{answer || '답변 없음'}</div>
+      </div>
+      
+      {isWaiting ? (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
+          <div className="text-3xl mb-2">⏳</div>
+          <div className="text-[14px] font-bold text-blue-800 mb-1">선생님 피드백을 기다리는 중이에요</div>
+          <div className="text-[12px] text-blue-700">자동으로 새로고침돼요.</div>
+        </div>
+      ) : (
+        <>
+          <div className="bg-white border border-line rounded-xl p-4">
+            <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">💬 선생님 피드백</div>
+            <div className="text-[13px] text-ink leading-[1.8] whitespace-pre-wrap">{feedback}</div>
+          </div>
+          <button
+            onClick={onNext}
+            className="w-full h-12 bg-blue-600 text-white rounded-xl text-[14px] font-bold hover:bg-blue-700"
+          >
+            {nextLabel}
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
+function DeleteModal({ onCancel, onConfirm, isLoading }: { onCancel: () => void; onConfirm: () => void; isLoading: boolean }) {
+  return (
+    <div onClick={onCancel} className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
+      <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl p-7 w-full max-w-[400px] text-center">
+        <div className="text-3xl mb-3">⚠️</div>
+        <div className="text-[16px] font-bold text-ink mb-2">회차를 삭제하시겠어요?</div>
+        <div className="text-[13px] text-ink-secondary mb-6">삭제하면 답변과 녹음이 모두 사라져요.</div>
+        <div className="flex gap-2">
+          <button onClick={onCancel} className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50">취소</button>
+          <button onClick={onConfirm} disabled={isLoading} className="flex-1 h-11 bg-red-600 text-white rounded-lg text-[13px] font-bold hover:bg-red-700 disabled:opacity-50">
+            {isLoading ? '삭제 중...' : '삭제'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }

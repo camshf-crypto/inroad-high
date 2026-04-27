@@ -213,7 +213,7 @@ ${answeredQs.map((q, i) => `
     <div class="answer-box">${q.answer?.student_answer || ''}</div>
   </div>
 `).join('')}
-<div class="footer">인로드 · ${selUnivName} ${selDeptName} 기출문제 답변집</div>
+<div class="footer">비커스 · ${selUnivName} ${selDeptName} 기출문제 답변집</div>
 <script>window.onload = () => { window.print() }</script>
 </body></html>`
     const w = window.open('', '_blank')

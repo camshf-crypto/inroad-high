@@ -115,7 +115,7 @@ export default function MasterLogin() {
             <span className="text-3xl">🏢</span>
           </div>
           <div className="text-[24px] font-extrabold tracking-tight mb-1" style={{ color: THEME.accentDark }}>
-            INROAD MASTER
+            BIKUS MASTER
           </div>
           <div className="text-[13px] font-medium text-ink-secondary">
             본사 관리 시스템
@@ -205,7 +205,7 @@ export default function MasterLogin() {
         </button>
 
         <div className="text-center mt-6 text-[11px] font-medium text-ink-muted">
-          © 2026 INROAD. All rights reserved.
+          © 2026 BIKUS. All rights reserved.
         </div>
       </div>
     </div>

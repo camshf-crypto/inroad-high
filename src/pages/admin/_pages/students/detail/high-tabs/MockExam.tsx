@@ -853,7 +853,7 @@ export default function MockExam({ student }: { student: any }) {
                           <div className="flex items-center gap-3 mb-8">
                             <div className="w-10 h-0.5" style={{ background: '#FCD34D' }} />
                             <div className="text-[10px] font-bold tracking-[6px]" style={{ color: '#FCD34D' }}>
-                              INROAD · PREMIUM REPORT
+                              BIKUS · PREMIUM REPORT
                             </div>
                           </div>
                           <div className="text-[11px] font-bold tracking-[3px] opacity-70 mb-4">
@@ -957,7 +957,7 @@ export default function MockExam({ student }: { student: any }) {
                             {report.summary_for_parents}
                           </div>
                           <div className="text-right mt-8 text-[12px] font-bold" style={{ color: '#92400E', fontFamily: 'Georgia, serif' }}>
-                            — INROAD 입시 컨설팅 드림
+                            — BIKUS 입시 컨설팅 드림
                           </div>
                         </div>
                       </div>
@@ -1191,7 +1191,7 @@ export default function MockExam({ student }: { student: any }) {
                       <div className="flex items-center justify-center gap-3 mb-4">
                         <div className="w-12 h-0.5" style={{ background: THEME.accent }} />
                         <div className="text-[24px] font-black tracking-[4px]" style={{ color: THEME.accent, fontFamily: 'Georgia, serif' }}>
-                          INROAD
+                          BIKUS
                         </div>
                         <div className="w-12 h-0.5" style={{ background: THEME.accent }} />
                       </div>
@@ -1200,7 +1200,7 @@ export default function MockExam({ student }: { student: any }) {
                       </div>
                       <div className="text-[10px] text-slate-400 leading-[1.8] max-w-lg mx-auto">
                         본 리포트는 AI 분석과 담당 선생님의 전문 코멘트를 바탕으로 작성되었습니다.<br />
-                        © 2026 INROAD · Powered by 마스터웨이학원
+                        © 2026 BIKUS · Powered by 마스터웨이학원
                       </div>
                     </div>
 

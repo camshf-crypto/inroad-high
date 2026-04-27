@@ -45,7 +45,7 @@ export default function MasterDashboard() {
           <div className="text-[22px] font-extrabold text-ink tracking-tight">본사 대시보드</div>
         </div>
         <div className="text-[13px] font-medium text-ink-secondary">
-          인로드 전체 현황을 한눈에 확인하세요.
+          비커스 전체 현황을 한눈에 확인하세요.
         </div>
       </div>
 

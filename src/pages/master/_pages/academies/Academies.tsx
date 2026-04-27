@@ -11,18 +11,18 @@ const THEME = {
 }
 
 const INIT_ACADEMIES = [
-  { id: 1, name: '강남 에스엠 학원', code: 'INROAD-SM01-0001', owner: '강원장', ownerEmail: 'sm@academy.com', ownerPhone: '010-1111-2222', region: '서울 강남', plan: '고등+중등', teachers: 8, students: 87, joined: '2025.04.14', status: 'active', monthlyFee: 870000, unpaidMonths: 0 },
-  { id: 2, name: '목동 프리미엄 아카데미', code: 'INROAD-MD02-0002', owner: '이원장', ownerEmail: 'md@academy.com', ownerPhone: '010-2222-3333', region: '서울 양천', plan: '고등', teachers: 5, students: 52, joined: '2025.04.12', status: 'active', monthlyFee: 520000, unpaidMonths: 0 },
-  { id: 3, name: '분당 에듀케어', code: 'INROAD-BD03-0003', owner: '박원장', ownerEmail: 'bd@academy.com', ownerPhone: '010-3333-4444', region: '경기 성남', plan: '중등', teachers: 4, students: 34, joined: '2025.04.10', status: 'trial', monthlyFee: 0, unpaidMonths: 0 },
-  { id: 4, name: '일산 스마트학원', code: 'INROAD-IL04-0004', owner: '최원장', ownerEmail: 'il@academy.com', ownerPhone: '010-4444-5555', region: '경기 고양', plan: '고등+중등', teachers: 7, students: 76, joined: '2025.04.08', status: 'active', monthlyFee: 760000, unpaidMonths: 0 },
-  { id: 5, name: '판교 리버스쿨', code: 'INROAD-PG05-0005', owner: '정원장', ownerEmail: 'pg@academy.com', ownerPhone: '010-5555-6666', region: '경기 성남', plan: '고등', teachers: 3, students: 45, joined: '2025.04.05', status: 'unpaid', monthlyFee: 450000, unpaidMonths: 2 },
-  { id: 6, name: '대치 토스트교육', code: 'INROAD-DC06-0006', owner: '윤원장', ownerEmail: 'dc@academy.com', ownerPhone: '010-6666-7777', region: '서울 강남', plan: '고등+중등', teachers: 12, students: 125, joined: '2025.03.28', status: 'active', monthlyFee: 1250000, unpaidMonths: 0 },
-  { id: 7, name: '서초 아카데미', code: 'INROAD-SC07-0007', owner: '한원장', ownerEmail: 'sc@academy.com', ownerPhone: '010-7777-8888', region: '서울 서초', plan: '고등', teachers: 6, students: 68, joined: '2025.03.20', status: 'active', monthlyFee: 680000, unpaidMonths: 0 },
-  { id: 8, name: '송파 브레인스쿨', code: 'INROAD-SP08-0008', owner: '임원장', ownerEmail: 'sp@academy.com', ownerPhone: '010-8888-9999', region: '서울 송파', plan: '중등', teachers: 3, students: 28, joined: '2025.03.15', status: 'trial', monthlyFee: 0, unpaidMonths: 0 },
-  { id: 9, name: '광교 엘리트학원', code: 'INROAD-GK09-0009', owner: '오원장', ownerEmail: 'gk@academy.com', ownerPhone: '010-9999-0000', region: '경기 수원', plan: '고등+중등', teachers: 9, students: 92, joined: '2025.03.10', status: 'active', monthlyFee: 920000, unpaidMonths: 0 },
-  { id: 10, name: '수원 학습코칭', code: 'INROAD-SW10-0010', owner: '서원장', ownerEmail: 'sw@academy.com', ownerPhone: '010-1010-2020', region: '경기 수원', plan: '고등', teachers: 4, students: 38, joined: '2025.03.05', status: 'unpaid', monthlyFee: 380000, unpaidMonths: 1 },
-  { id: 11, name: '인천 미래교육', code: 'INROAD-IC11-0011', owner: '권원장', ownerEmail: 'ic@academy.com', ownerPhone: '010-1111-3030', region: '인천', plan: '중등', teachers: 5, students: 47, joined: '2025.02.28', status: 'active', monthlyFee: 470000, unpaidMonths: 0 },
-  { id: 12, name: '대전 지식의문', code: 'INROAD-DJ12-0012', owner: '조원장', ownerEmail: 'dj@academy.com', ownerPhone: '010-1212-4040', region: '대전', plan: '고등+중등', teachers: 6, students: 58, joined: '2025.02.20', status: 'active', monthlyFee: 580000, unpaidMonths: 0 },
+  { id: 1, name: '강남 에스엠 학원', code: 'BIKUS-SM01-0001', owner: '강원장', ownerEmail: 'sm@academy.com', ownerPhone: '010-1111-2222', region: '서울 강남', plan: '고등+중등', teachers: 8, students: 87, joined: '2025.04.14', status: 'active', monthlyFee: 870000, unpaidMonths: 0 },
+  { id: 2, name: '목동 프리미엄 아카데미', code: 'BIKUS-MD02-0002', owner: '이원장', ownerEmail: 'md@academy.com', ownerPhone: '010-2222-3333', region: '서울 양천', plan: '고등', teachers: 5, students: 52, joined: '2025.04.12', status: 'active', monthlyFee: 520000, unpaidMonths: 0 },
+  { id: 3, name: '분당 에듀케어', code: 'BIKUS-BD03-0003', owner: '박원장', ownerEmail: 'bd@academy.com', ownerPhone: '010-3333-4444', region: '경기 성남', plan: '중등', teachers: 4, students: 34, joined: '2025.04.10', status: 'trial', monthlyFee: 0, unpaidMonths: 0 },
+  { id: 4, name: '일산 스마트학원', code: 'BIKUS-IL04-0004', owner: '최원장', ownerEmail: 'il@academy.com', ownerPhone: '010-4444-5555', region: '경기 고양', plan: '고등+중등', teachers: 7, students: 76, joined: '2025.04.08', status: 'active', monthlyFee: 760000, unpaidMonths: 0 },
+  { id: 5, name: '판교 리버스쿨', code: 'BIKUS-PG05-0005', owner: '정원장', ownerEmail: 'pg@academy.com', ownerPhone: '010-5555-6666', region: '경기 성남', plan: '고등', teachers: 3, students: 45, joined: '2025.04.05', status: 'unpaid', monthlyFee: 450000, unpaidMonths: 2 },
+  { id: 6, name: '대치 토스트교육', code: 'BIKUS-DC06-0006', owner: '윤원장', ownerEmail: 'dc@academy.com', ownerPhone: '010-6666-7777', region: '서울 강남', plan: '고등+중등', teachers: 12, students: 125, joined: '2025.03.28', status: 'active', monthlyFee: 1250000, unpaidMonths: 0 },
+  { id: 7, name: '서초 아카데미', code: 'BIKUS-SC07-0007', owner: '한원장', ownerEmail: 'sc@academy.com', ownerPhone: '010-7777-8888', region: '서울 서초', plan: '고등', teachers: 6, students: 68, joined: '2025.03.20', status: 'active', monthlyFee: 680000, unpaidMonths: 0 },
+  { id: 8, name: '송파 브레인스쿨', code: 'BIKUS-SP08-0008', owner: '임원장', ownerEmail: 'sp@academy.com', ownerPhone: '010-8888-9999', region: '서울 송파', plan: '중등', teachers: 3, students: 28, joined: '2025.03.15', status: 'trial', monthlyFee: 0, unpaidMonths: 0 },
+  { id: 9, name: '광교 엘리트학원', code: 'BIKUS-GK09-0009', owner: '오원장', ownerEmail: 'gk@academy.com', ownerPhone: '010-9999-0000', region: '경기 수원', plan: '고등+중등', teachers: 9, students: 92, joined: '2025.03.10', status: 'active', monthlyFee: 920000, unpaidMonths: 0 },
+  { id: 10, name: '수원 학습코칭', code: 'BIKUS-SW10-0010', owner: '서원장', ownerEmail: 'sw@academy.com', ownerPhone: '010-1010-2020', region: '경기 수원', plan: '고등', teachers: 4, students: 38, joined: '2025.03.05', status: 'unpaid', monthlyFee: 380000, unpaidMonths: 1 },
+  { id: 11, name: '인천 미래교육', code: 'BIKUS-IC11-0011', owner: '권원장', ownerEmail: 'ic@academy.com', ownerPhone: '010-1111-3030', region: '인천', plan: '중등', teachers: 5, students: 47, joined: '2025.02.28', status: 'active', monthlyFee: 470000, unpaidMonths: 0 },
+  { id: 12, name: '대전 지식의문', code: 'BIKUS-DJ12-0012', owner: '조원장', ownerEmail: 'dj@academy.com', ownerPhone: '010-1212-4040', region: '대전', plan: '고등+중등', teachers: 6, students: 58, joined: '2025.02.20', status: 'active', monthlyFee: 580000, unpaidMonths: 0 },
 ]
 
 const STATUS_STYLE: Record<string, any> = {
@@ -47,7 +47,7 @@ const PLAN_FEES: Record<string, number> = {
 const generateCode = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
   const nums = '0123456789'
-  let code = 'INROAD-'
+  let code = 'BIKUS-'
   for (let i = 0; i < 2; i++) code += chars[Math.floor(Math.random() * chars.length)]
   for (let i = 0; i < 2; i++) code += nums[Math.floor(Math.random() * nums.length)]
   code += '-'
@@ -61,7 +61,7 @@ const generatePassword = () => {
   const lower = 'abcdefghjkmnpqrstuvwxyz'
   const nums = '23456789'
   const special = '@#$!'
-  let pw = 'Inroad'
+  let pw = 'BIKUS'
   pw += upper[Math.floor(Math.random() * upper.length)]
   pw += lower[Math.floor(Math.random() * lower.length)]
   for (let i = 0; i < 4; i++) pw += nums[Math.floor(Math.random() * nums.length)]
@@ -184,7 +184,7 @@ export default function MasterAcademies() {
             <div className="text-[22px] font-extrabold text-ink tracking-tight">학원 관리</div>
           </div>
           <div className="text-[13px] font-medium text-ink-secondary">
-            인로드를 사용하는 전체 학원을 관리하세요.
+            비커스를 사용하는 전체 학원을 관리하세요.
           </div>
         </div>
 
@@ -585,7 +585,7 @@ export default function MasterAcademies() {
               {/* 모든 정보 복사 */}
               <button
                 onClick={() => {
-                  const text = `[인로드 계정 정보]\n\n학원명: ${createdAcademy.name}\n학원 코드: ${createdAcademy.code}\n\n원장 로그인:\n이메일: ${createdAcademy.ownerEmail}\n임시 비밀번호: ${createdAcademy.tempPassword}\n\n첫 로그인 시 비밀번호를 반드시 변경해주세요.`
+                  const text = `[비커스 계정 정보]\n\n학원명: ${createdAcademy.name}\n학원 코드: ${createdAcademy.code}\n\n원장 로그인:\n이메일: ${createdAcademy.ownerEmail}\n임시 비밀번호: ${createdAcademy.tempPassword}\n\n첫 로그인 시 비밀번호를 반드시 변경해주세요.`
                   copyToClipboard(text, '전체 계정 정보')
                 }}
                 className="w-full h-11 text-white rounded-xl text-[13px] font-bold transition-all hover:-translate-y-px"

@@ -103,14 +103,14 @@ const ALL_PERMISSIONS = [
 ]
 
 const INIT_STAFF = [
-  { id: 1, name: '김대표', email: 'ceo@inroad.com', phone: '010-1234-5678', role: 'super_admin', status: 'active', joinDate: '2024.01.15', lastLogin: '2025.04.20 14:35', avatarColor: '#7C3AED' },
-  { id: 2, name: '이매니저', email: 'manager@inroad.com', phone: '010-2345-6789', role: 'operator', status: 'active', joinDate: '2024.02.01', lastLogin: '2025.04.20 14:25', avatarColor: '#2563EB' },
-  { id: 3, name: '박영업', email: 'sales1@inroad.com', phone: '010-3456-7890', role: 'sales', status: 'active', joinDate: '2024.02.10', lastLogin: '2025.04.20 13:55', avatarColor: '#059669' },
-  { id: 4, name: '정영업', email: 'sales2@inroad.com', phone: '010-4567-8901', role: 'sales', status: 'active', joinDate: '2024.03.15', lastLogin: '2025.04.20 12:20', avatarColor: '#10B981' },
-  { id: 5, name: '김CS', email: 'cs1@inroad.com', phone: '010-5678-9012', role: 'cs', status: 'active', joinDate: '2024.04.01', lastLogin: '2025.04.20 14:30', avatarColor: '#F59E0B' },
-  { id: 6, name: '최CS', email: 'cs2@inroad.com', phone: '010-6789-0123', role: 'cs', status: 'invited', joinDate: '2025.04.18', lastLogin: '-', avatarColor: '#FBBF24' },
-  { id: 7, name: '정재무', email: 'finance@inroad.com', phone: '010-7890-1234', role: 'finance', status: 'active', joinDate: '2024.05.10', lastLogin: '2025.04.20 14:10', avatarColor: '#EC4899' },
-  { id: 8, name: '강분석', email: 'analyst@inroad.com', phone: '010-8901-2345', role: 'analyst', status: 'active', joinDate: '2024.06.20', lastLogin: '2025.04.20 13:40', avatarColor: '#6B7280' },
+  { id: 1, name: '김대표', email: 'ceo@BIKUS.com', phone: '010-1234-5678', role: 'super_admin', status: 'active', joinDate: '2024.01.15', lastLogin: '2025.04.20 14:35', avatarColor: '#7C3AED' },
+  { id: 2, name: '이매니저', email: 'manager@BIKUS.com', phone: '010-2345-6789', role: 'operator', status: 'active', joinDate: '2024.02.01', lastLogin: '2025.04.20 14:25', avatarColor: '#2563EB' },
+  { id: 3, name: '박영업', email: 'sales1@BIKUS.com', phone: '010-3456-7890', role: 'sales', status: 'active', joinDate: '2024.02.10', lastLogin: '2025.04.20 13:55', avatarColor: '#059669' },
+  { id: 4, name: '정영업', email: 'sales2@BIKUS.com', phone: '010-4567-8901', role: 'sales', status: 'active', joinDate: '2024.03.15', lastLogin: '2025.04.20 12:20', avatarColor: '#10B981' },
+  { id: 5, name: '김CS', email: 'cs1@BIKUS.com', phone: '010-5678-9012', role: 'cs', status: 'active', joinDate: '2024.04.01', lastLogin: '2025.04.20 14:30', avatarColor: '#F59E0B' },
+  { id: 6, name: '최CS', email: 'cs2@BIKUS.com', phone: '010-6789-0123', role: 'cs', status: 'invited', joinDate: '2025.04.18', lastLogin: '-', avatarColor: '#FBBF24' },
+  { id: 7, name: '정재무', email: 'finance@BIKUS.com', phone: '010-7890-1234', role: 'finance', status: 'active', joinDate: '2024.05.10', lastLogin: '2025.04.20 14:10', avatarColor: '#EC4899' },
+  { id: 8, name: '강분석', email: 'analyst@BIKUS.com', phone: '010-8901-2345', role: 'analyst', status: 'active', joinDate: '2024.06.20', lastLogin: '2025.04.20 13:40', avatarColor: '#6B7280' },
 ]
 
 // 🔐 임시 비밀번호 자동 생성
@@ -119,7 +119,7 @@ const generateTempPassword = () => {
   const lower = 'abcdefghjkmnpqrstuvwxyz'
   const nums = '23456789'
   const special = '@#$!'
-  let pw = 'Inroad'
+  let pw = 'BIKUS'
   pw += upper[Math.floor(Math.random() * upper.length)]
   pw += lower[Math.floor(Math.random() * lower.length)]
   for (let i = 0; i < 4; i++) pw += nums[Math.floor(Math.random() * nums.length)]
@@ -612,7 +612,7 @@ export default function MasterStaff() {
 
                 <button
                   onClick={() => {
-                    const text = `[인로드 본사 계정 초대]\n\n${inviteResult.name}님, 환영합니다!\n\n역할: ${ROLES[inviteResult.role].label}\n이메일: ${inviteResult.email}\n임시 비밀번호: ${inviteResult.tempPassword}\n\n로그인: https://master.inroad.com\n\n첫 로그인시 비밀번호를 반드시 변경해주세요.`
+                    const text = `[비커스 본사 계정 초대]\n\n${inviteResult.name}님, 환영합니다!\n\n역할: ${ROLES[inviteResult.role].label}\n이메일: ${inviteResult.email}\n임시 비밀번호: ${inviteResult.tempPassword}\n\n로그인: https://master.BIKUS.com\n\n첫 로그인시 비밀번호를 반드시 변경해주세요.`
                     copyToClipboard(text, '전체 계정 정보')
                   }}
                   className="w-full h-11 text-white rounded-xl text-[13px] font-bold transition-all hover:-translate-y-px mb-2"
@@ -670,7 +670,7 @@ export default function MasterStaff() {
                           type="email"
                           value={inviteForm.email}
                           onChange={e => setInviteForm(prev => ({ ...prev, email: e.target.value }))}
-                          placeholder="example@inroad.com"
+                          placeholder="example@BIKUS.com"
                           className="w-full h-10 px-3 border border-line rounded-lg text-[13px] font-medium outline-none transition-all placeholder:text-ink-muted"
                           onFocus={e => { e.target.style.borderColor = THEME.accent; e.target.style.boxShadow = `0 0 0 3px ${THEME.accentShadow}` }}
                           onBlur={e => { e.target.style.borderColor = '#E5E7EB'; e.target.style.boxShadow = 'none' }}

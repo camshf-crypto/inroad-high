@@ -14,8 +14,8 @@ export interface IMaster {
 
 const DEFAULT_MASTER: IMaster = {
   id: 1,
-  name: '인로드 본사',
-  email: 'master@inroad.com',
+  name: '비커스 본사',
+  email: 'master@BIKUS.com',
   role: 'SUPER_ADMIN',
 }
 

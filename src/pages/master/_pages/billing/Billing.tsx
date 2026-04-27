@@ -94,7 +94,7 @@ export default function MasterBilling() {
           <div className="text-[22px] font-extrabold text-ink tracking-tight">매출 관리</div>
         </div>
         <div className="text-[13px] font-medium text-ink-secondary">
-          인로드 전체 매출 현황과 결제 내역을 관리하세요.
+          비커스 전체 매출 현황과 결제 내역을 관리하세요.
         </div>
       </div>
 

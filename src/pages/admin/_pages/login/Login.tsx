@@ -137,7 +137,7 @@ export default function Login() {
               IR
             </div>
             <span className="text-[18px] font-extrabold tracking-tight" style={{ color: '#1E3A8A' }}>
-              인로드
+              비커스
             </span>
             <span
               className="text-[10px] font-bold px-2 py-0.5 rounded-full"
@@ -298,7 +298,7 @@ export default function Login() {
 
           <div className="text-[15px] text-ink-secondary leading-[1.6] mb-10 text-center">
             학생 로드맵 관리부터 탐구주제 피드백까지<br />
-            인로드 어드민으로 한 번에 관리하세요.
+            비커스 어드민으로 한 번에 관리하세요.
           </div>
 
           <div className="grid grid-cols-2 gap-3.5">

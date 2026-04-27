@@ -14,6 +14,7 @@ export interface IStudent {
 }
 
 export interface IAcademy {
+  academyId: string | undefined        // ← 추가
   academyCode: string | undefined
   academyName: string | undefined
   teacherName: string | undefined
@@ -28,6 +29,7 @@ export const tokenState = atomWithStorage<IToken>('studentToken', {
 export const studentState = atomWithStorage<IStudent | null>('studentInfo', null)
 
 export const academyState = atomWithStorage<IAcademy>('studentAcademyInfo', {
+  academyId: undefined,                // ← 추가
   academyCode: undefined,
   academyName: undefined,
   teacherName: undefined,

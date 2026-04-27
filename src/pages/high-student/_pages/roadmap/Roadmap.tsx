@@ -54,7 +54,7 @@ export default function Roadmap() {
   const selected = selMonth !== null ? roadmap[selMonth] : null
 
   const scColor = (type: Mission['type']) => {
-    if (type === 'inAnswer') return { bg: '#EDE9FE', c: '#6D28D9', label: '✨ 인로드' }
+    if (type === 'inAnswer') return { bg: '#EDE9FE', c: '#6D28D9', label: '✨ 비커스' }
     if (type === 'tab') return { bg: THEME.accentBg, c: THEME.accent, label: '🔗 바로가기' }
     return { bg: '#F0FDF4', c: '#15803D', label: '👨‍🏫 선생님' }
   }
@@ -62,46 +62,28 @@ export default function Roadmap() {
   return (
     <div className="h-full overflow-y-auto px-8 py-7 box-border font-sans text-ink">
 
-      {/* 학생 헤더 */}
-      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-        <div className="flex items-center gap-2.5">
-          <div
-            className="w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold text-white"
-            style={{ background: THEME.gradient }}
-          >
-            {student?.name?.[0] ?? '?'}
-          </div>
-          <div>
-            <div className="text-[15px] font-bold text-ink">{student?.name ?? '로그인 필요'}</div>
-            <div className="text-[11px] text-ink-secondary font-medium">
-              {myGrade} · {academy.academyName || '학원 미연결'}
-            </div>
-          </div>
+      {/* 스탯 (오른쪽 정렬) */}
+      <div className="flex items-center justify-end gap-2 mb-5 flex-wrap">
+        <div
+          className="rounded-xl px-4 py-2"
+          style={{
+            background: THEME.gradient,
+            boxShadow: `0 4px 12px ${THEME.accentShadow}`,
+          }}
+        >
+          <div className="text-[10px] text-white/80 mb-0.5 font-medium">전체 진행률</div>
+          <div className="text-[15px] font-extrabold text-white">{overallPct}%</div>
         </div>
-
-        {/* 스탯 */}
-        <div className="flex items-center gap-2">
-          <div
-            className="rounded-xl px-4 py-2"
-            style={{
-              background: THEME.gradient,
-              boxShadow: `0 4px 12px ${THEME.accentShadow}`,
-            }}
-          >
-            <div className="text-[10px] text-white/80 mb-0.5 font-medium">전체 진행률</div>
-            <div className="text-[15px] font-extrabold text-white">{overallPct}%</div>
+        {[
+          { label: '완료 미션', val: `${doneMissions}/${totalMissions}` },
+          { label: '현재 월', val: curMonth },
+          { label: '소속 학원', val: academy.academyName || '미소속' },
+        ].map((s, i) => (
+          <div key={i} className="bg-white border border-line rounded-xl px-4 py-2">
+            <div className="text-[10px] text-ink-secondary mb-0.5 font-medium">{s.label}</div>
+            <div className="text-[15px] font-extrabold text-ink">{s.val}</div>
           </div>
-          {[
-            { label: '완료 미션', val: `${doneMissions}/${totalMissions}` },
-            { label: '현재 월', val: curMonth },
-            { label: '소속 학원', val: academy.academyName || '미소속' },
-          ].map((s, i) => (
-            <div key={i} className="bg-white border border-line rounded-xl px-4 py-2">
-              <div className="text-[10px] text-ink-secondary mb-0.5 font-medium">{s.label}</div>
-              <div className="text-[15px] font-extrabold text-ink">{s.val}</div>
-            </div>
-          ))}
-        </div>
+        ))}
       </div>
 
       {/* 안내 배너 */}

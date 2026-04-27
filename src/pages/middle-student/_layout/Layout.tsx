@@ -43,7 +43,7 @@ export default function MiddleLayout() {
         <div className="px-5 pt-5 pb-4 border-b border-line-light">
           <div className="flex items-center gap-2 mb-3">
             <span className="w-7 h-7 bg-gradient-to-br from-brand-middle-dark to-brand-middle rounded-lg flex items-center justify-center text-white font-black text-sm tracking-tighter">IR</span>
-            <div className="font-extrabold text-[17px] text-ink tracking-tight">인로드</div>
+            <div className="font-extrabold text-[17px] text-ink tracking-tight">비커스</div>
             <span className="text-[10px] font-bold text-white bg-brand-middle px-2 py-0.5 rounded-full">중등</span>
           </div>
 
@@ -90,7 +90,7 @@ export default function MiddleLayout() {
 
         {/* Footer */}
         <div className="px-5 py-3 border-t border-line-light">
-          <div className="text-[11px] text-ink-muted">© 2026 Inroad</div>
+          <div className="text-[11px] text-ink-muted">© 2026 BIKUS</div>
         </div>
       </aside>
 
@@ -100,7 +100,7 @@ export default function MiddleLayout() {
         {/* GNB */}
         <header className="h-12 bg-white border-b border-line flex items-center justify-between px-6 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <div className="text-[13px] font-semibold text-ink">인로드</div>
+            <div className="text-[13px] font-semibold text-ink">비커스</div>
             {student?.grade && (
               <span className="text-[11px] font-semibold text-brand-middle-dark bg-brand-middle-bg px-2 py-0.5 rounded-full border border-brand-middle-light">
                 {student.grade}

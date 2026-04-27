@@ -242,7 +242,7 @@ export default function MiddleLesson() {
               <span className="text-xl flex-shrink-0">📖</span>
               <div>
                 <div className="text-[12px] font-bold text-amber-700">이번 수업 교재 범위</div>
-                <div className="text-[11px] text-amber-600 mt-0.5">인로드 스피치 교재 — {selLesson.page}</div>
+                <div className="text-[11px] text-amber-600 mt-0.5">비커스 스피치 교재 — {selLesson.page}</div>
               </div>
             </div>
 
@@ -273,7 +273,7 @@ export default function MiddleLesson() {
         <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl px-5 py-4 flex items-center justify-between gap-4">
           <div>
             <div className="text-[14px] font-bold text-amber-700 mb-0.5">📚 아직 교재가 없으신가요?</div>
-            <div className="text-[12px] text-amber-600">인로드 스피치 교재를 구매하면 수업을 더 효과적으로 준비할 수 있어요.</div>
+            <div className="text-[12px] text-amber-600">비커스 스피치 교재를 구매하면 수업을 더 효과적으로 준비할 수 있어요.</div>
           </div>
           <button className="h-10 px-4 bg-orange-500 hover:bg-orange-600 text-white text-[12px] font-bold rounded-lg whitespace-nowrap flex-shrink-0 transition-all hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(249,115,22,0.3)]">
             교재 구매하기 →

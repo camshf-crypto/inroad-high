@@ -181,7 +181,7 @@ export default function StudentLogin() {
         {/* 상단 로고 */}
         <div className="absolute top-8 left-8 flex items-center gap-2">
           <span className="w-8 h-8 bg-gradient-to-br from-brand-high-dark to-brand-high rounded-lg flex items-center justify-center text-white font-black text-sm tracking-tighter">IR</span>
-          <div className="font-extrabold text-[17px] text-ink tracking-tight">인로드</div>
+          <div className="font-extrabold text-[17px] text-ink tracking-tight">비커스</div>
         </div>
 
         {/* 가운데 정렬 폼 */}
@@ -321,7 +321,7 @@ export default function StudentLogin() {
           </h1>
           <p className="text-[15px] text-ink-secondary leading-[1.7]">
             탐구주제 설계부터 실전 면접 시뮬레이션까지<br />
-            인로드와 함께 단계별로 준비하세요.
+            비커스와 함께 단계별로 준비하세요.
           </p>
         </div>
 

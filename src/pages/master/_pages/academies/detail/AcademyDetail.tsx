@@ -22,7 +22,7 @@ const INIT_DETAILS: Record<string, any> = {
   '1': {
     id: 1,
     name: '강남 에스엠 학원',
-    code: 'INROAD-SM01-0001',
+    code: 'BIKUS-SM01-0001',
     region: '서울 강남',
     address: '서울특별시 강남구 테헤란로 123',
     phone: '02-1234-5678',
@@ -36,7 +36,7 @@ const INIT_DETAILS: Record<string, any> = {
     avgProgress: 72,
     suspendReason: '',
     codeHistory: [
-      { date: '2025.04.14', code: 'INROAD-SM01-0001', reason: '최초 발급' },
+      { date: '2025.04.14', code: 'BIKUS-SM01-0001', reason: '최초 발급' },
     ],
     owner: { name: '강원장', email: 'sm@academy.com', phone: '010-1111-2222', role: 'OWNER', joinDate: '2025.04.14', lastLogin: '2025.04.18 14:30' },
     monthlyStudents: [
@@ -92,7 +92,7 @@ const INIT_DETAILS: Record<string, any> = {
 const getDefaultAcademy = (id: string) => ({
   id: Number(id),
   name: `학원 #${id}`,
-  code: `INROAD-XXXX-${id.padStart(4, '0')}`,
+  code: `BIKUS-XXXX-${id.padStart(4, '0')}`,
   region: '서울',
   address: '주소 정보 없음',
   phone: '-',
@@ -126,7 +126,7 @@ const STATUS_STYLE: Record<string, any> = {
 const generateNewCode = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
   const nums = '0123456789'
-  let code = 'INROAD-'
+  let code = 'BIKUS-'
   for (let i = 0; i < 2; i++) code += chars[Math.floor(Math.random() * chars.length)]
   for (let i = 0; i < 2; i++) code += nums[Math.floor(Math.random() * nums.length)]
   code += '-'
@@ -140,7 +140,7 @@ const generateNewPassword = () => {
   const lower = 'abcdefghjkmnpqrstuvwxyz'
   const nums = '23456789'
   const special = '@#$!'
-  let pw = 'Inroad'
+  let pw = 'BIKUS'
   pw += upper[Math.floor(Math.random() * upper.length)]
   pw += lower[Math.floor(Math.random() * lower.length)]
   for (let i = 0; i < 4; i++) pw += nums[Math.floor(Math.random() * nums.length)]
@@ -1613,7 +1613,7 @@ export default function MasterAcademyDetail() {
 
                 <button
                   onClick={() => {
-                    const text = `[인로드 비밀번호 재설정]\n\n대상: ${newPasswordResult.name}\n이메일: ${newPasswordResult.email}\n새 임시 비밀번호: ${newPasswordResult.password}\n\n첫 로그인 시 비밀번호를 반드시 변경해주세요.`
+                    const text = `[비커스 비밀번호 재설정]\n\n대상: ${newPasswordResult.name}\n이메일: ${newPasswordResult.email}\n새 임시 비밀번호: ${newPasswordResult.password}\n\n첫 로그인 시 비밀번호를 반드시 변경해주세요.`
                     navigator.clipboard.writeText(text)
                     alert('✅ 전체 정보가 복사됐어요!')
                   }}

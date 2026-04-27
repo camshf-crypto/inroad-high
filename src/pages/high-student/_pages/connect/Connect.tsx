@@ -2,29 +2,63 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSetAtom } from 'jotai'
 import { academyState } from '../../_store/auth'
+import { supabase } from '../../../../lib/supabase'
 
 export default function Connect() {
   const navigate = useNavigate()
   const setAcademy = useSetAtom(academyState)
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleConnect = () => {
+  const handleConnect = async () => {
     if (!code) {
       setError('학원 코드를 입력해주세요.')
       return
     }
-    if (code !== 'ACA001') {
-      setError('올바르지 않은 학원 코드예요.')
-      return
+    
+    setLoading(true)
+    setError('')
+    
+    try {
+      // DB에서 학원 코드로 조회 (academy_code 컬럼 사용)
+      const { data, error: dbError } = await supabase
+        .from('academies')
+        .select('id, academy_code, name')
+        .eq('academy_code', code)
+        .maybeSingle()
+      
+      if (dbError) throw dbError
+      
+      if (!data) {
+        setError('올바르지 않은 학원 코드예요.')
+        setLoading(false)
+        return
+      }
+      
+      // 학생 본인의 academy_id 업데이트
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        await supabase
+          .from('profiles')
+          .update({ academy_id: data.id })
+          .eq('id', user.id)
+      }
+      
+      // 상태 저장
+      setAcademy({
+        academyId: data.id,
+        academyCode: data.academy_code,
+        academyName: data.name,
+        teacherName: undefined,
+        teacherId: undefined,
+      })
+      
+      navigate('/high-student/roadmap')
+    } catch (e: any) {
+      setError('연결 중 오류가 발생했어요: ' + e.message)
+      setLoading(false)
     }
-    setAcademy({
-      academyCode: 'ACA001',
-      academyName: '대치 인로드학원',
-      teacherName: '김선생님',
-      teacherId: 1,
-    })
-    navigate('/high-student/roadmap')
   }
 
   return (
@@ -58,11 +92,12 @@ export default function Connect() {
         <label className="text-[11px] font-bold text-ink-secondary block mb-1.5 uppercase tracking-wider">학원 코드</label>
         <input
           type="text"
-          placeholder="예: ACA001"
+          placeholder="예: MW001"
           maxLength={10}
           value={code}
           onChange={e => { setCode(e.target.value.toUpperCase()); setError('') }}
           onKeyDown={e => e.key === 'Enter' && handleConnect()}
+          disabled={loading}
           className={`w-full border rounded-xl px-4 py-3.5 text-[18px] font-extrabold tracking-[4px] text-center outline-none transition-all font-sans ${
             error
               ? 'border-red-500 bg-red-50'
@@ -81,23 +116,18 @@ export default function Connect() {
         <div className="flex flex-col gap-2 mt-4">
           <button
             onClick={handleConnect}
-            className="w-full py-3.5 bg-brand-high text-white rounded-xl text-[14px] font-bold hover:bg-brand-high-dark transition-all shadow-[0_4px_12px_rgba(37,99,235,0.25)] hover:shadow-[0_6px_16px_rgba(37,99,235,0.35)]"
+            disabled={loading}
+            className="w-full py-3.5 bg-brand-high text-white rounded-xl text-[14px] font-bold hover:bg-brand-high-dark transition-all shadow-[0_4px_12px_rgba(37,99,235,0.25)] hover:shadow-[0_6px_16px_rgba(37,99,235,0.35)] disabled:opacity-60"
           >
-            연결하기
+            {loading ? '연결 중...' : '연결하기'}
           </button>
           <button
             onClick={() => navigate('/high-student/roadmap')}
+            disabled={loading}
             className="w-full py-3 bg-white text-ink-secondary border border-line rounded-xl text-[13px] font-semibold hover:bg-gray-50 hover:border-ink-muted transition-all"
           >
             나중에 연결할게요
           </button>
-        </div>
-
-        {/* 예시 코드 안내 */}
-        <div className="mt-5 pt-5 border-t border-line-light text-center">
-          <div className="text-[10px] text-ink-muted font-medium">
-            🔖 테스트 코드: <span className="text-brand-high-dark font-bold">ACA001</span>
-          </div>
         </div>
       </div>
     </div>

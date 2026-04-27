@@ -29,7 +29,7 @@ export interface IAcademy {
 const DEFAULT_ACADEMY: IAcademy = {
   academyId: 'A10901-dev',
   academyCode: 'A10901',
-  academyName: '인로드 학원',
+  academyName: '비커스 학원',
   ownerName: '강원장',
   role: 'OWNER',
   teacherId: undefined,

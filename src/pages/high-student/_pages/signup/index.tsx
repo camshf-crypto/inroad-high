@@ -73,7 +73,7 @@ export default function StudentSignup() {
     setTimeout(() => {
       if (academyCode.toUpperCase() === 'ACA001') {
         setCodeStatus('ok')
-        setAcademyName('대치 인로드학원')
+        setAcademyName('대치 비커스학원')
       } else {
         setCodeStatus('fail')
         setAcademyName('')
@@ -111,7 +111,7 @@ export default function StudentSignup() {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-high-dark to-brand-high flex items-center justify-center text-white text-[13px] font-extrabold shadow-[0_4px_12px_rgba(37,99,235,0.25)]">
               IR
             </div>
-            <span className="text-[18px] font-extrabold text-brand-high-dark tracking-tight">인로드</span>
+            <span className="text-[18px] font-extrabold text-brand-high-dark tracking-tight">비커스</span>
           </div>
         </div>
 
@@ -472,7 +472,7 @@ export default function StudentSignup() {
 
           <div className="text-[15px] text-ink-secondary leading-[1.6] mb-10 text-center">
             탐구주제 설계부터 실전 면접 시뮬레이션까지<br />
-            인로드와 함께 단계별로 준비하세요.
+            비커스와 함께 단계별로 준비하세요.
           </div>
 
           {/* 기능 카드 */}

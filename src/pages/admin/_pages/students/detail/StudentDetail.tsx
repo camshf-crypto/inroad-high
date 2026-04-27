@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStudent } from '../../../_hooks/useStudent'
+import { ROADMAP, toGradeKey, type GradeKey } from '../../../../../constants/roadmap'
+import { useHighRoadmapProgress } from '../../../_hooks/useHighRoadmap'
 
 // 고등 (high-tabs)
 import RoadmapTab from './high-tabs/RoadmapTab'
@@ -48,14 +50,24 @@ const MIDDLE_TABS = [
   { key: 'presentation', label: '📄 제시문 면접' },
 ]
 
+const ALL_GRADES: GradeKey[] = ['고1', '고2', '고3']
+
 type HighTabType = 'roadmap' | 'topic' | 'book' | 'record' | 'expect' | 'past' | 'mockexam' | 'simulation' | 'presentation' | 'major'
 type MiddleTabType = 'roadmap' | 'lesson' | 'homework' | 'book' | 'expect' | 'past' | 'simulation' | 'presentation'
+
+const THEME = {
+  accent: '#2563EB',
+  accentDark: '#1E3A8A',
+  accentBg: '#EFF6FF',
+  accentBorder: '#93C5FD',
+  accentShadow: 'rgba(37, 99, 235, 0.15)',
+  gradient: 'linear-gradient(135deg, #1E3A8A, #2563EB)',
+}
 
 export default function StudentDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
 
-  // 🔑 모든 훅은 return 문 이전에 선언 (훅 순서 일관성 규칙)
   const [highTab, setHighTab] = useState<HighTabType>('roadmap')
   const [middleTab, setMiddleTab] = useState<MiddleTabType>('roadmap')
   const [openTopicId, setOpenTopicId] = useState<number | null>(null)
@@ -68,14 +80,15 @@ export default function StudentDetail() {
   const [chatLoading, setChatLoading] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
-  const { data: profile, isLoading, error } = useStudent(id)
+  const [viewGrade, setViewGrade] = useState<GradeKey | null>(null)
 
-  // 🔑 useEffect도 return 전에 (훅이니까)
+  const { data: profile, isLoading, error } = useStudent(id)
+  const { data: progressMap } = useHighRoadmapProgress(id)
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages])
 
-  // 로딩 중 (훅 다 선언한 후에 return)
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-50px)]">
@@ -87,7 +100,6 @@ export default function StudentDetail() {
     )
   }
 
-  // 에러 or 학생 없음
   if (error || !profile) {
     return (
       <div className="p-8 text-center">
@@ -106,7 +118,6 @@ export default function StudentDetail() {
     )
   }
 
-  // ✅ 탭 컴포넌트에 넘길 student 객체
   const student = {
     id: profile.id,
     name: profile.name ?? '이름없음',
@@ -126,6 +137,16 @@ export default function StudentDetail() {
   const accentDark = isMiddle ? '#065F46' : '#1E3A8A'
   const accentBg = isMiddle ? '#ECFDF5' : '#EFF6FF'
   const accentShadow = isMiddle ? 'rgba(16, 185, 129, 0.15)' : 'rgba(37, 99, 235, 0.15)'
+
+  const studentGrade: GradeKey = toGradeKey(student.grade)
+  const currentViewGrade = viewGrade ?? studentGrade
+
+  const isDone = (key: string) => progressMap?.get(key)?.is_completed === true
+  const roadmap = ROADMAP[currentViewGrade]
+  const totalMissions = roadmap.reduce((a, m) => a + m.missions.length, 0)
+  const doneMissions = roadmap.reduce((a, m) => a + m.missions.filter(ms => isDone(ms.key)).length, 0)
+  const overallPct = totalMissions > 0 ? Math.round((doneMissions / totalMissions) * 100) : 0
+  const curMonth = new Date().getMonth() + 1 + '월'
 
   const goEditTopic = (id: number) => {
     setOpenTopicId(id)
@@ -183,7 +204,7 @@ export default function StudentDetail() {
         {/* 고정 헤더 영역 (헤더 + 탭) */}
         <div className="px-8 pt-7 pb-0 flex-shrink-0">
 
-          {/* 헤더 */}
+          {/* 헤더 - 깔끔하게 */}
           <div className="flex items-center gap-3 mb-5">
             <button
               onClick={() => navigate(isMiddle ? '/admin/middle-students' : '/admin/students')}
@@ -191,34 +212,82 @@ export default function StudentDetail() {
             >
               ←
             </button>
-            <div
-              className="w-11 h-11 rounded-full flex items-center justify-center text-[16px] font-bold"
-              style={{ background: accentBg, color: accentColor }}
-            >
-              {student.name[0]}
-            </div>
             <div>
-              <div className="flex items-center gap-2">
-                <div className="text-[20px] font-extrabold text-ink tracking-tight">{student.name}</div>
-                <span
-                  className="text-[11px] font-bold text-white px-2.5 py-0.5 rounded-full"
-                  style={{ background: accentColor }}
-                >
-                  {isMiddle ? '🌱 중등' : '🌊 고등'}
+              <div className="text-[20px] font-extrabold text-ink tracking-tight">{student.name}</div>
+              <div className="text-[12px] font-medium text-ink-secondary mt-0.5">
+                {student.grade} · 가입일 {student.joinDate}
+              </div>
+            </div>
+
+            {/* ━━━━━ 오른쪽: 학년 탭 + 스탯 4개 ━━━━━ */}
+            {!isMiddle && (
+              <div className="ml-auto flex items-center gap-2">
+                {/* 학년 탭 */}
+                <div className="flex gap-1">
+                  {ALL_GRADES.map(g => {
+                    const isActive = currentViewGrade === g
+                    const isStudentGrade = g === studentGrade
+                    return (
+                      <button
+                        key={g}
+                        onClick={() => setViewGrade(g)}
+                        className="px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-all flex items-center gap-1"
+                        style={{
+                          background: isActive ? THEME.accent : '#fff',
+                          color: isActive ? '#fff' : '#6B7280',
+                          borderColor: isActive ? THEME.accent : '#E5E7EB',
+                        }}
+                      >
+                        {g}
+                        {isStudentGrade && (
+                          <span
+                            className="text-[8px] font-bold px-1 py-0.5 rounded-full"
+                            style={{
+                              background: isActive ? 'rgba(255,255,255,0.25)' : '#FEF3C7',
+                              color: isActive ? '#fff' : '#92400E',
+                            }}
+                          >
+                            현재
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* 스탯 카드 */}
+                <div className="flex items-center gap-2">
+                  <div
+                    className="rounded-xl px-4 py-2"
+                    style={{
+                      background: THEME.gradient,
+                      boxShadow: `0 4px 12px ${THEME.accentShadow}`,
+                    }}
+                  >
+                    <div className="text-[10px] text-white/80 mb-0.5 font-medium">{currentViewGrade} 진행률</div>
+                    <div className="text-[15px] font-extrabold text-white">{overallPct}%</div>
+                  </div>
+                  {[
+                    { label: '✅ 완료 미션', val: `${doneMissions}/${totalMissions}` },
+                    { label: '📅 현재 월', val: curMonth },
+                    { label: '🎓 학생 학년', val: studentGrade },
+                  ].map((s, i) => (
+                    <div key={i} className="bg-white border border-line rounded-xl px-4 py-2">
+                      <div className="text-[10px] text-ink-secondary mb-0.5 font-medium">{s.label}</div>
+                      <div className="text-[15px] font-extrabold text-ink">{s.val}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {isMiddle && (
+              <div className="ml-auto flex items-center gap-3">
+                <span className="text-[12px] font-semibold text-ink-secondary bg-gray-100 px-3 py-1 rounded-full">
+                  {student.grade}
                 </span>
               </div>
-              <div className="text-[12px] font-medium text-ink-secondary mt-0.5">
-                {student.grade} · {student.email} · 가입일 {student.joinDate}
-              </div>
-            </div>
-            <div className="ml-auto flex items-center gap-3">
-              <span className="text-[12px] font-semibold text-ink-secondary bg-gray-100 px-3 py-1 rounded-full">
-                {student.grade}
-              </span>
-              <span className="text-[13px] font-bold" style={{ color: accentColor }}>
-                진행률 {student.pct || 0}%
-              </span>
-            </div>
+            )}
           </div>
 
           {/* 탭 */}
@@ -245,13 +314,12 @@ export default function StudentDetail() {
           </div>
         </div>
 
-        {/* 탭 콘텐츠 (여기만 스크롤) */}
-        <div className="flex-1 overflow-hidden px-8 pb-7 pt-1 min-h-0">
+        {/* 탭 콘텐츠 */}
+        <div className={`flex-1 px-8 pb-7 pt-1 min-h-0 ${highTab === 'roadmap' && !isMiddle ? 'overflow-y-auto' : 'overflow-hidden'}`}>
 
-          {/* 고등 탭 콘텐츠 */}
           {!isMiddle && (
             <>
-              {highTab === 'roadmap' && <RoadmapTab student={student} />}
+              {highTab === 'roadmap' && <RoadmapTab student={student} viewGrade={currentViewGrade} />}
               {highTab === 'topic' && <TopicTab student={student} onOpenChat={openChat} openId={openTopicId} onClearOpenId={() => setOpenTopicId(null)} />}
               {highTab === 'book' && <BookTab student={student} onOpenChat={openChat} openId={openBookId} onClearOpenId={() => setOpenBookId(null)} />}
               {highTab === 'record' && <RecordTab student={student} onEditTopic={goEditTopic} onEditBook={goEditBook} />}
@@ -264,13 +332,12 @@ export default function StudentDetail() {
             </>
           )}
 
-          {/* 중등 탭 콘텐츠 */}
           {isMiddle && (
             <>
               {middleTab === 'roadmap' && <MiddleRoadmapTab student={student} />}
               {middleTab === 'lesson' && <MiddleLessonTab student={student} />}
               {middleTab === 'homework' && <MiddleHomeworkTab student={student} />}
-              {middleTab === 'book' && <MiddleBookTab student={student} onOpenChat={openChat} />}
+              {middleTab === 'book' && <MiddleBookTab student={student} />}
               {middleTab === 'expect' && <MiddleExpectTab student={student} />}
               {middleTab === 'past' && <MiddlePastTab student={student} />}
               {middleTab === 'simulation' && <MiddleSimulationTab student={student} />}
@@ -286,7 +353,6 @@ export default function StudentDetail() {
           className="w-[380px] border-l border-line bg-white flex flex-col flex-shrink-0"
           style={{ height: 'calc(100vh - 50px)' }}
         >
-          {/* 헤더 */}
           <div
             className="px-5 py-4 border-b border-line flex items-center justify-between flex-shrink-0"
             style={{ background: accentBg }}
@@ -307,7 +373,6 @@ export default function StudentDetail() {
             </button>
           </div>
 
-          {/* 메시지 */}
           <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
             {chatMessages.map((msg, i) => (
               <div
@@ -341,7 +406,6 @@ export default function StudentDetail() {
             <div ref={chatEndRef} />
           </div>
 
-          {/* 입력 */}
           <div className="px-4 py-3 border-t border-line flex-shrink-0">
             <div className="flex gap-2">
               <input
