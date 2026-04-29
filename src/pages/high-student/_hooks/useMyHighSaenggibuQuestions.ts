@@ -140,12 +140,13 @@ export function useMyQuestionFollowups(questionId: string | undefined) {
 }
 
 // ─────────────────────────────────────────────
-// 4. PDF 업로드 (Supabase Storage)
+// 4. PDF 업로드 (Supabase Storage + saenggibu_uploads 테이블)
 // ─────────────────────────────────────────────
 
 export function useUploadSaenggibuPdf() {
   const student = useAtomValue(studentState)
   const studentId = student?.id as string | undefined
+  const qc = useQueryClient()
 
   return useMutation({
     mutationFn: async ({ file, grade, majorDept }: {
@@ -182,7 +183,29 @@ export function useUploadSaenggibuPdf() {
 
       if (uploadError) throw uploadError
 
+      // 3. ⭐ saenggibu_uploads 테이블에 메타데이터 저장 (학과 포함)
+      const { error: dbError } = await supabase
+        .from('saenggibu_uploads')
+        .upsert({
+          student_id: studentId,
+          grade,
+          major_dept: majorDept,
+          pdf_path: filePath,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'student_id,grade',
+        })
+
+      if (dbError) {
+        // DB 저장 실패하면 Storage에서도 롤백
+        await supabase.storage.from('saenggibu-pdfs').remove([filePath])
+        throw new Error('업로드 정보 저장 실패: ' + dbError.message)
+      }
+
       return { path: filePath, majorDept }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-saenggibu-pdf'] })
     },
   })
 }
@@ -199,29 +222,39 @@ export function useMyUploadedPdf(grade: number) {
     queryKey: ['my-saenggibu-pdf', studentId, grade],
     queryFn: async () => {
       if (!studentId) return null
-      const { data: files, error } = await supabase.storage
+
+      // saenggibu_uploads 테이블에서 메타데이터 조회
+      const { data: uploadData } = await supabase
+        .from('saenggibu_uploads')
+        .select('*')
+        .eq('student_id', studentId)
+        .eq('grade', grade)
+        .maybeSingle()
+
+      // Storage에서 실제 파일 정보
+      const { data: files } = await supabase.storage
         .from('saenggibu-pdfs')
         .list(studentId, {
           search: `grade${grade}_`,
           sortBy: { column: 'created_at', order: 'desc' },
         })
-      if (error) throw error
-      if (!files || files.length === 0) return null
 
-      const file = files[0]
-      const path = `${studentId}/${file.name}`
+      const file = files && files.length > 0 ? files[0] : null
+      if (!file) return null
+
       return {
-        path,
+        path: uploadData?.pdf_path || `${studentId}/${file.name}`,
         name: file.name,
         size: file.metadata?.size ?? 0,
         created_at: file.created_at,
+        major_dept: uploadData?.major_dept ?? null,
       }
     },
     enabled: !!studentId,
   })
 }
 
-// PDF 삭제
+// PDF 삭제 (Storage + 테이블)
 export function useDeleteMyPdf() {
   const student = useAtomValue(studentState)
   const studentId = student?.id as string | undefined
@@ -229,10 +262,18 @@ export function useDeleteMyPdf() {
 
   return useMutation({
     mutationFn: async (path: string) => {
-      const { error } = await supabase.storage
+      // Storage에서 삭제
+      const { error: storageError } = await supabase.storage
         .from('saenggibu-pdfs')
         .remove([path])
-      if (error) throw error
+      if (storageError) throw storageError
+
+      // saenggibu_uploads 테이블에서도 삭제
+      const { error: dbError } = await supabase
+        .from('saenggibu_uploads')
+        .delete()
+        .eq('pdf_path', path)
+      if (dbError) throw dbError
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['my-saenggibu-pdf', studentId] })
@@ -241,7 +282,7 @@ export function useDeleteMyPdf() {
 }
 
 // ─────────────────────────────────────────────
-// 6. 학생 첫 답변 작성 (question.student_answer + analysis round 1 생성)
+// 6. 학생 첫 답변 작성
 // ─────────────────────────────────────────────
 
 export function useSubmitFirstAnswer() {
@@ -266,7 +307,7 @@ export function useSubmitFirstAnswer() {
         .eq('id', questionId)
       if (qErr) throw qErr
 
-      // 2. analysis round 1 생성 or 업데이트 (업로드 시 revised_answer에도 저장)
+      // 2. analysis round 1 생성 or 업데이트
       const { data: existing } = await supabase
         .from('high_saenggibu_questions_analysis')
         .select('id')
@@ -275,14 +316,12 @@ export function useSubmitFirstAnswer() {
         .maybeSingle()
 
       if (existing) {
-        // 기존 round 1이 있으면 revised_answer만 업데이트
         const { error } = await supabase
           .from('high_saenggibu_questions_analysis')
           .update({ revised_answer: answer, status: 'pending' })
           .eq('id', existing.id)
         if (error) throw error
       } else {
-        // 새로 생성
         const { error } = await supabase
           .from('high_saenggibu_questions_analysis')
           .insert({
@@ -318,7 +357,6 @@ export function useSubmitUpgradedAnswer() {
     }) => {
       if (!studentId) throw new Error('로그인이 필요해요')
 
-      // round 2 row가 있는지 확인
       const { data: existing } = await supabase
         .from('high_saenggibu_questions_analysis')
         .select('id')
@@ -385,7 +423,7 @@ export function getStep(
   question: ExpectQuestion,
   analyses: ExpectAnalysis[]
 ): number {
-  // 0: 미답변, 1: 답변완료, 2: 1차피드백, 3: 업그레이드, 4: 최종피드백, 5: 꼬리질문
+  // 0: 미답변, 1: 답변완료, 2: 1차피드백, 3: 업그레이드, 4: 최종피드백
   if (!question.student_answer) return 0
   const round1 = analyses.find(a => a.round === 1)
   if (!round1?.teacher_feedback) return 1

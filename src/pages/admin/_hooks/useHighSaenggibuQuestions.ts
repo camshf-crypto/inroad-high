@@ -57,6 +57,15 @@ export interface ExpectFollowup {
   created_at: string
 }
 
+// ⭐ AI 분석 결과 타입
+export interface AIAnalysisResult {
+  strengths: string[]
+  weaknesses: string[]
+  improvements: string[]
+  authenticity_concerns: string[]
+  summary: string
+}
+
 export const gradeToNum = (grade: string | undefined | null): number | null => {
   if (!grade) return null
   if (grade === '고1' || grade === '1') return 1
@@ -72,41 +81,36 @@ export const gradeToNum = (grade: string | undefined | null): number | null => {
 export function useStudentSaenggibuPdf(studentId: string, grade: number) {
   return useQuery({
     queryKey: ['admin-saenggibu-pdf', studentId, grade],
-    refetchInterval: 5000,  // 5초마다 자동 새로고침
+    refetchInterval: 5000,
     refetchIntervalInBackground: false,
     queryFn: async () => {
-      // 1. Storage에서 학생 폴더 직접 조회 (학생이 업로드한 PDF 직접 찾기)
+      const { data: uploadData } = await supabase
+        .from('saenggibu_uploads')
+        .select('*')
+        .eq('student_id', studentId)
+        .eq('grade', grade)
+        .maybeSingle()
+
       const { data: files, error: storageErr } = await supabase.storage
         .from('saenggibu-pdfs')
         .list(studentId, {
           search: `grade${grade}_`,
           sortBy: { column: 'created_at', order: 'desc' },
         })
-      
+
       if (storageErr) {
         console.error('storage list error:', storageErr)
       }
 
       const latestFile = files && files.length > 0 ? files[0] : null
 
-      // 2. 기존 질문에 저장된 major_dept 가져오기 (참고용)
-      const { data: questionData } = await supabase
-        .from('high_saenggibu_questions')
-        .select('major_dept, created_at')
-        .eq('student_id', studentId)
-        .eq('grade', grade)
-        .not('major_dept', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
       if (!latestFile) {
         return null
       }
 
       return {
-        saenggibu_pdf_url: `${studentId}/${latestFile.name}`,
-        major_dept: questionData?.major_dept ?? null,
+        saenggibu_pdf_url: uploadData?.pdf_path || `${studentId}/${latestFile.name}`,
+        major_dept: uploadData?.major_dept ?? null,
         file_name: latestFile.name,
         file_size: latestFile.metadata?.size ?? 0,
         uploaded_at: latestFile.created_at,
@@ -116,12 +120,11 @@ export function useStudentSaenggibuPdf(studentId: string, grade: number) {
   })
 }
 
-// Storage에서 서명 URL 받기 (PDF 미리보기용)
 export async function getSaenggibuPdfSignedUrl(pdfPath: string): Promise<string | null> {
   if (!pdfPath) return null
   const { data, error } = await supabase.storage
     .from('saenggibu-pdfs')
-    .createSignedUrl(pdfPath, 3600) // 1시간 유효
+    .createSignedUrl(pdfPath, 3600)
   if (error) {
     console.error('signed url error:', error)
     return null
@@ -129,7 +132,6 @@ export async function getSaenggibuPdfSignedUrl(pdfPath: string): Promise<string 
   return data?.signedUrl ?? null
 }
 
-// 원장이 학생 PDF 삭제
 export function useDeleteStudentPdf() {
   const qc = useQueryClient()
   return useMutation({
@@ -138,10 +140,18 @@ export function useDeleteStudentPdf() {
       path: string
       grade: number
     }) => {
-      const { error } = await supabase.storage
+      const { error: storageError } = await supabase.storage
         .from('saenggibu-pdfs')
         .remove([path])
-      if (error) throw error
+      if (storageError) throw storageError
+
+      const { error: dbError } = await supabase
+        .from('saenggibu_uploads')
+        .delete()
+        .eq('student_id', studentId)
+        .eq('grade', grade)
+      if (dbError) throw dbError
+
       return { studentId, grade }
     },
     onSuccess: ({ studentId, grade }) => {
@@ -157,7 +167,7 @@ export function useDeleteStudentPdf() {
 export function useStudentQuestions(studentId: string, grade: number) {
   return useQuery({
     queryKey: ['admin-expect-questions', studentId, grade],
-    refetchInterval: 3000,  // 3초마다 자동 새로고침 (학생 답변 감지용)
+    refetchInterval: 3000,
     refetchIntervalInBackground: false,
     queryFn: async (): Promise<ExpectQuestion[]> => {
       const { data, error } = await supabase
@@ -218,7 +228,7 @@ export function useQuestionFollowups(questionId: string | undefined) {
 }
 
 // ─────────────────────────────────────────────
-// 5. AI 예상질문 생성 (MOCK - 나중에 실제 AI 연결)
+// 5. AI 예상질문 생성
 // ─────────────────────────────────────────────
 
 export function useGenerateAIQuestions() {
@@ -232,52 +242,218 @@ export function useGenerateAIQuestions() {
       saenggibu_pdf_url?: string | null
       major_dept?: string | null
     }): Promise<ExpectQuestion[]> => {
-      // MOCK: 3개 질문 생성 (나중에 AI API 호출로 교체)
-      const mockQuestions = [
-        {
-          question: `${major_dept || '지원 학과'}에 지원하게 된 계기와 고등학교 시기 탐구 활동의 연관성을 설명해주세요.`,
-          tag: '지원동기',
-          purpose: ['지원 동기의 진정성 확인', '학과에 대한 이해도 파악'],
-        },
-        {
-          question: '가장 인상 깊었던 탐구 활동이나 독서 활동을 구체적으로 소개해주세요.',
-          tag: '탐구활동',
-          purpose: ['자기주도적 학습 역량 확인', '탐구 능력과 깊이 확인'],
-        },
-        {
-          question: '학업 외 활동 중 본인의 성장에 가장 큰 영향을 준 활동은 무엇인가요?',
-          tag: '학교생활',
-          purpose: ['전인적 성장 확인', '협업 및 리더십 역량 파악'],
-        },
-      ]
 
-      const inserts = mockQuestions.map(q => ({
+      if (!saenggibu_pdf_url) {
+        throw new Error('생기부 PDF가 없어요. 학생이 먼저 업로드해야 합니다.')
+      }
+      if (!major_dept) {
+        throw new Error('지원학과 정보가 없어요. 학생이 업로드 시 학과를 선택해야 합니다.')
+      }
+
+      console.log('[AI 질문생성] 1/2 OCR 처리 중...')
+      const { data: ocrData, error: ocrError } = await supabase.functions.invoke(
+        'ocr-document',
+        {
+          body: { pdfPath: saenggibu_pdf_url },
+        }
+      )
+
+      if (ocrError) throw new Error('OCR 호출 실패: ' + ocrError.message)
+      if (!ocrData?.success || !ocrData?.text) {
+        throw new Error('OCR 결과가 비어있어요: ' + JSON.stringify(ocrData).substring(0, 200))
+      }
+
+      const saenggibuText = ocrData.text as string
+      console.log(`[AI 질문생성] OCR 완료 (${ocrData.pages}페이지, ${saenggibuText.length}자)`)
+
+      console.log('[AI 질문생성] 2/2 AI 질문 생성 중...')
+      const { data: aiData, error: aiError } = await supabase.functions.invoke(
+        'ai-generate-questions',
+        {
+          body: {
+            saenggibuText,
+            majorDept: major_dept,
+          },
+        }
+      )
+
+      if (aiError) throw new Error('AI 호출 실패: ' + aiError.message)
+      if (!aiData?.success || !Array.isArray(aiData?.questions)) {
+        throw new Error('AI 응답이 잘못됐어요: ' + JSON.stringify(aiData).substring(0, 200))
+      }
+
+      const generatedQuestions = aiData.questions as Array<{
+        source_subject: string
+        source_text: string
+        question: string
+        purpose: string[]
+        tag: string
+        difficulty: number
+      }>
+
+      console.log(`[AI 질문생성] ${generatedQuestions.length}개 질문 생성됨`)
+
+      if (generatedQuestions.length === 0) {
+        throw new Error('생성된 질문이 없어요. 학과와 관련된 활동이 없을 수도 있어요.')
+      }
+
+      const inserts = generatedQuestions.map(q => ({
         student_id: studentId,
         grade,
         question: q.question,
-        tag: q.tag,
-        purpose: q.purpose,
+        source_subject: q.source_subject || null,
+        source_text: q.source_text || null,
+        tag: q.tag || null,
+        purpose: q.purpose || [],
+        difficulty: q.difficulty || null,
         source_type: 'ai' as const,
         saenggibu_pdf_url: saenggibu_pdf_url ?? null,
         major_dept: major_dept ?? null,
         question_status: 'draft' as const,
       }))
 
-      const { data, error } = await supabase
+      const { data: inserted, error: insertError } = await supabase
         .from('high_saenggibu_questions')
         .insert(inserts)
         .select()
-      if (error) throw error
-      return data as ExpectQuestion[]
+
+      if (insertError) throw insertError
+
+      console.log('[AI 질문생성] 완료!')
+      return inserted as ExpectQuestion[]
     },
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: ['admin-expect-questions', variables.studentId, variables.grade] })
+      qc.invalidateQueries({ 
+        queryKey: ['admin-expect-questions', variables.studentId, variables.grade] 
+      })
     },
   })
 }
 
 // ─────────────────────────────────────────────
-// 6. 원장이 직접 질문 추가
+// 6. ⭐ 신규: AI 답변 분석 (장점/단점/개선점)
+// ─────────────────────────────────────────────
+
+export function useGenerateAIAnalysis() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      questionId, studentId, round, question, studentAnswer, majorDept, sourceText
+    }: {
+      questionId: string
+      studentId: string
+      round: number  // 1: 첫 답변, 2: 업그레이드 답변
+      question: string
+      studentAnswer: string
+      majorDept?: string | null
+      sourceText?: string | null
+    }): Promise<AIAnalysisResult> => {
+
+      console.log(`[AI 분석] round ${round} 분석 시작`)
+
+      // 1. AI 분석 Edge Function 호출
+      const { data, error } = await supabase.functions.invoke(
+        'ai-analyze-answer',
+        {
+          body: {
+            question,
+            studentAnswer,
+            majorDept,
+            sourceText,
+          },
+        }
+      )
+
+      if (error) throw new Error('AI 분석 실패: ' + error.message)
+      if (!data?.success || !data?.analysis) {
+        throw new Error('AI 분석 결과가 없어요: ' + JSON.stringify(data).substring(0, 200))
+      }
+
+      const analysis = data.analysis as AIAnalysisResult
+
+      // 2. DB의 analysis 테이블에 저장 (ai_analysis 컬럼)
+      const { data: existing } = await supabase
+        .from('high_saenggibu_questions_analysis')
+        .select('id')
+        .eq('question_id', questionId)
+        .eq('round', round)
+        .maybeSingle()
+
+      if (existing) {
+        // 업데이트
+        const { error: updateErr } = await supabase
+          .from('high_saenggibu_questions_analysis')
+          .update({ ai_analysis: analysis })
+          .eq('id', existing.id)
+        if (updateErr) throw updateErr
+      } else {
+        // 새로 생성
+        const { error: insertErr } = await supabase
+          .from('high_saenggibu_questions_analysis')
+          .insert({
+            question_id: questionId,
+            student_id: studentId,
+            round,
+            ai_analysis: analysis,
+            status: 'pending',
+          })
+        if (insertErr) throw insertErr
+      }
+
+      console.log('[AI 분석] 완료')
+      return analysis
+    },
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ['admin-expect-analyses', variables.questionId] })
+    },
+  })
+}
+
+// ─────────────────────────────────────────────
+// 7. ⭐ 신규: AI 분석 → 선생님 말투 피드백 변환
+//    채팅창(textarea)에 자동 입력될 텍스트 생성
+// ─────────────────────────────────────────────
+
+export function useGenerateAIFeedback() {
+  return useMutation({
+    mutationFn: async ({
+      question, studentAnswer, analysis, majorDept, round
+    }: {
+      question: string
+      studentAnswer: string
+      analysis: AIAnalysisResult
+      majorDept?: string | null
+      round: number
+    }): Promise<string> => {
+
+      console.log(`[AI 피드백] round ${round} 생성 시작`)
+
+      const { data, error } = await supabase.functions.invoke(
+        'ai-suggest-feedback',
+        {
+          body: {
+            question,
+            studentAnswer,
+            analysis,
+            majorDept,
+            round,
+          },
+        }
+      )
+
+      if (error) throw new Error('AI 피드백 생성 실패: ' + error.message)
+      if (!data?.success || !data?.feedback) {
+        throw new Error('AI 피드백 결과가 없어요')
+      }
+
+      console.log('[AI 피드백] 완료')
+      return data.feedback as string
+    },
+  })
+}
+
+// ─────────────────────────────────────────────
+// 8. 원장이 직접 질문 추가
 // ─────────────────────────────────────────────
 
 export function useAddManualQuestion() {
@@ -317,7 +493,7 @@ export function useAddManualQuestion() {
 }
 
 // ─────────────────────────────────────────────
-// 7. 질문 게시 (학생 공개)
+// 9. 질문 게시 (학생 공개)
 // ─────────────────────────────────────────────
 
 export function useToggleQuestionPublish() {
@@ -339,7 +515,6 @@ export function useToggleQuestionPublish() {
   })
 }
 
-// 학년 전체 게시
 export function usePublishAllQuestions() {
   const qc = useQueryClient()
   return useMutation({
@@ -362,7 +537,7 @@ export function usePublishAllQuestions() {
 }
 
 // ─────────────────────────────────────────────
-// 8. 질문 수정
+// 10. 질문 수정/삭제
 // ─────────────────────────────────────────────
 
 export function useUpdateQuestion() {
@@ -397,10 +572,28 @@ export function useDeleteQuestion() {
   })
 }
 
+export function useDeleteAllAIQuestions() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ studentId, grade }: { studentId: string, grade: number }) => {
+      const { error } = await supabase
+        .from('high_saenggibu_questions')
+        .delete()
+        .eq('student_id', studentId)
+        .eq('grade', grade)
+        .eq('source_type', 'ai')
+      if (error) throw error
+    },
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ 
+        queryKey: ['admin-expect-questions', variables.studentId, variables.grade] 
+      })
+    },
+  })
+}
+
 // ─────────────────────────────────────────────
-// 9. 피드백 작성 (1차 = round 1 업데이트)
-//    학생이 답변 작성하면 analysis round 1 row가 자동 생성됨
-//    원장은 그 row의 teacher_feedback만 업데이트
+// 11. 피드백 작성 (1차/최종)
 // ─────────────────────────────────────────────
 
 export function useSendFirstFeedback() {
@@ -411,7 +604,6 @@ export function useSendFirstFeedback() {
       studentId: string
       feedback: string
     }) => {
-      // round 1 analysis 찾기
       const { data: existing } = await supabase
         .from('high_saenggibu_questions_analysis')
         .select('id')
@@ -420,7 +612,6 @@ export function useSendFirstFeedback() {
         .maybeSingle()
 
       if (existing) {
-        // 업데이트
         const { error } = await supabase
           .from('high_saenggibu_questions_analysis')
           .update({
@@ -431,7 +622,6 @@ export function useSendFirstFeedback() {
           .eq('id', existing.id)
         if (error) throw error
       } else {
-        // 없으면 새로 insert (학생이 아직 답변 안 한 경우)
         const { error } = await supabase
           .from('high_saenggibu_questions_analysis')
           .insert({
@@ -451,7 +641,6 @@ export function useSendFirstFeedback() {
   })
 }
 
-// 최종 피드백 (round 2 업데이트 - 업그레이드 답변에 대한 피드백)
 export function useSendFinalFeedback() {
   const qc = useQueryClient()
   return useMutation({
@@ -498,7 +687,7 @@ export function useSendFinalFeedback() {
 }
 
 // ─────────────────────────────────────────────
-// 10. 꼬리질문 추가 (수동)
+// 12. 꼬리질문
 // ─────────────────────────────────────────────
 
 export function useAddFollowup() {
@@ -527,11 +716,9 @@ export function useAddFollowup() {
   })
 }
 
-// AI 꼬리질문 생성 (MOCK)
 export function useGenerateAIFollowups() {
   return useMutation({
     mutationFn: async (_input: { question_id: string, student_answer?: string | null }): Promise<string[]> => {
-      // MOCK - 나중에 실제 AI
       await new Promise(r => setTimeout(r, 1200))
       return [
         '그 활동에서 가장 어려웠던 점은 무엇이었나요?',
@@ -542,7 +729,6 @@ export function useGenerateAIFollowups() {
   })
 }
 
-// 선택한 AI 꼬리질문을 DB에 저장
 export function useSaveSelectedFollowups() {
   const qc = useQueryClient()
   return useMutation({
@@ -594,11 +780,6 @@ export function getQuestionStep(
   question: ExpectQuestion,
   analyses: ExpectAnalysis[]
 ): number {
-  // 1: 답변 대기
-  // 2: 답변함, 1차 피드백 대기
-  // 3: 1차 피드백 받음, 업그레이드 답변 대기
-  // 4: 업그레이드 답변함, 최종 피드백 대기
-  // 5: 최종 피드백 완료 (또는 꼬리질문 단계)
   if (!question.student_answer) return 1
   const round1 = analyses.find(a => a.round === 1)
   if (!round1?.teacher_feedback) return 2

@@ -109,6 +109,7 @@ export default function StudentLogin() {
 
       if (academyInfo) {
         setAcademy({
+          academyId: academyInfo.id,
           academyCode: academyInfo.academy_code || '',
           academyName: academyInfo.name,
           teacherName: '',

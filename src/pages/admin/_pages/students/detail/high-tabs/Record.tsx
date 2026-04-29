@@ -16,6 +16,7 @@ import {
 import {
   useStudentReadings,
 } from '../../../../_hooks/useHighReading'
+import { supabase } from '../../../../../../lib/supabase'  // ⭐ 추가
 
 const THEME = {
   accent: '#2563EB',
@@ -33,13 +34,11 @@ const CREATIVE_LABELS: Record<string, string> = {
 }
 const GRADE_LIST = ['고1', '고2', '고3']
 
-// 첫 번째 과목만 추출 (· 로 분리된 경우)
 const firstSubject = (subj: string | null | undefined): string | null => {
   if (!subj) return null
   return subj.split('·').map(s => s.trim()).filter(Boolean)[0] || null
 }
 
-// MOCK AI 보완점 (기존 UI에 있던 것 - 나중에 실제 AI 붙이기)
 const getMockSuggestion = (type: 'topic' | 'book', subject: string | null) => ({
   strengths: [
     '논리적 분석 능력과 데이터 기반 사고가 돋보임',
@@ -51,6 +50,18 @@ const getMockSuggestion = (type: 'topic' | 'book', subject: string | null) => ({
   ],
   connection: `${subject || '관련'} 전공 연계 가능, 심화 탐구로 발전 추천`,
 })
+
+// ⭐ 실제 AI 호출 함수
+async function callGenerateSaenggibu(body: any): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('ai-generate-saenggibu', {
+    body,
+  })
+  if (error) throw new Error('AI 호출 실패: ' + error.message)
+  if (!data?.success || !data?.text) {
+    throw new Error('AI 응답이 없어요: ' + JSON.stringify(data).substring(0, 200))
+  }
+  return data.text as string
+}
 
 export default function RecordTab({ student, onEditTopic, onEditBook }: {
   student: any
@@ -65,49 +76,40 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
   const [editingCell, setEditingCell] = useState<{ category: SaenggibuCategory, subject: string | null } | null>(null)
   const [editText, setEditText] = useState('')
   const [generating, setGenerating] = useState<string | null>(null)
-  // 활동별 AI 생성 결과 (탐구/독서별 생성된 문구)
   const [activityRecords, setActivityRecords] = useState<Record<string, string>>({})
 
   const gradeNum = gradeToNum(selGrade)
 
-  // DB 조회
   const { data: saenggibuItems = [], isLoading: loadingItems } = useStudentSaenggibu(studentId, gradeNum)
   const { data: autoSubjects = [], isLoading: loadingSubjects } = useStudentSubjects(studentId, gradeNum)
   const { data: researches = [] } = useStudentResearches(studentId)
   const { data: readings = [] } = useStudentReadings(studentId)
 
-  // 뮤테이션
   const upsertItem = useUpsertSaenggibu()
   const togglePublish = useTogglePublish()
   const publishAll = usePublishAllGrade()
 
-  // 학년별 필터링된 활동 리스트
   const gradeTopics = researches.filter((r: any) => String(r.grade) === selGrade || String(r.grade) === String(gradeNum))
   const gradeBooks = readings.filter((b: any) => String(b.grade) === selGrade || String(b.grade) === String(gradeNum))
 
-  // 세특 과목 리스트 (자동 추출된 것)
   const setechSubjects = autoSubjects
 
-  // 선택된 활동
   const selectedTopic = selItem?.type === 'topic' ? researches.find((r: any) => r.id === selItem.id) : null
   const selectedBook = selItem?.type === 'book' ? readings.find((b: any) => b.id === selItem.id) : null
   const selectedActivity = selectedTopic || selectedBook
 
-  // 선택 활동의 key와 AI 생성 결과
   const activityKey = selItem ? `${selItem.type}-${selItem.id}` : null
   const activityRecord = activityKey ? activityRecords[activityKey] : null
   const activitySuggestion = selItem && (selectedActivity as any)?.subject
     ? getMockSuggestion(selItem.type, firstSubject((selectedActivity as any).subject))
     : null
 
-  // 셀 편집 시작
   const startEditCell = (category: SaenggibuCategory, subject: string | null) => {
     const existing = findItem(saenggibuItems, category, subject)
     setEditingCell({ category, subject })
     setEditText(existing?.content || '')
   }
 
-  // 셀 저장
   const saveCell = () => {
     if (!editingCell) return
     upsertItem.mutate({
@@ -124,25 +126,34 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
     })
   }
 
-  // AI 생성 - 활동 기반 (가운데 패널에서 사용)
-  const generateForActivity = () => {
+  // ⭐ AI 생성 - 활동 기반 (실제 AI 호출)
+  const generateForActivity = async () => {
     if (!selItem || !selectedActivity) return
     const key = activityKey!
     setGenerating(key)
 
-    setTimeout(() => {
-      // TODO: 나중에 실제 AI 연결
+    try {
       const act = selectedActivity as any
-      const generated = selItem.type === 'topic'
-        ? `${firstSubject(act.subject) || '해당'} 교과 탐구활동에서 "${act.topic}"을 주제로 심화 탐구를 진행함. ${act.content || ''} 탐구 과정에서 관련 자료를 체계적으로 수집·분석하고 논리적 결론을 도출하는 역량을 보임.`
-        : `"${act.book_title}"(${act.author || ''})을 읽고 ${firstSubject(act.subject) || '해당'} 분야에 대한 심화 탐구를 진행함. ${act.reason || ''} 독서 활동을 통해 비판적 사고력과 융합적 시각을 키움.`
+      const subjectName = firstSubject(act.subject)
+      
+      const generated = await callGenerateSaenggibu({
+        mode: 'activity',
+        activityType: selItem.type,
+        subject: subjectName,
+        topic: selItem.type === 'topic' ? act.topic : act.book_title,
+        content: selItem.type === 'topic' ? act.content : act.reason,
+        author: selItem.type === 'book' ? act.author : null,
+        majorDept: student?.major_dept || null,
+      })
 
       setActivityRecords(prev => ({ ...prev, [key]: generated }))
+    } catch (err: any) {
+      alert('AI 생성 실패:\n' + (err?.message || '알 수 없는 오류'))
+    } finally {
       setGenerating(null)
-    }, 1500)
+    }
   }
 
-  // AI 생성 결과 삭제
   const deleteActivityRecord = () => {
     if (!activityKey) return
     setActivityRecords(prev => {
@@ -152,7 +163,6 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
     })
   }
 
-  // 생성된 문구를 생기부 시트에 반영
   const applyToRecord = () => {
     if (!activityRecord || !selectedActivity) return
     const subject = firstSubject((selectedActivity as any).subject)
@@ -161,7 +171,6 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
       return
     }
 
-    // 기존 내용에 추가
     const existing = findItem(saenggibuItems, '세특', subject)
     const merged = existing?.content
       ? `${existing.content}\n\n${activityRecord}`
@@ -177,31 +186,36 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
     })
   }
 
-  // AI 생성 - 셀 직접 (cell hover 시 ✨ AI 버튼)
-  const generateForCell = (category: SaenggibuCategory, subject: string | null) => {
+  // ⭐ AI 생성 - 셀 직접 (실제 AI 호출)
+  const generateForCell = async (category: SaenggibuCategory, subject: string | null) => {
     const key = `cell-${category}-${subject || ''}`
     setGenerating(key)
 
-    setTimeout(() => {
-      const mockContent = category === '세특' && subject
-        ? `${subject} 교과 탐구활동에서 심화 탐구를 진행하며 관련 자료를 체계적으로 수집·분석하고 논리적 결론을 도출하는 역량을 보임. 학업에 대한 열정과 자기주도적 학습 태도가 돋보이며, 수업 시간에 적극적으로 참여하여 동료들과의 협력 학습에도 긍정적인 영향을 미침.`
-        : `${CREATIVE_LABELS[category] || category} 활동에서 능동적인 참여 태도를 보이며, 동료들과 협력하여 다양한 활동을 주도적으로 이끌어냄. 활동 과정에서 문제 해결 능력과 리더십 역량을 발휘함.`
+    try {
+      const generated = await callGenerateSaenggibu({
+        mode: 'cell',
+        category,
+        cellSubject: subject,
+        majorDept: student?.major_dept || null,
+      })
 
       upsertItem.mutate({
         student_id: studentId,
         grade: gradeNum,
         category,
         subject,
-        content: mockContent,
+        content: generated,
         ai_generated: true,
       }, {
         onSuccess: () => setGenerating(null),
         onError: () => setGenerating(null),
       })
-    }, 1500)
+    } catch (err: any) {
+      alert('AI 생성 실패:\n' + (err?.message || '알 수 없는 오류'))
+      setGenerating(null)
+    }
   }
 
-  // 게시 토글
   const handleTogglePublish = (item: SaenggibuItem) => {
     togglePublish.mutate({
       id: item.id,
@@ -209,7 +223,6 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
     })
   }
 
-  // 학년 전체 게시
   const handlePublishAllGrade = () => {
     const hasPublished = saenggibuItems.some(i => i.status === 'published')
     const message = hasPublished
@@ -224,7 +237,6 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
     }
   }
 
-  // 생기부 시트 컴포넌트
   const GradeSheet = ({ grade, inModal = false }: { grade: string, inModal?: boolean }) => {
     const g = gradeToNum(grade)
     const items = g === gradeNum ? saenggibuItems : []
@@ -326,7 +338,7 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
                                     disabled={isGenerating}
                                     className="px-2 py-0.5 text-white rounded text-[9px] font-bold transition-all disabled:opacity-60"
                                     style={{ background: THEME.accent }}
-                                    title="AI로 생성 (MOCK)"
+                                    title="AI로 생성"
                                   >
                                     {isGenerating ? '⏳' : '✨ AI'}
                                   </button>
@@ -499,7 +511,6 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
 
         <div className="flex-1 overflow-y-auto flex flex-col gap-3">
 
-          {/* 탐구주제 */}
           <div>
             <div className="flex items-center gap-1.5 mb-2">
               <span
@@ -544,7 +555,6 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
             })}
           </div>
 
-          {/* 독서 */}
           <div>
             <div className="flex items-center gap-1.5 mb-2">
               <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
@@ -600,7 +610,6 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
           </div>
         ) : (
           <>
-            {/* 헤더 */}
             <div className="px-4 py-3 border-b border-line flex-shrink-0">
               <div className="text-[11px] font-semibold text-ink-secondary mb-1">
                 {selItem.type === 'topic' ? '🔬 탐구주제' : '📚 독서'} · {selGrade}
@@ -617,7 +626,6 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
 
             <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3">
 
-              {/* AI 생기부 문구 */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-[12px] font-extrabold text-ink">✨ AI 생기부 문구</div>
@@ -648,7 +656,7 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
                 {generating === activityKey ? (
                   <div className="text-center py-5 text-ink-muted">
                     <div className="text-2xl mb-1.5 animate-pulse">✨</div>
-                    <div className="text-[12px] font-medium">AI 분석 중...</div>
+                    <div className="text-[12px] font-medium">AI 분석 중... (10~20초)</div>
                   </div>
                 ) : !activityRecord ? (
                   <div className="bg-gray-50 border border-line rounded-lg p-3 text-[12px] font-medium text-ink-muted text-center">
@@ -687,7 +695,6 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
                 )}
               </div>
 
-              {/* 피드백 작성 요청 버튼 */}
               <div className="border-t border-line pt-2.5">
                 <button
                   onClick={() => selItem.type === 'topic' ? onEditTopic(0) : onEditBook(0)}
@@ -698,12 +705,10 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
                 </button>
               </div>
 
-              {/* AI 보완점 */}
               {activitySuggestion && activityRecord && (
                 <div className="border-t border-line pt-2.5">
                   <div className="text-[12px] font-extrabold text-ink mb-2">🔍 AI 보완점 분석</div>
 
-                  {/* 강점 */}
                   <div className="mb-2.5">
                     <div className="text-[10px] font-extrabold text-green-600 mb-1.5">💪 강점</div>
                     {activitySuggestion.strengths.map((s, i) => (
@@ -716,7 +721,6 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
                     ))}
                   </div>
 
-                  {/* 개선 필요 */}
                   <div className="mb-2.5">
                     <div className="text-[10px] font-extrabold text-red-500 mb-1.5">⚡ 개선 필요</div>
                     {activitySuggestion.improvements.map((s, i) => (
@@ -729,7 +733,6 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
                     ))}
                   </div>
 
-                  {/* 전공 연계 */}
                   <div>
                     <div className="text-[10px] font-extrabold mb-1.5" style={{ color: THEME.accent }}>
                       🎓 전공 연계
@@ -815,7 +818,6 @@ export default function RecordTab({ student, onEditTopic, onEditBook }: {
         </div>
       </div>
 
-      {/* 전체화면 모달 */}
       {fullScreen && (
         <div
           className="fixed inset-0 z-[300] flex items-center justify-center"
