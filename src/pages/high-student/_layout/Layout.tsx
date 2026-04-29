@@ -17,6 +17,8 @@ const MENUS = [
   { path: '/high-student/mockexam', label: '면접 모의고사', icon: '📝' },
 ]
 
+const HIGH_GRADES = ['고1', '고2', '고3'] as const
+
 export default function Layout() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -28,7 +30,10 @@ export default function Layout() {
 
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
 
-  // 학원 로고 가져오기 (학생은 읽기 전용)
+  // 학원 연결 여부
+  const isAcademyConnected = !!academy.academyId
+
+  // 학원 로고 가져오기
   useEffect(() => {
     const fetchLogo = async () => {
       if (!academy.academyId) return
@@ -65,48 +70,54 @@ export default function Layout() {
           {academy.academyName ? (
             logoUrl ? (
               <div className="flex items-center justify-center">
-                <div
-                  className="w-20 h-20 rounded-lg overflow-hidden bg-white flex items-center justify-center border border-brand-high-light"
-                >
+                <div className="w-20 h-20 rounded-lg overflow-hidden bg-white flex items-center justify-center border border-brand-high-light">
                   <img src={logoUrl} alt="학원 로고" className="w-full h-full object-cover" />
                 </div>
               </div>
             ) : (
               <div className="flex items-center justify-center">
-                <div
-                  className="w-20 h-20 rounded-lg flex flex-col items-center justify-center border-2 border-dashed border-brand-high-light bg-brand-high-pale"
-                >
+                <div className="w-20 h-20 rounded-lg flex flex-col items-center justify-center border-2 border-dashed border-brand-high-light bg-brand-high-pale">
                   <span className="text-[20px] mb-0.5">🏫</span>
                   <span className="text-[9px] font-bold text-brand-high-dark">학원 로고</span>
                 </div>
               </div>
             )
           ) : (
-            <button
-              onClick={() => navigate('/high-student/connect')}
-              className="w-full text-[12px] font-semibold text-brand-high-dark bg-brand-high-pale border border-brand-high-light rounded-lg px-3 py-2 hover:bg-brand-high hover:text-white transition-all"
-            >
-              + 학원 연결하기
-            </button>
+            // 학원 미연결 - 깔끔한 박스 (자물쇠 X)
+            <div className="flex items-center justify-center">
+              <div className="w-20 h-20 rounded-lg flex flex-col items-center justify-center border-2 border-dashed border-line bg-gray-50">
+                <span className="text-[20px] mb-0.5 opacity-40">🏫</span>
+                <span className="text-[9px] font-medium text-ink-muted">미연결</span>
+              </div>
+            </div>
           )}
         </div>
 
         {/* 메뉴 */}
-        <nav className="flex-1 px-2.5 py-2.5 flex flex-col">
+        <nav className="flex-1 px-2.5 py-2.5 flex flex-col overflow-y-auto">
           {MENUS.map(m => {
             const isActive = location.pathname === m.path || location.pathname.startsWith(m.path)
+            const isLocked = !isAcademyConnected
+
             return (
               <button
                 key={m.path}
-                onClick={() => navigate(m.path)}
+                onClick={() => {
+                  if (isLocked) return
+                  navigate(m.path)
+                }}
+                disabled={isLocked}
+                title={isLocked ? '학원 연결 후 사용 가능해요' : ''}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg mb-0.5 transition-all text-[13px] ${
-                  isActive
-                    ? 'bg-brand-high-pale text-brand-high-dark font-semibold'
-                    : 'text-ink-secondary hover:bg-gray-50 hover:text-ink font-medium'
+                  isLocked
+                    ? 'text-ink-muted cursor-not-allowed opacity-50'
+                    : isActive
+                      ? 'bg-brand-high-pale text-brand-high-dark font-semibold'
+                      : 'text-ink-secondary hover:bg-gray-50 hover:text-ink font-medium'
                 }`}
               >
                 <span className="text-[15px]">{m.icon}</span>
-                {m.label}
+                <span className="flex-1 text-left">{m.label}</span>
               </button>
             )
           })}
@@ -124,9 +135,9 @@ export default function Layout() {
         {/* GNB */}
         <header className="h-12 bg-white border-b border-line flex items-center justify-between px-6 flex-shrink-0">
           <div className="flex items-center gap-2">
-            {student?.grade && (
-              <span className="text-[11px] font-semibold text-brand-high-dark bg-brand-high-bg px-2 py-0.5 rounded-full border border-brand-high-light">
-                {student.grade}
+            {!isAcademyConnected && (
+              <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                학원 미연결
               </span>
             )}
           </div>
@@ -147,9 +158,209 @@ export default function Layout() {
         </header>
 
         {/* 콘텐츠 */}
-        <main className="flex-1 overflow-hidden bg-white">
-          <Outlet />
+        <main className="flex-1 overflow-hidden bg-white relative">
+          {!isAcademyConnected ? (
+            <ConnectForm />
+          ) : (
+            <Outlet />
+          )}
         </main>
+      </div>
+    </div>
+  )
+}
+
+// ───────────────────────────────────────────────
+// 학원 연결 폼
+// ───────────────────────────────────────────────
+function ConnectForm() {
+  const setAcademy = useSetAtom(academyState)
+  const setStudent = useSetAtom(studentState)
+
+  const [code, setCode] = useState('')
+  const [school, setSchool] = useState('')
+  const [grade, setGrade] = useState<typeof HIGH_GRADES[number] | ''>('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleConnect = async () => {
+    if (!code.trim()) {
+      setError('학원 코드를 입력해주세요.')
+      return
+    }
+    if (!school.trim()) {
+      setError('학교 이름을 입력해주세요.')
+      return
+    }
+    if (!grade) {
+      setError('학년을 선택해주세요.')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    try {
+      const { data, error: dbError } = await supabase
+        .from('academies')
+        .select('id, academy_code, name')
+        .eq('academy_code', code)
+        .maybeSingle()
+
+      if (dbError) throw dbError
+
+      if (!data) {
+        setError('올바르지 않은 학원 코드예요.')
+        setLoading(false)
+        return
+      }
+
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            academy_id: data.id,
+            school: school.trim(),
+            grade: grade,
+            status: 'pending',
+          })
+          .eq('id', user.id)
+
+        if (updateError) throw updateError
+
+        setStudent(prev => prev ? {
+          ...prev,
+          grade: grade,
+        } : prev)
+      }
+
+      setAcademy({
+        academyId: data.id,
+        academyCode: data.academy_code,
+        academyName: data.name,
+        teacherName: undefined,
+        teacherId: undefined,
+      })
+
+      window.location.href = '/high-student/pending'
+    } catch (e: any) {
+      setError('연결 중 오류가 발생했어요: ' + e.message)
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="h-full overflow-y-auto flex items-center justify-center p-6 bg-gradient-to-br from-[#F8FAFC] via-white to-brand-high-pale/30">
+      <div className="max-w-[480px] w-full">
+
+        {/* 헤더 */}
+        <div className="text-center mb-6">
+          <div
+            className="w-20 h-20 mx-auto bg-gradient-to-br from-brand-high-dark to-brand-high rounded-3xl flex items-center justify-center text-4xl mb-4"
+            style={{ boxShadow: '0 12px 32px rgba(37, 99, 235, 0.25)' }}
+          >
+            🏫
+          </div>
+          <div className="text-[24px] font-extrabold text-ink tracking-tight mb-1.5">학원 연결하기</div>
+          <div className="text-[13px] text-ink-secondary leading-relaxed">
+            선생님께 받은 학원 코드와 본인 정보를 입력해주세요
+          </div>
+        </div>
+
+        {/* 폼 카드 */}
+        <div
+          className="bg-white border-2 border-brand-high-light rounded-3xl p-7"
+          style={{ boxShadow: '0 12px 40px rgba(37, 99, 235, 0.1)' }}
+        >
+
+          {/* 학원 코드 */}
+          <div className="mb-4">
+            <label className="text-[11px] font-bold text-ink-secondary block mb-1.5 uppercase tracking-wider">학원 코드</label>
+            <input
+              type="text"
+              placeholder="예: MW001"
+              maxLength={10}
+              value={code}
+              onChange={e => { setCode(e.target.value.toUpperCase()); setError('') }}
+              disabled={loading}
+              className={`w-full border rounded-xl px-4 py-3.5 text-[18px] font-extrabold tracking-[4px] text-center outline-none transition-all font-sans ${
+                error.includes('코드')
+                  ? 'border-red-500 bg-red-50'
+                  : 'border-line focus:border-brand-high focus:ring-2 focus:ring-brand-high-pale'
+              }`}
+            />
+          </div>
+
+          {/* 학교 */}
+          <div className="mb-4">
+            <label className="text-[11px] font-bold text-ink-secondary block mb-1.5 uppercase tracking-wider">학교</label>
+            <input
+              type="text"
+              placeholder="예: 서울고등학교"
+              value={school}
+              onChange={e => { setSchool(e.target.value); setError('') }}
+              disabled={loading}
+              className={`w-full border rounded-xl px-4 py-3 text-[14px] font-medium outline-none transition-all placeholder:text-ink-muted ${
+                error.includes('학교')
+                  ? 'border-red-500 bg-red-50'
+                  : 'border-line focus:border-brand-high focus:ring-2 focus:ring-brand-high-pale'
+              }`}
+            />
+          </div>
+
+          {/* 학년 */}
+          <div className="mb-4">
+            <label className="text-[11px] font-bold text-ink-secondary block mb-1.5 uppercase tracking-wider">학년</label>
+            <div className="grid grid-cols-3 gap-2">
+              {HIGH_GRADES.map(g => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => { setGrade(g); setError('') }}
+                  disabled={loading}
+                  className="py-3 rounded-xl border-2 text-[14px] font-bold transition-all"
+                  style={{
+                    borderColor: grade === g ? '#2563EB' : '#E5E7EB',
+                    background: grade === g ? '#EFF6FF' : '#fff',
+                    color: grade === g ? '#1E3A8A' : '#6B7280',
+                    boxShadow: grade === g ? '0 4px 12px rgba(37, 99, 235, 0.15)' : 'none',
+                  }}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 에러 */}
+          {error && (
+            <div className="text-[11px] text-red-500 font-semibold mb-3 flex items-center gap-1">
+              <span>⚠️</span> {error}
+            </div>
+          )}
+
+          {/* 버튼 */}
+          <button
+            onClick={handleConnect}
+            disabled={loading}
+            className="w-full py-3.5 bg-brand-high text-white rounded-xl text-[14px] font-bold hover:bg-brand-high-dark transition-all shadow-[0_4px_12px_rgba(37,99,235,0.25)] hover:shadow-[0_6px_16px_rgba(37,99,235,0.35)] disabled:opacity-60"
+          >
+            {loading ? '연결 중...' : '학원 연결 신청'}
+          </button>
+        </div>
+
+        {/* 안내 */}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mt-4">
+          <div className="flex items-start gap-2">
+            <span className="text-[14px] flex-shrink-0">💡</span>
+            <div className="text-[12px] text-amber-800 leading-relaxed">
+              <div className="font-semibold mb-0.5">학원 코드를 모르시나요?</div>
+              <div className="text-amber-700">담당 선생님께 학원 코드를 받아주세요.</div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   )

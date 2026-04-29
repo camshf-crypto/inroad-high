@@ -10,6 +10,8 @@ import StudentDetail from './pages/admin/_pages/students/detail/StudentDetail'
 import Academy from './pages/admin/_pages/academy/Academy'
 import Billing from './pages/admin/_pages/billing/Billing'
 import Settings from './pages/admin/_pages/settings/Settings'
+import Teachers from './pages/admin/_pages/teachers/Teachers'
+import StudentApproval from './pages/admin/_pages/student-approval/StudentApproval'
 
 // High Student
 import StudentLayout from './pages/high-student/_layout/Layout'
@@ -19,6 +21,7 @@ import Roadmap from './pages/high-student/_pages/roadmap/Roadmap'
 import TopicList from './pages/high-student/_pages/topic/TopicList'
 import BookList from './pages/high-student/_pages/book/BookList'
 import Connect from './pages/high-student/_pages/connect/Connect'
+import HighPending from './pages/high-student/_pages/pending/Pending'
 import Expect from './pages/high-student/_pages/expect/Expect'
 import Past from './pages/high-student/_pages/past/Past'
 import Simulation from './pages/high-student/_pages/simulation/Simulation'
@@ -31,6 +34,8 @@ import MockExam from './pages/high-student/_pages/mockexam/mockexam'
 import MiddleLayout from './pages/middle-student/_layout/Layout'
 import MiddleLogin from './pages/middle-student/_pages/login/Login'
 import MiddleSignup from './pages/middle-student/_pages/signup/index'
+import MiddleConnect from './pages/middle-student/_pages/connect/Connect'
+import MiddlePending from './pages/middle-student/_pages/pending/Pending'
 import MiddleRoadmap from './pages/middle-student/_pages/roadmap/Roadmap'
 import MiddleLesson from './pages/middle-student/_pages/lesson/Lesson'
 import MiddleHomework from './pages/middle-student/_pages/homework/Homework'
@@ -72,6 +77,8 @@ const router = createBrowserRouter([
           { path: 'students/:id', element: <StudentDetail /> },
           { path: 'middle-students', element: <Students /> },
           { path: 'middle-students/:id', element: <StudentDetail /> },
+          { path: 'student-approval', element: <StudentApproval /> },
+          { path: 'teachers', element: <Teachers /> },
           { path: 'academy', element: <Academy /> },
           { path: 'billing', element: <Billing /> },
           { path: 'settings', element: <Settings /> },
@@ -84,6 +91,7 @@ const router = createBrowserRouter([
     children: [
       { path: 'login', element: <StudentLogin /> },
       { path: 'signup', element: <StudentSignup /> },
+      { path: 'pending', element: <HighPending /> },
       {
         path: '',
         element: <StudentLayout />,
@@ -110,6 +118,7 @@ const router = createBrowserRouter([
     children: [
       { path: 'login', element: <MiddleLogin /> },
       { path: 'signup', element: <MiddleSignup /> },
+      { path: 'pending', element: <MiddlePending /> },
       {
         path: '',
         element: <MiddleLayout />,
@@ -118,6 +127,7 @@ const router = createBrowserRouter([
           { path: 'lesson', element: <MiddleLesson /> },
           { path: 'homework', element: <MiddleHomework /> },
           { path: 'suhaeng', element: <MiddleSuhaeng /> },
+          { path: 'connect', element: <MiddleConnect /> },
           { path: 'book', element: <MiddleBookList /> },
           { path: 'expect', element: <MiddleExpect /> },
           { path: 'past', element: <MiddlePast /> },

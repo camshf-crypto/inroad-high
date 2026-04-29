@@ -4,16 +4,16 @@ import { useSetAtom } from 'jotai'
 import { academyState, studentState } from '@/lib/auth/atoms'
 import { supabase } from '@/lib/supabase'
 
-const HIGH_GRADES = ['고1', '고2', '고3'] as const
+const MIDDLE_GRADES = ['중1', '중2', '중3'] as const
 
-export default function Connect() {
+export default function MiddleConnect() {
   const navigate = useNavigate()
   const setAcademy = useSetAtom(academyState)
   const setStudent = useSetAtom(studentState)
 
   const [code, setCode] = useState('')
   const [school, setSchool] = useState('')
-  const [grade, setGrade] = useState<typeof HIGH_GRADES[number] | ''>('')
+  const [grade, setGrade] = useState<typeof MIDDLE_GRADES[number] | ''>('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -83,7 +83,7 @@ export default function Connect() {
       })
 
       // 승인 대기 화면으로 이동
-      navigate('/high-student/pending')
+      navigate('/middle-student/pending')
     } catch (e: any) {
       setError('연결 중 오류가 발생했어요: ' + e.message)
       setLoading(false)
@@ -96,7 +96,7 @@ export default function Connect() {
 
         {/* 헤더 */}
         <div className="text-center mb-7">
-          <div className="w-16 h-16 mx-auto bg-gradient-to-br from-brand-high-dark to-brand-high rounded-2xl flex items-center justify-center text-3xl mb-4 shadow-[0_8px_24px_rgba(37,99,235,0.2)]">
+          <div className="w-16 h-16 mx-auto bg-gradient-to-br from-brand-middle-dark to-brand-middle rounded-2xl flex items-center justify-center text-3xl mb-4 shadow-[0_8px_24px_rgba(16,185,129,0.2)]">
             🏫
           </div>
           <div className="text-[22px] font-extrabold text-ink tracking-tight mb-1.5">학원 연결하기</div>
@@ -107,11 +107,12 @@ export default function Connect() {
         </div>
 
         {/* 안내 */}
-        <div className="bg-brand-high-pale border border-brand-high-light rounded-xl px-4 py-3 text-[12px] text-brand-high-dark leading-relaxed mb-5">
+        <div className="bg-brand-middle-pale border border-brand-middle-light rounded-xl px-4 py-3 text-[12px] text-brand-middle-dark leading-relaxed mb-5">
           <div className="flex items-start gap-2">
             <span className="text-[14px] flex-shrink-0">💡</span>
             <div>
               <div className="font-semibold mb-0.5">코드를 모르면 담당 선생님께 문의해주세요.</div>
+              <div className="text-ink-secondary">코드 없이도 <span className="text-brand-middle-dark font-bold">탐구주제, 독서리스트</span>는 사용 가능해요.</div>
             </div>
           </div>
         </div>
@@ -129,7 +130,7 @@ export default function Connect() {
             className={`w-full border rounded-xl px-4 py-3.5 text-[18px] font-extrabold tracking-[4px] text-center outline-none transition-all font-sans ${
               error.includes('코드')
                 ? 'border-red-500 bg-red-50'
-                : 'border-line focus:border-brand-high focus:ring-2 focus:ring-brand-high-pale'
+                : 'border-line focus:border-brand-middle focus:ring-2 focus:ring-brand-middle-pale'
             }`}
           />
         </div>
@@ -139,14 +140,14 @@ export default function Connect() {
           <label className="text-[11px] font-bold text-ink-secondary block mb-1.5 uppercase tracking-wider">학교</label>
           <input
             type="text"
-            placeholder="예: 서울고등학교"
+            placeholder="예: 서울중학교"
             value={school}
             onChange={e => { setSchool(e.target.value); setError('') }}
             disabled={loading}
             className={`w-full border rounded-xl px-4 py-3 text-[14px] font-medium outline-none transition-all placeholder:text-ink-muted ${
               error.includes('학교')
                 ? 'border-red-500 bg-red-50'
-                : 'border-line focus:border-brand-high focus:ring-2 focus:ring-brand-high-pale'
+                : 'border-line focus:border-brand-middle focus:ring-2 focus:ring-brand-middle-pale'
             }`}
           />
         </div>
@@ -155,7 +156,7 @@ export default function Connect() {
         <div className="mb-4">
           <label className="text-[11px] font-bold text-ink-secondary block mb-1.5 uppercase tracking-wider">학년</label>
           <div className="grid grid-cols-3 gap-2">
-            {HIGH_GRADES.map(g => (
+            {MIDDLE_GRADES.map(g => (
               <button
                 key={g}
                 type="button"
@@ -163,10 +164,10 @@ export default function Connect() {
                 disabled={loading}
                 className="py-3 rounded-xl border-2 text-[14px] font-bold transition-all"
                 style={{
-                  borderColor: grade === g ? '#2563EB' : '#E5E7EB',
-                  background: grade === g ? '#EFF6FF' : '#fff',
-                  color: grade === g ? '#1E3A8A' : '#6B7280',
-                  boxShadow: grade === g ? '0 4px 12px rgba(37, 99, 235, 0.15)' : 'none',
+                  borderColor: grade === g ? '#059669' : '#E5E7EB',
+                  background: grade === g ? '#ECFDF5' : '#fff',
+                  color: grade === g ? '#065F46' : '#6B7280',
+                  boxShadow: grade === g ? '0 4px 12px rgba(16, 185, 129, 0.15)' : 'none',
                 }}
               >
                 {g}
@@ -187,12 +188,12 @@ export default function Connect() {
           <button
             onClick={handleConnect}
             disabled={loading}
-            className="w-full py-3.5 bg-brand-high text-white rounded-xl text-[14px] font-bold hover:bg-brand-high-dark transition-all shadow-[0_4px_12px_rgba(37,99,235,0.25)] hover:shadow-[0_6px_16px_rgba(37,99,235,0.35)] disabled:opacity-60"
+            className="w-full py-3.5 bg-brand-middle text-white rounded-xl text-[14px] font-bold hover:bg-brand-middle-dark transition-all shadow-[0_4px_12px_rgba(16,185,129,0.25)] hover:shadow-[0_6px_16px_rgba(16,185,129,0.35)] disabled:opacity-60"
           >
             {loading ? '연결 중...' : '연결하기'}
           </button>
           <button
-            onClick={() => navigate('/high-student/roadmap')}
+            onClick={() => navigate('/middle-student/roadmap')}
             disabled={loading}
             className="w-full py-3 bg-white text-ink-secondary border border-line rounded-xl text-[13px] font-semibold hover:bg-gray-50 hover:border-ink-muted transition-all"
           >

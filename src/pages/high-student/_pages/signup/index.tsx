@@ -1,94 +1,15 @@
-import { useState } from 'react'
+// src/pages/high-student/_pages/signup/index.tsx
 import { useNavigate } from 'react-router-dom'
-
-const GRADES_HIGH = ['고1', '고2', '고3']
+import { useSignup } from '@/lib/auth/useSignup'
 
 export default function StudentSignup() {
   const navigate = useNavigate()
-  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const s = useSignup({
+    level: 'high',
+    redirectTo: '/high-student/login',
+  })
 
-  const [name, setName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [passwordConfirm, setPasswordConfirm] = useState('')
-  const [showPw, setShowPw] = useState(false)
-  const [showPwC, setShowPwC] = useState(false)
-
-  const [schoolName, setSchoolName] = useState('')
-  const [grade, setGrade] = useState('')
-  const [academyCode, setAcademyCode] = useState('')
-  const [codeStatus, setCodeStatus] = useState<'idle' | 'loading' | 'ok' | 'fail'>('idle')
-  const [academyName, setAcademyName] = useState('')
-
-  // 약관 동의
-  const [agreeAll, setAgreeAll] = useState(false)
-  const [agreeService, setAgreeService] = useState(false)
-  const [agreePrivacy, setAgreePrivacy] = useState(false)
-  const [agreeMarketing, setAgreeMarketing] = useState(false)
-
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  const formatPhone = (val: string) => {
-    const num = val.replace(/\D/g, '')
-    if (num.length <= 3) return num
-    if (num.length <= 7) return `${num.slice(0, 3)}-${num.slice(3)}`
-    return `${num.slice(0, 3)}-${num.slice(3, 7)}-${num.slice(7, 11)}`
-  }
-
-  const handleAgreeAll = () => {
-    const next = !agreeAll
-    setAgreeAll(next)
-    setAgreeService(next)
-    setAgreePrivacy(next)
-    setAgreeMarketing(next)
-  }
-
-  const syncAllCheck = (s: boolean, p: boolean, m: boolean) => {
-    setAgreeAll(s && p && m)
-  }
-
-  const handleStep1Next = () => {
-    setError('')
-    if (!agreeService) return setError('필수 약관에 동의해주세요.')
-    if (!agreePrivacy) return setError('개인정보 수집 및 이용에 동의해주세요.')
-    setStep(2)
-  }
-
-  const handleStep2Next = () => {
-    setError('')
-    if (!name.trim()) return setError('이름을 입력해주세요.')
-    if (!phone.trim() || phone.replace(/\D/g, '').length < 10) return setError('올바른 전화번호를 입력해주세요.')
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setError('올바른 이메일을 입력해주세요.')
-    if (password.length < 6) return setError('비밀번호는 6자리 이상이어야 해요.')
-    if (password !== passwordConfirm) return setError('비밀번호가 일치하지 않아요.')
-    setStep(3)
-  }
-
-  const handleCheckCode = () => {
-    if (!academyCode.trim()) return setError('학원 코드를 입력해주세요.')
-    setError('')
-    setCodeStatus('loading')
-    setTimeout(() => {
-      if (academyCode.toUpperCase() === 'ACA001') {
-        setCodeStatus('ok')
-        setAcademyName('대치 비커스학원')
-      } else {
-        setCodeStatus('fail')
-        setAcademyName('')
-        setError('존재하지 않는 학원 코드예요.')
-      }
-    }, 800)
-  }
-
-  const handleSignup = () => {
-    setError('')
-    if (!schoolName.trim()) return setError('학교 이름을 입력해주세요.')
-    if (!grade) return setError('학년을 선택해주세요.')
-    setLoading(true)
-    setTimeout(() => { setLoading(false); navigate('/') }, 800)
-  }
+  const STEPS = ['약관 동의', '기본 정보'] as const
 
   const ErrBox = ({ msg }: { msg: string }) => (
     <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-2">
@@ -96,8 +17,6 @@ export default function StudentSignup() {
       <span className="text-[11px] text-red-600 font-medium">{msg}</span>
     </div>
   )
-
-  const STEPS = ['약관 동의', '기본 정보', '학교 · 학원'] as const
 
   return (
     <div className="flex h-screen bg-white font-sans text-ink overflow-hidden">
@@ -126,18 +45,18 @@ export default function StudentSignup() {
           {/* 스텝 인디케이터 */}
           <div className="flex items-start mb-7">
             {STEPS.map((label, i) => {
-              const s = i + 1
-              const done = step > s
-              const active = step === s
+              const stepNum = i + 1
+              const done = s.step > stepNum
+              const active = s.step === stepNum
               return (
-                <div key={s} className="flex items-start flex-1">
+                <div key={stepNum} className="flex items-start flex-1">
                   <div className="flex flex-col items-center">
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold mb-1.5 transition-all ${
                       done || active
                         ? 'bg-brand-high text-white shadow-[0_2px_8px_rgba(37,99,235,0.3)]'
                         : 'bg-gray-100 text-ink-muted'
                     }`}>
-                      {done ? '✓' : s}
+                      {done ? '✓' : stepNum}
                     </div>
                     <div className={`text-[10px] whitespace-nowrap ${
                       done || active ? 'text-brand-high-dark font-semibold' : 'text-ink-muted font-medium'
@@ -154,36 +73,34 @@ export default function StudentSignup() {
           </div>
 
           {/* ── STEP 1: 약관 동의 ── */}
-          {step === 1 && (
+          {s.step === 1 && (
             <div>
               <div className="text-[15px] font-bold text-ink tracking-tight mb-1">약관 동의</div>
               <div className="text-[12px] text-ink-secondary mb-4">서비스 이용을 위해 약관에 동의해주세요.</div>
 
-              {/* 전체 동의 */}
               <div
-                onClick={handleAgreeAll}
+                onClick={s.handleAgreeAll}
                 className={`flex items-center gap-2.5 px-4 py-3.5 rounded-xl mb-3 cursor-pointer transition-all border ${
-                  agreeAll
+                  s.agreeAll
                     ? 'bg-brand-high-pale border-brand-high-light'
                     : 'bg-gray-50 border-line hover:bg-brand-high-pale/40'
                 }`}
               >
                 <div className={`w-5 h-5 rounded-md flex items-center justify-center text-[11px] text-white font-bold flex-shrink-0 transition-all ${
-                  agreeAll ? 'bg-brand-high' : 'bg-white border border-line'
+                  s.agreeAll ? 'bg-brand-high' : 'bg-white border border-line'
                 }`}>
-                  {agreeAll ? '✓' : ''}
+                  {s.agreeAll ? '✓' : ''}
                 </div>
-                <span className={`text-[13px] font-bold flex-1 ${agreeAll ? 'text-brand-high-dark' : 'text-ink'}`}>
+                <span className={`text-[13px] font-bold flex-1 ${s.agreeAll ? 'text-brand-high-dark' : 'text-ink'}`}>
                   전체 동의하기
                 </span>
               </div>
 
-              {/* 개별 약관 */}
               <div className="flex flex-col gap-0.5 px-1">
                 {[
-                  { checked: agreeService, setChecked: (v: boolean) => { setAgreeService(v); syncAllCheck(v, agreePrivacy, agreeMarketing) }, label: '서비스 이용약관 동의', required: true },
-                  { checked: agreePrivacy, setChecked: (v: boolean) => { setAgreePrivacy(v); syncAllCheck(agreeService, v, agreeMarketing) }, label: '개인정보 수집 및 이용 동의', required: true },
-                  { checked: agreeMarketing, setChecked: (v: boolean) => { setAgreeMarketing(v); syncAllCheck(agreeService, agreePrivacy, v) }, label: '마케팅 정보 수신 동의', required: false },
+                  { checked: s.agreeService, setChecked: (v: boolean) => { s.setAgreeService(v); s.syncAllCheck(v, s.agreePrivacy, s.agreeMarketing) }, label: '서비스 이용약관 동의', required: true },
+                  { checked: s.agreePrivacy, setChecked: (v: boolean) => { s.setAgreePrivacy(v); s.syncAllCheck(s.agreeService, v, s.agreeMarketing) }, label: '개인정보 수집 및 이용 동의', required: true },
+                  { checked: s.agreeMarketing, setChecked: (v: boolean) => { s.setAgreeMarketing(v); s.syncAllCheck(s.agreeService, s.agreePrivacy, v) }, label: '마케팅 정보 수신 동의', required: false },
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-2.5 py-2">
                     <div
@@ -209,10 +126,10 @@ export default function StudentSignup() {
                 ))}
               </div>
 
-              {error && <ErrBox msg={error} />}
+              {s.error && <ErrBox msg={s.error} />}
 
               <button
-                onClick={handleStep1Next}
+                onClick={s.handleStep1Next}
                 className="w-full h-11 bg-brand-high hover:bg-brand-high-dark text-white rounded-lg text-[14px] font-semibold mt-6 transition-all hover:-translate-y-px shadow-[0_4px_12px_rgba(37,99,235,0.2)]"
               >
                 다음 →
@@ -221,7 +138,7 @@ export default function StudentSignup() {
               <div className="text-center mt-3">
                 <span className="text-[12px] text-ink-secondary">이미 계정이 있으신가요? </span>
                 <button
-                  onClick={() => navigate('/')}
+                  onClick={() => navigate('/high-student/login')}
                   className="text-[12px] text-brand-high-dark font-bold hover:underline"
                 >
                   로그인
@@ -230,213 +147,191 @@ export default function StudentSignup() {
             </div>
           )}
 
-          {/* ── STEP 2: 기본 정보 ── */}
-          {step === 2 && (
+          {/* ── STEP 2: 기본 정보 + 핸드폰 인증 ── */}
+          {s.step === 2 && (
             <div>
               <div className="text-[15px] font-bold text-ink tracking-tight mb-1">기본 정보 입력</div>
               <div className="text-[12px] text-ink-secondary mb-4">계정 정보를 입력해주세요.</div>
 
               <div className="flex flex-col gap-3">
 
+                {/* 이름 */}
                 <div>
                   <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">이름</label>
                   <input
-                    value={name}
-                    onChange={e => { setName(e.target.value); setError('') }}
+                    value={s.name}
+                    onChange={e => { s.setName(e.target.value); s.setError('') }}
                     placeholder="홍길동"
                     className="w-full h-10 px-3.5 border border-line rounded-lg text-[13px] focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted"
                   />
                 </div>
 
+                {/* 전화번호 + 인증 */}
                 <div>
-                  <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">전화번호</label>
-                  <input
-                    value={phone}
-                    onChange={e => { setPhone(formatPhone(e.target.value)); setError('') }}
-                    placeholder="010-0000-0000"
-                    maxLength={13}
-                    className="w-full h-10 px-3.5 border border-line rounded-lg text-[13px] focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted"
-                  />
+                  <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">
+                    전화번호
+                    {s.phoneVerified && (
+                      <span className="ml-2 text-[10px] font-bold text-emerald-600">✓ 인증완료</span>
+                    )}
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      value={s.phone}
+                      onChange={e => s.handlePhoneChange(e.target.value)}
+                      placeholder="010-0000-0000"
+                      maxLength={13}
+                      disabled={s.phoneVerified}
+                      className={`flex-1 h-10 px-3.5 border rounded-lg text-[13px] focus:outline-none focus:ring-2 transition-all placeholder:text-ink-muted ${
+                        s.phoneVerified
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                          : 'border-line focus:border-brand-high focus:ring-brand-high/10'
+                      }`}
+                    />
+                    <button
+                      onClick={s.handleSendPhoneCode}
+                      disabled={s.phoneVerified}
+                      className={`flex-shrink-0 h-10 px-3.5 rounded-lg text-[12px] font-semibold whitespace-nowrap border transition-all ${
+                        s.phoneVerified
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 cursor-not-allowed'
+                          : s.phoneCodeSent
+                            ? 'bg-brand-high-pale text-brand-high-dark border-brand-high-light hover:border-brand-high'
+                            : 'bg-white text-ink-secondary border-line hover:border-brand-high-light hover:text-brand-high-dark'
+                      }`}
+                    >
+                      {s.phoneVerified ? '✓ 완료' : s.phoneCodeSent ? '재발송' : '인증번호 발송'}
+                    </button>
+                  </div>
                 </div>
 
+                {/* 인증번호 입력 */}
+                {s.phoneCodeSent && !s.phoneVerified && (
+                  <div>
+                    <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">
+                      인증번호
+                      <span className="ml-2 text-[10px] text-ink-muted font-normal">
+                        (테스트용: <span className="font-bold text-brand-high-dark">123456</span>)
+                      </span>
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <input
+                          value={s.phoneCode}
+                          onChange={e => {
+                            s.setPhoneCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+                            s.setPhoneCodeError('')
+                          }}
+                          onKeyDown={e => e.key === 'Enter' && s.handleVerifyPhoneCode()}
+                          placeholder="6자리 숫자"
+                          maxLength={6}
+                          className="w-full h-10 pl-3.5 pr-16 border border-line rounded-lg text-[14px] font-bold tracking-[2px] text-center focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted placeholder:font-normal placeholder:tracking-normal"
+                        />
+                        {s.timer > 0 && (
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] font-bold text-red-500">
+                            {s.formatTimer(s.timer)}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={s.handleVerifyPhoneCode}
+                        className="flex-shrink-0 h-10 px-3.5 bg-brand-high text-white rounded-lg text-[12px] font-semibold hover:bg-brand-high-dark transition-all"
+                      >
+                        확인
+                      </button>
+                    </div>
+                    {s.phoneCodeError && (
+                      <div className="text-[10px] text-red-500 mt-1 font-medium flex items-center gap-1">
+                        <span>⚠️</span> {s.phoneCodeError}
+                      </div>
+                    )}
+                    {s.timer === 0 && s.phoneCodeSent && !s.phoneVerified && (
+                      <div className="text-[10px] text-amber-600 mt-1 font-medium flex items-center gap-1">
+                        <span>⏰</span> 시간이 만료됐어요. 재발송 해주세요.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 이메일 */}
                 <div>
                   <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">이메일</label>
                   <input
                     type="email"
-                    value={email}
-                    onChange={e => { setEmail(e.target.value); setError('') }}
+                    value={s.email}
+                    onChange={e => { s.setEmail(e.target.value); s.setError('') }}
                     placeholder="example@email.com"
                     className="w-full h-10 px-3.5 border border-line rounded-lg text-[13px] focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted"
                   />
                 </div>
 
+                {/* 비밀번호 */}
                 <div>
                   <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">비밀번호</label>
                   <div className="relative">
                     <input
-                      type={showPw ? 'text' : 'password'}
-                      value={password}
-                      onChange={e => { setPassword(e.target.value); setError('') }}
+                      type={s.showPw ? 'text' : 'password'}
+                      value={s.password}
+                      onChange={e => { s.setPassword(e.target.value); s.setError('') }}
                       placeholder="6자리 이상"
                       className="w-full h-10 pl-3.5 pr-14 border border-line rounded-lg text-[13px] focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted"
                     />
                     <button
-                      onClick={() => setShowPw(v => !v)}
+                      onClick={() => s.setShowPw(v => !v)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-ink-muted hover:text-brand-high-dark font-medium transition-colors"
                     >
-                      {showPw ? '숨기기' : '보기'}
+                      {s.showPw ? '숨기기' : '보기'}
                     </button>
                   </div>
                 </div>
 
+                {/* 비밀번호 확인 */}
                 <div>
                   <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">비밀번호 확인</label>
                   <div className="relative">
                     <input
-                      type={showPwC ? 'text' : 'password'}
-                      value={passwordConfirm}
-                      onChange={e => { setPasswordConfirm(e.target.value); setError('') }}
-                      onKeyDown={e => e.key === 'Enter' && handleStep2Next()}
+                      type={s.showPwC ? 'text' : 'password'}
+                      value={s.passwordConfirm}
+                      onChange={e => { s.setPasswordConfirm(e.target.value); s.setError('') }}
+                      onKeyDown={e => e.key === 'Enter' && s.handleSignup()}
                       placeholder="비밀번호를 다시 입력하세요"
                       className={`w-full h-10 pl-3.5 pr-14 border rounded-lg text-[13px] focus:outline-none focus:ring-2 transition-all placeholder:text-ink-muted ${
-                        passwordConfirm && password !== passwordConfirm
+                        s.passwordConfirm && s.password !== s.passwordConfirm
                           ? 'border-red-400 focus:border-red-500 focus:ring-red-500/10'
                           : 'border-line focus:border-brand-high focus:ring-brand-high/10'
                       }`}
                     />
                     <button
-                      onClick={() => setShowPwC(v => !v)}
+                      onClick={() => s.setShowPwC(v => !v)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-ink-muted hover:text-brand-high-dark font-medium transition-colors"
                     >
-                      {showPwC ? '숨기기' : '보기'}
+                      {s.showPwC ? '숨기기' : '보기'}
                     </button>
                   </div>
-                  {passwordConfirm && password !== passwordConfirm && (
+                  {s.passwordConfirm && s.password !== s.passwordConfirm && (
                     <div className="text-[10px] text-red-500 mt-1 font-medium">비밀번호가 일치하지 않아요.</div>
                   )}
                 </div>
 
               </div>
 
-              {error && <ErrBox msg={error} />}
+              {s.error && <ErrBox msg={s.error} />}
 
               <div className="flex gap-2 mt-5">
                 <button
-                  onClick={() => { setStep(1); setError('') }}
+                  onClick={() => { s.setStep(1); s.setError('') }}
                   className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:border-brand-high-light hover:text-brand-high-dark transition-all"
                 >
                   ← 이전
                 </button>
                 <button
-                  onClick={handleStep2Next}
-                  className="flex-[2] h-11 bg-brand-high hover:bg-brand-high-dark text-white rounded-lg text-[13px] font-semibold transition-all hover:-translate-y-px shadow-[0_4px_12px_rgba(37,99,235,0.2)]"
-                >
-                  다음 →
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ── STEP 3: 학교 · 학원 ── */}
-          {step === 3 && (
-            <div>
-              <div className="text-[15px] font-bold text-ink tracking-tight mb-1">학교 · 학원 정보</div>
-              <div className="text-[12px] text-ink-secondary mb-4">학교와 학원 정보를 입력해주세요.</div>
-
-              <div className="flex flex-col gap-3">
-
-                {/* 고등학교 이름 */}
-                <div>
-                  <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">고등학교 이름 🎓</label>
-                  <input
-                    value={schoolName}
-                    onChange={e => { setSchoolName(e.target.value); setError('') }}
-                    placeholder="예: 대치고등학교"
-                    className="w-full h-10 px-3.5 border border-line rounded-lg text-[13px] focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted"
-                  />
-                </div>
-
-                {/* 학년 - 고1/고2/고3만 */}
-                <div>
-                  <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">학년</label>
-                  <div className="flex gap-2">
-                    {GRADES_HIGH.map(g => (
-                      <button
-                        key={g}
-                        onClick={() => { setGrade(g); setError('') }}
-                        className={`flex-1 h-10 rounded-lg text-[13px] font-semibold border-2 transition-all ${
-                          grade === g
-                            ? 'border-brand-high bg-brand-high-pale text-brand-high-dark'
-                            : 'border-line bg-white text-ink-secondary hover:border-brand-high-light'
-                        }`}
-                      >
-                        {g}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 학원 코드 */}
-                <div>
-                  <label className="text-[11px] font-semibold text-ink-secondary block mb-1.5">
-                    학원 코드 <span className="text-ink-muted font-normal">(선택 - 학원생인 경우)</span>
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      value={academyCode}
-                      onChange={e => { setAcademyCode(e.target.value.toUpperCase()); setCodeStatus('idle'); setAcademyName(''); setError('') }}
-                      onKeyDown={e => e.key === 'Enter' && handleCheckCode()}
-                      placeholder="예: ACA001"
-                      className={`flex-1 h-10 px-3.5 border rounded-lg text-[13px] focus:outline-none focus:ring-2 transition-all placeholder:text-ink-muted ${
-                        codeStatus === 'ok'
-                          ? 'border-brand-high focus:ring-brand-high/10'
-                          : codeStatus === 'fail'
-                            ? 'border-red-400 focus:ring-red-500/10'
-                            : 'border-line focus:border-brand-high focus:ring-brand-high/10'
-                      }`}
-                    />
-                    <button
-                      onClick={handleCheckCode}
-                      disabled={codeStatus === 'loading'}
-                      className={`flex-shrink-0 h-10 px-3.5 rounded-lg text-[12px] font-semibold whitespace-nowrap border transition-all ${
-                        codeStatus === 'ok'
-                          ? 'bg-brand-high-pale text-brand-high-dark border-brand-high-light'
-                          : 'bg-white text-ink-secondary border-line hover:border-brand-high-light hover:text-brand-high-dark'
-                      } ${codeStatus === 'loading' ? 'cursor-not-allowed opacity-70' : ''}`}
-                    >
-                      {codeStatus === 'loading' ? '확인 중...' : codeStatus === 'ok' ? '✓ 확인됨' : '코드 확인'}
-                    </button>
-                  </div>
-                  {codeStatus === 'ok' && academyName && (
-                    <div className="flex items-center gap-1.5 bg-brand-high-pale border border-brand-high-light rounded-lg px-3 py-2 mt-2">
-                      <span className="text-sm">🏫</span>
-                      <span className="text-[12px] text-brand-high-dark font-bold">{academyName}</span>
-                      <span className="text-[11px] text-ink-secondary">에 연결됩니다</span>
-                    </div>
-                  )}
-                </div>
-
-              </div>
-
-              {error && <ErrBox msg={error} />}
-
-              <div className="flex gap-2 mt-5">
-                <button
-                  onClick={() => { setStep(2); setError('') }}
-                  className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:border-brand-high-light hover:text-brand-high-dark transition-all"
-                >
-                  ← 이전
-                </button>
-                <button
-                  onClick={handleSignup}
-                  disabled={loading}
+                  onClick={s.handleSignup}
+                  disabled={s.loading}
                   className={`flex-[2] h-11 rounded-lg text-[13px] font-semibold text-white transition-all ${
-                    loading
+                    s.loading
                       ? 'bg-brand-high-light cursor-not-allowed'
                       : 'bg-brand-high hover:bg-brand-high-dark hover:-translate-y-px shadow-[0_4px_12px_rgba(37,99,235,0.2)]'
                   }`}
                 >
-                  {loading ? '가입 중...' : '가입 완료 🎉'}
+                  {s.loading ? '가입 중...' : '가입 완료'}
                 </button>
               </div>
             </div>
@@ -447,7 +342,6 @@ export default function StudentSignup() {
       {/* 오른쪽 소개 (55%, 파랑 그라데이션) */}
       <div className="flex-1 relative overflow-hidden bg-gradient-to-br from-brand-high-pale via-white to-brand-high-pale/60 flex items-center justify-center px-12 max-lg:hidden">
 
-        {/* 배경 장식 */}
         <div
           className="absolute -top-20 -right-20 w-[500px] h-[500px] rounded-full pointer-events-none"
           style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.12), transparent 70%)' }}
@@ -475,7 +369,6 @@ export default function StudentSignup() {
             비커스와 함께 단계별로 준비하세요.
           </div>
 
-          {/* 기능 카드 */}
           <div className="grid grid-cols-2 gap-3.5">
             {[
               { icon: '🗺️', title: '연간 로드맵', desc: '학년별 월별 맞춤 커리큘럼' },

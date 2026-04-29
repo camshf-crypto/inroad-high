@@ -151,9 +151,7 @@ export default function Login() {
               비밀번호 찾기
             </button>
             <span className="text-line">|</span>
-            <button className="font-bold hover:underline" style={{ color: '#1E3A8A' }}>
-              학원 등록 문의
-            </button>
+           
           </div>
 
         </div>

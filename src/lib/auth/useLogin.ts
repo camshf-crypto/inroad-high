@@ -87,10 +87,10 @@ export function useLogin(options: UseLoginOptions) {
         return
       }
 
-      // 2️⃣ profiles 테이블에서 role 확인
+      // 2️⃣ profiles 테이블에서 role 확인 (status 포함)
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role, name, academy_id, grade, school, email')
+        .select('role, name, academy_id, grade, school, email, status')
         .eq('id', authData.user.id)
         .single()
 
@@ -108,6 +108,9 @@ export function useLogin(options: UseLoginOptions) {
         setLoading(false)
         return
       }
+
+      // 3️⃣-1. 학생 status 체크 — rejected는 차단하지 않고 통과시킴
+      // (rejected라도 로그인 후 재신청 가능하게)
 
       // 4️⃣ 학원 정보 가져오기
       let academyInfo: any = null
@@ -165,11 +168,28 @@ export function useLogin(options: UseLoginOptions) {
             teacherName: '',
             teacherId: undefined,
           })
+        } else {
+          // 학원 정보 없으면 명시적으로 비우기 (이전 세션 잔여 데이터 방지)
+          setAcademy({
+            academyId: undefined,
+            academyCode: undefined,
+            academyName: undefined,
+            teacherName: undefined,
+            teacherId: undefined,
+          })
         }
       }
 
       // 6️⃣ 페이지 이동
-      navigate(options.redirectTo)
+      // 학생이 pending 상태면 승인 대기 페이지로
+      if (options.loginType === 'student' && profile.status === 'pending') {
+        const isHigh = options.allowedRoles.includes('high_student' as Role)
+        navigate(isHigh ? '/high-student/pending' : '/middle-student/pending')
+      } else {
+        // 그 외 (active, rejected) 모두 로드맵으로
+        // → Layout에서 academy_id 없으면 자동으로 학원 연결 폼 표시함
+        navigate(options.redirectTo)
+      }
 
     } catch (err) {
       console.error('로그인 에러:', err)

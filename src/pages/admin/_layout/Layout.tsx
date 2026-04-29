@@ -1,8 +1,20 @@
 import React, { useRef, useState } from 'react'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
-import { useAtomValue, useSetAtom } from 'jotai'
+import { useAtomValue, useSetAtom, useAtom } from 'jotai'
+import { atomWithStorage } from 'jotai/utils'
 import { academyState, tokenState } from '@/lib/auth/atoms'
 import { supabase } from '@/lib/supabase'
+
+// 사이드바 접힘 상태 - localStorage에 저장
+const sidebarCollapsedAtom = atomWithStorage<boolean>('sidebarCollapsed', false)
+
+// 사이드바 토글 아이콘 (Claude 스타일)
+const SidebarIcon = ({ size = 20 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+    <line x1="9" y1="5" x2="9" y2="19" stroke="currentColor" strokeWidth="1.8"/>
+  </svg>
+)
 
 export default function Layout() {
   const navigate = useNavigate()
@@ -10,6 +22,7 @@ export default function Layout() {
   const academy = useAtomValue(academyState)
   const setToken = useSetAtom(tokenState)
   const setAcademy = useSetAtom(academyState)
+  const [collapsed, setCollapsed] = useAtom(sidebarCollapsedAtom)
 
   const isOwner = academy.role === 'OWNER'
 
@@ -68,6 +81,10 @@ export default function Layout() {
     { path: '/admin', label: '대시보드', icon: '⊞', type: 'default' as const },
     { path: '/admin/students', label: '고등 관리', icon: '🌊', type: 'default' as const },
     { path: '/admin/middle-students', label: '중등 관리', icon: '🌱', type: 'middle' as const },
+    { path: '/admin/student-approval', label: '학생 승인', icon: '✋', type: 'default' as const },
+    ...(isOwner ? [
+      { path: '/admin/teachers', label: '선생님 관리', icon: '👨‍🏫', type: 'default' as const },
+    ] : []),
     { path: '/admin/academy', label: '학원 코드', icon: '🔑', type: 'default' as const },
     ...(isOwner ? [
       { path: '/admin/billing', label: '결제 관리', icon: '💳', type: 'default' as const },
@@ -93,17 +110,47 @@ export default function Layout() {
     <div className="flex h-screen bg-[#F8FAFC] overflow-hidden font-sans text-ink">
 
       {/* 사이드바 */}
-      <div className="w-[190px] bg-white border-r border-line flex flex-col flex-shrink-0">
+      <div
+        className="bg-white border-r border-line flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out"
+        style={{ width: collapsed ? '68px' : '190px' }}
+      >
 
         {/* 로고 & 학원 정보 */}
-        <div className="px-4 pt-5 pb-4 border-b border-line-light">
+        <div className="px-3 pt-5 pb-4 border-b border-line-light overflow-hidden">
+
+          {/* 로고 + 토글 버튼 */}
           <div
-            className="flex items-center gap-2 mb-3 cursor-pointer"
-            onClick={() => navigate('/admin')}
+            className="flex items-center mb-3"
+            style={{ justifyContent: collapsed ? 'center' : 'space-between' }}
           >
-            <span className="text-[15px] font-extrabold tracking-tight" style={{ color: '#1E3A8A' }}>
-              비커스
-            </span>
+            {collapsed ? (
+              // 접혔을 때: 토글 버튼만
+              <button
+                onClick={() => setCollapsed(false)}
+                className="w-10 h-10 rounded-lg hover:bg-blue-50 flex items-center justify-center text-ink-secondary hover:text-blue-700 transition-all"
+                title="메뉴 펼치기"
+              >
+                <SidebarIcon size={22} />
+              </button>
+            ) : (
+              // 펼쳤을 때: 비커스 로고 + 접기 버튼
+              <>
+                <span
+                  className="text-[15px] font-extrabold tracking-tight cursor-pointer whitespace-nowrap"
+                  style={{ color: '#1E3A8A' }}
+                  onClick={() => navigate('/admin')}
+                >
+                  비커스
+                </span>
+                <button
+                  onClick={() => setCollapsed(true)}
+                  className="w-9 h-9 rounded-lg hover:bg-gray-100 flex items-center justify-center text-ink-secondary hover:text-ink transition-all"
+                  title="메뉴 접기"
+                >
+                  <SidebarIcon size={20} />
+                </button>
+              </>
+            )}
           </div>
 
           {/* 학원 로고 박스 */}
@@ -119,8 +166,10 @@ export default function Layout() {
               {logoUrl ? (
                 <div
                   onClick={() => isOwner && fileRef.current?.click()}
-                  className="w-20 h-20 rounded-lg overflow-hidden bg-white flex items-center justify-center border"
+                  className="rounded-lg overflow-hidden bg-white flex items-center justify-center border transition-all duration-300"
                   style={{
+                    width: collapsed ? '40px' : '80px',
+                    height: collapsed ? '40px' : '80px',
                     borderColor: 'rgba(147, 197, 253, 0.5)',
                     cursor: isOwner ? 'pointer' : 'default',
                   }}
@@ -132,8 +181,10 @@ export default function Layout() {
                 <button
                   onClick={() => isOwner && fileRef.current?.click()}
                   disabled={!isOwner || uploading}
-                  className="w-20 h-20 rounded-lg flex flex-col items-center justify-center border-2 border-dashed transition-colors"
+                  className="rounded-lg flex flex-col items-center justify-center border-2 border-dashed transition-all duration-300"
                   style={{
+                    width: collapsed ? '40px' : '80px',
+                    height: collapsed ? '40px' : '80px',
                     borderColor: 'rgba(147, 197, 253, 0.5)',
                     background: '#F8FAFC',
                     cursor: isOwner ? 'pointer' : 'default',
@@ -141,6 +192,8 @@ export default function Layout() {
                 >
                   {uploading ? (
                     <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  ) : collapsed ? (
+                    <span className="text-[14px]">📷</span>
                   ) : (
                     <>
                       <span className="text-[20px] mb-0.5">📷</span>
@@ -156,7 +209,7 @@ export default function Layout() {
         </div>
 
         {/* 메뉴 */}
-        <nav className="flex-1 px-2 py-3 overflow-y-auto">
+        <nav className="flex-1 px-2 py-3 overflow-y-auto overflow-x-hidden">
           {menus.map(m => {
             const isActive = location.pathname === m.path || (m.path !== '/admin' && location.pathname.startsWith(m.path))
             const isMiddle = m.type === 'middle'
@@ -170,12 +223,16 @@ export default function Layout() {
               <div
                 key={m.path}
                 onClick={() => navigate(m.path)}
-                className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg mb-1 cursor-pointer transition-all"
+                title={collapsed ? m.label : ''}
+                className="flex items-center rounded-lg mb-1 cursor-pointer transition-all"
                 style={{
                   background: isActive ? accentBg : 'transparent',
                   color: isActive ? accentDark : '#6B7280',
                   fontWeight: isActive ? 700 : 500,
                   boxShadow: isActive ? `0 2px 8px ${accentShadow}` : 'none',
+                  padding: collapsed ? '10px 0' : '10px 12px',
+                  justifyContent: collapsed ? 'center' : 'flex-start',
+                  gap: collapsed ? 0 : '10px',
                 }}
                 onMouseEnter={e => {
                   if (!isActive) {
@@ -190,9 +247,11 @@ export default function Layout() {
                   }
                 }}
               >
-                <span className="text-sm flex-shrink-0">{m.icon}</span>
-                <span className="text-[12.5px]">{m.label}</span>
-                {isActive && (
+                <span className="text-[15px] flex-shrink-0">{m.icon}</span>
+                {!collapsed && (
+                  <span className="text-[12.5px] whitespace-nowrap">{m.label}</span>
+                )}
+                {!collapsed && isActive && (
                   <div
                     className="ml-auto w-1 h-4 rounded-full"
                     style={{ background: accent }}
@@ -207,17 +266,25 @@ export default function Layout() {
         <div className="p-2 border-t border-line-light">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-ink-secondary text-[12.5px] font-medium hover:bg-red-50 hover:text-red-500 transition-colors"
+            title={collapsed ? '로그아웃' : ''}
+            className="w-full flex items-center rounded-lg text-ink-secondary text-[12.5px] font-medium hover:bg-red-50 hover:text-red-500 transition-colors"
+            style={{
+              padding: collapsed ? '10px 0' : '10px 12px',
+              justifyContent: collapsed ? 'center' : 'flex-start',
+              gap: collapsed ? 0 : '10px',
+            }}
           >
-            <span className="text-sm">🚪</span>
-            로그아웃
+            <span className="text-[15px] flex-shrink-0">🚪</span>
+            {!collapsed && <span className="whitespace-nowrap">로그아웃</span>}
           </button>
         </div>
 
-        {/* Footer */}
-        <div className="px-3 pb-3 pt-1 text-[9px] text-ink-muted text-center font-medium">
-          © 2026 BIKUS
-        </div>
+        {/* Footer - 접혔을 땐 숨김 */}
+        {!collapsed && (
+          <div className="px-3 pb-3 pt-1 text-[9px] text-ink-muted text-center font-medium">
+            © 2026 BIKUS
+          </div>
+        )}
       </div>
 
       {/* 메인 영역 */}
