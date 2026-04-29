@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useAtomValue, useSetAtom } from 'jotai'
-import { academyState, tokenState, studentState } from '../_store/auth'
-import { supabase } from '../../../lib/supabase'
+import { academyState, tokenState, studentState } from '@/lib/auth/atoms'
+import { supabase } from '@/lib/supabase'
 
 const MENUS = [
   { path: '/high-student/roadmap', label: '내 로드맵', icon: '⊞' },
@@ -46,7 +46,7 @@ export default function Layout() {
     await supabase.auth.signOut()
     setToken({ accessToken: undefined, expiresIn: undefined })
     setStudent(null)
-    setAcademy({ academyCode: undefined, academyName: undefined, teacherName: undefined, teacherId: undefined })
+    setAcademy({ academyCode: undefined, academyName: undefined, teacherName: undefined, teacherId: undefined, academyId: undefined, })
     navigate('/high-student/login')
   }
 

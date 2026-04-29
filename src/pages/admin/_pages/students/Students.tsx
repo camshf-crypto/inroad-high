@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAtomValue } from 'jotai'
-import { academyState } from '../../_store/auth'
+import { academyState } from '@/lib/auth/atoms'
 import { useAcademyStudents } from '../../_hooks/useAcademyStudents'
 
 const PAGE_SIZE = 10

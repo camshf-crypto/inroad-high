@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useAtomValue } from 'jotai'
-import { studentState, academyState } from '../../_store/auth'
+import { studentState, academyState } from '@/lib/auth/atoms'
 import {
   ROADMAP,
   toGradeKey,

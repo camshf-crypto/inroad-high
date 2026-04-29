@@ -1,7 +1,7 @@
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useAtomValue, useSetAtom } from 'jotai'
-import { academyState, tokenState, studentState } from '../_store/auth'
-import { supabase } from '../../../lib/supabase'
+import { academyState, tokenState, studentState } from '@/lib/auth/atoms'
+import { supabase } from '@/lib/supabase'
 
 const MENUS = [
   { path: '/middle-student/roadmap', label: '내 커리큘럼', icon: '⊞' },
@@ -30,7 +30,7 @@ export default function MiddleLayout() {
     // Jotai state 초기화
     setToken({ accessToken: undefined, expiresIn: undefined })
     setStudent(null)
-    setAcademy({ academyCode: undefined, academyName: undefined, teacherName: undefined, teacherId: undefined })
+    setAcademy({ academyCode: undefined, academyName: undefined, teacherName: undefined, teacherId: undefined, academyId: undefined, })
     navigate('/middle-student/login')
   }
 

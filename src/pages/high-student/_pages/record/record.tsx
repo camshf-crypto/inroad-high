@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAtomValue } from 'jotai'
-import { studentState } from '../../_store/auth'
+import { studentState } from '@/lib/auth/atoms'
 import {
   useMySaenggibu,
   gradeToNum,

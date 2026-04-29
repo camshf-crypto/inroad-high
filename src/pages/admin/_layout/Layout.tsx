@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useAtomValue, useSetAtom } from 'jotai'
-import { academyState, tokenState } from '../_store/auth'
-import { supabase } from '../../../lib/supabase'
+import { academyState, tokenState } from '@/lib/auth/atoms'
+import { supabase } from '@/lib/supabase'
 
 export default function Layout() {
   const navigate = useNavigate()

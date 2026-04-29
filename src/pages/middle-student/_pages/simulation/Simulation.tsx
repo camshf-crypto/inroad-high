@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAtomValue } from 'jotai'
-import { studentState, academyState } from '../../_store/auth'
+import { studentState, academyState } from '@/lib/auth/atoms'
 
 const QUESTION_TYPES = [
   { id: 'past', label: '기출문제', desc: '자사고·특목고 기출 면접 질문' },

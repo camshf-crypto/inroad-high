@@ -1,6 +1,5 @@
 // supabase/functions/ai-analyze-answer/index.ts
-// 학생 답변을 AI가 분석 - "진짜 본인이 했는가?" 진정성 검증 관점
-// 5가지 평가 차원: 구체성/진정성/주도성/학과연관성/성장성
+// 학생 답변 분석 - round 1 (첫 답변) / round 2 (업그레이드 답변) 분기
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,7 +21,16 @@ Deno.serve(async (req) => {
       )
     }
 
-    const { question, studentAnswer, majorDept, sourceText } = await req.json()
+    const { 
+      question, 
+      studentAnswer, 
+      majorDept, 
+      sourceText,
+      round,                  // 1 또는 2
+      // round 2일 때만 필요
+      firstAnswer,            // 학생 첫 답변
+      firstFeedback,          // 선생님 1차 피드백
+    } = await req.json()
 
     if (!question || !studentAnswer) {
       return new Response(
@@ -31,7 +39,79 @@ Deno.serve(async (req) => {
       )
     }
 
-    const prompt = `너는 한국 대학 입시 면접관 출신 전문 컨설턴트야.
+    let prompt = ''
+
+    if (round === 2) {
+      // ==================== Round 2: 업그레이드 답변 분석 ====================
+      prompt = `너는 한국 대학 입시 면접관 출신 전문 컨설턴트야.
+학생이 1차 피드백을 받고 답변을 업그레이드 했어. 그 변화를 분석해.
+
+[중요한 분석 관점 - Round 2]
+이건 첫 답변이 아니라 **업그레이드된 답변**이야.
+다음 관점으로 분석해야 해:
+1. 1차 피드백을 잘 반영했는가?
+2. 첫 답변 대비 무엇이 개선되었는가?
+3. 여전히 부족한 부분이 있는가?
+4. 면접까지 마지막으로 보강해야 할 부분은?
+
+[학생 정보]
+- 지원학과: ${majorDept || '미정'}
+
+[질문]
+${question}
+
+${sourceText ? `[활동 원문 - 생기부에서 발췌]\n${sourceText}\n` : ''}
+
+[학생 첫 답변]
+${firstAnswer || '(첫 답변 정보 없음)'}
+
+[선생님 1차 피드백]
+${firstFeedback || '(피드백 정보 없음)'}
+
+[학생 업그레이드 답변]
+${studentAnswer}
+
+[5가지 차원 평가 - 첫 답변과 비교 관점]
+
+1. 구체성 변화
+   - 첫 답변보다 디테일이 늘었나? 수치/사례가 추가됐나?
+   - 여전히 추상적인 부분이 있나?
+
+2. 진정성 변화
+   - 본인의 감정/사고가 더 구체적으로 드러났나?
+   - 1차 피드백에서 지적한 진정성 의심 부분이 해소됐나?
+
+3. 주도성 변화
+   - "내가 했다"가 더 명확해졌나?
+   - 본인 역할 구분이 선명해졌나?
+
+4. 학과 연관성 변화
+   - 지원학과와의 연결이 더 자연스러워졌나?
+   - 의식적이 아니라 자연스러운 연결인가?
+
+5. 성장성 변화
+   - "Before & After"가 더 잘 드러나나?
+   - 의미있는 깨달음이 추가됐나?
+
+[분석 작성 규칙]
+- 첫 답변 대비 개선된 점 2~4개 (구체적으로 어떻게 변했는지)
+- 여전히 보완 필요한 부분 2~4개 (1차 피드백 미반영 또는 새로 발견된 부분)
+- 면접까지 마지막 조언 2~4개 (실행 가능한 것)
+- 진정성 의심 포인트 1~2개 (남아있는 의심 가능성)
+- 전반적 평가 (1~2문장 - 얼마나 개선됐는지)
+
+JSON으로만 응답:
+{
+  "strengths": ["개선된 점 1", "개선된 점 2", ...],
+  "weaknesses": ["여전히 부족한 점 1", "여전히 부족한 점 2", ...],
+  "improvements": ["면접 전 마지막 조언 1", "조언 2", ...],
+  "authenticity_concerns": ["남아있는 의심 포인트 1", ...],
+  "summary": "첫 답변 대비 얼마나 개선됐는지 한 문장"
+}`
+
+    } else {
+      // ==================== Round 1: 첫 답변 분석 (기존) ====================
+      prompt = `너는 한국 대학 입시 면접관 출신 전문 컨설턴트야.
 
 [중요한 면접 평가 철학]
 면접의 본질은 "생기부 활동을 진짜 본인이 했는가?" 검증이야.
@@ -57,7 +137,6 @@ ${sourceText ? `[활동 원문 - 생기부에서 발췌]\n${sourceText}\n` : ''}
 ${studentAnswer}
 
 [5가지 차원 평가]
-다음 5가지 차원으로 답변을 분석해.
 
 1. 구체성 (Specificity)
    - 수치, 사례, 디테일이 있는가?
@@ -96,9 +175,10 @@ JSON으로만 응답:
   "strengths": ["장점1", "장점2", ...],
   "weaknesses": ["보완할점1", "보완할점2", ...],
   "improvements": ["개선방향1", "개선방향2", ...],
-  "authenticity_concerns": ["의심포인트1 (면접관이 진짜 본인이 했는지 의심할 만한 부분)", ...],
+  "authenticity_concerns": ["의심포인트1", ...],
   "summary": "전반적 평가 한 문장"
 }`
+    }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -109,7 +189,12 @@ JSON으로만 응답:
       body: JSON.stringify({
         model: 'gpt-4o',
         messages: [
-          { role: 'system', content: '너는 한국 대학 입시 면접관 출신 컨설턴트야. 답변이 진짜 본인 경험인지 검증하는 관점으로 분석해. JSON만 반환해.' },
+          { 
+            role: 'system', 
+            content: round === 2 
+              ? '너는 한국 대학 입시 면접관 출신 컨설턴트야. 학생이 1차 피드백 후 업그레이드한 답변을 첫 답변과 비교 분석해. JSON만 반환해.' 
+              : '너는 한국 대학 입시 면접관 출신 컨설턴트야. 답변이 진짜 본인 경험인지 검증하는 관점으로 분석해. JSON만 반환해.'
+          },
           { role: 'user', content: prompt },
         ],
         response_format: { type: 'json_object' },
@@ -144,6 +229,7 @@ JSON으로만 응답:
       JSON.stringify({
         success: true,
         analysis,
+        round: round || 1,
         usage: data.usage,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

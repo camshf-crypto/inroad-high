@@ -46,27 +46,31 @@ interface ManualQuestion {
   question: string
 }
 
-// AI 분석 결과를 보여주는 박스 컴포넌트
 function AIAnalysisBox({ 
   analysis, 
   onCreateFeedback,
   isGeneratingFeedback,
+  round,
 }: { 
   analysis: AIAnalysisResult
   onCreateFeedback: () => void
   isGeneratingFeedback: boolean
+  round: number
 }) {
   return (
     <div style={{ background: '#FAFBFF', border: '1px solid #C7D2FE', borderRadius: 10, padding: '14px 16px', marginTop: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
         <span style={{ fontSize: 16 }}>📊</span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: '#4F46E5' }}>AI 분석 결과</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#4F46E5' }}>
+          AI 분석 결과 {round === 2 && '(업그레이드 답변)'}
+        </span>
       </div>
 
-      {/* 잘한 점 */}
       {analysis.strengths && analysis.strengths.length > 0 && (
         <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#059669', marginBottom: 5 }}>✅ 잘한 점</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#059669', marginBottom: 5 }}>
+            ✅ {round === 2 ? '개선된 점' : '잘한 점'}
+          </div>
           <ul style={{ paddingLeft: 16, margin: 0 }}>
             {analysis.strengths.map((s, i) => (
               <li key={i} style={{ fontSize: 12, color: '#065F46', lineHeight: 1.7 }}>{s}</li>
@@ -75,10 +79,11 @@ function AIAnalysisBox({
         </div>
       )}
 
-      {/* 보완할 점 */}
       {analysis.weaknesses && analysis.weaknesses.length > 0 && (
         <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#D97706', marginBottom: 5 }}>⚠️ 보완할 점</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#D97706', marginBottom: 5 }}>
+            ⚠️ {round === 2 ? '여전히 부족한 점' : '보완할 점'}
+          </div>
           <ul style={{ paddingLeft: 16, margin: 0 }}>
             {analysis.weaknesses.map((w, i) => (
               <li key={i} style={{ fontSize: 12, color: '#92400E', lineHeight: 1.7 }}>{w}</li>
@@ -87,10 +92,11 @@ function AIAnalysisBox({
         </div>
       )}
 
-      {/* 개선 방향 */}
       {analysis.improvements && analysis.improvements.length > 0 && (
         <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#2563EB', marginBottom: 5 }}>💡 개선 방향</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#2563EB', marginBottom: 5 }}>
+            💡 {round === 2 ? '면접 전 마지막 조언' : '개선 방향'}
+          </div>
           <ul style={{ paddingLeft: 16, margin: 0 }}>
             {analysis.improvements.map((imp, i) => (
               <li key={i} style={{ fontSize: 12, color: '#1E3A8A', lineHeight: 1.7 }}>{imp}</li>
@@ -99,10 +105,11 @@ function AIAnalysisBox({
         </div>
       )}
 
-      {/* 진정성 의심 포인트 */}
       {analysis.authenticity_concerns && analysis.authenticity_concerns.length > 0 && (
         <div style={{ marginBottom: 10, background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 6, padding: '8px 10px' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#DC2626', marginBottom: 5 }}>⚡ 면접관이 의심할 만한 부분</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#DC2626', marginBottom: 5 }}>
+            ⚡ {round === 2 ? '남아있는 의심 포인트' : '면접관이 의심할 만한 부분'}
+          </div>
           <ul style={{ paddingLeft: 16, margin: 0 }}>
             {analysis.authenticity_concerns.map((a, i) => (
               <li key={i} style={{ fontSize: 12, color: '#991B1B', lineHeight: 1.7 }}>{a}</li>
@@ -111,7 +118,6 @@ function AIAnalysisBox({
         </div>
       )}
 
-      {/* 전반적 평가 */}
       {analysis.summary && (
         <div style={{ marginBottom: 12, background: '#F3F4F6', borderRadius: 6, padding: '8px 10px' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', marginBottom: 4 }}>📝 전반적 평가</div>
@@ -119,7 +125,6 @@ function AIAnalysisBox({
         </div>
       )}
 
-      {/* 답변 작성하기 버튼 */}
       <button
         onClick={onCreateFeedback}
         disabled={isGeneratingFeedback}
@@ -135,7 +140,9 @@ function AIAnalysisBox({
           cursor: isGeneratingFeedback ? 'not-allowed' : 'pointer',
         }}
       >
-        {isGeneratingFeedback ? '✏️ 답변 작성 중... (10~20초)' : '✏️ 선생님 답변 작성하기 (AI가 채팅창에 자동 입력)'}
+        {isGeneratingFeedback 
+          ? '✏️ 답변 작성 중... (10~20초)' 
+          : `✏️ 선생님 ${round === 2 ? '최종' : ''} 답변 작성하기 (AI가 채팅창에 자동 입력)`}
       </button>
     </div>
   )
@@ -165,7 +172,6 @@ export default function ExpectTab({ student }: { student: any }) {
   const [totalPages, setTotalPages] = useState(0)
   const [previewPage, setPreviewPage] = useState<number | null>(null)
 
-  // ⭐ AI 분석 표시 여부 (round별로 토글)
   const [showAIAnalysisRound1, setShowAIAnalysisRound1] = useState(false)
   const [showAIAnalysisRound2, setShowAIAnalysisRound2] = useState(false)
 
@@ -177,8 +183,8 @@ export default function ExpectTab({ student }: { student: any }) {
   const { data: followups = [] } = useQuestionFollowups(selQId ?? undefined)
 
   const generateAI = useGenerateAIQuestions()
-  const generateAIAnalysis = useGenerateAIAnalysis()  // ⭐ 신규
-  const generateAIFeedback = useGenerateAIFeedback()  // ⭐ 신규
+  const generateAIAnalysis = useGenerateAIAnalysis()
+  const generateAIFeedback = useGenerateAIFeedback()
   const deleteAllAI = useDeleteAllAIQuestions()
   const addManual = useAddManualQuestion()
   const togglePublish = useToggleQuestionPublish()
@@ -209,7 +215,6 @@ export default function ExpectTab({ student }: { student: any }) {
     }
   }, [pdfInfo?.saenggibu_pdf_url])
 
-  // 질문 변경 시 AI 분석 표시 초기화
   useEffect(() => { 
     setSelQId(null)
     setShowAIAnalysisRound1(false)
@@ -232,7 +237,7 @@ export default function ExpectTab({ student }: { student: any }) {
       return
     }
     if (!pdfInfo?.major_dept) {
-      alert('학생이 학과를 선택하지 않았어요!\n학생에게 PDF 다시 업로드를 요청해주세요.')
+      alert('학생이 학과를 선택하지 않았어요!')
       return
     }
     generateAI.mutate({
@@ -244,7 +249,7 @@ export default function ExpectTab({ student }: { student: any }) {
       onSuccess: () => setLeftTab('answers'),
       onError: (err: any) => {
         generateAI.reset()
-        alert('AI 질문 생성 실패:\n' + (err?.message || '알 수 없는 오류') + '\n\n다시 시도해주세요.')
+        alert('AI 질문 생성 실패:\n' + (err?.message || '알 수 없는 오류'))
       },
     })
   }
@@ -265,7 +270,7 @@ export default function ExpectTab({ student }: { student: any }) {
     })
   }
 
-  // ⭐ AI 분석 보기 (round별)
+  // ⭐ AI 분석 보기 - round 분기
   const handleShowAIAnalysis = (round: number) => {
     if (!selQ) return
     
@@ -278,7 +283,6 @@ export default function ExpectTab({ student }: { student: any }) {
       return
     }
 
-    // 이미 분석 결과가 있으면 그냥 보여주기
     const existingAnalysis = round === 1 ? round1?.ai_analysis : round2?.ai_analysis
     if (existingAnalysis) {
       if (round === 1) setShowAIAnalysisRound1(true)
@@ -286,8 +290,8 @@ export default function ExpectTab({ student }: { student: any }) {
       return
     }
 
-    // 없으면 AI 호출
-    generateAIAnalysis.mutate({
+    // ⭐ round 2일 때는 첫 답변 + 1차 피드백 함께 전달
+    const params: any = {
       questionId: selQ.id,
       studentId,
       round,
@@ -295,7 +299,14 @@ export default function ExpectTab({ student }: { student: any }) {
       studentAnswer,
       majorDept: selQ.major_dept,
       sourceText: selQ.source_text,
-    }, {
+    }
+
+    if (round === 2) {
+      params.firstAnswer = selQ.student_answer
+      params.firstFeedback = round1?.teacher_feedback
+    }
+
+    generateAIAnalysis.mutate(params, {
       onSuccess: () => {
         if (round === 1) setShowAIAnalysisRound1(true)
         else setShowAIAnalysisRound2(true)
@@ -306,7 +317,7 @@ export default function ExpectTab({ student }: { student: any }) {
     })
   }
 
-  // ⭐ AI 분석 → 선생님 답변 자동 작성 (textarea에 입력)
+  // ⭐ AI 피드백 작성 - round 분기
   const handleCreateAIFeedback = (round: number) => {
     if (!selQ) return
     
@@ -318,15 +329,22 @@ export default function ExpectTab({ student }: { student: any }) {
       return
     }
 
-    generateAIFeedback.mutate({
+    // ⭐ round 2일 때는 첫 답변 + 1차 피드백 함께 전달
+    const params: any = {
       question: selQ.teacher_edited_question || selQ.question,
       studentAnswer,
       analysis,
       majorDept: selQ.major_dept,
       round,
-    }, {
+    }
+
+    if (round === 2) {
+      params.firstAnswer = selQ.student_answer
+      params.firstFeedback = round1?.teacher_feedback
+    }
+
+    generateAIFeedback.mutate(params, {
       onSuccess: (feedbackText) => {
-        // textarea에 입력
         const key = round === 1 ? String(selQ.id) : `${selQ.id}_final`
         setFeedback(prev => ({ ...prev, [key]: feedbackText }))
         alert('AI가 피드백을 작성했어요!\n채팅창에서 수정 후 전달해주세요.')
@@ -408,8 +426,19 @@ export default function ExpectTab({ student }: { student: any }) {
     setShowAiTailModal(true)
     setAiTails([])
     setSelectedAiTails([])
-    genAITails.mutate({ question_id: selQ.id, student_answer: selQ.student_answer }, {
+    genAITails.mutate({
+      question_id: selQ.id,
+      question: selQ.teacher_edited_question || selQ.question,
+      finalAnswer: round2?.revised_answer || selQ.student_answer || '',
+      finalFeedback: round2?.teacher_feedback,
+      majorDept: selQ.major_dept,
+      sourceText: selQ.source_text,
+    }, {
       onSuccess: (data) => setAiTails(data),
+      onError: (err: any) => {
+        alert('AI 꼬리질문 생성 실패:\n' + (err?.message || '알 수 없는 오류'))
+        setShowAiTailModal(false)
+      },
     })
   }
 
@@ -508,7 +537,7 @@ export default function ExpectTab({ student }: { student: any }) {
                             deletePdf.mutate({
                               studentId, path: pdfInfo.saenggibu_pdf_url!, grade: gradeNum,
                             }, {
-                              onSuccess: () => alert('생기부가 삭제되었어요. 학생에게 재업로드를 요청해주세요.'),
+                              onSuccess: () => alert('생기부가 삭제되었어요.'),
                               onError: (err: any) => alert('삭제 실패: ' + (err?.message || '알 수 없는 오류')),
                             })
                           }
@@ -603,9 +632,6 @@ export default function ExpectTab({ student }: { student: any }) {
                 <div style={{ textAlign: 'center', padding: '40px 0', color: '#9CA3AF' }}>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
                   <div style={{ fontSize: 12, marginBottom: 4 }}>생성된 질문이 없어요.</div>
-                  <div style={{ fontSize: 11, lineHeight: 1.6 }}>
-                    '생기부 확인' 탭에서<br />AI 생성 또는 직접 작성해보세요.
-                  </div>
                 </div>
               ) : questions.map((q, i) => {
                 const isPublished = q.question_status === 'published'
@@ -669,7 +695,6 @@ export default function ExpectTab({ student }: { student: any }) {
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', gap: 8 }}>
               <div style={{ fontSize: 36 }}>💬</div>
               <div style={{ fontSize: 14, fontWeight: 600, color: '#6B7280' }}>질문을 선택해주세요</div>
-              <div style={{ fontSize: 12 }}>왼쪽에서 질문을 클릭하면 상세 내용을 볼 수 있어요</div>
             </div>
           ) : (
             <>
@@ -756,7 +781,6 @@ export default function ExpectTab({ student }: { student: any }) {
                   </div>
                 )}
 
-                {/* Step 1 - 학생 첫 답변 */}
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#6B7280', padding: '3px 10px', borderRadius: 99 }}>Step 1</span>
@@ -767,7 +791,7 @@ export default function ExpectTab({ student }: { student: any }) {
                   </div>
                 </div>
 
-                {/* Step 2 - 1차 피드백 (AI 분석 + 답변 작성하기 추가) */}
+                {/* Step 2: 1차 피드백 */}
                 {selQ.student_answer && (
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
@@ -780,61 +804,48 @@ export default function ExpectTab({ student }: { student: any }) {
                       </div>
                     ) : (
                       <>
-                        {/* ⭐ AI 분석 보기 버튼 */}
                         {!showAIAnalysisRound1 && !round1?.ai_analysis && (
                           <button
                             onClick={() => handleShowAIAnalysis(1)}
                             disabled={generateAIAnalysis.isPending}
                             style={{
-                              width: '100%',
-                              padding: '10px 0',
+                              width: '100%', padding: '10px 0',
                               background: generateAIAnalysis.isPending ? '#BAC8FF' : '#fff',
                               color: '#4F46E5',
                               border: `1px solid ${generateAIAnalysis.isPending ? '#BAC8FF' : '#4F46E5'}`,
-                              borderRadius: 8,
-                              fontSize: 12,
-                              fontWeight: 700,
-                              cursor: generateAIAnalysis.isPending ? 'not-allowed' : 'pointer',
-                              marginBottom: 10,
+                              borderRadius: 8, fontSize: 12, fontWeight: 700,
+                              cursor: generateAIAnalysis.isPending ? 'not-allowed' : 'pointer', marginBottom: 10,
                             }}
                           >
                             {generateAIAnalysis.isPending 
-                              ? '🤖 AI 분석 중... (10~20초)' 
-                              : '🤖 AI 분석 보기 (답변 진정성 검증)'}
+                              ? 'AI 분석 중... (10~20초)' 
+                              : '1차 답변 AI 피드백'}
                           </button>
                         )}
 
-                        {/* 이미 분석한 결과 있으면 다시 보기 버튼 */}
                         {!showAIAnalysisRound1 && round1?.ai_analysis && (
                           <button
                             onClick={() => setShowAIAnalysisRound1(true)}
                             style={{
-                              width: '100%',
-                              padding: '10px 0',
-                              background: '#FAFBFF',
-                              color: '#4F46E5',
+                              width: '100%', padding: '10px 0',
+                              background: '#FAFBFF', color: '#4F46E5',
                               border: '1px solid #C7D2FE',
-                              borderRadius: 8,
-                              fontSize: 12,
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              marginBottom: 10,
+                              borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', marginBottom: 10,
                             }}
                           >
-                            📊 AI 분석 결과 다시 보기
+                            📊 2차 답변 AI 피드백
                           </button>
                         )}
 
-                        {/* AI 분석 박스 */}
                         {showAIAnalysisRound1 && round1?.ai_analysis && (
                           <AIAnalysisBox
                             analysis={round1.ai_analysis}
                             onCreateFeedback={() => handleCreateAIFeedback(1)}
                             isGeneratingFeedback={generateAIFeedback.isPending}
+                            round={1}
                           />
                         )}
 
-                        {/* 채팅창 */}
                         <textarea
                           value={feedback[String(selQ.id)] || ''}
                           onChange={e => setFeedback(prev => ({ ...prev, [String(selQ.id)]: e.target.value }))}
@@ -859,7 +870,7 @@ export default function ExpectTab({ student }: { student: any }) {
                   </div>
                 )}
 
-                {/* Step 3 - 업그레이드 답변 */}
+                {/* Step 3: 업그레이드 답변 */}
                 {round1?.teacher_feedback && (
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
@@ -872,7 +883,7 @@ export default function ExpectTab({ student }: { student: any }) {
                   </div>
                 )}
 
-                {/* Step 4 - 최종 피드백 (AI 분석 + 답변 작성하기 추가) */}
+                {/* Step 4: 최종 피드백 (Round 2) */}
                 {round2?.revised_answer && (
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
@@ -885,27 +896,22 @@ export default function ExpectTab({ student }: { student: any }) {
                       </div>
                     ) : (
                       <>
-                        {/* ⭐ AI 분석 보기 버튼 (round 2) */}
                         {!showAIAnalysisRound2 && !round2?.ai_analysis && (
                           <button
                             onClick={() => handleShowAIAnalysis(2)}
                             disabled={generateAIAnalysis.isPending}
                             style={{
-                              width: '100%',
-                              padding: '10px 0',
+                              width: '100%', padding: '10px 0',
                               background: generateAIAnalysis.isPending ? '#BAC8FF' : '#fff',
                               color: '#4F46E5',
                               border: `1px solid ${generateAIAnalysis.isPending ? '#BAC8FF' : '#4F46E5'}`,
-                              borderRadius: 8,
-                              fontSize: 12,
-                              fontWeight: 700,
-                              cursor: generateAIAnalysis.isPending ? 'not-allowed' : 'pointer',
-                              marginBottom: 10,
+                              borderRadius: 8, fontSize: 12, fontWeight: 700,
+                              cursor: generateAIAnalysis.isPending ? 'not-allowed' : 'pointer', marginBottom: 10,
                             }}
                           >
                             {generateAIAnalysis.isPending 
                               ? '🤖 AI 분석 중... (10~20초)' 
-                              : '🤖 AI 분석 보기 (답변 진정성 검증)'}
+                              : '🤖 AI 분석 보기 (업그레이드 답변 평가)'}
                           </button>
                         )}
 
@@ -913,16 +919,10 @@ export default function ExpectTab({ student }: { student: any }) {
                           <button
                             onClick={() => setShowAIAnalysisRound2(true)}
                             style={{
-                              width: '100%',
-                              padding: '10px 0',
-                              background: '#FAFBFF',
-                              color: '#4F46E5',
+                              width: '100%', padding: '10px 0',
+                              background: '#FAFBFF', color: '#4F46E5',
                               border: '1px solid #C7D2FE',
-                              borderRadius: 8,
-                              fontSize: 12,
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              marginBottom: 10,
+                              borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', marginBottom: 10,
                             }}
                           >
                             📊 AI 분석 결과 다시 보기
@@ -934,6 +934,7 @@ export default function ExpectTab({ student }: { student: any }) {
                             analysis={round2.ai_analysis}
                             onCreateFeedback={() => handleCreateAIFeedback(2)}
                             isGeneratingFeedback={generateAIFeedback.isPending}
+                            round={2}
                           />
                         )}
 
@@ -961,7 +962,7 @@ export default function ExpectTab({ student }: { student: any }) {
                   </div>
                 )}
 
-                {/* Step 5 - 꼬리질문 */}
+                {/* Step 5: 꼬리질문 */}
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: step >= 5 ? '#2563EB' : '#6B7280', padding: '3px 10px', borderRadius: 99 }}>Step 5</span>
@@ -1010,7 +1011,6 @@ export default function ExpectTab({ student }: { student: any }) {
           <div onClick={e => e.stopPropagation()}
             style={{ background: '#fff', borderRadius: 16, padding: 28, width: 480 }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>꼬리질문 추가</div>
-            <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 16 }}>학생에게 추가로 물어볼 꼬리질문을 작성해요.</div>
             <textarea value={tailInput} onChange={e => setTailInput(e.target.value)}
               placeholder="꼬리질문을 입력해주세요..." rows={4} autoFocus
               style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: 8, padding: '11px 14px', fontSize: 13, outline: 'none', resize: 'none', fontFamily: 'inherit', lineHeight: 1.7, marginBottom: 16 }} />
@@ -1032,10 +1032,8 @@ export default function ExpectTab({ student }: { student: any }) {
           <div onClick={e => e.stopPropagation()}
             style={{ background: '#fff', borderRadius: 16, padding: 28, width: 520 }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>✨ AI 꼬리질문 생성</div>
-            <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 20 }}>AI가 답변 내용을 분석해서 꼬리질문을 만들었어요. 전달할 질문을 선택해주세요.</div>
             {genAITails.isPending ? (
               <div style={{ textAlign: 'center', padding: '32px 0', color: '#9CA3AF', fontSize: 13 }}>
-                <div style={{ fontSize: 28, marginBottom: 10 }}>✨</div>
                 AI가 꼬리질문을 생성 중이에요...
               </div>
             ) : (
@@ -1070,17 +1068,12 @@ export default function ExpectTab({ student }: { student: any }) {
             style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 760, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ padding: '20px 28px 14px', borderBottom: '1px solid #E5E7EB', flexShrink: 0 }}>
               <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>✏️ 직접 질문 작성</div>
-              <div style={{ fontSize: 12, color: '#6B7280' }}>
-                원장님이 직접 예상질문을 작성하세요. 한 번에 여러 개 작성 가능해요.
-                저장 후 <strong>미게시 상태</strong>로 보관되고 학생에게는 게시해야 보여요.
-              </div>
             </div>
-
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 28px' }}>
               {manualItems.map((item, idx) => (
                 <div key={idx} style={{
                   border: '1px solid #E5E7EB', borderRadius: 10, padding: 14, marginBottom: 10,
-                  background: '#FAFBFC', position: 'relative',
+                  background: '#FAFBFC',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                     <span style={{ fontSize: 12, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', padding: '3px 10px', borderRadius: 99 }}>
@@ -1097,7 +1090,6 @@ export default function ExpectTab({ student }: { student: any }) {
 
                   <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                     <div style={{ width: 140, flexShrink: 0 }}>
-                      <label style={{ fontSize: 10, fontWeight: 700, color: '#6B7280', display: 'block', marginBottom: 4 }}>태그</label>
                       <select value={item.tag} onChange={e => updateManualRow(idx, { tag: e.target.value })}
                         style={{
                           width: '100%', border: '1px solid #E5E7EB', borderRadius: 7, padding: '8px 6px',
@@ -1107,7 +1099,6 @@ export default function ExpectTab({ student }: { student: any }) {
                       </select>
                     </div>
                     <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: 10, fontWeight: 700, color: '#6B7280', display: 'block', marginBottom: 4 }}>질문 내용 *</label>
                       <textarea value={item.question}
                         onChange={e => updateManualRow(idx, { question: e.target.value })}
                         placeholder="학생에게 물어볼 예상질문을 작성해주세요..." rows={2}

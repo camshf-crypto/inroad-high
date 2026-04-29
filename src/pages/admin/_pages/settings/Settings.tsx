@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
-import { academyState, teachersState } from '../../_store/auth'
-import type { ITeacher } from '../../_store/auth'
+import { academyState, teachersState } from '@/lib/auth/atoms'
+import type { ITeacher } from '@/lib/auth/atoms'
 
 const ALL_STUDENTS = [
   { id: 1, name: '김민준', grade: '고2', email: 'kim@example.com' },

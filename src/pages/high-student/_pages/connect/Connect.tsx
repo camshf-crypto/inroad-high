@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSetAtom } from 'jotai'
-import { academyState } from '../../_store/auth'
-import { supabase } from '../../../../lib/supabase'
+import { academyState } from '@/lib/auth/atoms'
+import { supabase } from '@/lib/supabase'
 
 export default function Connect() {
   const navigate = useNavigate()

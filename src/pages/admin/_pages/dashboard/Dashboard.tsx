@@ -1,6 +1,6 @@
 import { useAtomValue } from 'jotai'
 import { useNavigate } from 'react-router-dom'
-import { academyState, teachersState } from '../../_store/auth'
+import { academyState, teachersState } from '@/lib/auth/atoms'
 import { useState } from 'react'
 import { useAcademyStudents } from '../../_hooks/useAcademyStudents'
 

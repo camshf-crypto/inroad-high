@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useAtomValue } from 'jotai'
-import { supabase } from '../../../lib/supabase'
-import { studentState } from '../_store/auth'
+import { supabase } from '@/lib/supabase'
+import { studentState } from '@/lib/auth/atoms'
 
 export interface RoadmapProgress {
   mission_key: string

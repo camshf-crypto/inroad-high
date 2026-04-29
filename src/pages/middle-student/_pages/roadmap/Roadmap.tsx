@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAtomValue } from 'jotai'
-import { studentState, academyState } from '../../_store/auth'
+import { studentState, academyState } from '@/lib/auth/atoms'
 
 const TYPE_COLOR: Record<string, { cls: string; label: string; icon: string }> = {
     S:  { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: '수행평가', icon: '📝' },

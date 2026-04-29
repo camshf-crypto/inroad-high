@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAtomValue } from 'jotai'
-import { studentState, academyState } from '../../_store/auth'
+import { studentState, academyState } from '@/lib/auth/atoms'
 
 const ALL_SCHOOLS = [
   '인천하늘고', '한국과학영재학교', '경기과학고', '서울과학고', '한성과학고',

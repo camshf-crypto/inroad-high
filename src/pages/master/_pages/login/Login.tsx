@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSetAtom } from 'jotai'
 import { masterTokenState } from '../../_store/auth'
-import { supabase } from '../../../../lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 const THEME = {
   accent: '#7C3AED',

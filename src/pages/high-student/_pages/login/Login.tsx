@@ -1,168 +1,40 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useSetAtom } from 'jotai'
-import { tokenState, studentState, academyState } from '../../_store/auth'
-import { supabase } from '../../../../lib/supabase'
+import { useLogin, usePasswordReset } from '@/lib/auth/useLogin'
 
 type Modal = 'findEmail' | 'findPw' | null
 
 export default function StudentLogin() {
   const navigate = useNavigate()
-  const setToken = useSetAtom(tokenState)
-  const setStudent = useSetAtom(studentState)
-  const setAcademy = useSetAtom(academyState)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+
+  const { handleLogin, loading, error, setError } = useLogin({
+    allowedRoles: ['high_student'],
+    redirectTo: '/high-student/roadmap',
+    loginType: 'student',
+    defaultGrade: '고1',
+    roleErrorMessage: '고등학생 계정만 접근 가능합니다.',
+  })
+
+  const { handleFindPw, findResult, findLoading, setFindResult } = usePasswordReset(
+    '/high-student/login'
+  )
+
+  const onLogin = () => handleLogin(email, password)
 
   const [modal, setModal] = useState<Modal>(null)
   const [findName, setFindName] = useState('')
   const [findPhone, setFindPhone] = useState('')
   const [findEmail, setFindEmail] = useState('')
-  const [findResult, setFindResult] = useState('')
-  const [findLoading, setFindLoading] = useState(false)
-
-  const handleLogin = async () => {
-    if (!email || !password) { 
-      setError('이메일과 비밀번호를 입력해주세요.')
-      return 
-    }
-    
-    setLoading(true)
-    setError('')
-
-    try {
-      // 1️⃣ Supabase Auth 로그인
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (authError) {
-        if (authError.message.includes('Invalid login credentials')) {
-          setError('이메일 또는 비밀번호가 올바르지 않아요.')
-        } else if (authError.message.includes('Email not confirmed')) {
-          setError('이메일 인증이 완료되지 않았습니다.')
-        } else {
-          setError('로그인에 실패했습니다.')
-        }
-        setLoading(false)
-        return
-      }
-
-      if (!authData.user) {
-        setError('로그인 정보를 가져올 수 없습니다.')
-        setLoading(false)
-        return
-      }
-
-      // 2️⃣ profiles 테이블에서 role 확인
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role, name, academy_id, grade, school, email')
-        .eq('id', authData.user.id)
-        .single()
-
-      if (profileError || !profile) {
-        setError('프로필 정보를 불러올 수 없습니다.')
-        await supabase.auth.signOut()
-        setLoading(false)
-        return
-      }
-
-      // 3️⃣ high_student만 허용
-      if (profile.role !== 'high_student') {
-        setError('고등학생 계정만 접근 가능합니다.')
-        await supabase.auth.signOut()
-        setLoading(false)
-        return
-      }
-
-      // 4️⃣ 학원 정보 가져오기
-      let academyInfo = null
-      if (profile.academy_id) {
-        const { data: academy } = await supabase
-          .from('academies')
-          .select('*')
-          .eq('id', profile.academy_id)
-          .single()
-        academyInfo = academy
-      }
-
-      // 5️⃣ Jotai state 저장
-      setToken({
-        accessToken: authData.session?.access_token || '',
-        expiresIn: String(
-          authData.session?.expires_at || Date.now() / 1000 + 86400
-        ),
-      })
-
-      setStudent({
-        id: authData.user.id as any,
-        name: profile.name || '',
-        grade: profile.grade || '고1',
-        email: profile.email || email,
-        role: 'STUDENT',
-      })
-
-      if (academyInfo) {
-        setAcademy({
-          academyId: academyInfo.id,
-          academyCode: academyInfo.academy_code || '',
-          academyName: academyInfo.name,
-          teacherName: '',
-          teacherId: undefined as any,
-        })
-      }
-
-      // 6️⃣ 로드맵 페이지로 이동
-      navigate('/high-student/roadmap')
-
-    } catch (err) {
-      console.error('로그인 에러:', err)
-      setError('로그인 중 오류가 발생했습니다.')
-      setLoading(false)
-    }
-  }
 
   const handleFindEmail = () => {
-    if (!findName.trim() || !findPhone.trim()) { 
+    if (!findName.trim() || !findPhone.trim()) {
       setFindResult('error:이름과 전화번호를 입력해주세요.')
-      return 
+      return
     }
-    setFindLoading(true)
-    setFindResult('')
-    setTimeout(() => {
-      setFindLoading(false)
-      setFindResult('error:현재 지원하지 않는 기능입니다. 학원에 문의해주세요.')
-    }, 500)
-  }
-
-  const handleFindPw = async () => {
-    if (!findEmail.trim()) { 
-      setFindResult('error:이메일을 입력해주세요.')
-      return 
-    }
-    setFindLoading(true)
-    setFindResult('')
-    
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(findEmail, {
-        redirectTo: window.location.origin + '/high-student/login',
-      })
-      
-      if (error) {
-        setFindResult('error:이메일 발송에 실패했습니다.')
-      } else {
-        setFindResult('ok:입력하신 이메일로 비밀번호 재설정 링크를 발송했어요.')
-      }
-    } catch (err) {
-      setFindResult('error:오류가 발생했습니다.')
-    } finally {
-      setFindLoading(false)
-    }
+    setFindResult('error:현재 지원하지 않는 기능입니다. 학원에 문의해주세요.')
   }
 
   const closeModal = () => {
@@ -189,18 +61,16 @@ export default function StudentLogin() {
         <div className="flex-1 flex flex-col justify-center px-8">
           <div className="w-full max-w-[360px] mx-auto">
 
-            {/* 타이틀 */}
             <div className="mb-8 text-center">
               <h1 className="text-[28px] font-extrabold text-ink tracking-tight mb-2">로그인</h1>
               <p className="text-[13px] text-ink-secondary">고등 학생 계정으로 로그인하세요.</p>
             </div>
 
-            {/* 이메일 */}
             <div className="mb-3">
               <input
                 value={email}
                 onChange={e => { setEmail(e.target.value); setError('') }}
-                onKeyDown={e => e.key === 'Enter' && !loading && handleLogin()}
+                onKeyDown={e => e.key === 'Enter' && !loading && onLogin()}
                 disabled={loading}
                 placeholder="계정 이메일"
                 className={`w-full h-12 px-4 border rounded-lg text-[14px] focus:outline-none focus:ring-2 transition-all placeholder:text-ink-muted disabled:opacity-60 disabled:bg-gray-50 ${
@@ -211,14 +81,13 @@ export default function StudentLogin() {
               />
             </div>
 
-            {/* 비밀번호 */}
             <div className="mb-3">
               <div className="relative">
                 <input
                   type={showPw ? 'text' : 'password'}
                   value={password}
                   onChange={e => { setPassword(e.target.value); setError('') }}
-                  onKeyDown={e => e.key === 'Enter' && !loading && handleLogin()}
+                  onKeyDown={e => e.key === 'Enter' && !loading && onLogin()}
                   disabled={loading}
                   placeholder="비밀번호"
                   className={`w-full h-12 pl-4 pr-12 border rounded-lg text-[14px] focus:outline-none focus:ring-2 transition-all placeholder:text-ink-muted disabled:opacity-60 disabled:bg-gray-50 ${
@@ -246,7 +115,6 @@ export default function StudentLogin() {
               </div>
             </div>
 
-            {/* 에러 */}
             {error && (
               <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
                 <span className="text-sm">⚠️</span>
@@ -254,9 +122,8 @@ export default function StudentLogin() {
               </div>
             )}
 
-            {/* 로그인 버튼 */}
             <button
-              onClick={handleLogin}
+              onClick={onLogin}
               disabled={loading}
               className={`w-full h-12 rounded-lg text-[14px] font-semibold text-white transition-all ${
                 loading
@@ -267,10 +134,8 @@ export default function StudentLogin() {
               {loading ? '로그인 중...' : '이메일로 로그인'}
             </button>
 
-            {/* 구분선 */}
             <div className="h-px bg-line my-6" />
 
-            {/* 아이디/비밀번호 찾기 + 회원가입 */}
             <div className="flex items-center justify-center gap-4 text-[13px]">
               <button
                 onClick={() => { setModal('findEmail'); setFindResult('') }}
@@ -400,14 +265,9 @@ export default function StudentLogin() {
 
                 <button
                   onClick={handleFindEmail}
-                  disabled={findLoading}
-                  className={`w-full h-11 rounded-lg text-[14px] font-semibold text-white transition-all ${
-                    findLoading
-                      ? 'bg-brand-high-light cursor-not-allowed'
-                      : 'bg-brand-high hover:bg-brand-high-hover hover:-translate-y-px hover:shadow-btn-high'
-                  }`}
+                  className={`w-full h-11 rounded-lg text-[14px] font-semibold text-white transition-all bg-brand-high hover:bg-brand-high-hover hover:-translate-y-px hover:shadow-btn-high`}
                 >
-                  {findLoading ? '찾는 중...' : '아이디 찾기'}
+                  아이디 찾기
                 </button>
               </div>
             )}
@@ -425,7 +285,7 @@ export default function StudentLogin() {
                     placeholder="example@email.com"
                     value={findEmail}
                     onChange={e => { setFindEmail(e.target.value); setFindResult('') }}
-                    onKeyDown={e => e.key === 'Enter' && handleFindPw()}
+                    onKeyDown={e => e.key === 'Enter' && handleFindPw(findEmail)}
                   />
                 </div>
 
@@ -440,7 +300,7 @@ export default function StudentLogin() {
                 )}
 
                 <button
-                  onClick={handleFindPw}
+                  onClick={() => handleFindPw(findEmail)}
                   disabled={findLoading}
                   className={`w-full h-11 rounded-lg text-[14px] font-semibold text-white transition-all ${
                     findLoading

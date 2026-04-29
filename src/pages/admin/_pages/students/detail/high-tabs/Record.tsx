@@ -16,7 +16,7 @@ import {
 import {
   useStudentReadings,
 } from '../../../../_hooks/useHighReading'
-import { supabase } from '../../../../../../lib/supabase'  // ⭐ 추가
+import { supabase } from '@/lib/supabase'  // ⭐ 추가
 
 const THEME = {
   accent: '#2563EB',

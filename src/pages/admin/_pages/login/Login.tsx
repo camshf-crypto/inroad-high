@@ -1,122 +1,19 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useSetAtom } from 'jotai'
-import { tokenState, academyState } from '../../_store/auth'
-import { supabase } from '../../../../lib/supabase'
+import { useLogin } from '@/lib/auth/useLogin'
 
 export default function Login() {
-  const navigate = useNavigate()
-  const setToken = useSetAtom(tokenState)
-  const setAcademy = useSetAtom(academyState)
-
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      setError('이메일과 비밀번호를 입력해주세요.')
-      return
-    }
+  const { handleLogin, loading, error, setError } = useLogin({
+    allowedRoles: ['admin', 'teacher'],
+    redirectTo: '/admin',
+    loginType: 'admin',
+    roleErrorMessage: '학원 관리자 계정만 접근 가능합니다.',
+  })
 
-    setLoading(true)
-    setError('')
-
-    try {
-      // 1️⃣ Supabase Auth 로그인
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (authError) {
-        if (authError.message.includes('Invalid login credentials')) {
-          setError('이메일 또는 비밀번호가 맞지 않아요.')
-        } else if (authError.message.includes('Email not confirmed')) {
-          setError('이메일 인증이 완료되지 않았습니다.')
-        } else {
-          setError('로그인에 실패했습니다.')
-        }
-        setLoading(false)
-        return
-      }
-
-      if (!authData.user) {
-        setError('로그인 정보를 가져올 수 없습니다.')
-        setLoading(false)
-        return
-      }
-
-      // 2️⃣ profiles 테이블에서 role 확인
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role, name, academy_id')
-        .eq('id', authData.user.id)
-        .single()
-
-      if (profileError || !profile) {
-        setError('프로필 정보를 불러올 수 없습니다.')
-        await supabase.auth.signOut()
-        setLoading(false)
-        return
-      }
-
-      // 3️⃣ admin 또는 teacher만 허용
-      if (profile.role !== 'admin' && profile.role !== 'teacher') {
-        setError('학원 관리자 계정만 접근 가능합니다.')
-        await supabase.auth.signOut()
-        setLoading(false)
-        return
-      }
-
-      // 4️⃣ 학원 정보 가져오기
-      let academyInfo: any = null
-      if (profile.academy_id) {
-        const { data: academy } = await supabase
-          .from('academies')
-          .select('*')
-          .eq('id', profile.academy_id)
-          .single()
-
-        academyInfo = academy
-      }
-
-      if (!academyInfo) {
-        setError('소속된 학원 정보를 찾을 수 없습니다.')
-        await supabase.auth.signOut()
-        setLoading(false)
-        return
-      }
-
-      // 5️⃣ Jotai 상태 저장
-      setToken({
-        accessToken: authData.session?.access_token || '',
-        expiresIn: String(
-          authData.session?.expires_at || Date.now() / 1000 + 86400
-        ),
-      })
-
-      setAcademy({
-        academyId: academyInfo.id,                          // ✅ 추가: DB 조회용 uuid
-        academyCode: academyInfo.academy_code || '',
-        academyName: academyInfo.name,
-        ownerName: profile.name || '',
-        role: profile.role === 'admin' ? 'OWNER' : 'TEACHER',
-        teacherId: undefined,
-        plans: ['high', 'middle'],
-      })
-
-      // 6️⃣ 대시보드로 이동
-      navigate('/admin')
-
-    } catch (err) {
-      console.error('로그인 에러:', err)
-      setError('로그인 중 오류가 발생했습니다.')
-      setLoading(false)
-    }
-  }
+  const onLogin = () => handleLogin(email, password)
 
   return (
     <div className="flex h-screen bg-white font-sans text-ink overflow-hidden">
@@ -165,7 +62,7 @@ export default function Login() {
             <input
               value={email}
               onChange={e => { setEmail(e.target.value); setError('') }}
-              onKeyDown={e => e.key === 'Enter' && !loading && handleLogin()}
+              onKeyDown={e => e.key === 'Enter' && !loading && onLogin()}
               disabled={loading}
               placeholder="계정 이메일"
               className={`w-full h-12 px-4 border rounded-lg text-[14px] focus:outline-none focus:ring-2 transition-all placeholder:text-ink-muted disabled:opacity-60 disabled:bg-gray-50 ${
@@ -180,7 +77,7 @@ export default function Login() {
                 type={showPw ? 'text' : 'password'}
                 value={password}
                 onChange={e => { setPassword(e.target.value); setError('') }}
-                onKeyDown={e => e.key === 'Enter' && !loading && handleLogin()}
+                onKeyDown={e => e.key === 'Enter' && !loading && onLogin()}
                 disabled={loading}
                 placeholder="비밀번호"
                 className={`w-full h-12 pl-4 pr-12 border rounded-lg text-[14px] focus:outline-none focus:ring-2 transition-all placeholder:text-ink-muted disabled:opacity-60 disabled:bg-gray-50 ${
@@ -217,7 +114,7 @@ export default function Login() {
             )}
 
             <button
-              onClick={handleLogin}
+              onClick={onLogin}
               disabled={loading}
               className="w-full h-12 rounded-lg text-[14px] font-bold text-white mt-2 transition-all disabled:cursor-not-allowed"
               style={{

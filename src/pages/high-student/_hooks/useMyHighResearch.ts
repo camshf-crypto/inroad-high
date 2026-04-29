@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAtomValue } from 'jotai'
-import { supabase } from '../../../lib/supabase'
-import { studentState } from '../_store/auth'
+import { supabase } from '@/lib/supabase'
+import { studentState } from '@/lib/auth/atoms'
 
 // ─────────────────────────────────────────────
 // 타입

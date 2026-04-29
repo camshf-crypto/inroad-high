@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useAtomValue } from 'jotai'
-import { supabase, type Profile } from '../../../lib/supabase'
-import { academyState } from '../_store/auth'
+import { supabase, type Profile } from '@/lib/supabase'
+import { academyState } from '@/lib/auth/atoms'
 
 /**
  * 현재 학원의 학생 목록을 학교급(고등/중등) 별로 조회

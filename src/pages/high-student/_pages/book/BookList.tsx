@@ -7,7 +7,7 @@ import {
   useDeleteReading,
   buildReadingMessages,
 } from '../../_hooks/useMyHighReading'
-import { searchBooksPaged, type BookSearchResult } from '../../../../lib/kakaoBooks'
+import { searchBooksPaged, type BookSearchResult } from '@/lib/kakaoBooks'
 import SubjectSelect from '../../../../components/SubjectSelect'
 
 const PAGE_SIZE = 10

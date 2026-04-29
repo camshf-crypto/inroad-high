@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { useAtomValue } from 'jotai'
-import { studentState, academyState } from '../../_store/auth'
+import { studentState, academyState } from '@/lib/auth/atoms'
 
 const ALL_SCHOOLS = [
   { id: 1, name: '인천하늘고', shortName: '인천하늘고', color: '#1E40AF', bg: '#EEF2FF' },

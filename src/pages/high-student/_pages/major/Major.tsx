@@ -17,7 +17,7 @@ import {
   type MajorChapter,
   type MajorQuestion,
 } from '../../_hooks/useMyHighMajor'
-import { supabase } from '../../../../lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 const THEME = {
   accent: '#2563EB',

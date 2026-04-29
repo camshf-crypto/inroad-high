@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAtomValue } from 'jotai'
-import { studentState, academyState } from '../../_store/auth'
+import { studentState, academyState } from '@/lib/auth/atoms'
 
 const TYPES = [
   { id: '논술형', icon: '✏️', desc: '근거를 갖춘 긴 글쓰기', subjects: '국어·사회·역사', count: 8 },

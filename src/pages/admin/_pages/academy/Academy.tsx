@@ -1,5 +1,5 @@
 import { useAtomValue } from 'jotai'
-import { academyState } from '../../_store/auth'
+import { academyState } from '@/lib/auth/atoms'
 import { useState } from 'react'
 
 // 파랑 테마

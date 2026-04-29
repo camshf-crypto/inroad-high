@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAtomValue } from 'jotai'
-import { studentState, academyState } from '../../_store/auth'
+import { studentState, academyState } from '@/lib/auth/atoms'
 
 const CATEGORIES = ['리더십', '진로탐색', '인성/가치관', '사회/시사', '과학/기술', '문학', '역사', '기타']
 
