@@ -12,6 +12,9 @@ import {
   useGenerateAIFollowups,
   useSaveSelectedFollowups,
   useDeleteFollowup,
+  useAIAnalyzePastAnswer,
+  useAIGeneratePastFeedback,
+  useAISuggestTeacherFeedback,    // ⭐ 추가
   getMockAIAnalysis,
   getPastStep,
   inferQuestionType,
@@ -36,18 +39,6 @@ const TYPE_COLOR: Record<string, any> = {
 
 const STEP_LABELS = ['첫 답변', '1차 피드백', '업그레이드', '최종 피드백', '꼬리질문']
 
-// 평가 기준 (MOCK - 대학별 기준)
-const DEFAULT_CRITERIA = [
-  { name: '논리력', max: 100, standard: 85 },
-  { name: '전공이해도', max: 100, standard: 90 },
-  { name: '창의력', max: 100, standard: 80 },
-  { name: '표현력', max: 100, standard: 75 },
-  { name: '인성', max: 100, standard: 70 },
-]
-
-// 학생 점수 (MOCK)
-const DEFAULT_STUDENT_SCORES = [72, 80, 65, 70, 75]
-
 export default function PastTab({ student }: { student: any }) {
   const studentId: string = student.id
 
@@ -68,9 +59,11 @@ export default function PastTab({ student }: { student: any }) {
   const [aiTails, setAiTails] = useState<string[]>([])
   const [selectedAiTails, setSelectedAiTails] = useState<number[]>([])
 
-  // 숨김 항목 처리 모달
   const [hiddenActionModal, setHiddenActionModal] = useState<{ university: string; department: string } | null>(null)
   const [hiddenConfirm, setHiddenConfirm] = useState<{ action: 'restore' | 'delete'; university: string; department: string } | null>(null)
+
+  // ⭐ AI 답변 작성 로딩 상태 (1차/2차 분리)
+  const [aiSuggestLoading, setAiSuggestLoading] = useState<'first' | 'final' | null>(null)
 
   // DB 조회
   const { data: targetUniversities = [] } = useStudentTargetUniversities(studentId)
@@ -93,14 +86,19 @@ export default function PastTab({ student }: { student: any }) {
   const saveAITails = useSaveSelectedFollowups()
   const deleteTail = useDeleteFollowup()
 
-  // 첫 타깃 대학 자동 선택
+  // ⭐ AI 호출 hook
+  const aiAnalyze = useAIAnalyzePastAnswer()
+  const aiCompare = useAIGeneratePastFeedback()
+  const aiSuggestFeedback = useAISuggestTeacherFeedback()
+
+  // 첫 타깃 자동 선택
   useEffect(() => {
     if (targetUniversities.length > 0 && !selUniv) {
       setSelUniv(targetUniversities[0])
     }
   }, [targetUniversities, selUniv])
 
-  // 대학/질문 변경시 AI 패널 리셋
+  // 질문 변경 시 AI 패널 리셋
   useEffect(() => {
     setShowAiPanel(false)
     setAiData(null)
@@ -110,26 +108,110 @@ export default function PastTab({ student }: { student: any }) {
   const round1 = analyses.find(a => a.round === 1)
   const round2 = analyses.find(a => a.round === 2)
 
-  const openAiAnalysis = (tab: 'first' | 'second' = 'first') => {
+  // AI 분석 호출
+  const openAiAnalysis = async (tab: 'first' | 'second' = 'first') => {
+    if (!selQ || !selUniv) return
+
     setShowAiPanel(true)
     setAiTab(tab)
+
     if (tab === 'first') {
+      if (!selQ.answer?.student_answer) {
+        alert('학생이 먼저 답변을 제출해야 합니다.')
+        return
+      }
       setAiLoading(true)
-      setAiData(null)
-      setTimeout(() => {
-        if (selQ) {
-          setAiData(getMockAIAnalysis(selQ.question, selQ.answer?.student_answer || null))
-        }
+      try {
+        const result = await aiAnalyze.mutateAsync({
+          university: selUniv.university,
+          department: selUniv.department,
+          question: selQ.question,
+          studentAnswer: selQ.answer.student_answer,
+          answerId: selQ.answer.id,
+        })
+        setAiData(prev => ({
+          ...result,
+          second: prev?.second,
+        }))
+      } catch (e: any) {
+        console.error('AI 1차 분석 실패:', e)
+        alert('AI 분석 실패:\n' + (e?.message || '알 수 없는 오류'))
+        setAiData(getMockAIAnalysis(selQ.question, selQ.answer.student_answer))
+      } finally {
         setAiLoading(false)
-      }, 1000)
+      }
     } else {
+      if (!round2?.revised_answer) {
+        alert('학생이 2차 답변을 먼저 제출해야 합니다.')
+        return
+      }
+      if (!selQ.answer?.student_answer) {
+        alert('1차 답변이 없습니다.')
+        return
+      }
       setSecondAiLoading(true)
-      setTimeout(() => {
-        if (selQ && !aiData) {
-          setAiData(getMockAIAnalysis(selQ.question, selQ.answer?.student_answer || null))
-        }
+      try {
+        const compareResult = await aiCompare.mutateAsync({
+          university: selUniv.university,
+          department: selUniv.department,
+          question: selQ.question,
+          firstAnswer: selQ.answer.student_answer,
+          secondAnswer: round2.revised_answer,
+          firstAnalysisJson: round1?.ai_analysis || aiData,
+          answerId: selQ.answer.id,
+        })
+        setAiData(prev => {
+          if (!prev) {
+            return {
+              evalCriteria: '',
+              scores: [],
+              summary: '',
+              strengths: [],
+              improvements: [],
+              tailSuggestions: [],
+              second: compareResult,
+            }
+          }
+          return {
+            ...prev,
+            second: compareResult,
+          }
+        })
+      } catch (e: any) {
+        console.error('AI 2차 비교 실패:', e)
+        alert('AI 비교 분석 실패:\n' + (e?.message || '알 수 없는 오류'))
+        const mock = getMockAIAnalysis(selQ.question, selQ.answer.student_answer)
+        setAiData(prev => prev ? { ...prev, second: mock.second } : mock)
+      } finally {
         setSecondAiLoading(false)
-      }, 1000)
+      }
+    }
+  }
+
+  // ⭐ AI 답변 작성 (선생님 말투 피드백 초안)
+  const generateAIFeedback = async (type: 'first' | 'final') => {
+    if (!selQ?.answer?.student_answer || !selUniv) return
+
+    const key = type === 'first' ? String(selQ.id) : `${selQ.id}_final`
+    setAiSuggestLoading(type)
+
+    try {
+      const draft = await aiSuggestFeedback.mutateAsync({
+        university: selUniv.university,
+        department: selUniv.department,
+        question: selQ.question,
+        studentAnswer: selQ.answer.student_answer,
+        secondAnswer: type === 'final' ? round2?.revised_answer || '' : undefined,
+        aiAnalysis: aiData,
+        feedbackType: type,
+      })
+      // textarea에 자동 입력
+      setFeedback(prev => ({ ...prev, [key]: draft }))
+    } catch (e: any) {
+      console.error('AI 답변 작성 실패:', e)
+      alert('AI 답변 작성 실패:\n' + (e?.message || '알 수 없는 오류'))
+    } finally {
+      setAiSuggestLoading(null)
     }
   }
 
@@ -203,11 +285,12 @@ export default function PastTab({ student }: { student: any }) {
   }
 
   const getRadarData = () => {
-    return DEFAULT_CRITERIA.map((c, i) => ({
-      subject: c.name,
-      standard: c.standard,
-      student: DEFAULT_STUDENT_SCORES[i] || 0,
-      fullMark: 100,
+    if (!aiData?.scores || aiData.scores.length === 0) return []
+    return aiData.scores.map(s => ({
+      subject: s.label,
+      standard: Math.round(s.max * 0.85),
+      student: s.score,
+      fullMark: s.max,
     }))
   }
 
@@ -226,7 +309,7 @@ export default function PastTab({ student }: { student: any }) {
   return (
     <div className="flex flex-col gap-3 h-full overflow-hidden">
 
-      {/* ==================== 대학 탭 ==================== */}
+      {/* 대학 탭 */}
       <div className="flex gap-1.5 flex-wrap flex-shrink-0 items-center">
         {targetUniversities.length === 0 ? (
           <div className="text-[12px] text-gray-500 font-medium bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -278,7 +361,6 @@ export default function PastTab({ student }: { student: any }) {
         )}
       </div>
 
-      {/* ==================== 메인 ==================== */}
       <div className="flex gap-4 flex-1 overflow-hidden">
 
         {/* 왼쪽 질문 목록 */}
@@ -317,7 +399,6 @@ export default function PastTab({ student }: { student: any }) {
               const tc = TYPE_COLOR[qType]
               const isSelected = selQ?.id === q.id
               const isAnswered = !!q.answer?.student_answer
-              const qStep = getPastStep(q.answer, [])
               return (
                 <button
                   key={q.id}
@@ -481,7 +562,7 @@ export default function PastTab({ student }: { student: any }) {
                       </div>
                     </div>
 
-                    {/* Step 2 */}
+                    {/* Step 2 - 1차 피드백 */}
                     {selQ.answer?.student_answer && (
                       <div>
                         <div className="flex items-center gap-2 mb-2">
@@ -503,11 +584,32 @@ export default function PastTab({ student }: { student: any }) {
                           </div>
                         ) : (
                           <>
+                            {/* ⭐ AI 답변 작성 버튼 */}
+                            <div className="flex justify-end mb-2">
+                              <button
+                                onClick={() => generateAIFeedback('first')}
+                                disabled={aiSuggestLoading === 'first'}
+                                className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border disabled:opacity-50 flex items-center gap-1"
+                                style={{
+                                  background: THEME.accentBg,
+                                  color: THEME.accent,
+                                  borderColor: THEME.accent,
+                                }}
+                              >
+                                {aiSuggestLoading === 'first' ? (
+                                  <>
+                                    <span className="animate-pulse">✨</span> AI가 작성 중...
+                                  </>
+                                ) : (
+                                  <>✨ AI 답변 작성</>
+                                )}
+                              </button>
+                            </div>
                             <textarea
                               value={feedback[String(selQ.id)] || ''}
                               onChange={e => setFeedback(prev => ({ ...prev, [String(selQ.id)]: e.target.value }))}
-                              placeholder="학생 답변에 대한 피드백을 작성해주세요..."
-                              rows={3}
+                              placeholder="학생 답변에 대한 피드백을 작성하거나, AI 답변 작성 버튼으로 초안을 받아보세요..."
+                              rows={6}
                               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-[12px] font-medium outline-none resize-y leading-[1.7]"
                             />
                             <div className="flex gap-2 mt-2">
@@ -556,7 +658,7 @@ export default function PastTab({ student }: { student: any }) {
                       </div>
                     )}
 
-                    {/* Step 4 */}
+                    {/* Step 4 - 최종 피드백 */}
                     {round2?.revised_answer && (
                       <div>
                         <div className="flex items-center gap-2 mb-2">
@@ -569,11 +671,32 @@ export default function PastTab({ student }: { student: any }) {
                           </div>
                         ) : (
                           <>
+                            {/* ⭐ AI 답변 작성 버튼 (최종 피드백용) */}
+                            <div className="flex justify-end mb-2">
+                              <button
+                                onClick={() => generateAIFeedback('final')}
+                                disabled={aiSuggestLoading === 'final'}
+                                className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border disabled:opacity-50 flex items-center gap-1"
+                                style={{
+                                  background: '#ECFDF5',
+                                  color: '#059669',
+                                  borderColor: '#10B981',
+                                }}
+                              >
+                                {aiSuggestLoading === 'final' ? (
+                                  <>
+                                    <span className="animate-pulse">✨</span> AI가 작성 중...
+                                  </>
+                                ) : (
+                                  <>✨ AI 답변 작성</>
+                                )}
+                              </button>
+                            </div>
                             <textarea
                               value={feedback[`${selQ.id}_final`] || ''}
                               onChange={e => setFeedback(prev => ({ ...prev, [`${selQ.id}_final`]: e.target.value }))}
-                              placeholder="업그레이드된 답변에 대한 최종 피드백을 작성해주세요..."
-                              rows={3}
+                              placeholder="업그레이드된 답변에 대한 최종 피드백을 작성하거나, AI 답변 작성 버튼으로 초안을 받아보세요..."
+                              rows={6}
                               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-[12px] font-medium outline-none resize-y leading-[1.7]"
                             />
                             <div className="flex gap-2 mt-2">
@@ -708,11 +831,10 @@ export default function PastTab({ student }: { student: any }) {
                   <div className="text-4xl animate-pulse">✨</div>
                   <div className="text-[13px]">AI가 분석 중이에요...</div>
                 </div>
-              ) : !aiData ? (
+              ) : !aiData || !aiData.scores || aiData.scores.length === 0 ? (
                 <div className="flex-1 flex items-center justify-center text-[13px] text-gray-400">분석 데이터 없음</div>
               ) : (
                 <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
-                  {/* 레이더차트 + 바차트 */}
                   <div className="bg-green-50 border border-green-200 rounded-xl p-4">
                     <div className="text-[13px] font-extrabold text-green-800 mb-1">✅ 답변 정합성 분석</div>
                     <div className="text-[11px] text-gray-500 mb-3.5">
@@ -749,7 +871,6 @@ export default function PastTab({ student }: { student: any }) {
                     ))}
                   </div>
 
-                  {/* 사유하는 질문 */}
                   <div className="bg-white border border-gray-200 rounded-xl p-4">
                     <div className="text-[13px] font-extrabold text-gray-900 mb-1">✅ 사유하는 질문</div>
                     <div className="text-[11px] text-gray-500 mb-2.5">
@@ -767,7 +888,6 @@ export default function PastTab({ student }: { student: any }) {
                     </div>
                   </div>
 
-                  {/* AI 종합 분석 */}
                   <div className="bg-white border border-gray-200 rounded-xl p-4">
                     <div className="text-[13px] font-extrabold text-gray-900 mb-1">✅ AI 종합 분석</div>
                     <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 mb-3.5 mt-2">
@@ -988,15 +1108,11 @@ export default function PastTab({ student }: { student: any }) {
           style={{ background: 'rgba(15, 23, 42, 0.55)' }}>
           <div onClick={e => e.stopPropagation()}
             className="bg-white rounded-2xl p-7 w-[460px]">
-            <div className="text-[18px] font-extrabold text-gray-900 mb-1">
-              ⚠️ 학생이 숨김 처리한 항목
-            </div>
+            <div className="text-[18px] font-extrabold text-gray-900 mb-1">⚠️ 학생이 숨김 처리한 항목</div>
             <div className="text-[13px] font-semibold text-gray-700 mb-1 mt-3">
               🎓 {hiddenActionModal.university} · {hiddenActionModal.department}
             </div>
-            <div className="text-[12px] text-gray-500 mb-5">
-              학생이 목록에서 숨겼어요. 어떻게 처리할까요?
-            </div>
+            <div className="text-[12px] text-gray-500 mb-5">학생이 목록에서 숨겼어요. 어떻게 처리할까요?</div>
 
             <div className="flex flex-col gap-2 mb-5">
               <button
@@ -1009,9 +1125,7 @@ export default function PastTab({ student }: { student: any }) {
                 <div className="text-2xl">↻</div>
                 <div className="flex-1">
                   <div className="text-[14px] font-bold text-emerald-800">복구</div>
-                  <div className="text-[11px] text-emerald-700 mt-0.5">
-                    학생에게 다시 보이게 해요. 답변도 다시 볼 수 있어요.
-                  </div>
+                  <div className="text-[11px] text-emerald-700 mt-0.5">학생에게 다시 보이게 해요. 답변도 다시 볼 수 있어요.</div>
                 </div>
               </button>
 
@@ -1025,9 +1139,7 @@ export default function PastTab({ student }: { student: any }) {
                 <div className="text-2xl">🗑</div>
                 <div className="flex-1">
                   <div className="text-[14px] font-bold text-red-800">완전 삭제</div>
-                  <div className="text-[11px] text-red-700 mt-0.5">
-                    학생의 지원 목록에서 영구 제거해요.
-                  </div>
+                  <div className="text-[11px] text-red-700 mt-0.5">학생의 지원 목록에서 영구 제거해요.</div>
                 </div>
               </button>
             </div>
@@ -1057,8 +1169,8 @@ export default function PastTab({ student }: { student: any }) {
             </div>
             <div className="text-[12px] text-gray-500 mb-5 leading-[1.7]">
               {hiddenConfirm.action === 'restore'
-                ? '복구하면 학생이 다시 기출문제를 볼 수 있어요. 이전에 작성한 답변과 선생님 피드백도 그대로 유지돼요.'
-                : '⚠️ 학생의 지원 목록에서 완전히 제거돼요. 답변 데이터는 DB에 남지만, 학생이 다시 학교를 선택하지 않으면 볼 수 없어요.'
+                ? '복구하면 학생이 다시 기출문제를 볼 수 있어요.'
+                : '⚠️ 학생의 지원 목록에서 완전히 제거돼요.'
               }
             </div>
 
@@ -1101,9 +1213,7 @@ export default function PastTab({ student }: { student: any }) {
                   background: hiddenConfirm.action === 'restore' ? '#059669' : '#EF4444',
                 }}
               >
-                {updateTargets.isPending
-                  ? '처리 중...'
-                  : hiddenConfirm.action === 'restore' ? '복구' : '완전 삭제'}
+                {updateTargets.isPending ? '처리 중...' : hiddenConfirm.action === 'restore' ? '복구' : '완전 삭제'}
               </button>
             </div>
           </div>

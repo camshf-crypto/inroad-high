@@ -22,6 +22,7 @@ import {
   getSaenggibuPdfSignedUrl,
   gradeToNum,
   getQuestionStep,
+  SAENGGIBU_AI_CALL_LIMITS,    // ⭐ 추가
   type ExpectQuestion,
   type AIAnalysisResult,
 } from '../../../../_hooks/useHighSaenggibuQuestions'
@@ -46,105 +47,83 @@ interface ManualQuestion {
   question: string
 }
 
-function AIAnalysisBox({ 
+// 파랑 테마 (기출과 동일)
+const THEME = {
+  accent: '#2563EB',
+  accentDark: '#1E3A8A',
+  accentBg: '#EFF6FF',
+  accentBorder: '#93C5FD',
+}
+
+// ⭐ AI 분석 결과 박스 (우측 패널 안에 들어가는 컴포넌트)
+function AIAnalysisContent({ 
   analysis, 
-  onCreateFeedback,
-  isGeneratingFeedback,
   round,
 }: { 
   analysis: AIAnalysisResult
-  onCreateFeedback: () => void
-  isGeneratingFeedback: boolean
   round: number
 }) {
   return (
-    <div style={{ background: '#FAFBFF', border: '1px solid #C7D2FE', borderRadius: 10, padding: '14px 16px', marginTop: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-        <span style={{ fontSize: 16 }}>📊</span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: '#4F46E5' }}>
-          AI 분석 결과 {round === 2 && '(업그레이드 답변)'}
-        </span>
-      </div>
-
+    <>
       {analysis.strengths && analysis.strengths.length > 0 && (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#059669', marginBottom: 5 }}>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#059669', marginBottom: 6 }}>
             ✅ {round === 2 ? '개선된 점' : '잘한 점'}
           </div>
-          <ul style={{ paddingLeft: 16, margin: 0 }}>
-            {analysis.strengths.map((s, i) => (
-              <li key={i} style={{ fontSize: 12, color: '#065F46', lineHeight: 1.7 }}>{s}</li>
-            ))}
-          </ul>
+          {analysis.strengths.map((s, i) => (
+            <div key={i} style={{ fontSize: 12, color: '#065F46', background: '#ECFDF5', border: '1px solid #6EE7B7', borderRadius: 6, padding: '8px 10px', marginBottom: 4, lineHeight: 1.6 }}>
+              {s}
+            </div>
+          ))}
         </div>
       )}
 
       {analysis.weaknesses && analysis.weaknesses.length > 0 && (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#D97706', marginBottom: 5 }}>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#D97706', marginBottom: 6 }}>
             ⚠️ {round === 2 ? '여전히 부족한 점' : '보완할 점'}
           </div>
-          <ul style={{ paddingLeft: 16, margin: 0 }}>
-            {analysis.weaknesses.map((w, i) => (
-              <li key={i} style={{ fontSize: 12, color: '#92400E', lineHeight: 1.7 }}>{w}</li>
-            ))}
-          </ul>
+          {analysis.weaknesses.map((w, i) => (
+            <div key={i} style={{ fontSize: 12, color: '#92400E', background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: 6, padding: '8px 10px', marginBottom: 4, lineHeight: 1.6 }}>
+              {w}
+            </div>
+          ))}
         </div>
       )}
 
       {analysis.improvements && analysis.improvements.length > 0 && (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#2563EB', marginBottom: 5 }}>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: THEME.accent, marginBottom: 6 }}>
             💡 {round === 2 ? '면접 전 마지막 조언' : '개선 방향'}
           </div>
-          <ul style={{ paddingLeft: 16, margin: 0 }}>
-            {analysis.improvements.map((imp, i) => (
-              <li key={i} style={{ fontSize: 12, color: '#1E3A8A', lineHeight: 1.7 }}>{imp}</li>
-            ))}
-          </ul>
+          {analysis.improvements.map((imp, i) => (
+            <div key={i} style={{ fontSize: 12, color: THEME.accentDark, background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60`, borderRadius: 6, padding: '8px 10px', marginBottom: 4, lineHeight: 1.6 }}>
+              {imp}
+            </div>
+          ))}
         </div>
       )}
 
       {analysis.authenticity_concerns && analysis.authenticity_concerns.length > 0 && (
-        <div style={{ marginBottom: 10, background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 6, padding: '8px 10px' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#DC2626', marginBottom: 5 }}>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#DC2626', marginBottom: 6 }}>
             ⚡ {round === 2 ? '남아있는 의심 포인트' : '면접관이 의심할 만한 부분'}
           </div>
-          <ul style={{ paddingLeft: 16, margin: 0 }}>
-            {analysis.authenticity_concerns.map((a, i) => (
-              <li key={i} style={{ fontSize: 12, color: '#991B1B', lineHeight: 1.7 }}>{a}</li>
-            ))}
-          </ul>
+          {analysis.authenticity_concerns.map((a, i) => (
+            <div key={i} style={{ fontSize: 12, color: '#991B1B', background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 6, padding: '8px 10px', marginBottom: 4, lineHeight: 1.6 }}>
+              {a}
+            </div>
+          ))}
         </div>
       )}
 
       {analysis.summary && (
-        <div style={{ marginBottom: 12, background: '#F3F4F6', borderRadius: 6, padding: '8px 10px' }}>
+        <div style={{ background: '#F8F7F5', border: '1px solid #E5E7EB', borderRadius: 6, padding: '10px 12px' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', marginBottom: 4 }}>📝 전반적 평가</div>
           <div style={{ fontSize: 12, color: '#374151', lineHeight: 1.7 }}>{analysis.summary}</div>
         </div>
       )}
-
-      <button
-        onClick={onCreateFeedback}
-        disabled={isGeneratingFeedback}
-        style={{
-          width: '100%',
-          padding: '10px 0',
-          background: isGeneratingFeedback ? '#BAC8FF' : '#4F46E5',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 8,
-          fontSize: 12,
-          fontWeight: 700,
-          cursor: isGeneratingFeedback ? 'not-allowed' : 'pointer',
-        }}
-      >
-        {isGeneratingFeedback 
-          ? '✏️ 답변 작성 중... (10~20초)' 
-          : `✏️ 선생님 ${round === 2 ? '최종' : ''} 답변 작성하기 (AI가 채팅창에 자동 입력)`}
-      </button>
-    </div>
+    </>
   )
 }
 
@@ -172,8 +151,12 @@ export default function ExpectTab({ student }: { student: any }) {
   const [totalPages, setTotalPages] = useState(0)
   const [previewPage, setPreviewPage] = useState<number | null>(null)
 
-  const [showAIAnalysisRound1, setShowAIAnalysisRound1] = useState(false)
-  const [showAIAnalysisRound2, setShowAIAnalysisRound2] = useState(false)
+  // ⭐ 우측 AI 패널 상태
+  const [showAiPanel, setShowAiPanel] = useState(false)
+  const [aiTab, setAiTab] = useState<'first' | 'second'>('first')
+  
+  // ⭐ AI 답변 작성 로딩
+  const [aiSuggestLoading, setAiSuggestLoading] = useState<'first' | 'final' | null>(null)
 
   const gradeNum = gradeToNum(selGrade) ?? 1
 
@@ -206,6 +189,10 @@ export default function ExpectTab({ student }: { student: any }) {
   const aiQuestionCount = questions.filter(q => q.source_type === 'ai').length
   const hasAIQuestions = aiQuestionCount > 0
 
+  // ⭐ 호출수 (DB에서 가져온 값)
+  const round1CallCount = round1?.ai_call_count || 0
+  const round2CallCount = round2?.ai_call_count || 0
+
   useEffect(() => {
     if (pdfInfo?.saenggibu_pdf_url) {
       getSaenggibuPdfSignedUrl(pdfInfo.saenggibu_pdf_url).then((url) => setPdfUrl(url))
@@ -217,13 +204,11 @@ export default function ExpectTab({ student }: { student: any }) {
 
   useEffect(() => { 
     setSelQId(null)
-    setShowAIAnalysisRound1(false)
-    setShowAIAnalysisRound2(false)
+    setShowAiPanel(false)
   }, [selGrade])
 
   useEffect(() => {
-    setShowAIAnalysisRound1(false)
-    setShowAIAnalysisRound2(false)
+    setShowAiPanel(false)
   }, [selQId])
 
   useEffect(() => {
@@ -270,27 +255,33 @@ export default function ExpectTab({ student }: { student: any }) {
     })
   }
 
-  // ⭐ AI 분석 보기 - round 분기
-  const handleShowAIAnalysis = (round: number) => {
+  // ⭐ AI 분석 호출 (우측 패널)
+  const openAiAnalysis = (tab: 'first' | 'second' = 'first') => {
     if (!selQ) return
-    
-    const studentAnswer = round === 1 
-      ? selQ.student_answer 
-      : round2?.revised_answer
-    
+
+    setShowAiPanel(true)
+    setAiTab(tab)
+
+    const round = tab === 'first' ? 1 : 2
+    const studentAnswer = round === 1 ? selQ.student_answer : round2?.revised_answer
+
     if (!studentAnswer) {
-      alert('학생 답변이 없어요.')
+      alert(`학생이 ${round === 1 ? '첫' : '업그레이드'} 답변을 먼저 작성해야 합니다.`)
       return
     }
 
+    // 이미 분석 결과 있으면 재호출 안 함 (그냥 보여주기만)
     const existingAnalysis = round === 1 ? round1?.ai_analysis : round2?.ai_analysis
-    if (existingAnalysis) {
-      if (round === 1) setShowAIAnalysisRound1(true)
-      else setShowAIAnalysisRound2(true)
+    if (existingAnalysis) return
+
+    // 호출수 체크
+    const limit = round === 1 ? SAENGGIBU_AI_CALL_LIMITS.ROUND_1 : SAENGGIBU_AI_CALL_LIMITS.ROUND_2
+    const current = round === 1 ? round1CallCount : round2CallCount
+    if (current >= limit) {
+      alert(`${round}차 답변 AI 분석은 최대 ${limit}회까지만 가능합니다.`)
       return
     }
 
-    // ⭐ round 2일 때는 첫 답변 + 1차 피드백 함께 전달
     const params: any = {
       questionId: selQ.id,
       studentId,
@@ -307,29 +298,69 @@ export default function ExpectTab({ student }: { student: any }) {
     }
 
     generateAIAnalysis.mutate(params, {
-      onSuccess: () => {
-        if (round === 1) setShowAIAnalysisRound1(true)
-        else setShowAIAnalysisRound2(true)
-      },
       onError: (err: any) => {
         alert('AI 분석 실패:\n' + (err?.message || '알 수 없는 오류'))
       },
     })
   }
 
-  // ⭐ AI 피드백 작성 - round 분기
-  const handleCreateAIFeedback = (round: number) => {
+  // ⭐ AI 분석 다시 호출 (강제)
+  const reAnalyze = (round: number) => {
     if (!selQ) return
     
-    const analysis = round === 1 ? round1?.ai_analysis : round2?.ai_analysis
-    const studentAnswer = round === 1 ? selQ.student_answer : round2?.revised_answer
-    
-    if (!analysis || !studentAnswer) {
-      alert('분석 결과가 없어요.')
+    const limit = round === 1 ? SAENGGIBU_AI_CALL_LIMITS.ROUND_1 : SAENGGIBU_AI_CALL_LIMITS.ROUND_2
+    const current = round === 1 ? round1CallCount : round2CallCount
+    if (current >= limit) {
+      alert(`${round}차 답변 AI 분석은 최대 ${limit}회까지만 가능합니다. (이미 ${current}회 사용)`)
       return
     }
 
-    // ⭐ round 2일 때는 첫 답변 + 1차 피드백 함께 전달
+    if (!window.confirm(`AI 분석을 다시 실행할까요?\n\n현재 ${current}/${limit}회 사용\n실행 후 ${current + 1}/${limit}회`)) {
+      return
+    }
+
+    const studentAnswer = round === 1 ? selQ.student_answer : round2?.revised_answer
+    if (!studentAnswer) return
+
+    const params: any = {
+      questionId: selQ.id,
+      studentId,
+      round,
+      question: selQ.teacher_edited_question || selQ.question,
+      studentAnswer,
+      majorDept: selQ.major_dept,
+      sourceText: selQ.source_text,
+    }
+
+    if (round === 2) {
+      params.firstAnswer = selQ.student_answer
+      params.firstFeedback = round1?.teacher_feedback
+    }
+
+    generateAIAnalysis.mutate(params, {
+      onError: (err: any) => {
+        alert('AI 분석 실패:\n' + (err?.message || '알 수 없는 오류'))
+      },
+    })
+  }
+
+  // ⭐ AI 답변 작성 (선생님 말투)
+  const generateAIFeedbackText = async (type: 'first' | 'final') => {
+    if (!selQ) return
+    
+    const round = type === 'first' ? 1 : 2
+    const analysis = round === 1 ? round1?.ai_analysis : round2?.ai_analysis
+    const studentAnswer = round === 1 ? selQ.student_answer : round2?.revised_answer
+
+    if (!analysis) {
+      alert('AI 분석을 먼저 실행해주세요.\n오른쪽 "AI 분석 보기" 버튼을 눌러주세요.')
+      return
+    }
+    if (!studentAnswer) {
+      alert('학생 답변이 없어요.')
+      return
+    }
+
     const params: any = {
       question: selQ.teacher_edited_question || selQ.question,
       studentAnswer,
@@ -343,16 +374,16 @@ export default function ExpectTab({ student }: { student: any }) {
       params.firstFeedback = round1?.teacher_feedback
     }
 
-    generateAIFeedback.mutate(params, {
-      onSuccess: (feedbackText) => {
-        const key = round === 1 ? String(selQ.id) : `${selQ.id}_final`
-        setFeedback(prev => ({ ...prev, [key]: feedbackText }))
-        alert('AI가 피드백을 작성했어요!\n채팅창에서 수정 후 전달해주세요.')
-      },
-      onError: (err: any) => {
-        alert('AI 피드백 생성 실패:\n' + (err?.message || '알 수 없는 오류'))
-      },
-    })
+    setAiSuggestLoading(type)
+    try {
+      const draft = await generateAIFeedback.mutateAsync(params)
+      const key = type === 'first' ? String(selQ.id) : `${selQ.id}_final`
+      setFeedback(prev => ({ ...prev, [key]: draft }))
+    } catch (err: any) {
+      alert('AI 답변 작성 실패:\n' + (err?.message || '알 수 없는 오류'))
+    } finally {
+      setAiSuggestLoading(null)
+    }
   }
 
   const handleAddManual = async () => {
@@ -465,8 +496,8 @@ export default function ExpectTab({ student }: { student: any }) {
             <button key={g} onClick={() => setSelGrade(g)}
               style={{
                 padding: '6px 16px', borderRadius: 99, fontSize: 12, fontWeight: 600,
-                border: `1px solid ${selGrade === g ? '#2563EB' : '#E5E7EB'}`,
-                background: selGrade === g ? '#2563EB' : '#fff',
+                border: `1px solid ${selGrade === g ? THEME.accent : '#E5E7EB'}`,
+                background: selGrade === g ? THEME.accent : '#fff',
                 color: selGrade === g ? '#fff' : '#6B7280', cursor: 'pointer',
               }}>{g}</button>
           ))}
@@ -485,6 +516,7 @@ export default function ExpectTab({ student }: { student: any }) {
       </div>
 
       <div style={{ display: 'flex', gap: 16, flex: 1, overflow: 'hidden' }}>
+        {/* 왼쪽 질문 목록 */}
         <div style={{ width: 360, flexShrink: 0, background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ display: 'flex', borderBottom: '1px solid #E5E7EB', flexShrink: 0 }}>
             {[{ key: 'upload', label: '생기부 확인' }, { key: 'answers', label: '답변 피드백' }].map(t => (
@@ -492,8 +524,8 @@ export default function ExpectTab({ student }: { student: any }) {
                 style={{
                   flex: 1, padding: '12px 0', textAlign: 'center', fontSize: 12,
                   fontWeight: leftTab === t.key ? 700 : 500,
-                  color: leftTab === t.key ? '#2563EB' : '#6B7280',
-                  borderBottom: `2px solid ${leftTab === t.key ? '#2563EB' : 'transparent'}`,
+                  color: leftTab === t.key ? THEME.accent : '#6B7280',
+                  borderBottom: `2px solid ${leftTab === t.key ? THEME.accent : 'transparent'}`,
                   cursor: 'pointer',
                 }}>{t.label}</div>
             ))}
@@ -555,7 +587,7 @@ export default function ExpectTab({ student }: { student: any }) {
                       <button onClick={handleGenerateAI} disabled={generateAI.isPending}
                         style={{
                           width: '100%', padding: '12px 0',
-                          background: generateAI.isPending ? '#BAC8FF' : '#2563EB',
+                          background: generateAI.isPending ? '#BAC8FF' : THEME.accent,
                           color: '#fff', border: 'none', borderRadius: 10,
                           fontSize: 13, fontWeight: 700,
                           cursor: generateAI.isPending ? 'not-allowed' : 'pointer', marginBottom: 10,
@@ -596,7 +628,7 @@ export default function ExpectTab({ student }: { student: any }) {
                   <button onClick={() => setShowManualModal(true)}
                     style={{
                       width: '100%', padding: '11px 0', background: '#fff',
-                      color: '#2563EB', border: '1px solid #2563EB', borderRadius: 10,
+                      color: THEME.accent, border: `1px solid ${THEME.accent}`, borderRadius: 10,
                       fontSize: 13, fontWeight: 700, cursor: 'pointer', marginBottom: 14,
                     }}>
                     ✏️ 직접 질문 작성
@@ -619,7 +651,7 @@ export default function ExpectTab({ student }: { student: any }) {
           {leftTab === 'answers' && (
             <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
               <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 10, padding: '0 4px', lineHeight: 1.7 }}>
-                총 <span style={{ color: '#2563EB', fontWeight: 700 }}>{questions.length}개</span> ·
+                총 <span style={{ color: THEME.accent, fontWeight: 700 }}>{questions.length}개</span> ·
                 게시 <span style={{ color: '#059669', fontWeight: 700 }}>{questions.filter(q => q.question_status === 'published').length}개</span>
                 <br />
                 답변완료 <span style={{ color: '#059669', fontWeight: 700 }}>{questions.filter(q => !!q.student_answer).length}개</span> ·
@@ -638,12 +670,12 @@ export default function ExpectTab({ student }: { student: any }) {
                 return (
                   <div key={q.id} onClick={() => setSelQId(q.id)}
                     style={{
-                      border: `1px solid ${selQId === q.id ? '#2563EB' : '#E5E7EB'}`,
+                      border: `1px solid ${selQId === q.id ? THEME.accent : '#E5E7EB'}`,
                       borderRadius: 10, padding: '12px 14px', marginBottom: 8,
-                      cursor: 'pointer', background: selQId === q.id ? '#EFF6FF' : '#fff',
+                      cursor: 'pointer', background: selQId === q.id ? THEME.accentBg : '#fff',
                     }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', padding: '2px 8px', borderRadius: 99 }}>질문 {i + 1}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: THEME.accent, background: THEME.accentBg, padding: '2px 8px', borderRadius: 99 }}>질문 {i + 1}</span>
                       {q.source_type === 'teacher_manual' && (
                         <span style={{ fontSize: 9, fontWeight: 700, color: '#7C3AED', background: '#F3E8FF', padding: '2px 6px', borderRadius: 99 }}>원장 작성</span>
                       )}
@@ -672,7 +704,7 @@ export default function ExpectTab({ student }: { student: any }) {
                         style={{
                           flex: 1, padding: '4px 8px', fontSize: 10, fontWeight: 700, borderRadius: 6,
                           border: isPublished ? '1px solid #E5E7EB' : 'none',
-                          background: isPublished ? '#fff' : '#2563EB',
+                          background: isPublished ? '#fff' : THEME.accent,
                           color: isPublished ? '#6B7280' : '#fff', cursor: 'pointer',
                         }}>
                         {isPublished ? '🔒 비공개' : '👁 게시'}
@@ -690,7 +722,8 @@ export default function ExpectTab({ student }: { student: any }) {
           )}
         </div>
 
-        <div style={{ flex: 1, background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* 가운데 피드백 패널 */}
+        <div style={{ flex: 1, background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
           {!selQ ? (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', gap: 8 }}>
               <div style={{ fontSize: 36 }}>💬</div>
@@ -699,21 +732,39 @@ export default function ExpectTab({ student }: { student: any }) {
           ) : (
             <>
               <div style={{ padding: '14px 18px', borderBottom: '1px solid #E5E7EB', flexShrink: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>
                       질문 {questions.findIndex(q => q.id === selQ.id) + 1}
                     </div>
                     <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{selQ.tag || '기타'}</div>
                   </div>
-                  <span style={{
-                    fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99,
-                    background: selQ.student_answer ? '#ECFDF5' : '#FFF3E8',
-                    color: selQ.student_answer ? '#059669' : '#D97706',
-                    border: `1px solid ${selQ.student_answer ? '#6EE7B7' : '#FDBA74'}`,
-                  }}>
-                    {selQ.student_answer ? '답변완료' : '미답변'}
-                  </span>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    {selQ.student_answer && (
+                      <button
+                        onClick={() => {
+                          if (showAiPanel) setShowAiPanel(false)
+                          else openAiAnalysis('first')
+                        }}
+                        style={{
+                          padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                          background: showAiPanel ? THEME.accent : THEME.accentBg,
+                          color: showAiPanel ? '#fff' : THEME.accent,
+                          border: `1px solid ${THEME.accent}`,
+                        }}
+                      >
+                        ✨ AI 분석 {showAiPanel ? '닫기' : '보기'}
+                      </button>
+                    )}
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99,
+                      background: selQ.student_answer ? '#ECFDF5' : '#FFF3E8',
+                      color: selQ.student_answer ? '#059669' : '#D97706',
+                      border: `1px solid ${selQ.student_answer ? '#6EE7B7' : '#FDBA74'}`,
+                    }}>
+                      {selQ.student_answer ? '답변완료' : '미답변'}
+                    </span>
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex' }}>
@@ -733,13 +784,13 @@ export default function ExpectTab({ student }: { student: any }) {
                           width: 24, height: 24, borderRadius: '50%',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           fontSize: 10, fontWeight: 700, zIndex: 1, position: 'relative',
-                          background: isDone ? '#059669' : isOn ? '#2563EB' : '#F3F4F6',
+                          background: isDone ? '#059669' : isOn ? THEME.accent : '#F3F4F6',
                           color: isDone || isOn ? '#fff' : '#9CA3AF',
-                          border: `2px solid ${isDone ? '#059669' : isOn ? '#2563EB' : '#E5E7EB'}`,
+                          border: `2px solid ${isDone ? '#059669' : isOn ? THEME.accent : '#E5E7EB'}`,
                         }}>{isDone ? '✓' : stepNum}</div>
                         <div style={{
                           fontSize: 10,
-                          color: isDone ? '#059669' : isOn ? '#2563EB' : '#9CA3AF',
+                          color: isDone ? '#059669' : isOn ? THEME.accent : '#9CA3AF',
                           fontWeight: isOn ? 700 : 500, whiteSpace: 'nowrap',
                         }}>{label}</div>
                       </div>
@@ -771,16 +822,17 @@ export default function ExpectTab({ student }: { student: any }) {
                 )}
 
                 {selQ.purpose && Array.isArray(selQ.purpose) && selQ.purpose.length > 0 && (
-                  <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10, padding: '14px 16px' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#2563EB', marginBottom: 8 }}>💡 질문 목적</div>
+                  <div style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60`, borderRadius: 10, padding: '14px 16px' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: THEME.accent, marginBottom: 8 }}>💡 질문 목적</div>
                     <ul style={{ paddingLeft: 16, margin: 0 }}>
                       {selQ.purpose.map((p: string, i: number) => (
-                        <li key={i} style={{ fontSize: 12, color: '#1E3A8A', lineHeight: 1.7 }}>{p}</li>
+                        <li key={i} style={{ fontSize: 12, color: THEME.accentDark, lineHeight: 1.7 }}>{p}</li>
                       ))}
                     </ul>
                   </div>
                 )}
 
+                {/* Step 1: 학생 첫 답변 */}
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#6B7280', padding: '3px 10px', borderRadius: 99 }}>Step 1</span>
@@ -795,74 +847,51 @@ export default function ExpectTab({ student }: { student: any }) {
                 {selQ.student_answer && (
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#2563EB', padding: '3px 10px', borderRadius: 99 }}>Step 2</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: THEME.accent, padding: '3px 10px', borderRadius: 99 }}>Step 2</span>
                       <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>선생님 1차 피드백</span>
                     </div>
                     {round1?.teacher_feedback ? (
-                      <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '11px 14px', fontSize: 13, color: '#1E3A8A', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                      <div style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60`, borderRadius: 8, padding: '11px 14px', fontSize: 13, color: THEME.accentDark, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
                         {round1.teacher_feedback}
                       </div>
                     ) : (
                       <>
-                        {!showAIAnalysisRound1 && !round1?.ai_analysis && (
+                        {/* ⭐ AI 답변 작성 버튼 */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
                           <button
-                            onClick={() => handleShowAIAnalysis(1)}
-                            disabled={generateAIAnalysis.isPending}
+                            onClick={() => generateAIFeedbackText('first')}
+                            disabled={aiSuggestLoading === 'first' || !round1?.ai_analysis}
+                            title={!round1?.ai_analysis ? 'AI 분석을 먼저 실행해주세요 (오른쪽 "AI 분석 보기")' : ''}
                             style={{
-                              width: '100%', padding: '10px 0',
-                              background: generateAIAnalysis.isPending ? '#BAC8FF' : '#fff',
-                              color: '#4F46E5',
-                              border: `1px solid ${generateAIAnalysis.isPending ? '#BAC8FF' : '#4F46E5'}`,
-                              borderRadius: 8, fontSize: 12, fontWeight: 700,
-                              cursor: generateAIAnalysis.isPending ? 'not-allowed' : 'pointer', marginBottom: 10,
+                              padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                              cursor: (aiSuggestLoading === 'first' || !round1?.ai_analysis) ? 'not-allowed' : 'pointer',
+                              opacity: (aiSuggestLoading === 'first' || !round1?.ai_analysis) ? 0.5 : 1,
+                              background: THEME.accentBg, color: THEME.accent,
+                              border: `1px solid ${THEME.accent}`,
+                              display: 'flex', alignItems: 'center', gap: 4,
                             }}
                           >
-                            {generateAIAnalysis.isPending 
-                              ? 'AI 분석 중... (10~20초)' 
-                              : '1차 답변 AI 피드백'}
+                            {aiSuggestLoading === 'first' ? '✨ 작성 중...' : '✨ AI 답변 작성'}
                           </button>
-                        )}
-
-                        {!showAIAnalysisRound1 && round1?.ai_analysis && (
-                          <button
-                            onClick={() => setShowAIAnalysisRound1(true)}
-                            style={{
-                              width: '100%', padding: '10px 0',
-                              background: '#FAFBFF', color: '#4F46E5',
-                              border: '1px solid #C7D2FE',
-                              borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', marginBottom: 10,
-                            }}
-                          >
-                            📊 2차 답변 AI 피드백
-                          </button>
-                        )}
-
-                        {showAIAnalysisRound1 && round1?.ai_analysis && (
-                          <AIAnalysisBox
-                            analysis={round1.ai_analysis}
-                            onCreateFeedback={() => handleCreateAIFeedback(1)}
-                            isGeneratingFeedback={generateAIFeedback.isPending}
-                            round={1}
-                          />
-                        )}
+                        </div>
 
                         <textarea
                           value={feedback[String(selQ.id)] || ''}
                           onChange={e => setFeedback(prev => ({ ...prev, [String(selQ.id)]: e.target.value }))}
-                          placeholder="학생의 첫 답변에 대한 피드백을 작성해주세요... (또는 AI 답변 작성하기 버튼 활용)"
+                          placeholder="학생의 첫 답변에 대한 피드백을 작성해주세요... (또는 AI 분석 후 'AI 답변 작성' 버튼 활용)"
                           rows={6}
-                          style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: 8, padding: '11px 14px', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7, marginTop: 10 }}
+                          style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: 8, padding: '11px 14px', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7 }}
                         />
                         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                           <button onClick={sendFirstFb}
                             disabled={sendFirst.isPending || !(feedback[String(selQ.id)] || '').trim()}
                             style={{
                               padding: '8px 16px',
-                              background: (feedback[String(selQ.id)] || '').trim() ? '#2563EB' : '#E5E7EB',
+                              background: (feedback[String(selQ.id)] || '').trim() ? THEME.accent : '#E5E7EB',
                               color: (feedback[String(selQ.id)] || '').trim() ? '#fff' : '#9CA3AF',
                               border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer',
                             }}>
-                            {sendFirst.isPending ? '전달중...' : '1차 피드백 전달'}
+                            {sendFirst.isPending ? '전달중...' : '📤 1차 피드백 전달'}
                           </button>
                         </div>
                       </>
@@ -876,6 +905,23 @@ export default function ExpectTab({ student }: { student: any }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                       <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#6B7280', padding: '3px 10px', borderRadius: 99 }}>Step 3</span>
                       <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>학생 업그레이드 답변</span>
+                      {round2?.revised_answer && (
+                        <button
+                          onClick={() => {
+                            if (showAiPanel && aiTab === 'second') setShowAiPanel(false)
+                            else openAiAnalysis('second')
+                          }}
+                          style={{
+                            marginLeft: 'auto',
+                            padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: 'pointer',
+                            background: showAiPanel && aiTab === 'second' ? THEME.accent : THEME.accentBg,
+                            color: showAiPanel && aiTab === 'second' ? '#fff' : THEME.accent,
+                            border: `1px solid ${THEME.accent}`,
+                          }}
+                        >
+                          ✨ 2차 AI 분석 {showAiPanel && aiTab === 'second' ? '닫기' : '보기'}
+                        </button>
+                      )}
                     </div>
                     <div style={{ background: '#F8F7F5', borderRadius: 8, padding: '11px 14px', fontSize: 13, color: '#374151', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
                       {round2?.revised_answer || <span style={{ color: '#9CA3AF' }}>학생이 아직 업그레이드 답변을 작성하지 않았어요.</span>}
@@ -883,7 +929,7 @@ export default function ExpectTab({ student }: { student: any }) {
                   </div>
                 )}
 
-                {/* Step 4: 최종 피드백 (Round 2) */}
+                {/* Step 4: 최종 피드백 */}
                 {round2?.revised_answer && (
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
@@ -896,54 +942,30 @@ export default function ExpectTab({ student }: { student: any }) {
                       </div>
                     ) : (
                       <>
-                        {!showAIAnalysisRound2 && !round2?.ai_analysis && (
+                        {/* ⭐ AI 답변 작성 버튼 (최종 피드백) */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
                           <button
-                            onClick={() => handleShowAIAnalysis(2)}
-                            disabled={generateAIAnalysis.isPending}
+                            onClick={() => generateAIFeedbackText('final')}
+                            disabled={aiSuggestLoading === 'final' || !round2?.ai_analysis}
+                            title={!round2?.ai_analysis ? 'AI 분석을 먼저 실행해주세요 (오른쪽 "2차 AI 분석 보기")' : ''}
                             style={{
-                              width: '100%', padding: '10px 0',
-                              background: generateAIAnalysis.isPending ? '#BAC8FF' : '#fff',
-                              color: '#4F46E5',
-                              border: `1px solid ${generateAIAnalysis.isPending ? '#BAC8FF' : '#4F46E5'}`,
-                              borderRadius: 8, fontSize: 12, fontWeight: 700,
-                              cursor: generateAIAnalysis.isPending ? 'not-allowed' : 'pointer', marginBottom: 10,
+                              padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                              cursor: (aiSuggestLoading === 'final' || !round2?.ai_analysis) ? 'not-allowed' : 'pointer',
+                              opacity: (aiSuggestLoading === 'final' || !round2?.ai_analysis) ? 0.5 : 1,
+                              background: '#ECFDF5', color: '#059669',
+                              border: '1px solid #10B981',
                             }}
                           >
-                            {generateAIAnalysis.isPending 
-                              ? '🤖 AI 분석 중... (10~20초)' 
-                              : '🤖 AI 분석 보기 (업그레이드 답변 평가)'}
+                            {aiSuggestLoading === 'final' ? '✨ 작성 중...' : '✨ AI 답변 작성'}
                           </button>
-                        )}
-
-                        {!showAIAnalysisRound2 && round2?.ai_analysis && (
-                          <button
-                            onClick={() => setShowAIAnalysisRound2(true)}
-                            style={{
-                              width: '100%', padding: '10px 0',
-                              background: '#FAFBFF', color: '#4F46E5',
-                              border: '1px solid #C7D2FE',
-                              borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', marginBottom: 10,
-                            }}
-                          >
-                            📊 AI 분석 결과 다시 보기
-                          </button>
-                        )}
-
-                        {showAIAnalysisRound2 && round2?.ai_analysis && (
-                          <AIAnalysisBox
-                            analysis={round2.ai_analysis}
-                            onCreateFeedback={() => handleCreateAIFeedback(2)}
-                            isGeneratingFeedback={generateAIFeedback.isPending}
-                            round={2}
-                          />
-                        )}
+                        </div>
 
                         <textarea
                           value={feedback[`${selQ.id}_final`] || ''}
                           onChange={e => setFeedback(prev => ({ ...prev, [`${selQ.id}_final`]: e.target.value }))}
-                          placeholder="업그레이드된 답변에 대한 최종 피드백을 작성해주세요... (또는 AI 답변 작성하기 버튼 활용)"
+                          placeholder="업그레이드된 답변에 대한 최종 피드백을 작성해주세요... (또는 2차 AI 분석 후 'AI 답변 작성' 버튼 활용)"
                           rows={6}
-                          style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: 8, padding: '11px 14px', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7, marginTop: 10 }}
+                          style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: 8, padding: '11px 14px', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7 }}
                         />
                         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                           <button onClick={sendFinalFb}
@@ -954,7 +976,7 @@ export default function ExpectTab({ student }: { student: any }) {
                               color: (feedback[`${selQ.id}_final`] || '').trim() ? '#fff' : '#9CA3AF',
                               border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer',
                             }}>
-                            {sendFinal.isPending ? '전달중...' : '최종 피드백 전달'}
+                            {sendFinal.isPending ? '전달중...' : '✓ 최종 피드백 전달'}
                           </button>
                         </div>
                       </>
@@ -965,13 +987,13 @@ export default function ExpectTab({ student }: { student: any }) {
                 {/* Step 5: 꼬리질문 */}
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: step >= 5 ? '#2563EB' : '#6B7280', padding: '3px 10px', borderRadius: 99 }}>Step 5</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: step >= 5 ? THEME.accent : '#6B7280', padding: '3px 10px', borderRadius: 99 }}>Step 5</span>
                     <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>꼬리질문</span>
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                       <button onClick={() => setShowTailModal(true)}
-                        style={{ padding: '5px 12px', background: '#fff', color: '#2563EB', border: '1px solid #2563EB', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+ 직접 추가</button>
+                        style={{ padding: '5px 12px', background: '#fff', color: THEME.accent, border: `1px solid ${THEME.accent}`, borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+ 직접 추가</button>
                       <button onClick={openAiTailModal}
-                        style={{ padding: '5px 12px', background: '#2563EB', color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>✨ AI 생성</button>
+                        style={{ padding: '5px 12px', background: THEME.accent, color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>✨ AI 생성</button>
                     </div>
                   </div>
                   {followups.length === 0 ? (
@@ -981,7 +1003,7 @@ export default function ExpectTab({ student }: { student: any }) {
                   ) : followups.map((fu, i) => (
                     <div key={fu.id} style={{ background: '#F8F7F5', border: '1px solid #E5E7EB', borderRadius: 8, padding: '10px 12px', marginBottom: 6 }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', padding: '3px 8px', borderRadius: 99, flexShrink: 0, marginTop: 1 }}>꼬리 {i + 1}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: THEME.accent, background: THEME.accentBg, padding: '3px 8px', borderRadius: 99, flexShrink: 0, marginTop: 1 }}>꼬리 {i + 1}</span>
                         <div style={{ flex: 1, fontSize: 12, color: '#374151', lineHeight: 1.6 }}>
                           {fu.teacher_edited_question || fu.ai_generated_question}
                         </div>
@@ -1003,8 +1025,130 @@ export default function ExpectTab({ student }: { student: any }) {
             </>
           )}
         </div>
+
+        {/* ⭐ 오른쪽 AI 분석 패널 */}
+        {showAiPanel && selQ && (
+          <div style={{ width: 440, flexShrink: 0, background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ padding: '12px 18px', borderBottom: '1px solid #E5E7EB', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: THEME.accentBg }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: THEME.accentDark }}>✨ AI 분석</div>
+              <button
+                onClick={() => setShowAiPanel(false)}
+                style={{ color: '#6B7280', fontSize: 18, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer', borderRadius: 6 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* 1차/2차 탭 */}
+            <div style={{ display: 'flex', borderBottom: '1px solid #E5E7EB', flexShrink: 0 }}>
+              <button
+                onClick={() => { setAiTab('first'); openAiAnalysis('first') }}
+                style={{
+                  flex: 1, padding: '12px 0', textAlign: 'center', fontSize: 12,
+                  fontWeight: aiTab === 'first' ? 700 : 500,
+                  color: aiTab === 'first' ? THEME.accent : '#6B7280',
+                  borderBottom: `2px solid ${aiTab === 'first' ? THEME.accent : 'transparent'}`,
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                }}
+              >
+                <div>📊 1차 답변 분석</div>
+                <div style={{ fontSize: 9, color: '#9CA3AF', marginTop: 2, fontWeight: 500 }}>
+                  {round1CallCount}/{SAENGGIBU_AI_CALL_LIMITS.ROUND_1}회 사용
+                </div>
+              </button>
+              <button
+                onClick={() => { 
+                  if (round2?.revised_answer) { 
+                    setAiTab('second')
+                    openAiAnalysis('second')
+                  }
+                }}
+                disabled={!round2?.revised_answer}
+                style={{
+                  flex: 1, padding: '12px 0', textAlign: 'center', fontSize: 12,
+                  fontWeight: aiTab === 'second' ? 700 : 500,
+                  color: !round2?.revised_answer ? '#D1D5DB' : aiTab === 'second' ? THEME.accent : '#6B7280',
+                  borderBottom: `2px solid ${aiTab === 'second' ? THEME.accent : 'transparent'}`,
+                  background: 'transparent', border: 'none', 
+                  cursor: !round2?.revised_answer ? 'not-allowed' : 'pointer',
+                }}
+              >
+                <div>📈 2차 답변 분석</div>
+                <div style={{ fontSize: 9, color: '#9CA3AF', marginTop: 2, fontWeight: 500 }}>
+                  {!round2?.revised_answer ? '업그레이드 필요' : `${round2CallCount}/${SAENGGIBU_AI_CALL_LIMITS.ROUND_2}회 사용`}
+                </div>
+              </button>
+            </div>
+
+            {/* 분석 결과 */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+              {generateAIAnalysis.isPending ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, color: '#9CA3AF' }}>
+                  <div style={{ fontSize: 32 }}>✨</div>
+                  <div style={{ fontSize: 13 }}>AI가 분석 중이에요...</div>
+                  <div style={{ fontSize: 11 }}>(10~20초 소요)</div>
+                </div>
+              ) : aiTab === 'first' ? (
+                round1?.ai_analysis ? (
+                  <>
+                    <AIAnalysisContent analysis={round1.ai_analysis} round={1} />
+                    {round1CallCount < SAENGGIBU_AI_CALL_LIMITS.ROUND_1 && (
+                      <button
+                        onClick={() => reAnalyze(1)}
+                        style={{
+                          width: '100%', marginTop: 12, padding: '8px 0',
+                          background: '#fff', color: THEME.accent,
+                          border: `1px solid ${THEME.accent}`, borderRadius: 6,
+                          fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                        }}
+                      >
+                        🔄 AI 분석 다시 실행 ({round1CallCount}/{SAENGGIBU_AI_CALL_LIMITS.ROUND_1}회 사용)
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, color: '#9CA3AF' }}>
+                    <div style={{ fontSize: 32 }}>📊</div>
+                    <div style={{ fontSize: 13, textAlign: 'center', lineHeight: 1.7 }}>
+                      AI 분석을 시작하려면<br />
+                      위쪽 "✨ AI 분석 보기" 버튼을 눌러주세요
+                    </div>
+                  </div>
+                )
+              ) : (
+                round2?.ai_analysis ? (
+                  <>
+                    <AIAnalysisContent analysis={round2.ai_analysis} round={2} />
+                    {round2CallCount < SAENGGIBU_AI_CALL_LIMITS.ROUND_2 && (
+                      <button
+                        onClick={() => reAnalyze(2)}
+                        style={{
+                          width: '100%', marginTop: 12, padding: '8px 0',
+                          background: '#fff', color: THEME.accent,
+                          border: `1px solid ${THEME.accent}`, borderRadius: 6,
+                          fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                        }}
+                      >
+                        🔄 AI 분석 다시 실행 ({round2CallCount}/{SAENGGIBU_AI_CALL_LIMITS.ROUND_2}회 사용)
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, color: '#9CA3AF' }}>
+                    <div style={{ fontSize: 32 }}>📈</div>
+                    <div style={{ fontSize: 13, textAlign: 'center', lineHeight: 1.7 }}>
+                      2차 답변 분석을 시작하려면<br />
+                      Step 3의 "✨ 2차 AI 분석 보기" 버튼을 눌러주세요
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
+      {/* 모달들 (꼬리질문, AI 꼬리질문, 직접 작성) - 기존과 동일 */}
       {showTailModal && (
         <div onClick={() => setShowTailModal(false)}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1018,7 +1162,7 @@ export default function ExpectTab({ student }: { student: any }) {
               <button onClick={() => { setShowTailModal(false); setTailInput('') }}
                 style={{ flex: 1, height: 42, background: '#fff', color: '#6B7280', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>취소</button>
               <button onClick={submitTail} disabled={!tailInput.trim() || addTail.isPending}
-                style={{ flex: 1, height: 42, background: tailInput.trim() ? '#2563EB' : '#E5E7EB', color: tailInput.trim() ? '#fff' : '#9CA3AF', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: tailInput.trim() ? 'pointer' : 'not-allowed' }}>
+                style={{ flex: 1, height: 42, background: tailInput.trim() ? THEME.accent : '#E5E7EB', color: tailInput.trim() ? '#fff' : '#9CA3AF', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: tailInput.trim() ? 'pointer' : 'not-allowed' }}>
                 {addTail.isPending ? '추가중...' : '추가하고 게시'}
               </button>
             </div>
@@ -1040,8 +1184,8 @@ export default function ExpectTab({ student }: { student: any }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
                 {aiTails.map((t, i) => (
                   <div key={i} onClick={() => setSelectedAiTails(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])}
-                    style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', border: `1px solid ${selectedAiTails.includes(i) ? '#2563EB' : '#E5E7EB'}`, borderRadius: 10, cursor: 'pointer', background: selectedAiTails.includes(i) ? '#EFF6FF' : '#fff' }}>
-                    <div style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${selectedAiTails.includes(i) ? '#2563EB' : '#D1D5DB'}`, background: selectedAiTails.includes(i) ? '#2563EB' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                    style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', border: `1px solid ${selectedAiTails.includes(i) ? THEME.accent : '#E5E7EB'}`, borderRadius: 10, cursor: 'pointer', background: selectedAiTails.includes(i) ? THEME.accentBg : '#fff' }}>
+                    <div style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${selectedAiTails.includes(i) ? THEME.accent : '#D1D5DB'}`, background: selectedAiTails.includes(i) ? THEME.accent : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
                       {selectedAiTails.includes(i) && <span style={{ fontSize: 11, color: '#fff' }}>✓</span>}
                     </div>
                     <span style={{ fontSize: 13, color: '#1a1a1a', lineHeight: 1.6 }}>{t}</span>
@@ -1053,7 +1197,7 @@ export default function ExpectTab({ student }: { student: any }) {
               <button onClick={() => setShowAiTailModal(false)}
                 style={{ flex: 1, height: 42, background: '#fff', color: '#6B7280', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>취소</button>
               <button onClick={deliverAiTails} disabled={selectedAiTails.length === 0 || genAITails.isPending || saveAITails.isPending}
-                style={{ flex: 1, height: 42, background: selectedAiTails.length > 0 ? '#2563EB' : '#E5E7EB', color: selectedAiTails.length > 0 ? '#fff' : '#9CA3AF', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: selectedAiTails.length > 0 ? 'pointer' : 'not-allowed' }}>
+                style={{ flex: 1, height: 42, background: selectedAiTails.length > 0 ? THEME.accent : '#E5E7EB', color: selectedAiTails.length > 0 ? '#fff' : '#9CA3AF', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: selectedAiTails.length > 0 ? 'pointer' : 'not-allowed' }}>
                 {saveAITails.isPending ? '저장중...' : `선택한 ${selectedAiTails.length}개 전달`}
               </button>
             </div>
@@ -1076,7 +1220,7 @@ export default function ExpectTab({ student }: { student: any }) {
                   background: '#FAFBFC',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', padding: '3px 10px', borderRadius: 99 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: THEME.accent, background: THEME.accentBg, padding: '3px 10px', borderRadius: 99 }}>
                       질문 {idx + 1}
                     </span>
                     {manualItems.length > 1 && (
@@ -1114,7 +1258,7 @@ export default function ExpectTab({ student }: { student: any }) {
 
               <button onClick={addManualRow}
                 style={{
-                  width: '100%', padding: '10px 0', background: '#fff', color: '#2563EB',
+                  width: '100%', padding: '10px 0', background: '#fff', color: THEME.accent,
                   border: '1.5px dashed #93C5FD', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer',
                 }}>+ 질문 추가</button>
             </div>
@@ -1132,7 +1276,7 @@ export default function ExpectTab({ student }: { student: any }) {
                 disabled={manualItems.filter(i => i.question.trim()).length === 0 || addManual.isPending}
                 style={{
                   flex: 2, height: 42,
-                  background: manualItems.filter(i => i.question.trim()).length > 0 && !addManual.isPending ? '#2563EB' : '#E5E7EB',
+                  background: manualItems.filter(i => i.question.trim()).length > 0 && !addManual.isPending ? THEME.accent : '#E5E7EB',
                   color: manualItems.filter(i => i.question.trim()).length > 0 && !addManual.isPending ? '#fff' : '#9CA3AF',
                   border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700,
                   cursor: manualItems.filter(i => i.question.trim()).length > 0 && !addManual.isPending ? 'pointer' : 'not-allowed',

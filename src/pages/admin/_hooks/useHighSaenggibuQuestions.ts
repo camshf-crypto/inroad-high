@@ -1,6 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 
+// ⭐ AI 호출 제한
+export const SAENGGIBU_AI_CALL_LIMITS = {
+  ROUND_1: 3,  // 1차 답변 분석 최대 3회
+  ROUND_2: 2,  // 2차 답변 분석 최대 2회
+}
+
 // ─────────────────────────────────────────────
 // 타입
 // ─────────────────────────────────────────────
@@ -36,6 +42,7 @@ export interface ExpectAnalysis {
   revised_answer: string | null
   teacher_feedback: string | null
   ai_analysis: any
+  ai_call_count: number  // ⭐ 추가
   status: string | null
   published_at: string | null
   created_at: string
@@ -317,7 +324,21 @@ export function useGenerateAIQuestions() {
 }
 
 // ─────────────────────────────────────────────
-// 6. AI 답변 분석 (round 1/2 분기)
+// ⭐ 호출 횟수 가져오기 헬퍼
+// ─────────────────────────────────────────────
+
+async function getSaenggibuAICallCount(questionId: string, round: number): Promise<number> {
+  const { data } = await supabase
+    .from('high_saenggibu_questions_analysis')
+    .select('ai_call_count')
+    .eq('question_id', questionId)
+    .eq('round', round)
+    .maybeSingle()
+  return data?.ai_call_count || 0
+}
+
+// ─────────────────────────────────────────────
+// 6. ⭐ AI 답변 분석 (round 1/2 분기 + 호출수 제한)
 // ─────────────────────────────────────────────
 
 export function useGenerateAIAnalysis() {
@@ -337,6 +358,13 @@ export function useGenerateAIAnalysis() {
       firstAnswer?: string | null
       firstFeedback?: string | null
     }): Promise<AIAnalysisResult> => {
+
+      // ⭐ 호출수 체크
+      const limit = round === 1 ? SAENGGIBU_AI_CALL_LIMITS.ROUND_1 : SAENGGIBU_AI_CALL_LIMITS.ROUND_2
+      const currentCount = await getSaenggibuAICallCount(questionId, round)
+      if (currentCount >= limit) {
+        throw new Error(`${round}차 답변 AI 분석은 최대 ${limit}회까지만 가능합니다. (현재 ${currentCount}회 사용)`)
+      }
 
       const body: any = {
         question,
@@ -360,9 +388,10 @@ export function useGenerateAIAnalysis() {
 
       const analysis = data.analysis as AIAnalysisResult
 
+      // ⭐ DB 저장 + 카운트 +1
       const { data: existing } = await supabase
         .from('high_saenggibu_questions_analysis')
-        .select('id')
+        .select('id, ai_call_count')
         .eq('question_id', questionId)
         .eq('round', round)
         .maybeSingle()
@@ -370,7 +399,10 @@ export function useGenerateAIAnalysis() {
       if (existing) {
         const { error: updateErr } = await supabase
           .from('high_saenggibu_questions_analysis')
-          .update({ ai_analysis: analysis })
+          .update({ 
+            ai_analysis: analysis,
+            ai_call_count: (existing.ai_call_count || 0) + 1,
+          })
           .eq('id', existing.id)
         if (updateErr) throw updateErr
       } else {
@@ -381,6 +413,7 @@ export function useGenerateAIAnalysis() {
             student_id: studentId,
             round,
             ai_analysis: analysis,
+            ai_call_count: 1,
             status: 'pending',
           })
         if (insertErr) throw insertErr
@@ -395,7 +428,7 @@ export function useGenerateAIAnalysis() {
 }
 
 // ─────────────────────────────────────────────
-// 7. AI 분석 → 선생님 말투 피드백
+// 7. AI 분석 → 선생님 말투 피드백 (제한 없음)
 // ─────────────────────────────────────────────
 
 export function useGenerateAIFeedback() {
@@ -702,7 +735,6 @@ export function useAddFollowup() {
   })
 }
 
-// ⭐ 실제 AI 호출로 교체됨
 export function useGenerateAIFollowups() {
   return useMutation({
     mutationFn: async (input: { 
