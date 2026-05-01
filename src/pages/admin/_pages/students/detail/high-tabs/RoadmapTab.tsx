@@ -52,7 +52,7 @@ export default function RoadmapTab({ student, viewGrade }: Props) {
   const selected = selMonth !== null ? roadmap[selMonth] : null
 
   const scColor = (type: Mission['type']) => {
-    if (type === 'inAnswer') return { bg: '#EDE9FE', c: '#6D28D9', label: '✨ BIKUS' }
+    if (type === 'inAnswer') return { bg: '#EDE9FE', c: '#6D28D9', label: '✨ B-KEARS' }
     if (type === 'tab') return { bg: THEME.accentBg, c: THEME.accent, label: '🔗 바로가기' }
     return { bg: '#F0FDF4', c: '#15803D', label: '👨‍🏫 선생님' }
   }

@@ -51,6 +51,7 @@ export interface MockExamMajor {
   order: number
   question_text: string
   correct_answer: string
+  question_type: string
   student_answer: string | null
   answered_at: string | null
   score: number | null         // 0 / 50 / 100
@@ -506,7 +507,17 @@ export function useMockExamReport(examId: string | undefined) {
 }
 
 // ─────────────────────────────────────────────
-// 12. AI 리포트 생성 (MOCK)
+// 12. 🆕 AI 리포트 생성 (GPT-4o 기반)
+//
+// 흐름:
+//   1) DB에서 exam + 본질문 + 꼬리질문 + 전공특화 + 이전 리포트 조회
+//   2) ai-generate-mock-report Edge Function 호출 → 점수/강점/약점/학부모메시지/대학적합도
+//   3) 정적 가이드(시기/생기부/다음 회차)는 기존 헬퍼 함수에서 가져오기
+//   4) 합쳐서 high_mock_exam_report에 저장 (있으면 update, 없으면 insert)
+//
+// 주의:
+//   - useCompleteMockExam이 먼저 status='analyzed'와 객관식 자동채점을 실행한 후 호출
+//     (MockExam.tsx에서 useCompleteMockExam.mutate의 onSuccess에서 generateReport 호출)
 // ─────────────────────────────────────────────
 
 export function useGenerateReport() {
@@ -516,7 +527,7 @@ export function useGenerateReport() {
       examId: string
       studentId: string
     }) => {
-      // exam + questions + majors 조회
+      // ── 1) 데이터 조회 ──
       const { data: exam } = await supabase
         .from('high_mock_exam')
         .select('*')
@@ -528,40 +539,64 @@ export function useGenerateReport() {
         .from('high_mock_exam_questions')
         .select('*')
         .eq('exam_id', examId)
+        .order('order', { ascending: true })
 
       const { data: majors } = await supabase
         .from('high_mock_exam_major')
         .select('*')
         .eq('exam_id', examId)
+        .order('order', { ascending: true })
 
-      // MOCK 점수 계산 (실제는 AI 연동)
-      await new Promise(r => setTimeout(r, 1500))
+      // ── 2) 면접 QA 빌드 (본 + 꼬리, 순서대로) ──
+      const allQs = questions || []
+      const mains = allQs
+        .filter(q => q.level === 'main')
+        .sort((a, b) => a.order - b.order)
 
-      const mainCount = (questions || []).filter(q => q.level === 'main' && q.student_answer).length
-      const answerRate = Math.min(100, (mainCount / 4) * 100)
-      const majorScores = (majors || []).filter(m => m.score !== null).map(m => m.score as number)
-      const majorAvg = majorScores.length > 0 
-        ? majorScores.reduce((a, b) => a + b, 0) / majorScores.length 
-        : 0
-
-      // 카테고리별 점수 (MOCK)
-      const scores = {
-        인성: Math.round(60 + Math.random() * 30),
-        전공적합성: Math.round(majorAvg * 0.8 + Math.random() * 10),
-        발전가능성: Math.round(60 + answerRate * 0.3 + Math.random() * 10),
-        total: 0,
+      const interviewQAs: any[] = []
+      for (const m of mains) {
+        interviewQAs.push({
+          order: m.order,
+          question: m.question_text,
+          answer: m.student_answer,
+          type: m.type,
+          is_tail: false,
+        })
+        // 꼬리질문 (parent_id로 매칭)
+        const tails = allQs
+          .filter(q => q.parent_id === m.id)
+          .sort((a, b) => (a.tail_index ?? 0) - (b.tail_index ?? 0))
+        for (const t of tails) {
+          interviewQAs.push({
+            order: t.order,
+            question: t.question_text,
+            answer: t.student_answer,
+            type: t.type,
+            is_tail: true,
+            parent_order: m.order,
+          })
+        }
       }
-      scores.total = Math.round((scores['인성'] + scores['전공적합성'] + scores['발전가능성']) / 3)
 
-      // 이전 회차와 비교
-      let comparison_prev = null
+      // ── 3) 전공특화 QA 빌드 ──
+      const majorQAs = (majors || []).map(m => ({
+        order: m.order,
+        question: m.question_text,
+        question_type: m.question_type,
+        student_answer: m.student_answer,
+        correct_answer: m.correct_answer,
+        score: m.score,
+      }))
+
+      // ── 4) 이전 회차 비교용 데이터 조회 ──
+      let prevReportData: any = null
       const periodOrder = ['2월말', '8월말', '10월말']
       const currentIdx = periodOrder.indexOf(exam.period)
       if (currentIdx > 0) {
         const prevPeriod = periodOrder[currentIdx - 1]
         const { data: prevExam } = await supabase
           .from('high_mock_exam')
-          .select('id, total_score')
+          .select('id')
           .eq('student_id', studentId)
           .eq('grade', exam.grade)
           .eq('period', prevPeriod)
@@ -573,54 +608,79 @@ export function useGenerateReport() {
             .eq('exam_id', prevExam.id)
             .maybeSingle()
           if (prevReport?.scores?.total) {
-            comparison_prev = {
-              prev_period: prevPeriod,
-              prev_total: prevReport.scores.total,
-              current_total: scores.total,
-              diff: scores.total - prevReport.scores.total,
+            prevReportData = {
+              period: prevPeriod,
+              total: prevReport.scores.total,
+              scores: prevReport.scores,
             }
           }
         }
       }
 
-      // 시기별 가이드 (grade + period)
+      // ── 5) Edge Function 호출 ──
+      const { data: aiResult, error: aiErr } = await supabase.functions.invoke(
+        'ai-generate-mock-report',
+        {
+          body: {
+            exam: {
+              grade: exam.grade,
+              period: exam.period,
+              exam_type: exam.exam_type,
+              major_level: exam.major_level,
+              target_university: exam.target_university,
+              target_department: exam.target_department,
+            },
+            interviewQAs,
+            majorQAs,
+            prevReport: prevReportData,
+          },
+        }
+      )
+
+      if (aiErr) {
+        throw new Error(`AI 리포트 생성 실패: ${aiErr.message}`)
+      }
+      if (!aiResult || !aiResult.scores) {
+        throw new Error('AI 응답이 비어있거나 형식이 잘못됐습니다.')
+      }
+
+      // ── 6) 이전 회차 비교 결과 조립 ──
+      let comparison_prev: any = null
+      if (prevReportData) {
+        comparison_prev = {
+          prev_period: prevReportData.period,
+          prev_total: prevReportData.total,
+          current_total: aiResult.scores.total,
+          diff: aiResult.scores.total - prevReportData.total,
+        }
+      }
+
+      // ── 7) 정적 가이드 (기존 헬퍼 함수 활용) ──
       const season_guide = getSeasonGuide(exam.grade, exam.period)
-
-      // 생기부 방향성
-      const saenggibu_direction = getSaenggibuDirection(exam.grade, exam.period, exam.target_department || '')
-
-      // 다음 회차 계획
+      const saenggibu_direction = getSaenggibuDirection(
+        exam.grade,
+        exam.period,
+        exam.target_department || ''
+      )
       const next_period_plan = getNextPeriodPlan(exam.grade, exam.period)
 
+      // ── 8) 최종 리포트 데이터 ──
       const reportData = {
         exam_id: examId,
         student_id: studentId,
-        scores,
-        strengths: [
-          '구체적인 경험을 바탕으로 답변을 전개했어요.',
-          '전공과의 연결성이 명확해지고 있어요.',
-          '논리적 흐름이 이전보다 자연스러워졌어요.',
-        ],
-        weaknesses: [
-          '도입부에서 핵심 메시지를 먼저 제시하면 더 좋아요.',
-          '구체적인 수치나 사례를 추가하면 설득력이 높아져요.',
-        ],
+        scores: aiResult.scores,
+        strengths: aiResult.strengths || [],
+        weaknesses: aiResult.weaknesses || [],
         comparison_prev,
-        summary_for_parents: comparison_prev
-          ? `이번 ${exam.period} 모의면접에서 총점 ${scores.total}점을 획득했어요 (이전 회차 대비 ${comparison_prev.diff >= 0 ? '+' : ''}${comparison_prev.diff}점). ${exam.target_university || '목표 대학'}에 대한 이해도가 점차 깊어지고 있으며, 꾸준한 노력을 지속한다면 좋은 결과를 기대할 수 있습니다.`
-          : `이번 ${exam.period} 모의면접에서 총점 ${scores.total}점을 획득했어요. 방향성을 설정하는 시작점으로, 앞으로의 회차에서 구체적인 성장이 기대됩니다.`,
-        university_fit: exam.target_university ? {
-          university: exam.target_university,
-          department: exam.target_department,
-          fit_score: Math.min(95, scores.total + 5),
-          reason: '전공에 대한 이해와 열정이 드러나며, 지속적인 성장이 관찰됩니다.',
-        } : null,
+        summary_for_parents: aiResult.summary_for_parents || '',
+        university_fit: aiResult.university_fit,
         season_guide,
         saenggibu_direction,
         next_period_plan,
         published_at: new Date().toISOString(),
       }
 
+      // ── 9) DB 저장 (있으면 update, 없으면 insert) ──
       const { data: existing } = await supabase
         .from('high_mock_exam_report')
         .select('id')
@@ -628,9 +688,16 @@ export function useGenerateReport() {
         .maybeSingle()
 
       if (existing) {
-        await supabase.from('high_mock_exam_report').update(reportData).eq('id', existing.id)
+        const { error } = await supabase
+          .from('high_mock_exam_report')
+          .update(reportData)
+          .eq('id', existing.id)
+        if (error) throw error
       } else {
-        await supabase.from('high_mock_exam_report').insert(reportData)
+        const { error } = await supabase
+          .from('high_mock_exam_report')
+          .insert(reportData)
+        if (error) throw error
       }
     },
     onSuccess: (_d, v) => {
@@ -762,8 +829,7 @@ function getSeasonGuide(grade: string, period: string) {
   return map[`${grade}_${period}`] || map['고1_2월말']
 }
 
-function getSaenggibuDirection(grade: string, period: string, department: string) {
-  const key = `${grade}_${period}`
+function getSaenggibuDirection(_grade: string, _period: string, department: string) {
   const baseDirection = {
     자율활동: [
       '학급 임원 또는 리더 역할 (인성 평가 자료)',

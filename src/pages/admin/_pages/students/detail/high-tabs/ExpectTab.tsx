@@ -22,7 +22,7 @@ import {
   getSaenggibuPdfSignedUrl,
   gradeToNum,
   getQuestionStep,
-  SAENGGIBU_AI_CALL_LIMITS,    // ⭐ 추가
+  SAENGGIBU_AI_CALL_LIMITS,
   type ExpectQuestion,
   type AIAnalysisResult,
 } from '../../../../_hooks/useHighSaenggibuQuestions'
@@ -47,7 +47,6 @@ interface ManualQuestion {
   question: string
 }
 
-// 파랑 테마 (기출과 동일)
 const THEME = {
   accent: '#2563EB',
   accentDark: '#1E3A8A',
@@ -55,7 +54,9 @@ const THEME = {
   accentBorder: '#93C5FD',
 }
 
-// ⭐ AI 분석 결과 박스 (우측 패널 안에 들어가는 컴포넌트)
+// 우측 AI 패널 너비
+const AI_PANEL_WIDTH = 440
+
 function AIAnalysisContent({ 
   analysis, 
   round,
@@ -151,11 +152,8 @@ export default function ExpectTab({ student }: { student: any }) {
   const [totalPages, setTotalPages] = useState(0)
   const [previewPage, setPreviewPage] = useState<number | null>(null)
 
-  // ⭐ 우측 AI 패널 상태
   const [showAiPanel, setShowAiPanel] = useState(false)
   const [aiTab, setAiTab] = useState<'first' | 'second'>('first')
-  
-  // ⭐ AI 답변 작성 로딩
   const [aiSuggestLoading, setAiSuggestLoading] = useState<'first' | 'final' | null>(null)
 
   const gradeNum = gradeToNum(selGrade) ?? 1
@@ -189,7 +187,6 @@ export default function ExpectTab({ student }: { student: any }) {
   const aiQuestionCount = questions.filter(q => q.source_type === 'ai').length
   const hasAIQuestions = aiQuestionCount > 0
 
-  // ⭐ 호출수 (DB에서 가져온 값)
   const round1CallCount = round1?.ai_call_count || 0
   const round2CallCount = round2?.ai_call_count || 0
 
@@ -255,7 +252,6 @@ export default function ExpectTab({ student }: { student: any }) {
     })
   }
 
-  // ⭐ AI 분석 호출 (우측 패널)
   const openAiAnalysis = (tab: 'first' | 'second' = 'first') => {
     if (!selQ) return
 
@@ -270,11 +266,9 @@ export default function ExpectTab({ student }: { student: any }) {
       return
     }
 
-    // 이미 분석 결과 있으면 재호출 안 함 (그냥 보여주기만)
     const existingAnalysis = round === 1 ? round1?.ai_analysis : round2?.ai_analysis
     if (existingAnalysis) return
 
-    // 호출수 체크
     const limit = round === 1 ? SAENGGIBU_AI_CALL_LIMITS.ROUND_1 : SAENGGIBU_AI_CALL_LIMITS.ROUND_2
     const current = round === 1 ? round1CallCount : round2CallCount
     if (current >= limit) {
@@ -304,7 +298,6 @@ export default function ExpectTab({ student }: { student: any }) {
     })
   }
 
-  // ⭐ AI 분석 다시 호출 (강제)
   const reAnalyze = (round: number) => {
     if (!selQ) return
     
@@ -344,16 +337,16 @@ export default function ExpectTab({ student }: { student: any }) {
     })
   }
 
-  // ⭐ AI 답변 작성 (선생님 말투)
-  const generateAIFeedbackText = async (type: 'first' | 'final') => {
+  const generateAIFeedbackText = async () => {
     if (!selQ) return
     
-    const round = type === 'first' ? 1 : 2
+    const type = aiTab === 'first' ? 'first' : 'final'
+    const round = aiTab === 'first' ? 1 : 2
     const analysis = round === 1 ? round1?.ai_analysis : round2?.ai_analysis
     const studentAnswer = round === 1 ? selQ.student_answer : round2?.revised_answer
 
     if (!analysis) {
-      alert('AI 분석을 먼저 실행해주세요.\n오른쪽 "AI 분석 보기" 버튼을 눌러주세요.')
+      alert('AI 분석을 먼저 실행해주세요.')
       return
     }
     if (!studentAnswer) {
@@ -379,6 +372,7 @@ export default function ExpectTab({ student }: { student: any }) {
       const draft = await generateAIFeedback.mutateAsync(params)
       const key = type === 'first' ? String(selQ.id) : `${selQ.id}_final`
       setFeedback(prev => ({ ...prev, [key]: draft }))
+      alert(`✏️ AI가 ${type === 'first' ? '1차' : '최종'} 피드백을 작성했어요!\n\n${type === 'first' ? 'Step 2' : 'Step 4'}에서 확인하고 수정 후 전달해주세요.`)
     } catch (err: any) {
       alert('AI 답변 작성 실패:\n' + (err?.message || '알 수 없는 오류'))
     } finally {
@@ -488,8 +482,20 @@ export default function ExpectTab({ student }: { student: any }) {
     })
   }
 
+  const currentRoundHasAnalysis = aiTab === 'first' ? !!round1?.ai_analysis : !!round2?.ai_analysis
+  const currentRoundFeedbackDone = aiTab === 'first' ? !!round1?.teacher_feedback : !!round2?.teacher_feedback
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: '100%', overflow: 'hidden' }}>
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: 12, 
+      height: '100%', 
+      overflow: 'hidden',
+      // ⭐ AI 패널 열렸을 때 우측 padding 추가 (가운데 콘텐츠가 안 가려지게)
+      paddingRight: showAiPanel ? AI_PANEL_WIDTH + 16 : 0,
+      transition: 'padding-right 0.2s ease',
+    }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', gap: 6 }}>
           {GRADE_LIST.map(g => (
@@ -832,7 +838,6 @@ export default function ExpectTab({ student }: { student: any }) {
                   </div>
                 )}
 
-                {/* Step 1: 학생 첫 답변 */}
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#6B7280', padding: '3px 10px', borderRadius: 99 }}>Step 1</span>
@@ -843,7 +848,6 @@ export default function ExpectTab({ student }: { student: any }) {
                   </div>
                 </div>
 
-                {/* Step 2: 1차 피드백 */}
                 {selQ.student_answer && (
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
@@ -856,29 +860,10 @@ export default function ExpectTab({ student }: { student: any }) {
                       </div>
                     ) : (
                       <>
-                        {/* ⭐ AI 답변 작성 버튼 */}
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-                          <button
-                            onClick={() => generateAIFeedbackText('first')}
-                            disabled={aiSuggestLoading === 'first' || !round1?.ai_analysis}
-                            title={!round1?.ai_analysis ? 'AI 분석을 먼저 실행해주세요 (오른쪽 "AI 분석 보기")' : ''}
-                            style={{
-                              padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                              cursor: (aiSuggestLoading === 'first' || !round1?.ai_analysis) ? 'not-allowed' : 'pointer',
-                              opacity: (aiSuggestLoading === 'first' || !round1?.ai_analysis) ? 0.5 : 1,
-                              background: THEME.accentBg, color: THEME.accent,
-                              border: `1px solid ${THEME.accent}`,
-                              display: 'flex', alignItems: 'center', gap: 4,
-                            }}
-                          >
-                            {aiSuggestLoading === 'first' ? '✨ 작성 중...' : '✨ AI 답변 작성'}
-                          </button>
-                        </div>
-
                         <textarea
                           value={feedback[String(selQ.id)] || ''}
                           onChange={e => setFeedback(prev => ({ ...prev, [String(selQ.id)]: e.target.value }))}
-                          placeholder="학생의 첫 답변에 대한 피드백을 작성해주세요... (또는 AI 분석 후 'AI 답변 작성' 버튼 활용)"
+                          placeholder="학생의 첫 답변에 대한 피드백을 작성해주세요... (또는 오른쪽 'AI 분석 보기' 후 'AI 답변 작성하기' 버튼 활용)"
                           rows={6}
                           style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: 8, padding: '11px 14px', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7 }}
                         />
@@ -899,7 +884,6 @@ export default function ExpectTab({ student }: { student: any }) {
                   </div>
                 )}
 
-                {/* Step 3: 업그레이드 답변 */}
                 {round1?.teacher_feedback && (
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
@@ -929,7 +913,6 @@ export default function ExpectTab({ student }: { student: any }) {
                   </div>
                 )}
 
-                {/* Step 4: 최종 피드백 */}
                 {round2?.revised_answer && (
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
@@ -942,28 +925,10 @@ export default function ExpectTab({ student }: { student: any }) {
                       </div>
                     ) : (
                       <>
-                        {/* ⭐ AI 답변 작성 버튼 (최종 피드백) */}
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-                          <button
-                            onClick={() => generateAIFeedbackText('final')}
-                            disabled={aiSuggestLoading === 'final' || !round2?.ai_analysis}
-                            title={!round2?.ai_analysis ? 'AI 분석을 먼저 실행해주세요 (오른쪽 "2차 AI 분석 보기")' : ''}
-                            style={{
-                              padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                              cursor: (aiSuggestLoading === 'final' || !round2?.ai_analysis) ? 'not-allowed' : 'pointer',
-                              opacity: (aiSuggestLoading === 'final' || !round2?.ai_analysis) ? 0.5 : 1,
-                              background: '#ECFDF5', color: '#059669',
-                              border: '1px solid #10B981',
-                            }}
-                          >
-                            {aiSuggestLoading === 'final' ? '✨ 작성 중...' : '✨ AI 답변 작성'}
-                          </button>
-                        </div>
-
                         <textarea
                           value={feedback[`${selQ.id}_final`] || ''}
                           onChange={e => setFeedback(prev => ({ ...prev, [`${selQ.id}_final`]: e.target.value }))}
-                          placeholder="업그레이드된 답변에 대한 최종 피드백을 작성해주세요... (또는 2차 AI 분석 후 'AI 답변 작성' 버튼 활용)"
+                          placeholder="업그레이드된 답변에 대한 최종 피드백을 작성해주세요... (또는 오른쪽 '2차 AI 분석' 후 'AI 답변 작성하기' 버튼 활용)"
                           rows={6}
                           style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: 8, padding: '11px 14px', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.7 }}
                         />
@@ -984,7 +949,6 @@ export default function ExpectTab({ student }: { student: any }) {
                   </div>
                 )}
 
-                {/* Step 5: 꼬리질문 */}
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: step >= 5 ? THEME.accent : '#6B7280', padding: '3px 10px', borderRadius: 99 }}>Step 5</span>
@@ -1025,130 +989,186 @@ export default function ExpectTab({ student }: { student: any }) {
             </>
           )}
         </div>
-
-        {/* ⭐ 오른쪽 AI 분석 패널 */}
-        {showAiPanel && selQ && (
-          <div style={{ width: 440, flexShrink: 0, background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ padding: '12px 18px', borderBottom: '1px solid #E5E7EB', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: THEME.accentBg }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: THEME.accentDark }}>✨ AI 분석</div>
-              <button
-                onClick={() => setShowAiPanel(false)}
-                style={{ color: '#6B7280', fontSize: 18, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer', borderRadius: 6 }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* 1차/2차 탭 */}
-            <div style={{ display: 'flex', borderBottom: '1px solid #E5E7EB', flexShrink: 0 }}>
-              <button
-                onClick={() => { setAiTab('first'); openAiAnalysis('first') }}
-                style={{
-                  flex: 1, padding: '12px 0', textAlign: 'center', fontSize: 12,
-                  fontWeight: aiTab === 'first' ? 700 : 500,
-                  color: aiTab === 'first' ? THEME.accent : '#6B7280',
-                  borderBottom: `2px solid ${aiTab === 'first' ? THEME.accent : 'transparent'}`,
-                  background: 'transparent', border: 'none', cursor: 'pointer',
-                }}
-              >
-                <div>📊 1차 답변 분석</div>
-                <div style={{ fontSize: 9, color: '#9CA3AF', marginTop: 2, fontWeight: 500 }}>
-                  {round1CallCount}/{SAENGGIBU_AI_CALL_LIMITS.ROUND_1}회 사용
-                </div>
-              </button>
-              <button
-                onClick={() => { 
-                  if (round2?.revised_answer) { 
-                    setAiTab('second')
-                    openAiAnalysis('second')
-                  }
-                }}
-                disabled={!round2?.revised_answer}
-                style={{
-                  flex: 1, padding: '12px 0', textAlign: 'center', fontSize: 12,
-                  fontWeight: aiTab === 'second' ? 700 : 500,
-                  color: !round2?.revised_answer ? '#D1D5DB' : aiTab === 'second' ? THEME.accent : '#6B7280',
-                  borderBottom: `2px solid ${aiTab === 'second' ? THEME.accent : 'transparent'}`,
-                  background: 'transparent', border: 'none', 
-                  cursor: !round2?.revised_answer ? 'not-allowed' : 'pointer',
-                }}
-              >
-                <div>📈 2차 답변 분석</div>
-                <div style={{ fontSize: 9, color: '#9CA3AF', marginTop: 2, fontWeight: 500 }}>
-                  {!round2?.revised_answer ? '업그레이드 필요' : `${round2CallCount}/${SAENGGIBU_AI_CALL_LIMITS.ROUND_2}회 사용`}
-                </div>
-              </button>
-            </div>
-
-            {/* 분석 결과 */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-              {generateAIAnalysis.isPending ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, color: '#9CA3AF' }}>
-                  <div style={{ fontSize: 32 }}>✨</div>
-                  <div style={{ fontSize: 13 }}>AI가 분석 중이에요...</div>
-                  <div style={{ fontSize: 11 }}>(10~20초 소요)</div>
-                </div>
-              ) : aiTab === 'first' ? (
-                round1?.ai_analysis ? (
-                  <>
-                    <AIAnalysisContent analysis={round1.ai_analysis} round={1} />
-                    {round1CallCount < SAENGGIBU_AI_CALL_LIMITS.ROUND_1 && (
-                      <button
-                        onClick={() => reAnalyze(1)}
-                        style={{
-                          width: '100%', marginTop: 12, padding: '8px 0',
-                          background: '#fff', color: THEME.accent,
-                          border: `1px solid ${THEME.accent}`, borderRadius: 6,
-                          fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                        }}
-                      >
-                        🔄 AI 분석 다시 실행 ({round1CallCount}/{SAENGGIBU_AI_CALL_LIMITS.ROUND_1}회 사용)
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, color: '#9CA3AF' }}>
-                    <div style={{ fontSize: 32 }}>📊</div>
-                    <div style={{ fontSize: 13, textAlign: 'center', lineHeight: 1.7 }}>
-                      AI 분석을 시작하려면<br />
-                      위쪽 "✨ AI 분석 보기" 버튼을 눌러주세요
-                    </div>
-                  </div>
-                )
-              ) : (
-                round2?.ai_analysis ? (
-                  <>
-                    <AIAnalysisContent analysis={round2.ai_analysis} round={2} />
-                    {round2CallCount < SAENGGIBU_AI_CALL_LIMITS.ROUND_2 && (
-                      <button
-                        onClick={() => reAnalyze(2)}
-                        style={{
-                          width: '100%', marginTop: 12, padding: '8px 0',
-                          background: '#fff', color: THEME.accent,
-                          border: `1px solid ${THEME.accent}`, borderRadius: 6,
-                          fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                        }}
-                      >
-                        🔄 AI 분석 다시 실행 ({round2CallCount}/{SAENGGIBU_AI_CALL_LIMITS.ROUND_2}회 사용)
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, color: '#9CA3AF' }}>
-                    <div style={{ fontSize: 32 }}>📈</div>
-                    <div style={{ fontSize: 13, textAlign: 'center', lineHeight: 1.7 }}>
-                      2차 답변 분석을 시작하려면<br />
-                      Step 3의 "✨ 2차 AI 분석 보기" 버튼을 눌러주세요
-                    </div>
-                  </div>
-                )
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* 모달들 (꼬리질문, AI 꼬리질문, 직접 작성) - 기존과 동일 */}
+      {/* ⭐ 우측 AI 패널 - position: fixed로 화면 우측 끝에 고정 */}
+      {showAiPanel && selQ && (
+        <div style={{ 
+          position: 'fixed',
+          top: 50,           // 헤더 아래
+          right: 0,          // 우측 끝
+          bottom: 0,         // 화면 끝까지
+          width: AI_PANEL_WIDTH,
+          background: '#fff',
+          borderLeft: '1px solid #E5E7EB',
+          boxShadow: '-4px 0 16px rgba(0,0,0,0.05)',
+          display: 'flex',
+          flexDirection: 'column',
+          zIndex: 90,        // 챗봇(100)보다는 낮게
+        }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid #E5E7EB', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: THEME.accentBg }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: THEME.accentDark }}>✨ AI 분석</div>
+              <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
+                {student.name} · 질문 {questions.findIndex(q => q.id === selQ.id) + 1}
+              </div>
+            </div>
+            <button
+              onClick={() => setShowAiPanel(false)}
+              style={{ color: '#6B7280', fontSize: 18, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: '#fff', cursor: 'pointer', borderRadius: 6 }}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', borderBottom: '1px solid #E5E7EB', flexShrink: 0 }}>
+            <button
+              onClick={() => { setAiTab('first'); openAiAnalysis('first') }}
+              style={{
+                flex: 1, padding: '12px 0', textAlign: 'center', fontSize: 12,
+                fontWeight: aiTab === 'first' ? 700 : 500,
+                color: aiTab === 'first' ? THEME.accent : '#6B7280',
+                borderBottom: `2px solid ${aiTab === 'first' ? THEME.accent : 'transparent'}`,
+                background: 'transparent', border: 'none', cursor: 'pointer',
+              }}
+            >
+              <div>📊 1차 답변 분석</div>
+              <div style={{ fontSize: 9, color: '#9CA3AF', marginTop: 2, fontWeight: 500 }}>
+                {round1CallCount}/{SAENGGIBU_AI_CALL_LIMITS.ROUND_1}회 사용
+              </div>
+            </button>
+            <button
+              onClick={() => { 
+                if (round2?.revised_answer) { 
+                  setAiTab('second')
+                  openAiAnalysis('second')
+                }
+              }}
+              disabled={!round2?.revised_answer}
+              style={{
+                flex: 1, padding: '12px 0', textAlign: 'center', fontSize: 12,
+                fontWeight: aiTab === 'second' ? 700 : 500,
+                color: !round2?.revised_answer ? '#D1D5DB' : aiTab === 'second' ? THEME.accent : '#6B7280',
+                borderBottom: `2px solid ${aiTab === 'second' ? THEME.accent : 'transparent'}`,
+                background: 'transparent', border: 'none', 
+                cursor: !round2?.revised_answer ? 'not-allowed' : 'pointer',
+              }}
+            >
+              <div>📈 2차 답변 분석</div>
+              <div style={{ fontSize: 9, color: '#9CA3AF', marginTop: 2, fontWeight: 500 }}>
+                {!round2?.revised_answer ? '업그레이드 필요' : `${round2CallCount}/${SAENGGIBU_AI_CALL_LIMITS.ROUND_2}회 사용`}
+              </div>
+            </button>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+            {generateAIAnalysis.isPending ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, color: '#9CA3AF' }}>
+                <div style={{ fontSize: 32 }}>✨</div>
+                <div style={{ fontSize: 13 }}>AI가 분석 중이에요...</div>
+                <div style={{ fontSize: 11 }}>(10~20초 소요)</div>
+              </div>
+            ) : aiTab === 'first' ? (
+              round1?.ai_analysis ? (
+                <>
+                  <AIAnalysisContent analysis={round1.ai_analysis} round={1} />
+                  {round1CallCount < SAENGGIBU_AI_CALL_LIMITS.ROUND_1 && (
+                    <button
+                      onClick={() => reAnalyze(1)}
+                      style={{
+                        width: '100%', marginTop: 12, padding: '8px 0',
+                        background: '#fff', color: THEME.accent,
+                        border: `1px solid ${THEME.accent}`, borderRadius: 6,
+                        fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                      }}
+                    >
+                      🔄 AI 분석 다시 실행 ({round1CallCount}/{SAENGGIBU_AI_CALL_LIMITS.ROUND_1}회 사용)
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, color: '#9CA3AF' }}>
+                  <div style={{ fontSize: 32 }}>📊</div>
+                  <div style={{ fontSize: 13, textAlign: 'center', lineHeight: 1.7 }}>
+                    AI 분석을 시작하려면<br />
+                    위쪽 "✨ AI 분석 보기" 버튼을 눌러주세요
+                  </div>
+                </div>
+              )
+            ) : (
+              round2?.ai_analysis ? (
+                <>
+                  <AIAnalysisContent analysis={round2.ai_analysis} round={2} />
+                  {round2CallCount < SAENGGIBU_AI_CALL_LIMITS.ROUND_2 && (
+                    <button
+                      onClick={() => reAnalyze(2)}
+                      style={{
+                        width: '100%', marginTop: 12, padding: '8px 0',
+                        background: '#fff', color: THEME.accent,
+                        border: `1px solid ${THEME.accent}`, borderRadius: 6,
+                        fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                      }}
+                    >
+                      🔄 AI 분석 다시 실행 ({round2CallCount}/{SAENGGIBU_AI_CALL_LIMITS.ROUND_2}회 사용)
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, color: '#9CA3AF' }}>
+                  <div style={{ fontSize: 32 }}>📈</div>
+                  <div style={{ fontSize: 13, textAlign: 'center', lineHeight: 1.7 }}>
+                    2차 답변 분석을 시작하려면<br />
+                    Step 3의 "✨ 2차 AI 분석 보기" 버튼을 눌러주세요
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+
+          {currentRoundHasAnalysis && !currentRoundFeedbackDone && (
+            <div style={{ 
+              padding: '12px 16px', 
+              borderTop: '1px solid #E5E7EB', 
+              flexShrink: 0,
+              background: '#FAFBFC',
+            }}>
+              <button
+                onClick={generateAIFeedbackText}
+                disabled={aiSuggestLoading !== null}
+                style={{
+                  width: '100%', padding: '12px 0',
+                  background: aiSuggestLoading !== null ? '#BAC8FF' : THEME.accent,
+                  color: '#fff',
+                  border: 'none', borderRadius: 8,
+                  fontSize: 13, fontWeight: 700,
+                  cursor: aiSuggestLoading !== null ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
+              >
+                {aiSuggestLoading !== null ? '✨ AI가 답변 작성 중...' : `✏️ 선생님 ${aiTab === 'first' ? '1차' : '최종'} 답변 작성하기`}
+              </button>
+              <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 6, textAlign: 'center', lineHeight: 1.5 }}>
+                AI가 분석 결과를 토대로 친근한 코치 말투로 작성해요
+              </div>
+            </div>
+          )}
+
+          {currentRoundFeedbackDone && (
+            <div style={{ 
+              padding: '12px 16px', 
+              borderTop: '1px solid #E5E7EB', 
+              flexShrink: 0,
+              background: '#ECFDF5',
+            }}>
+              <div style={{ fontSize: 12, color: '#059669', textAlign: 'center', fontWeight: 600 }}>
+                ✓ 이미 {aiTab === 'first' ? '1차' : '최종'} 피드백이 작성되었어요
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 모달들 */}
       {showTailModal && (
         <div onClick={() => setShowTailModal(false)}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

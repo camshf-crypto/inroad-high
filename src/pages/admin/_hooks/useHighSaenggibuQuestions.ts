@@ -3,8 +3,8 @@ import { supabase } from '@/lib/supabase'
 
 // ⭐ AI 호출 제한
 export const SAENGGIBU_AI_CALL_LIMITS = {
-  ROUND_1: 3,  // 1차 답변 분석 최대 3회
-  ROUND_2: 2,  // 2차 답변 분석 최대 2회
+  ROUND_1: 1,  // 1차 답변 분석 최대 1회
+  ROUND_2: 1,  // 2차 답변 분석 최대 1회
 }
 
 // ─────────────────────────────────────────────

@@ -58,6 +58,7 @@ import MasterData from './pages/master/_pages/data/Data'
 import MasterAudit from './pages/master/_pages/audit/Audit'
 import MasterStaff from './pages/master/_pages/staff/Staff'
 import MasterLessons from './pages/master/_pages/lessons/Lessons'
+import MasterQuestions from './pages/master/_pages/questions/Questions'
 
 const router = createBrowserRouter([
   {
@@ -149,6 +150,7 @@ const router = createBrowserRouter([
           { path: 'academies', element: <MasterAcademies /> },
           { path: 'academies/:id', element: <MasterAcademyDetail /> },
           { path: 'lessons', element: <MasterLessons /> },
+          { path: 'questions', element: <MasterQuestions /> },
           { path: 'billing', element: <MasterBilling /> },
           { path: 'notices', element: <MasterNotices /> },
           { path: 'data', element: <MasterData /> },

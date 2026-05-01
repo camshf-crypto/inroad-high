@@ -46,7 +46,7 @@ const ACADEMIES_DATA: Record<string, any> = {
         name: '강남 에스엠 학원',
         icon: '🏫',
         region: '서울 강남',
-        code: 'BIKUS-SM01-0001',
+        code: 'B-KEARS-SM01-0001',
         stats: {
             students: 87,
             essays: 68,
@@ -77,7 +77,7 @@ const ACADEMIES_DATA: Record<string, any> = {
         name: '목동 프리미엄 아카데미',
         icon: '🏫',
         region: '서울 양천',
-        code: 'BIKUS-MD02-0002',
+        code: 'B-KEARS-MD02-0002',
         stats: {
             students: 52,
             essays: 38,
@@ -105,7 +105,7 @@ const ACADEMIES_DATA: Record<string, any> = {
         name: '대치 토스트교육',
         icon: '🏫',
         region: '서울 강남',
-        code: 'BIKUS-DC06-0006',
+        code: 'B-KEARS-DC06-0006',
         stats: {
             students: 125,
             essays: 98,
@@ -136,7 +136,7 @@ const ACADEMIES_DATA: Record<string, any> = {
         name: '광교 엘리트학원',
         icon: '🏫',
         region: '경기 수원',
-        code: 'BIKUS-GK09-0009',
+        code: 'B-KEARS-GK09-0009',
         stats: {
             students: 92,
             essays: 72,

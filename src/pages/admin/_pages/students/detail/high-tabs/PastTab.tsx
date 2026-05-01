@@ -14,10 +14,11 @@ import {
   useDeleteFollowup,
   useAIAnalyzePastAnswer,
   useAIGeneratePastFeedback,
-  useAISuggestTeacherFeedback,    // ⭐ 추가
+  useAISuggestTeacherFeedback,
   getMockAIAnalysis,
   getPastStep,
   inferQuestionType,
+  AI_CALL_LIMITS,    // ⭐ 추가
   type QuestionWithAnswer,
   type AIAnalysisData,
 } from '../../../../_hooks/useHighQuestions'
@@ -38,6 +39,9 @@ const TYPE_COLOR: Record<string, any> = {
 }
 
 const STEP_LABELS = ['첫 답변', '1차 피드백', '업그레이드', '최종 피드백', '꼬리질문']
+
+// 우측 AI 패널 너비
+const AI_PANEL_WIDTH = 440
 
 export default function PastTab({ student }: { student: any }) {
   const studentId: string = student.id
@@ -62,7 +66,6 @@ export default function PastTab({ student }: { student: any }) {
   const [hiddenActionModal, setHiddenActionModal] = useState<{ university: string; department: string } | null>(null)
   const [hiddenConfirm, setHiddenConfirm] = useState<{ action: 'restore' | 'delete'; university: string; department: string } | null>(null)
 
-  // ⭐ AI 답변 작성 로딩 상태 (1차/2차 분리)
   const [aiSuggestLoading, setAiSuggestLoading] = useState<'first' | 'final' | null>(null)
 
   // DB 조회
@@ -86,19 +89,16 @@ export default function PastTab({ student }: { student: any }) {
   const saveAITails = useSaveSelectedFollowups()
   const deleteTail = useDeleteFollowup()
 
-  // ⭐ AI 호출 hook
   const aiAnalyze = useAIAnalyzePastAnswer()
   const aiCompare = useAIGeneratePastFeedback()
   const aiSuggestFeedback = useAISuggestTeacherFeedback()
 
-  // 첫 타깃 자동 선택
   useEffect(() => {
     if (targetUniversities.length > 0 && !selUniv) {
       setSelUniv(targetUniversities[0])
     }
   }, [targetUniversities, selUniv])
 
-  // 질문 변경 시 AI 패널 리셋
   useEffect(() => {
     setShowAiPanel(false)
     setAiData(null)
@@ -107,6 +107,10 @@ export default function PastTab({ student }: { student: any }) {
   const step = getPastStep(selQ?.answer || null, analyses)
   const round1 = analyses.find(a => a.round === 1)
   const round2 = analyses.find(a => a.round === 2)
+
+  // ⭐ 호출수
+  const round1CallCount = round1?.ai_call_count || 0
+  const round2CallCount = round2?.ai_call_count || 0
 
   // AI 분석 호출
   const openAiAnalysis = async (tab: 'first' | 'second' = 'first') => {
@@ -120,6 +124,16 @@ export default function PastTab({ student }: { student: any }) {
         alert('학생이 먼저 답변을 제출해야 합니다.')
         return
       }
+
+      // 이미 분석 결과 있으면 그냥 보여주기 (재호출 안 함)
+      if (round1?.ai_analysis) {
+        setAiData(prev => ({
+          ...round1.ai_analysis,
+          second: prev?.second,
+        }))
+        return
+      }
+
       setAiLoading(true)
       try {
         const result = await aiAnalyze.mutateAsync({
@@ -149,6 +163,26 @@ export default function PastTab({ student }: { student: any }) {
         alert('1차 답변이 없습니다.')
         return
       }
+
+      // 이미 분석 결과 있으면 그냥 보여주기
+      if (round2?.ai_analysis) {
+        setAiData(prev => {
+          if (!prev) {
+            return {
+              evalCriteria: '',
+              scores: [],
+              summary: '',
+              strengths: [],
+              improvements: [],
+              tailSuggestions: [],
+              second: round2.ai_analysis,
+            }
+          }
+          return { ...prev, second: round2.ai_analysis }
+        })
+        return
+      }
+
       setSecondAiLoading(true)
       try {
         const compareResult = await aiCompare.mutateAsync({
@@ -188,9 +222,22 @@ export default function PastTab({ student }: { student: any }) {
     }
   }
 
-  // ⭐ AI 답변 작성 (선생님 말투 피드백 초안)
-  const generateAIFeedback = async (type: 'first' | 'final') => {
+  // ⭐ AI 답변 작성 (우측 패널 하단 버튼에서 호출)
+  // aiTab에 따라 자동으로 1차/2차 분기
+  const generateAIFeedback = async () => {
     if (!selQ?.answer?.student_answer || !selUniv) return
+
+    const type = aiTab === 'first' ? 'first' : 'final'
+
+    // 분석 결과 있는지 확인
+    const hasAnalysis = aiTab === 'first' 
+      ? !!(round1?.ai_analysis || aiData)
+      : !!(round2?.ai_analysis || aiData?.second)
+
+    if (!hasAnalysis) {
+      alert('AI 분석을 먼저 실행해주세요.')
+      return
+    }
 
     const key = type === 'first' ? String(selQ.id) : `${selQ.id}_final`
     setAiSuggestLoading(type)
@@ -205,8 +252,8 @@ export default function PastTab({ student }: { student: any }) {
         aiAnalysis: aiData,
         feedbackType: type,
       })
-      // textarea에 자동 입력
       setFeedback(prev => ({ ...prev, [key]: draft }))
+      alert(`✏️ AI가 ${type === 'first' ? '1차' : '최종'} 피드백을 작성했어요!\n\n${type === 'first' ? 'Step 2' : 'Step 4'}에서 확인하고 수정 후 전달해주세요.`)
     } catch (e: any) {
       console.error('AI 답변 작성 실패:', e)
       alert('AI 답변 작성 실패:\n' + (e?.message || '알 수 없는 오류'))
@@ -306,8 +353,23 @@ export default function PastTab({ student }: { student: any }) {
 
   const secondData = aiData?.second
 
+  // ⭐ 현재 탭의 분석 결과 + 피드백 작성 가능 여부
+  const currentRoundHasAnalysis = aiTab === 'first' 
+    ? !!(round1?.ai_analysis || (aiData && aiData.scores && aiData.scores.length > 0))
+    : !!(round2?.ai_analysis || aiData?.second)
+  const currentRoundFeedbackDone = aiTab === 'first' 
+    ? !!round1?.teacher_feedback 
+    : !!round2?.teacher_feedback
+
   return (
-    <div className="flex flex-col gap-3 h-full overflow-hidden">
+    <div 
+      className="flex flex-col gap-3 h-full overflow-hidden"
+      style={{
+        // ⭐ AI 패널 열렸을 때 우측 padding 추가
+        paddingRight: showAiPanel ? AI_PANEL_WIDTH + 16 : 0,
+        transition: 'padding-right 0.2s ease',
+      }}
+    >
 
       {/* 대학 탭 */}
       <div className="flex gap-1.5 flex-wrap flex-shrink-0 items-center">
@@ -562,7 +624,7 @@ export default function PastTab({ student }: { student: any }) {
                       </div>
                     </div>
 
-                    {/* Step 2 - 1차 피드백 */}
+                    {/* Step 2 - 1차 피드백 (⭐ AI 답변 작성 버튼 제거됨) */}
                     {selQ.answer?.student_answer && (
                       <div>
                         <div className="flex items-center gap-2 mb-2">
@@ -584,31 +646,10 @@ export default function PastTab({ student }: { student: any }) {
                           </div>
                         ) : (
                           <>
-                            {/* ⭐ AI 답변 작성 버튼 */}
-                            <div className="flex justify-end mb-2">
-                              <button
-                                onClick={() => generateAIFeedback('first')}
-                                disabled={aiSuggestLoading === 'first'}
-                                className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border disabled:opacity-50 flex items-center gap-1"
-                                style={{
-                                  background: THEME.accentBg,
-                                  color: THEME.accent,
-                                  borderColor: THEME.accent,
-                                }}
-                              >
-                                {aiSuggestLoading === 'first' ? (
-                                  <>
-                                    <span className="animate-pulse">✨</span> AI가 작성 중...
-                                  </>
-                                ) : (
-                                  <>✨ AI 답변 작성</>
-                                )}
-                              </button>
-                            </div>
                             <textarea
                               value={feedback[String(selQ.id)] || ''}
                               onChange={e => setFeedback(prev => ({ ...prev, [String(selQ.id)]: e.target.value }))}
-                              placeholder="학생 답변에 대한 피드백을 작성하거나, AI 답변 작성 버튼으로 초안을 받아보세요..."
+                              placeholder="학생 답변에 대한 피드백을 작성하거나, 우측 'AI 분석 보기' 후 'AI 답변 작성하기' 버튼 활용..."
                               rows={6}
                               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-[12px] font-medium outline-none resize-y leading-[1.7]"
                             />
@@ -658,7 +699,7 @@ export default function PastTab({ student }: { student: any }) {
                       </div>
                     )}
 
-                    {/* Step 4 - 최종 피드백 */}
+                    {/* Step 4 - 최종 피드백 (⭐ AI 답변 작성 버튼 제거됨) */}
                     {round2?.revised_answer && (
                       <div>
                         <div className="flex items-center gap-2 mb-2">
@@ -671,31 +712,10 @@ export default function PastTab({ student }: { student: any }) {
                           </div>
                         ) : (
                           <>
-                            {/* ⭐ AI 답변 작성 버튼 (최종 피드백용) */}
-                            <div className="flex justify-end mb-2">
-                              <button
-                                onClick={() => generateAIFeedback('final')}
-                                disabled={aiSuggestLoading === 'final'}
-                                className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border disabled:opacity-50 flex items-center gap-1"
-                                style={{
-                                  background: '#ECFDF5',
-                                  color: '#059669',
-                                  borderColor: '#10B981',
-                                }}
-                              >
-                                {aiSuggestLoading === 'final' ? (
-                                  <>
-                                    <span className="animate-pulse">✨</span> AI가 작성 중...
-                                  </>
-                                ) : (
-                                  <>✨ AI 답변 작성</>
-                                )}
-                              </button>
-                            </div>
                             <textarea
                               value={feedback[`${selQ.id}_final`] || ''}
                               onChange={e => setFeedback(prev => ({ ...prev, [`${selQ.id}_final`]: e.target.value }))}
-                              placeholder="업그레이드된 답변에 대한 최종 피드백을 작성하거나, AI 답변 작성 버튼으로 초안을 받아보세요..."
+                              placeholder="업그레이드된 답변에 대한 최종 피드백을 작성하거나, 우측 '2차 AI 분석' 후 'AI 답변 작성하기' 버튼 활용..."
                               rows={6}
                               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-[12px] font-medium outline-none resize-y leading-[1.7]"
                             />
@@ -781,220 +801,280 @@ export default function PastTab({ student }: { student: any }) {
             </>
           )}
         </div>
+      </div>
 
-        {/* 오른쪽 AI 분석 패널 */}
-        {showAiPanel && selQ && (
-          <div className="w-[440px] flex-shrink-0 bg-white border border-gray-200 rounded-2xl flex flex-col overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-gray-200 flex-shrink-0 flex items-center justify-between" style={{ background: THEME.accentBg }}>
+      {/* ⭐ 우측 AI 분석 패널 - position: fixed로 화면 우측 끝에 고정 */}
+      {showAiPanel && selQ && (
+        <div 
+          className="bg-white border-l border-gray-200 flex flex-col"
+          style={{ 
+            position: 'fixed',
+            top: 50,
+            right: 0,
+            bottom: 0,
+            width: AI_PANEL_WIDTH,
+            boxShadow: '-4px 0 16px rgba(0,0,0,0.05)',
+            zIndex: 90,
+          }}
+        >
+          <div 
+            className="px-5 py-3.5 border-b border-gray-200 flex-shrink-0 flex items-center justify-between" 
+            style={{ background: THEME.accentBg }}
+          >
+            <div>
               <div className="text-[14px] font-extrabold tracking-tight" style={{ color: THEME.accentDark }}>
                 ✨ AI 분석
               </div>
-              <button
-                onClick={() => { setShowAiPanel(false); setAiData(null) }}
-                className="text-gray-500 text-lg w-7 h-7 flex items-center justify-center rounded-md hover:bg-white"
-              >
-                ✕
-              </button>
+              <div className="text-[11px] font-medium text-gray-500 mt-0.5">
+                {student.name} · Q{curQuestions.findIndex(q => q.id === selQ.id) + 1}
+              </div>
             </div>
+            <button
+              onClick={() => { setShowAiPanel(false); setAiData(null) }}
+              className="text-gray-500 text-lg w-7 h-7 flex items-center justify-center rounded-md bg-white hover:bg-gray-50"
+            >
+              ✕
+            </button>
+          </div>
 
-            <div className="flex border-b border-gray-200 flex-shrink-0">
-              <button
-                onClick={() => { setAiTab('first'); openAiAnalysis('first') }}
-                className="flex-1 py-3 text-center text-[12px] transition-all"
-                style={{
-                  fontWeight: aiTab === 'first' ? 700 : 500,
-                  color: aiTab === 'first' ? THEME.accent : '#6B7280',
-                  borderBottom: `2px solid ${aiTab === 'first' ? THEME.accent : 'transparent'}`,
-                }}
-              >
-                📊 1차 답변 분석
-              </button>
-              <button
-                onClick={() => { if (round2?.revised_answer) { setAiTab('second'); openAiAnalysis('second') } }}
-                disabled={!round2?.revised_answer}
-                className="flex-1 py-3 text-center text-[12px] transition-all disabled:cursor-not-allowed"
-                style={{
-                  fontWeight: aiTab === 'second' ? 700 : 500,
-                  color: !round2?.revised_answer ? '#D1D5DB' : aiTab === 'second' ? THEME.accent : '#6B7280',
-                  borderBottom: `2px solid ${aiTab === 'second' ? THEME.accent : 'transparent'}`,
-                }}
-              >
-                📈 2차 답변 분석
-                {!round2?.revised_answer && <div className="text-[9px] text-gray-300">업그레이드 필요</div>}
-              </button>
-            </div>
+          <div className="flex border-b border-gray-200 flex-shrink-0">
+            <button
+              onClick={() => { setAiTab('first'); openAiAnalysis('first') }}
+              className="flex-1 py-3 text-center text-[12px] transition-all"
+              style={{
+                fontWeight: aiTab === 'first' ? 700 : 500,
+                color: aiTab === 'first' ? THEME.accent : '#6B7280',
+                borderBottom: `2px solid ${aiTab === 'first' ? THEME.accent : 'transparent'}`,
+              }}
+            >
+              <div>📊 1차 답변 분석</div>
+              <div className="text-[9px] text-gray-400 mt-0.5 font-medium">
+                {round1CallCount}/{AI_CALL_LIMITS.ROUND_1}회 사용
+              </div>
+            </button>
+            <button
+              onClick={() => { if (round2?.revised_answer) { setAiTab('second'); openAiAnalysis('second') } }}
+              disabled={!round2?.revised_answer}
+              className="flex-1 py-3 text-center text-[12px] transition-all disabled:cursor-not-allowed"
+              style={{
+                fontWeight: aiTab === 'second' ? 700 : 500,
+                color: !round2?.revised_answer ? '#D1D5DB' : aiTab === 'second' ? THEME.accent : '#6B7280',
+                borderBottom: `2px solid ${aiTab === 'second' ? THEME.accent : 'transparent'}`,
+              }}
+            >
+              <div>📈 2차 답변 분석</div>
+              <div className="text-[9px] text-gray-400 mt-0.5 font-medium">
+                {!round2?.revised_answer ? '업그레이드 필요' : `${round2CallCount}/${AI_CALL_LIMITS.ROUND_2}회 사용`}
+              </div>
+            </button>
+          </div>
 
-            {/* 1차 분석 */}
-            {aiTab === 'first' && (
-              aiLoading ? (
-                <div className="flex-1 flex flex-col items-center justify-center gap-3 text-gray-400">
-                  <div className="text-4xl animate-pulse">✨</div>
-                  <div className="text-[13px]">AI가 분석 중이에요...</div>
+          {/* 1차 분석 */}
+          {aiTab === 'first' && (
+            aiLoading ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-3 text-gray-400">
+                <div className="text-4xl animate-pulse">✨</div>
+                <div className="text-[13px]">AI가 분석 중이에요...</div>
+              </div>
+            ) : !aiData || !aiData.scores || aiData.scores.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center text-[13px] text-gray-400 px-5 text-center leading-[1.7]">
+                AI 분석을 시작하려면<br />위쪽 "✨ AI 분석 보기" 버튼을 눌러주세요
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                  <div className="text-[13px] font-extrabold text-green-800 mb-1">✅ 답변 정합성 분석</div>
+                  <div className="text-[11px] text-gray-500 mb-3.5">
+                    작성한 답변을 대학별 평가 기준에 맞춰 분석한 결과입니다.
+                  </div>
+                  <div className="h-56 mb-2.5 bg-white rounded-lg border border-green-200">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart data={getRadarData()} margin={{ top: 24, right: 40, bottom: 24, left: 40 }}>
+                        <PolarGrid stroke="#9CA3AF" />
+                        <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: '#374151' }} tickLine={false} />
+                        <Radar name="대학 기준" dataKey="standard" stroke="#F97316" fill="#F97316" fillOpacity={0.4} strokeWidth={2} />
+                        <Radar name="학생 답변" dataKey="student" stroke="#059669" fill="#059669" fillOpacity={0.5} strokeWidth={2} />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex gap-4 justify-center mb-3.5">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-500">
+                      <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />대학 평가 기준
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-500">
+                      <div className="w-2.5 h-2.5 rounded-full bg-green-600" />학생 답변 데이터
+                    </div>
+                  </div>
+                  {getBarData(aiData).map((d, i) => (
+                    <div key={i} className="mb-2.5">
+                      <div className="flex justify-between text-[12px] mb-1">
+                        <span className="font-semibold text-gray-900">{d.name}</span>
+                        <span className="font-bold text-green-600">{d.score}/{d.max}</span>
+                      </div>
+                      <div className="h-2 bg-green-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all" style={{ width: `${d.pct}%`, background: d.pct >= 80 ? '#059669' : d.pct >= 60 ? '#F97316' : '#EF4444' }} />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ) : !aiData || !aiData.scores || aiData.scores.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center text-[13px] text-gray-400">분석 데이터 없음</div>
-              ) : (
-                <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
-                  <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                    <div className="text-[13px] font-extrabold text-green-800 mb-1">✅ 답변 정합성 분석</div>
-                    <div className="text-[11px] text-gray-500 mb-3.5">
-                      작성한 답변을 대학별 평가 기준에 맞춰 분석한 결과입니다.
-                    </div>
-                    <div className="h-56 mb-2.5 bg-white rounded-lg border border-green-200">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RadarChart data={getRadarData()} margin={{ top: 24, right: 40, bottom: 24, left: 40 }}>
-                          <PolarGrid stroke="#9CA3AF" />
-                          <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: '#374151' }} tickLine={false} />
-                          <Radar name="대학 기준" dataKey="standard" stroke="#F97316" fill="#F97316" fillOpacity={0.4} strokeWidth={2} />
-                          <Radar name="학생 답변" dataKey="student" stroke="#059669" fill="#059669" fillOpacity={0.5} strokeWidth={2} />
-                        </RadarChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex gap-4 justify-center mb-3.5">
-                      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-500">
-                        <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />대학 평가 기준
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-500">
-                        <div className="w-2.5 h-2.5 rounded-full bg-green-600" />학생 답변 데이터
-                      </div>
-                    </div>
-                    {getBarData(aiData).map((d, i) => (
-                      <div key={i} className="mb-2.5">
-                        <div className="flex justify-between text-[12px] mb-1">
-                          <span className="font-semibold text-gray-900">{d.name}</span>
-                          <span className="font-bold text-green-600">{d.score}/{d.max}</span>
-                        </div>
-                        <div className="h-2 bg-green-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full transition-all" style={{ width: `${d.pct}%`, background: d.pct >= 80 ? '#059669' : d.pct >= 60 ? '#F97316' : '#EF4444' }} />
-                        </div>
+
+                <div className="bg-white border border-gray-200 rounded-xl p-4">
+                  <div className="text-[13px] font-extrabold text-gray-900 mb-1">✅ 사유하는 질문</div>
+                  <div className="text-[11px] text-gray-500 mb-2.5">
+                    AI가 분석한 답변의 핵심 역량과 개선 가이드예요.
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {aiData.tailSuggestions.map((t, i) => (
+                      <div key={i} className="flex gap-2 items-start px-3 py-2 bg-gray-50 rounded-lg">
+                        <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 mt-0.5" style={{ color: THEME.accentDark, background: THEME.accentBg }}>
+                          {i + 1}
+                        </span>
+                        <span className="text-[12px] text-gray-900 leading-[1.6]">{t}</span>
                       </div>
                     ))}
                   </div>
+                </div>
 
-                  <div className="bg-white border border-gray-200 rounded-xl p-4">
-                    <div className="text-[13px] font-extrabold text-gray-900 mb-1">✅ 사유하는 질문</div>
-                    <div className="text-[11px] text-gray-500 mb-2.5">
-                      AI가 분석한 답변의 핵심 역량과 개선 가이드예요.
+                <div className="bg-white border border-gray-200 rounded-xl p-4">
+                  <div className="text-[13px] font-extrabold text-gray-900 mb-1">✅ AI 종합 분석</div>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 mb-3.5 mt-2">
+                    <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                      📋 {selUniv?.university} 면접 평가 기준
                     </div>
-                    <div className="flex flex-col gap-2">
-                      {aiData.tailSuggestions.map((t, i) => (
-                        <div key={i} className="flex gap-2 items-start px-3 py-2 bg-gray-50 rounded-lg">
-                          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 mt-0.5" style={{ color: THEME.accentDark, background: THEME.accentBg }}>
-                            {i + 1}
+                    <div className="text-[12px] text-gray-900 leading-[1.7]">{aiData.evalCriteria}</div>
+                  </div>
+                  <div className="mb-3.5">
+                    <div className="text-[12px] font-extrabold text-gray-900 mb-2.5">답변 적합성 평가</div>
+                    {aiData.scores.map((s, i) => (
+                      <div key={i} className="mb-2.5">
+                        <div className="text-[12px] font-bold text-gray-900 mb-0.5">{i + 1}. {s.label} ({s.max}점)</div>
+                        <div className="text-[12px] text-gray-500 leading-[1.6]">{s.desc}</div>
+                      </div>
+                    ))}
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 mt-2">
+                      <div className="text-[11px] font-bold text-amber-800 mb-1">■ 평가 요약</div>
+                      <div className="text-[12px] text-amber-800 leading-[1.7]">{aiData.summary}</div>
+                    </div>
+                  </div>
+                  <div className="mb-3.5">
+                    <div className="text-[12px] font-extrabold text-green-600 mb-2">💪 강점 포인트</div>
+                    {aiData.strengths.map((s, i) => (
+                      <div key={i} className="text-[12px] text-gray-900 leading-[1.6] px-3 py-1.5 bg-green-50 border border-green-200 rounded-md mb-1.5">
+                        {s}
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <div className="text-[12px] font-extrabold text-red-500 mb-2">⚡ 개선 포인트</div>
+                    {aiData.improvements.map((s, i) => (
+                      <div key={i} className="text-[12px] text-gray-900 leading-[1.6] px-3 py-1.5 bg-red-50 border border-red-200 rounded-md mb-1.5">
+                        {s}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )
+          )}
+
+          {/* 2차 분석 */}
+          {aiTab === 'second' && (
+            secondAiLoading ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-3 text-gray-400">
+                <div className="text-4xl animate-pulse">✨</div>
+                <div className="text-[13px]">AI가 2차 답변을 분석 중이에요...</div>
+              </div>
+            ) : !secondData ? (
+              <div className="flex-1 flex items-center justify-center text-[13px] text-gray-400 px-5 text-center leading-[1.7]">
+                2차 분석을 시작하려면<br />Step 3의 "✨ 2차 AI 분석 보기" 버튼을 눌러주세요
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                  <div className="text-[13px] font-extrabold text-green-800 mb-1">✅ 1차 vs 2차 평가요소 분포 비교</div>
+                  <div className="text-[11px] text-gray-500 mb-3.5">1차 답변과 2차 답변의 평가요소 분포 변화예요.</div>
+                  {secondData.beforeDistribution.map((b, i) => {
+                    const after = secondData.afterDistribution.find(a => a.factorCode === b.factorCode)
+                    const diff = (after?.distribution || 0) - b.distribution
+                    return (
+                      <div key={i} className="mb-3 bg-white rounded-lg p-3 border border-green-200">
+                        <div className="flex justify-between items-center mb-1.5">
+                          <span className="text-[12px] font-bold text-gray-900">{b.factorName}</span>
+                          <span className="text-[11px] font-extrabold" style={{ color: diff > 0 ? '#059669' : diff < 0 ? '#EF4444' : '#6B7280' }}>
+                            {diff > 0 ? `▲ +${diff}%` : diff < 0 ? `▼ ${diff}%` : '변동없음'}
                           </span>
-                          <span className="text-[12px] text-gray-900 leading-[1.6]">{t}</span>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="bg-white border border-gray-200 rounded-xl p-4">
-                    <div className="text-[13px] font-extrabold text-gray-900 mb-1">✅ AI 종합 분석</div>
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 mb-3.5 mt-2">
-                      <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                        📋 {selUniv?.university} 면접 평가 기준
+                        <div className="mb-1.5">
+                          <div className="text-[10px] text-gray-400 mb-0.5">1차 · {b.distribution}%</div>
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: `${b.distribution}%`, background: THEME.accentBorder }} />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] text-gray-400 mb-0.5">2차 · {after?.distribution || 0}%</div>
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full bg-green-600" style={{ width: `${after?.distribution || 0}%` }} />
+                          </div>
+                        </div>
+                        {after?.evidence && (
+                          <div className="text-[11px] text-gray-500 mt-2 leading-[1.5]">→ {after.evidence}</div>
+                        )}
                       </div>
-                      <div className="text-[12px] text-gray-900 leading-[1.7]">{aiData.evalCriteria}</div>
-                    </div>
-                    <div className="mb-3.5">
-                      <div className="text-[12px] font-extrabold text-gray-900 mb-2.5">답변 적합성 평가</div>
-                      {aiData.scores.map((s, i) => (
-                        <div key={i} className="mb-2.5">
-                          <div className="text-[12px] font-bold text-gray-900 mb-0.5">{i + 1}. {s.label} ({s.max}점)</div>
-                          <div className="text-[12px] text-gray-500 leading-[1.6]">{s.desc}</div>
-                        </div>
-                      ))}
-                      <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 mt-2">
-                        <div className="text-[11px] font-bold text-amber-800 mb-1">■ 평가 요약</div>
-                        <div className="text-[12px] text-amber-800 leading-[1.7]">{aiData.summary}</div>
-                      </div>
-                    </div>
-                    <div className="mb-3.5">
-                      <div className="text-[12px] font-extrabold text-green-600 mb-2">💪 강점 포인트</div>
-                      {aiData.strengths.map((s, i) => (
-                        <div key={i} className="text-[12px] text-gray-900 leading-[1.6] px-3 py-1.5 bg-green-50 border border-green-200 rounded-md mb-1.5">
-                          {s}
-                        </div>
-                      ))}
-                    </div>
-                    <div>
-                      <div className="text-[12px] font-extrabold text-red-500 mb-2">⚡ 개선 포인트</div>
-                      {aiData.improvements.map((s, i) => (
-                        <div key={i} className="text-[12px] text-gray-900 leading-[1.6] px-3 py-1.5 bg-red-50 border border-red-200 rounded-md mb-1.5">
-                          {s}
-                        </div>
-                      ))}
-                    </div>
+                    )
+                  })}
+                </div>
+                <div className="bg-white border border-gray-200 rounded-xl p-4">
+                  <div className="text-[13px] font-extrabold text-gray-900 mb-1">✅ 구조 코멘트</div>
+                  <div
+                    className="rounded-lg px-3 py-3 text-[13px] leading-[1.8] mt-2"
+                    style={{ background: THEME.accentBg, color: THEME.accentDark, border: `1px solid ${THEME.accentBorder}60` }}
+                  >
+                    {secondData.structureComment}
                   </div>
                 </div>
-              )
-            )}
+                <div className="bg-white border border-gray-200 rounded-xl p-4">
+                  <div className="text-[13px] font-extrabold text-gray-900 mb-1">✅ 연습 답변</div>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-3 text-[13px] text-gray-900 leading-[1.9] italic mt-2">
+                    "{secondData.practiceAnswer}"
+                  </div>
+                </div>
+              </div>
+            )
+          )}
 
-            {/* 2차 분석 */}
-            {aiTab === 'second' && (
-              secondAiLoading ? (
-                <div className="flex-1 flex flex-col items-center justify-center gap-3 text-gray-400">
-                  <div className="text-4xl animate-pulse">✨</div>
-                  <div className="text-[13px]">AI가 2차 답변을 분석 중이에요...</div>
-                </div>
-              ) : !secondData ? (
-                <div className="flex-1 flex items-center justify-center text-[13px] text-gray-400">2차 분석 데이터 없음</div>
-              ) : (
-                <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
-                  <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                    <div className="text-[13px] font-extrabold text-green-800 mb-1">✅ 1차 vs 2차 평가요소 분포 비교</div>
-                    <div className="text-[11px] text-gray-500 mb-3.5">1차 답변과 2차 답변의 평가요소 분포 변화예요.</div>
-                    {secondData.beforeDistribution.map((b, i) => {
-                      const after = secondData.afterDistribution.find(a => a.factorCode === b.factorCode)
-                      const diff = (after?.distribution || 0) - b.distribution
-                      return (
-                        <div key={i} className="mb-3 bg-white rounded-lg p-3 border border-green-200">
-                          <div className="flex justify-between items-center mb-1.5">
-                            <span className="text-[12px] font-bold text-gray-900">{b.factorName}</span>
-                            <span className="text-[11px] font-extrabold" style={{ color: diff > 0 ? '#059669' : diff < 0 ? '#EF4444' : '#6B7280' }}>
-                              {diff > 0 ? `▲ +${diff}%` : diff < 0 ? `▼ ${diff}%` : '변동없음'}
-                            </span>
-                          </div>
-                          <div className="mb-1.5">
-                            <div className="text-[10px] text-gray-400 mb-0.5">1차 · {b.distribution}%</div>
-                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                              <div className="h-full rounded-full" style={{ width: `${b.distribution}%`, background: THEME.accentBorder }} />
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-[10px] text-gray-400 mb-0.5">2차 · {after?.distribution || 0}%</div>
-                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                              <div className="h-full rounded-full bg-green-600" style={{ width: `${after?.distribution || 0}%` }} />
-                            </div>
-                          </div>
-                          {after?.evidence && (
-                            <div className="text-[11px] text-gray-500 mt-2 leading-[1.5]">→ {after.evidence}</div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                  <div className="bg-white border border-gray-200 rounded-xl p-4">
-                    <div className="text-[13px] font-extrabold text-gray-900 mb-1">✅ 구조 코멘트</div>
-                    <div
-                      className="rounded-lg px-3 py-3 text-[13px] leading-[1.8] mt-2"
-                      style={{ background: THEME.accentBg, color: THEME.accentDark, border: `1px solid ${THEME.accentBorder}60` }}
-                    >
-                      {secondData.structureComment}
-                    </div>
-                  </div>
-                  <div className="bg-white border border-gray-200 rounded-xl p-4">
-                    <div className="text-[13px] font-extrabold text-gray-900 mb-1">✅ 연습 답변</div>
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-3 text-[13px] text-gray-900 leading-[1.9] italic mt-2">
-                      "{secondData.practiceAnswer}"
-                    </div>
-                  </div>
-                </div>
-              )
-            )}
-          </div>
-        )}
-      </div>
+          {/* ⭐ 하단 고정 영역 - "선생님 답변 작성하기" 큰 버튼 */}
+          {currentRoundHasAnalysis && !currentRoundFeedbackDone && (
+            <div 
+              className="px-4 py-3 border-t border-gray-200 flex-shrink-0"
+              style={{ background: '#FAFBFC' }}
+            >
+              <button
+                onClick={generateAIFeedback}
+                disabled={aiSuggestLoading !== null}
+                className="w-full py-3 text-white rounded-lg text-[13px] font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                style={{ background: aiSuggestLoading !== null ? '#BAC8FF' : THEME.accent }}
+              >
+                {aiSuggestLoading !== null ? '✨ AI가 답변 작성 중...' : `✏️ 선생님 ${aiTab === 'first' ? '1차' : '최종'} 답변 작성하기`}
+              </button>
+              <div className="text-[10px] text-gray-400 mt-1.5 text-center leading-[1.5]">
+                AI가 분석 결과를 토대로 친근한 코치 말투로 작성해요
+              </div>
+            </div>
+          )}
+
+          {/* 이미 피드백 작성 완료된 경우 */}
+          {currentRoundFeedbackDone && (
+            <div 
+              className="px-4 py-3 border-t border-gray-200 flex-shrink-0"
+              style={{ background: '#ECFDF5' }}
+            >
+              <div className="text-[12px] text-green-600 text-center font-semibold">
+                ✓ 이미 {aiTab === 'first' ? '1차' : '최종'} 피드백이 작성되었어요
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 꼬리질문 직접 추가 모달 */}
       {showTailModal && (

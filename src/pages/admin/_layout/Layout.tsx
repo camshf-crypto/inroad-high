@@ -282,7 +282,7 @@ export default function Layout() {
         {/* Footer - 접혔을 땐 숨김 */}
         {!collapsed && (
           <div className="px-3 pb-3 pt-1 text-[9px] text-ink-muted text-center font-medium">
-            © 2026 BIKUS
+            © 2026 B-KEARS
           </div>
         )}
       </div>

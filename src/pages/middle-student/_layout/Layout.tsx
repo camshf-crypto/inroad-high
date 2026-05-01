@@ -102,7 +102,7 @@ export default function MiddleLayout() {
 
         {/* Footer */}
         <div className="px-5 py-3 border-t border-line-light">
-          <div className="text-[11px] text-ink-muted">© 2026 BIKUS</div>
+          <div className="text-[11px] text-ink-muted">© 2026 B-KEARS</div>
         </div>
       </aside>
 

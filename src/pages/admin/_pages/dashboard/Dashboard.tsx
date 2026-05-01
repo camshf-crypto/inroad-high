@@ -329,7 +329,7 @@ export default function Dashboard() {
           <button className="text-[11px] text-ink-muted font-medium hover:text-brand-dark transition-colors">개인정보처리방침</button>
           <button className="text-[11px] text-ink-muted font-medium hover:text-brand-dark transition-colors">고객센터</button>
         </div>
-        <div className="text-[10px] text-ink-muted font-medium">© 2026 BIKUS. All rights reserved.</div>
+        <div className="text-[10px] text-ink-muted font-medium">© 2026 B-KEARS. All rights reserved.</div>
       </div>
     </div>
   )

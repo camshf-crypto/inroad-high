@@ -125,7 +125,7 @@ export default function Layout() {
 
         {/* Footer */}
         <div className="px-5 py-2 border-t border-line-light flex-shrink-0">
-          <div className="text-[11px] text-ink-muted">© 2026 BIKUS</div>
+          <div className="text-[11px] text-ink-muted">© 2026 B-KEARS</div>
         </div>
       </aside>
 

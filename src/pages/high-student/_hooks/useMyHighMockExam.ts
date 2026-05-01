@@ -41,6 +41,7 @@ export interface MockExamQuestion {
   ai_generated: boolean
   student_answer: string | null
   answered_at: string | null
+  time_limit_sec: number | null
   time_spent_sec: number | null
   teacher_feedback: string | null
   created_at: string
@@ -53,10 +54,10 @@ export interface MockExamMajor {
   order: number
   question_text: string
   correct_answer: string
-  question_type: string          // 'objective' | 'subjective'
+  question_type: string
   time_limit_sec: number
-  options: string[] | null       // 객관식 보기
-  correct_index: number | null   // 정답 인덱스
+  options: string[] | null
+  correct_index: number | null
   student_answer: string | null
   answered_at: string | null
   score: number | null
@@ -322,6 +323,121 @@ export function useMyYearlyReport(grade: string, year: number) {
     },
     enabled: !!studentId && !!grade,
     refetchInterval: POLL,
+  })
+}
+
+// ─────────────────────────────────────────────
+// 10. 🆕 AI 꼬리질문 실시간 생성 (모의고사 전용)
+// ─────────────────────────────────────────────
+//
+// 흐름:
+//   ① 학생이 본 질문에 답변 완료 (useSubmitQuestionAnswer)
+//   ② 본 질문 + 학생 답변 → ai-generate-mock-tail Edge Function 호출
+//   ③ 받은 꼬리질문(1개) → high_mock_exam_questions에 새 row insert (level='tail')
+//   ④ 생성된 row 반환 → UI가 카운트다운 후 1.5분 타이머 시작
+//
+// 사용 예 (학생 MockExam.tsx 내부):
+//   const generateTail = useGenerateMockTail()
+//   const tail = await generateTail.mutateAsync({
+//     examId,
+//     studentId,
+//     mainOrder: q.order,
+//     mainQuestionId: q.id,
+//     mainQuestionText: q.question_text,
+//     studentAnswer,
+//     questionType: q.type,
+//   })
+//   // tail.question_text 를 화면에 띄우고 타이머 시작
+
+export function useGenerateMockTail() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      examId,
+      studentId,
+      mainOrder,
+      mainQuestionId,
+      mainQuestionText,
+      studentAnswer,
+      questionType,
+      targetUniversity,
+      targetDepartment,
+      tailTimeLimitSec = 90,
+    }: {
+      examId: string
+      studentId: string
+      mainOrder: number
+      mainQuestionId: string
+      mainQuestionText: string
+      studentAnswer: string
+      questionType?: string | null
+      targetUniversity?: string | null
+      targetDepartment?: string | null
+      tailTimeLimitSec?: number
+    }): Promise<MockExamQuestion> => {
+      // ── 1) 이미 같은 main에 대한 꼬리가 있으면 그대로 재사용 (중복 방지) ──
+      const { data: existing } = await supabase
+        .from('high_mock_exam_questions')
+        .select('*')
+        .eq('exam_id', examId)
+        .eq('parent_id', mainQuestionId)
+        .eq('level', 'tail')
+        .order('tail_index', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+
+      if (existing && existing.question_text) {
+        return existing as MockExamQuestion
+      }
+
+      // ── 2) Edge Function 호출 ──
+      const { data, error } = await supabase.functions.invoke(
+        'ai-generate-mock-tail',
+        {
+          body: {
+            mainQuestion: mainQuestionText,
+            studentAnswer,
+            questionType: questionType ?? undefined,
+            targetUniversity: targetUniversity ?? undefined,
+            targetDepartment: targetDepartment ?? undefined,
+          },
+        }
+      )
+
+      if (error) {
+        throw new Error(`AI 꼬리질문 생성 실패: ${error.message}`)
+      }
+
+      const tailText = (data?.tail as string | undefined)?.trim()
+      if (!tailText) {
+        throw new Error('AI 꼬리질문이 비어있어요. 잠시 후 다시 시도해주세요.')
+      }
+
+      // ── 3) 새 꼬리질문 row insert ──
+      const { data: inserted, error: insErr } = await supabase
+        .from('high_mock_exam_questions')
+        .insert({
+          exam_id: examId,
+          student_id: studentId,
+          order: mainOrder,
+          level: 'tail',
+          parent_id: mainQuestionId,
+          tail_index: 0,
+          type: questionType ?? null,
+          question_text: tailText,
+          ai_generated: true,
+          time_limit_sec: tailTimeLimitSec,
+        })
+        .select()
+        .single()
+
+      if (insErr) throw insErr
+      return inserted as MockExamQuestion
+    },
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['my-mock-exam-questions', v.examId] })
+    },
   })
 }
 
