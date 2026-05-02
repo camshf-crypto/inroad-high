@@ -29,6 +29,7 @@ export interface MajorQuestion {
   choice_b: string | null
   choice_c: string | null
   choice_d: string | null
+  choice_e: string | null   // ⭐ 추가 (5번 선택지)
   correct_answer: string | null
   explanation: string | null
   difficulty: string

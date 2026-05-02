@@ -411,7 +411,7 @@ export default function Major() {
             <div className="text-[14px] font-semibold text-ink leading-relaxed mb-5">{retryQ.question_text}</div>
 
             <div className="flex flex-col gap-2.5">
-              {(['A', 'B', 'C', 'D'] as const).map(letter => {
+              {(['A', 'B', 'C', 'D', 'E'] as const).map(letter => {
                 const text = retryQ[`choice_${letter.toLowerCase()}` as keyof MajorQuestion] as string
                 if (!text) return null
                 const isSel = userAns === letter
@@ -555,7 +555,7 @@ export default function Major() {
                     <div className="text-[15px] font-semibold text-ink leading-relaxed mb-5">{q.question_text}</div>
 
                     <div className="flex flex-col gap-2.5">
-                      {(['A', 'B', 'C', 'D'] as const).map(letter => {
+                      {(['A', 'B', 'C', 'D', 'E'] as const).map(letter => {
                         const text = q[`choice_${letter.toLowerCase()}` as keyof MajorQuestion] as string
                         if (!text) return null
                         const isSel = userAns === letter

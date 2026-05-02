@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
@@ -38,6 +38,23 @@ function useMyProfile() {
   })
 }
 
+// 🆕 활성화된 학과 목록 조회 (high_major_seed)
+function useActiveMajors() {
+  return useQuery({
+    queryKey: ['active-majors-for-mockexam'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('high_major_seed')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name', { ascending: true })
+      if (error) throw error
+      return data || []
+    },
+    staleTime: 5 * 60 * 1000, // 5분 캐시
+  })
+}
+
 const THEME = {
   accent: '#2563EB',
   accentDark: '#1E3A8A',
@@ -52,6 +69,7 @@ const GRADE_OPTIONS = ['고1', '고2', '고3']
 const DEFAULT_MAIN_TIME = 120     // 본 질문 2분
 const DEFAULT_TAIL_TIME = 90      // 꼬리질문 1분 30초
 const DEFAULT_MAJOR_SUB_TIME = 120
+const DEFAULT_MAJOR_OBJ_TIME = 30
 
 // 카운트다운 (꼬리질문 등장 후 답변 시작까지 대기)
 const TAIL_COUNTDOWN_SEC = 3
@@ -72,6 +90,7 @@ type Phase =
 export default function MockExam({ student: studentProp }: { student?: any }) {
   const { data: myProfile } = useMyProfile()
   const student = myProfile || studentProp || {}
+  const queryClient = useQueryClient()
 
   const studentGrade = student?.grade || '고1'
   const [selGrade, setSelGrade] = useState(studentGrade)
@@ -89,12 +108,17 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
   const [answerInput, setAnswerInput] = useState('')
   const [majorAnswerInput, setMajorAnswerInput] = useState('')
 
+  // 🆕 학과 선택 모달 상태
+  const [showMajorPicker, setShowMajorPicker] = useState(false)
+  const [majorSearch, setMajorSearch] = useState('')
+  const [pickedMajorId, setPickedMajorId] = useState<string | null>(null)
+  const [pickedMajorName, setPickedMajorName] = useState<string>('')
+  const [preparing, setPreparing] = useState(false)
+
   // ── 타이머 ──
   const [remainSec, setRemainSec] = useState(0)
   const [countdownSec, setCountdownSec] = useState(TAIL_COUNTDOWN_SEC)
-  // questionStartRef는 timeSpent 계산용. 타이머 인터벌은 각 effect 안에서 로컬로 처리.
   const questionStartRef = useRef<number>(0)
-  // 답변 입력값을 항상 최신으로 읽기 위한 ref (타이머 만료 시 stale closure 방지)
   const answerInputRef = useRef('')
   useEffect(() => { answerInputRef.current = answerInput }, [answerInput])
 
@@ -105,6 +129,7 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
   const { data: questions = [] } = useMyMockExamQuestions(selExamId || undefined)
   const { data: majors = [] } = useMyMockExamMajor(selExamId || undefined)
   const { data: report } = useMyMockExamReport(selExamId || undefined)
+  const { data: activeMajors = [] } = useActiveMajors()
 
   // ── Mutations ──
   const startExam = useStartMockExam()
@@ -132,6 +157,13 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
   const currentMajor = majors[majorIdx]
 
   const isQ1 = currentMain?.order === 1
+
+  // 🆕 검색 필터링된 학과 목록
+  const filteredMajors = useMemo(() => {
+    const kw = majorSearch.trim().toLowerCase()
+    if (!kw) return activeMajors
+    return activeMajors.filter((m: any) => m.name.toLowerCase().includes(kw))
+  }, [activeMajors, majorSearch])
 
   // ─────────────────────────────────────────────
   // 자동 학년 선택
@@ -187,15 +219,11 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
   }, [selExam?.status, mains, phase])
 
   // ═══════════════════════════════════════════════════════════
-  // 🆕 타이머: 본 질문 답변 중 (interview phase)
-  //
-  // 핵심: 각 effect 내부에 LOCAL `interval` 변수를 만든다.
-  // cleanup도 그 로컬 interval만 정리한다.
-  // 다른 phase의 cleanup이 이 인터벌을 건드릴 수 없음.
+  // 타이머: 본 질문 (interview phase)
   // ═══════════════════════════════════════════════════════════
   useEffect(() => {
     if (phase !== 'interview' || !currentMain) return
-    if (currentMain.student_answer) return  // 이미 답변된 질문은 타이머 안 돌림
+    if (currentMain.student_answer) return
 
     const limit = currentMain.time_limit_sec ?? DEFAULT_MAIN_TIME
     const startTime = Date.now()
@@ -210,7 +238,6 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
       setRemainSec(remain)
       if (remain === 0) {
         clearInterval(interval)
-        // 시간 만료 → 자동 답변 처리
         submitMainAndContinue(true, answerInputRef.current, limit)
       }
     }, 1000)
@@ -220,7 +247,7 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
   }, [phase, currentMain?.id])
 
   // ═══════════════════════════════════════════════════════════
-  // 🆕 타이머: 꼬리질문 답변 중 (tail-answer phase)
+  // 타이머: 꼬리질문 (tail-answer phase)
   // ═══════════════════════════════════════════════════════════
   useEffect(() => {
     if (phase !== 'tail-answer' || !currentTail) return
@@ -248,8 +275,7 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
   }, [phase, currentTail?.id])
 
   // ═══════════════════════════════════════════════════════════
-  // 🆕 타이머: 꼬리 등장 후 3초 카운트다운 (tail-countdown phase)
-  // setTimeout 체인 + cancelled flag 로 다른 타이머와 격리
+  // 타이머: 꼬리 등장 후 3초 카운트다운
   // ═══════════════════════════════════════════════════════════
   useEffect(() => {
     if (phase !== 'tail-countdown') return
@@ -273,7 +299,7 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
   }, [phase])
 
   // ═══════════════════════════════════════════════════════════
-  // 🆕 타이머: 전공특화 (major phase)
+  // 타이머: 전공특화 (major phase)
   // ═══════════════════════════════════════════════════════════
   useEffect(() => {
     if (phase !== 'major' || !currentMajor) return
@@ -301,7 +327,6 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
 
   // ═══════════════════════════════════════════════════════════
   // 본 질문 답변 → 저장 → 다음 단계
-  // (timer effect와 button click에서 공통으로 호출)
   // ═══════════════════════════════════════════════════════════
   const submitMainAndContinue = async (auto: boolean, currentVal: string, limit: number) => {
     if (!currentMain) return
@@ -324,13 +349,11 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
     setAnswerInput('')
     answerInputRef.current = ''
 
-    // Q1 자기소개 → 꼬리 없이 바로 다음 본 질문
     if (currentMain.order === 1) {
       goNextMain()
       return
     }
 
-    // Q2~Q5 → AI 꼬리 생성
     const ans = val || '(학생이 시간 내 답변하지 못했습니다)'
     setPhase('tail-loading')
     try {
@@ -354,7 +377,6 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
     }
   }
 
-  // 버튼 클릭 핸들러 (현재 input 값을 직접 가져와서 호출)
   const handleSubmitMainAnswer = async () => {
     if (!currentMain) return
     const limit = currentMain.time_limit_sec ?? DEFAULT_MAIN_TIME
@@ -434,32 +456,193 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // 시험 시작
+  // 🆕 학과 선택 → 전공특화 문제 추출 → INSERT
+  // ═══════════════════════════════════════════════════════════
+  const prepareMajorQuestions = async (
+    examId: string,
+    studentId: string,
+    grade: string,
+    majorId: string,
+    majorName: string
+  ) => {
+    // 1) 해당 학과 + 학년의 chapter 조회
+    const gradeNum = grade === '고1' ? 1 : grade === '고2' ? 2 : 3
+    const { data: chapters, error: chErr } = await supabase
+      .from('high_major_chapter')
+      .select('id')
+      .eq('major_id', majorId)
+      .eq('grade', gradeNum)
+      .eq('is_active', true)
+    if (chErr) throw chErr
+    if (!chapters || chapters.length === 0) {
+      throw new Error(`${majorName} ${grade} 챕터가 등록되지 않았어요. 선생님께 문의해주세요.`)
+    }
+    const chapterIds = chapters.map(c => c.id)
+
+    // 2) 객관식 7개 + 주관식 3개 랜덤 추출
+    const { data: objList, error: objErr } = await supabase
+      .from('high_major_question')
+      .select('id, question_text, choice_a, choice_b, choice_c, choice_d, choice_e, correct_answer, explanation')
+      .in('chapter_id', chapterIds)
+      .eq('question_type', 'objective')
+      .eq('is_active', true)
+    if (objErr) throw objErr
+
+    const { data: subList, error: subErr } = await supabase
+      .from('high_major_question')
+      .select('id, question_text, correct_answer, explanation')
+      .in('chapter_id', chapterIds)
+      .eq('question_type', 'subjective')
+      .eq('is_active', true)
+    if (subErr) throw subErr
+
+    if (!objList || objList.length < 7) {
+      throw new Error(`${majorName} ${grade} 객관식 문제가 부족해요 (${objList?.length || 0}/7). 선생님께 문의해주세요.`)
+    }
+    if (!subList || subList.length < 3) {
+      throw new Error(`${majorName} ${grade} 주관식 문제가 부족해요 (${subList?.length || 0}/3). 선생님께 문의해주세요.`)
+    }
+
+    // Fisher-Yates shuffle
+    const shuffle = <T,>(arr: T[]): T[] => {
+      const a = [...arr]
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[a[i], a[j]] = [a[j], a[i]]
+      }
+      return a
+    }
+    const pickedObj = shuffle(objList).slice(0, 7)
+    const pickedSub = shuffle(subList).slice(0, 3)
+
+    // 3) 기존 majors 삭제 (혹시 모를 잔여 데이터 정리)
+    const { error: delErr } = await supabase
+      .from('high_mock_exam_major')
+      .delete()
+      .eq('exam_id', examId)
+    if (delErr) throw delErr
+
+    // 4) high_mock_exam_major INSERT
+    const choiceLabels = ['A', 'B', 'C', 'D', 'E']
+    const rows: any[] = []
+
+    pickedObj.forEach((q, idx) => {
+      const options = [q.choice_a, q.choice_b, q.choice_c, q.choice_d, q.choice_e].filter(
+        (c) => c !== null && c !== undefined && c !== ''
+      )
+      const correctIndex = choiceLabels.indexOf(q.correct_answer)
+      rows.push({
+        exam_id: examId,
+        student_id: studentId,
+        order: idx + 1,
+        question_text: q.question_text,
+        correct_answer: q.correct_answer,
+        question_type: 'objective',
+        options,
+        correct_index: correctIndex >= 0 ? correctIndex : null,
+        time_limit_sec: DEFAULT_MAJOR_OBJ_TIME,
+        explanation: q.explanation,
+      })
+    })
+
+    pickedSub.forEach((q, idx) => {
+      rows.push({
+        exam_id: examId,
+        student_id: studentId,
+        order: 7 + idx + 1, // 8, 9, 10
+        question_text: q.question_text,
+        correct_answer: q.correct_answer,
+        question_type: 'subjective',
+        options: null,
+        correct_index: null,
+        time_limit_sec: DEFAULT_MAJOR_SUB_TIME,
+        explanation: q.explanation,
+      })
+    })
+
+    const { error: insErr } = await supabase
+      .from('high_mock_exam_major')
+      .insert(rows)
+    if (insErr) throw insErr
+
+    // 5) high_mock_exam.target_department 업데이트
+    const { error: updErr } = await supabase
+      .from('high_mock_exam')
+      .update({ target_department: majorName })
+      .eq('id', examId)
+    if (updErr) throw updErr
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 🆕 시험 시작 버튼 클릭 → 학과 선택 모달 띄우기
   // ═══════════════════════════════════════════════════════════
   const handleStart = () => {
     if (!selExam) return
     if (mains.length === 0) {
-      alert('아직 질문이 준비되지 않았어요. 잠시 후 다시 시도해주세요.')
+      alert('아직 면접 질문이 준비되지 않았어요. 잠시 후 다시 시도해주세요.')
+      return
+    }
+    // 학과 선택 모달 오픈
+    setMajorSearch('')
+    setPickedMajorId(null)
+    setPickedMajorName('')
+    setShowMajorPicker(true)
+  }
+
+  // 🆕 학과 선택 후 실제 시험 시작
+  const handleConfirmMajorAndStart = async () => {
+    if (!selExam || !pickedMajorId || !pickedMajorName) return
+    if (!student?.id) {
+      alert('로그인 정보를 확인할 수 없어요. 새로고침 후 다시 시도해주세요.')
       return
     }
 
     if (!window.confirm(
+      `📚 선택한 학과: ${pickedMajorName}\n\n` +
       `면접 모의고사를 시작합니다!\n\n` +
       `【1단계】 면접 질문\n` +
       `• 본 질문 ${mains.length}개 (각 ${DEFAULT_MAIN_TIME / 60}분)\n` +
       `• Q2부터는 답변 후 AI 면접관이 꼬리질문 1개씩 (${DEFAULT_TAIL_TIME}초)\n\n` +
-      `【2단계】 전공특화\n` +
-      `• ${majors.length}문제 (각 30초~2분)\n\n` +
+      `【2단계】 전공특화 (${pickedMajorName})\n` +
+      `• 객관식 7문제 (각 ${DEFAULT_MAJOR_OBJ_TIME}초) + 주관식 3문제 (각 ${DEFAULT_MAJOR_SUB_TIME / 60}분)\n\n` +
       `⚠️ 시간이 끝나면 자동으로 다음으로 넘어가요.\n` +
       `중간에 멈출 수 없으니 집중해서 답변해주세요!`
     )) return
 
-    startExam.mutate(selExam.id, {
-      onSuccess: () => {
-        setPhase('interview')
-        setMainIdx(0)
-      },
-    })
+    setPreparing(true)
+    try {
+      // 1) 학과 기반 전공특화 문제 추출/INSERT
+      await prepareMajorQuestions(
+        selExam.id,
+        student.id,
+        selExam.grade,
+        pickedMajorId,
+        pickedMajorName,
+      )
+
+      // 2) 캐시 무효화 (majors, exams 재조회)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['my-mock-exam-major'] }),
+        queryClient.invalidateQueries({ queryKey: ['my-mock-exams'] }),
+      ])
+
+      // 3) 시험 시작 (status: open → in_progress)
+      startExam.mutate(selExam.id, {
+        onSuccess: () => {
+          setShowMajorPicker(false)
+          setPhase('interview')
+          setMainIdx(0)
+        },
+        onError: (e: any) => {
+          alert(`시험 시작 실패: ${e.message || e}`)
+        },
+      })
+    } catch (e: any) {
+      console.error('전공특화 문제 준비 실패:', e)
+      alert(`전공특화 문제 준비 실패\n\n${e.message || e}`)
+    } finally {
+      setPreparing(false)
+    }
   }
 
   const formatTime = (sec: number) => {
@@ -631,6 +814,14 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
               >
                 {getStatusLabel(selExam?.status || '').label}
               </span>
+              {selExam?.target_department && (
+                <span
+                  className="text-[11px] font-bold px-2.5 py-0.5 rounded-full"
+                  style={{ background: THEME.accentBg, color: THEME.accentDark, border: `1px solid ${THEME.accentBorder}60` }}
+                >
+                  🎓 {selExam.target_department}
+                </span>
+              )}
               {(phase === 'interview' || phase === 'tail-loading' || phase === 'tail-countdown' || phase === 'tail-answer' || phase === 'major') && (
                 <span
                   className="text-[10px] font-bold px-2 py-0.5 rounded-full"
@@ -648,7 +839,7 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
               {selExam?.status === 'open' && phase === 'before' && (
                 <button
                   onClick={handleStart}
-                  disabled={startExam.isPending}
+                  disabled={startExam.isPending || preparing}
                   className="px-4 py-2 text-white rounded-lg text-[12px] font-bold disabled:opacity-50"
                   style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
                 >
@@ -895,10 +1086,10 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
                   이제 <strong>2단계 전공특화 문제</strong>를 진행할게요.
                 </div>
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5 text-left">
-                  <div className="text-[12px] font-bold text-amber-800 mb-2">📋 전공특화 안내</div>
+                  <div className="text-[12px] font-bold text-amber-800 mb-2">📋 전공특화 안내 ({selExam?.target_department})</div>
                   <div className="text-[11px] text-amber-700 leading-[1.7]">
-                    • 총 <strong>{majors.length}문제</strong><br />
-                    • 객관식은 30초, 주관식은 2분 제한<br />
+                    • 총 <strong>{majors.length}문제</strong> (객관식 7 + 주관식 3)<br />
+                    • 객관식은 {DEFAULT_MAJOR_OBJ_TIME}초, 주관식은 {DEFAULT_MAJOR_SUB_TIME / 60}분 제한<br />
                     • 각 문제 시간 끝나면 자동 다음 진행<br />
                     • 모두 완료되면 시험이 제출돼요
                   </div>
@@ -934,7 +1125,7 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
                       전공특화 Q{majorIdx + 1}
                     </span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full ml-auto bg-amber-50 text-amber-800">
-                      {currentMajor.question_type === 'objective' ? '객관식 · 30초' : '주관식 · 2분'}
+                      {currentMajor.question_type === 'objective' ? `객관식 · ${DEFAULT_MAJOR_OBJ_TIME}초` : `주관식 · ${DEFAULT_MAJOR_SUB_TIME / 60}분`}
                     </span>
                   </div>
                   <div className="text-[15px] font-bold text-ink leading-[1.6]">{currentMajor.question_text}</div>
@@ -963,7 +1154,7 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
                                 color: isSelected ? '#fff' : '#6B7280',
                               }}
                             >
-                              {['①', '②', '③', '④'][idx]}
+                              {['①', '②', '③', '④', '⑤'][idx]}
                             </div>
                             <div className="text-[12px] font-medium text-ink leading-[1.4] flex-1">
                               {opt}
@@ -1010,10 +1201,10 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
                       <div className="text-[16px] font-bold text-ink mb-2">면접 모의고사 준비 완료</div>
                       <div className="text-[12px] text-ink-secondary leading-[1.8] mb-4 max-w-md">
                         본 질문 {mains.length}개 (Q1 자기소개 + Q2~Q5 답변 후 AI 꼬리질문)
-                        <br />전공특화 {majors.length}문제 · 시간 끝나면 자동으로 다음으로
+                        <br />전공특화 10문제 (객관식 7 + 주관식 3) · 시간 끝나면 자동으로 다음으로
                       </div>
                       <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 max-w-md">
-                        ⚠️ 시작하면 <strong>중간에 멈출 수 없어요</strong>.
+                        ⚠️ 시작하면 <strong>중간에 멈출 수 없어요</strong>. 시작 전에 학과를 선택해주세요.
                       </div>
                     </div>
                   )}
@@ -1049,6 +1240,12 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
 
               {activeSection === 'major' && (
                 <div className="flex-1 overflow-y-auto flex flex-col gap-2.5">
+                  {majors.length === 0 && phase === 'before' && (
+                    <div className="flex flex-col items-center justify-center py-10 text-center text-ink-muted gap-2">
+                      <div className="text-4xl">🎓</div>
+                      <div className="text-[13px] font-bold text-ink">전공특화 문제는 시험 시작 시 학과 선택 후 생성됩니다</div>
+                    </div>
+                  )}
                   {majors.map((q, i) => (
                     <div key={q.id} className="bg-white border border-line rounded-xl p-4" style={{ borderColor: q.student_answer ? '#6EE7B7' : '#E5E7EB', background: q.student_answer ? '#F0FDF4' : '#fff' }}>
                       <div className="flex items-start gap-2 mb-2">
@@ -1450,6 +1647,157 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
             </>
           )}
         </>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* 🆕 학과 선택 모달 */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {showMajorPicker && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center px-4"
+          style={{ background: 'rgba(15, 23, 42, 0.55)', backdropFilter: 'blur(4px)' }}
+          onClick={() => !preparing && setShowMajorPicker(false)}
+        >
+          <div
+            className="bg-white border border-line rounded-2xl shadow-[0_25px_80px_rgba(15,23,42,0.25)] w-full max-w-[600px] max-h-[85vh] flex flex-col overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* 헤더 */}
+            <div className="px-6 py-5 border-b border-line flex-shrink-0" style={{ background: THEME.accentBg }}>
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-[10px] font-bold tracking-[3px] uppercase px-2.5 py-0.5 rounded-full"
+                    style={{ color: THEME.accentDark, background: '#fff', border: `1px solid ${THEME.accentBorder}60` }}
+                  >
+                    Step 1
+                  </span>
+                  <div className="text-[16px] font-extrabold text-ink">학과 선택</div>
+                </div>
+                <button
+                  onClick={() => !preparing && setShowMajorPicker(false)}
+                  disabled={preparing}
+                  className="text-ink-muted hover:text-ink text-xl font-bold disabled:opacity-30"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="text-[12px] text-ink-secondary leading-[1.6]">
+                전공특화 문제는 <strong className="text-ink">{selExam?.grade}</strong> + 선택한 학과를 기반으로 출제됩니다.
+              </div>
+            </div>
+
+            {/* 검색 */}
+            <div className="px-6 pt-4 pb-3 flex-shrink-0">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={majorSearch}
+                  onChange={e => setMajorSearch(e.target.value)}
+                  placeholder="학과명을 검색하세요 (예: 의예, 컴퓨터, 경영...)"
+                  className="w-full px-4 py-3 pr-10 border border-line rounded-lg text-[13px] outline-none transition-all"
+                  style={{
+                    fontWeight: 500,
+                  }}
+                  onFocus={e => {
+                    e.currentTarget.style.borderColor = THEME.accent
+                    e.currentTarget.style.boxShadow = `0 0 0 3px ${THEME.accent}1a`
+                  }}
+                  onBlur={e => {
+                    e.currentTarget.style.borderColor = '#E5E7EB'
+                    e.currentTarget.style.boxShadow = 'none'
+                  }}
+                  autoFocus
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted text-sm">
+                  🔍
+                </div>
+              </div>
+              <div className="mt-2 text-[11px] text-ink-muted">
+                전체 <strong className="text-ink">{activeMajors.length}</strong>개 학과 중 <strong style={{ color: THEME.accent }}>{filteredMajors.length}</strong>개 표시
+              </div>
+            </div>
+
+            {/* 학과 리스트 */}
+            <div className="flex-1 overflow-y-auto px-6 pb-3">
+              {filteredMajors.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-ink-muted gap-2">
+                  <div className="text-4xl">🔎</div>
+                  <div className="text-[13px] font-bold text-ink">검색 결과가 없어요</div>
+                  <div className="text-[11px] text-ink-secondary">다른 키워드로 검색해보세요</div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {filteredMajors.map((m: any) => {
+                    const isPicked = pickedMajorId === m.id
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => {
+                          setPickedMajorId(m.id)
+                          setPickedMajorName(m.name)
+                        }}
+                        className="text-left rounded-lg px-3 py-2.5 transition-all flex items-center gap-2 text-[12px]"
+                        style={{
+                          border: `2px solid ${isPicked ? THEME.accent : '#E5E7EB'}`,
+                          background: isPicked ? THEME.accentBg : '#fff',
+                          fontWeight: isPicked ? 700 : 500,
+                          color: isPicked ? THEME.accentDark : '#1F2937',
+                          boxShadow: isPicked ? `0 4px 12px ${THEME.accentShadow}` : 'none',
+                        }}
+                      >
+                        <div
+                          className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
+                          style={{
+                            border: `2px solid ${isPicked ? THEME.accent : '#D1D5DB'}`,
+                            background: isPicked ? THEME.accent : '#fff',
+                          }}
+                        >
+                          {isPicked && (
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                        <span className="flex-1 leading-[1.4]">{m.name}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 푸터 */}
+            <div className="px-6 py-4 border-t border-line flex items-center justify-between gap-3 flex-shrink-0 bg-white">
+              <div className="text-[12px] text-ink-secondary leading-[1.5]">
+                {pickedMajorName ? (
+                  <>
+                    선택: <strong className="text-ink" style={{ color: THEME.accentDark }}>🎓 {pickedMajorName}</strong>
+                  </>
+                ) : (
+                  '학과를 선택해주세요'
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowMajorPicker(false)}
+                  disabled={preparing}
+                  className="px-4 py-2 text-[12px] font-semibold text-ink-secondary rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleConfirmMajorAndStart}
+                  disabled={!pickedMajorId || preparing || startExam.isPending}
+                  className="px-5 py-2 text-white rounded-lg text-[13px] font-bold disabled:opacity-50 transition-all"
+                  style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
+                >
+                  {preparing ? '⏳ 문제 준비 중...' : '🚀 시험 시작'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
