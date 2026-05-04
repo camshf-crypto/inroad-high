@@ -8,7 +8,7 @@ const MENUS = [
   { path: '/middle-student/roadmap', label: '내 커리큘럼', icon: '⊞' },
   { path: '/middle-student/lesson', label: '수업 영상', icon: '🎬' },
   { path: '/middle-student/homework', label: '숙제', icon: '📝' },
-  { path: '/middle-student/suhaeng', label: '수행평가', icon: '🎯', isNew: true },
+  { path: '/middle-student/suhaeng', label: '수행평가', icon: '🎯' },
   { path: '/middle-student/book', label: '독서리스트', icon: '📚' },
   { path: '/middle-student/expect', label: '자소서 · 예상질문', icon: '💬' },
   { path: '/middle-student/past', label: '기출문제', icon: '🎓' },
@@ -90,11 +90,6 @@ export default function MiddleLayout() {
               >
                 <span className="text-[15px]">{m.icon}</span>
                 <span className="flex-1 text-left">{m.label}</span>
-                {m.isNew && !isLocked && (
-                  <span className="text-[9px] font-extrabold text-white bg-gradient-to-r from-amber-500 to-orange-500 px-1.5 py-0.5 rounded-full tracking-tight shadow-sm">
-                    NEW
-                  </span>
-                )}
               </button>
             )
           })}

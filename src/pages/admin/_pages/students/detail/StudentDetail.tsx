@@ -190,18 +190,18 @@ export default function StudentDetail() {
   const setCurrentTab = isMiddle
     ? (t: string) => setMiddleTab(t as MiddleTabType)
     : (t: string) => {
-        setHighTab(t as HighTabType)
-        if (t !== 'topic') setOpenTopicId(null)
-        if (t !== 'book') setOpenBookId(null)
-      }
+      setHighTab(t as HighTabType)
+      if (t !== 'topic') setOpenTopicId(null)
+      if (t !== 'book') setOpenBookId(null)
+    }
 
   return (
-    <div className="flex overflow-hidden" style={{ height: 'calc(100vh - 50px)' }}>
+    <div className="flex" style={{ minHeight: 'calc(100vh - 50px)' }}>
 
       {/* ==================== 메인 영역 ==================== */}
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+      <div className="flex-1 flex flex-col min-w-0">
 
-        {/* 고정 헤더 영역 (헤더 + 탭) */}
+        {/* 헤더 영역 (헤더 + 탭) */}
         <div className="px-8 pt-7 pb-0 flex-shrink-0">
 
           {/* 헤더 - 깔끔하게 */}
@@ -315,7 +315,7 @@ export default function StudentDetail() {
         </div>
 
         {/* 탭 콘텐츠 */}
-        <div className={`flex-1 px-8 pb-7 pt-1 min-h-0 ${highTab === 'roadmap' && !isMiddle ? 'overflow-y-auto' : 'overflow-hidden'}`}>
+        <div className="flex-1 px-8 pb-7 pt-1">
 
           {!isMiddle && (
             <>
@@ -350,7 +350,7 @@ export default function StudentDetail() {
       {/* ==================== 챗봇 사이드 패널 ==================== */}
       {chatOpen && (
         <div
-          className="w-[380px] border-l border-line bg-white flex flex-col flex-shrink-0"
+          className="w-[380px] border-l border-line bg-white flex flex-col flex-shrink-0 sticky top-0"
           style={{ height: 'calc(100vh - 50px)' }}
         >
           <div
