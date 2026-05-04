@@ -1,34 +1,77 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { useAtomValue } from 'jotai'
+import { academyState } from '@/lib/auth/atoms'
 
-export interface MiddleRoadmapProgress {
-  mission_key: string
-  is_completed: boolean
-  completed_at: string | null
-  teacher_memo: string | null
+/**
+ * 선생님 정보 (원장 + 강사)
+ */
+export interface Teacher {
+  id: string
+  name: string
+  role: 'OWNER' | 'TEACHER'
 }
 
 /**
- * 특정 학생의 middle_roadmap 완료/메모 데이터 전체 조회
+ * 선생님별 학년별 진도 1행
  */
-export function useMiddleRoadmapProgress(studentId: string | undefined) {
+export interface TeacherProgress {
+  teacher_id: string
+  grade: string                    // '중1' | '중2' | '중3'
+  lesson_month: number | null      // 현재 진도 월 (1~12)
+  lesson_week: number | null       // 현재 진도 주차 (1~4)
+  homework_month: number | null
+  homework_week: number | null
+  updated_at: string | null
+}
+
+/**
+ * 우리 학원 선생님 목록 조회 (원장 포함)
+ */
+export function useAcademyTeachers() {
+  const academy = useAtomValue(academyState)
+
   return useQuery({
-    queryKey: ['middle-roadmap-progress', studentId],
-    enabled: !!studentId,
-    queryFn: async (): Promise<Map<string, MiddleRoadmapProgress>> => {
+    queryKey: ['academy-teachers', academy.academyId],
+    enabled: !!academy.academyId,
+    queryFn: async (): Promise<Teacher[]> => {
       const { data, error } = await supabase
-        .from('middle_roadmap')
-        .select('mission_key, is_completed, completed_at, teacher_memo')
-        .eq('student_id', studentId!)
-        .not('mission_key', 'is', null)
+        .from('profiles')
+        .select('id, name, role')
+        .eq('academy_id', academy.academyId!)
+        .in('role', ['OWNER', 'TEACHER'])
+        .order('role', { ascending: true })  // OWNER 먼저
+        .order('name', { ascending: true })
 
       if (error) throw error
 
-      const map = new Map<string, MiddleRoadmapProgress>()
+      return (data ?? []).map(t => ({
+        id: t.id,
+        name: t.name ?? '이름없음',
+        role: t.role as 'OWNER' | 'TEACHER',
+      }))
+    },
+  })
+}
+
+/**
+ * 특정 선생님의 학년별 진도 조회
+ */
+export function useTeacherProgress(teacherId: string | undefined) {
+  return useQuery({
+    queryKey: ['teacher-progress', teacherId],
+    enabled: !!teacherId,
+    queryFn: async (): Promise<Map<string, TeacherProgress>> => {
+      const { data, error } = await supabase
+        .from('teacher_progress')
+        .select('teacher_id, grade, lesson_month, lesson_week, homework_month, homework_week, updated_at')
+        .eq('teacher_id', teacherId!)
+
+      if (error) throw error
+
+      const map = new Map<string, TeacherProgress>()
       for (const row of data ?? []) {
-        if (row.mission_key) {
-          map.set(row.mission_key, row as MiddleRoadmapProgress)
-        }
+        map.set(row.grade, row as TeacherProgress)
       }
       return map
     },
@@ -36,107 +79,41 @@ export function useMiddleRoadmapProgress(studentId: string | undefined) {
 }
 
 /**
- * 미션 완료 체크 토글
+ * 선생님 진도 업데이트 (수업 또는 숙제)
  */
-export function useToggleMiddleMissionComplete(studentId: string) {
+export function useUpdateTeacherProgress(teacherId: string) {
   const qc = useQueryClient()
 
   return useMutation({
     mutationFn: async (params: {
-      missionKey: string
-      month: number
-      year: number
-      missionTitle: string
-      isCompleted: boolean
+      grade: string
+      type: 'lesson' | 'homework'
+      month: number | null
+      week: number | null
     }) => {
-      const { missionKey, month, year, missionTitle, isCompleted } = params
+      const { grade, type, month, week } = params
 
-      // 🔍 디버깅 로그
-      const { data: userData, error: authError } = await supabase.auth.getUser()
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-      console.log('🔐 [TOGGLE] 현재 로그인 유저:', userData?.user)
-      console.log('🆔 [TOGGLE] auth user.id:', userData?.user?.id)
-      console.log('❌ [TOGGLE] auth error:', authError)
-      console.log('🎯 [TOGGLE] studentId 타깃:', studentId)
-      console.log('📤 [TOGGLE] 보낼 데이터:', {
-        student_id: studentId,
-        mission_key: missionKey,
-        month,
-        year,
-        mission_title: missionTitle,
-        is_completed: isCompleted,
-      })
-
-      // profiles에서 본인 정보 조회 (RLS가 정확히 본인 보는지 확인)
-      const { data: myProfile, error: profErr } = await supabase
-        .from('profiles')
-        .select('id, role, academy_id')
-        .eq('id', userData?.user?.id ?? '')
-        .maybeSingle()
-      console.log('👤 [TOGGLE] 내 profiles:', myProfile)
-      console.log('❌ [TOGGLE] profiles 에러:', profErr)
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-
-      const { error } = await supabase
-        .from('middle_roadmap')
-        .upsert(
-          {
-            student_id: studentId,
-            mission_key: missionKey,
-            month,
-            year,
-            mission_title: missionTitle,
-            is_completed: isCompleted,
-            completed_at: isCompleted ? new Date().toISOString() : null,
-          },
-          { onConflict: 'student_id,mission_key' },
-        )
-
-      if (error) {
-        console.log('💥 [TOGGLE] upsert 에러:', error)
-        throw error
+      const updateData: any = {
+        teacher_id: teacherId,
+        grade,
       }
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['middle-roadmap-progress', studentId] })
-    },
-  })
-}
 
-/**
- * 미션 선생님 메모 저장
- */
-export function useUpdateMiddleMissionMemo(studentId: string) {
-  const qc = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (params: {
-      missionKey: string
-      month: number
-      year: number
-      missionTitle: string
-      memo: string
-    }) => {
-      const { missionKey, month, year, missionTitle, memo } = params
+      if (type === 'lesson') {
+        updateData.lesson_month = month
+        updateData.lesson_week = week
+      } else {
+        updateData.homework_month = month
+        updateData.homework_week = week
+      }
 
       const { error } = await supabase
-        .from('middle_roadmap')
-        .upsert(
-          {
-            student_id: studentId,
-            mission_key: missionKey,
-            month,
-            year,
-            mission_title: missionTitle,
-            teacher_memo: memo,
-          },
-          { onConflict: 'student_id,mission_key' },
-        )
+        .from('teacher_progress')
+        .upsert(updateData, { onConflict: 'teacher_id,grade' })
 
       if (error) throw error
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['middle-roadmap-progress', studentId] })
+      qc.invalidateQueries({ queryKey: ['teacher-progress', teacherId] })
     },
   })
 }

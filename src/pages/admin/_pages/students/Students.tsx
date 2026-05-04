@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useAtomValue } from 'jotai'
 import { academyState } from '@/lib/auth/atoms'
 import { useAcademyStudents } from '../../_hooks/useAcademyStudents'
+import TeacherProgressSection from './TeacherProgressSection'
 
 const PAGE_SIZE = 10
 
@@ -105,6 +106,9 @@ export default function Students() {
           </div>
         </div>
       </div>
+
+      {/* ✨ 선생님별 진도 관리 (중등만) */}
+      <TeacherProgressSection level={level} />
 
       {/* 에러 배너 */}
       {error && (
