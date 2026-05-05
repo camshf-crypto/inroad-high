@@ -20,6 +20,7 @@ import MockExam from './high-tabs/MockExam'
 import MiddleRoadmapTab from './middle-tabs/roadmap'
 import MiddleLessonTab from './middle-tabs/lesson'
 import MiddleHomeworkTab from './middle-tabs/homework'
+import MiddleSuhaengTab from './middle-tabs/suhaeng'
 import MiddleBookTab from './middle-tabs/booklist'
 import MiddleExpectTab from './middle-tabs/expect'
 import MiddlePastTab from './middle-tabs/past'
@@ -43,6 +44,7 @@ const MIDDLE_TABS = [
   { key: 'roadmap', label: '🗺️ 로드맵' },
   { key: 'lesson', label: '📚 수업' },
   { key: 'homework', label: '✏️ 숙제' },
+  { key: 'suhaeng', label: '📝 수행평가' },
   { key: 'book', label: '📖 독서리스트' },
   { key: 'expect', label: '💬 자소서·예상질문' },
   { key: 'past', label: '🎓 기출문제' },
@@ -53,7 +55,7 @@ const MIDDLE_TABS = [
 const ALL_GRADES: GradeKey[] = ['고1', '고2', '고3']
 
 type HighTabType = 'roadmap' | 'topic' | 'book' | 'record' | 'expect' | 'past' | 'mockexam' | 'simulation' | 'presentation' | 'major'
-type MiddleTabType = 'roadmap' | 'lesson' | 'homework' | 'book' | 'expect' | 'past' | 'simulation' | 'presentation'
+type MiddleTabType = 'roadmap' | 'lesson' | 'homework' | 'suhaeng' | 'book' | 'expect' | 'past' | 'simulation' | 'presentation'
 
 const THEME = {
   accent: '#2563EB',
@@ -337,6 +339,7 @@ export default function StudentDetail() {
               {middleTab === 'roadmap' && <MiddleRoadmapTab student={student} />}
               {middleTab === 'lesson' && <MiddleLessonTab student={student} />}
               {middleTab === 'homework' && <MiddleHomeworkTab student={student} />}
+              {middleTab === 'suhaeng' && <MiddleSuhaengTab student={student} />}
               {middleTab === 'book' && <MiddleBookTab student={student} />}
               {middleTab === 'expect' && <MiddleExpectTab student={student} />}
               {middleTab === 'past' && <MiddlePastTab student={student} />}
