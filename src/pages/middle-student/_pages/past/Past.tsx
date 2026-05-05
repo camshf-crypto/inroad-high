@@ -1,194 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAtomValue } from "jotai";
 import { studentState, academyState } from "@/lib/auth/atoms";
-
-const ALL_SCHOOLS = [
-  "인천하늘고",
-  "한국과학영재학교",
-  "경기과학고",
-  "서울과학고",
-  "한성과학고",
-  "세종과학고",
-  "대전과학고",
-  "광주과학고",
-  "대구과학고",
-  "부산과학고",
-  "대원외고",
-  "대일외고",
-  "명덕외고",
-  "서울외고",
-  "이화외고",
-  "한영외고",
-  "민족사관고",
-  "하나고",
-  "외대부고",
-  "북일고",
-  "상산고",
-  "현대청운고",
-  "포항제철고",
-  "김천고",
-  "휘문고",
-  "중동고",
-  "세화고",
-  "양정고",
-  "배재고",
-  "이대부고",
-];
-
-const PAST_QUESTIONS: Record<string, any[]> = {
-  인천하늘고: [
-    {
-      id: 1,
-      text: "인천하늘고에 지원한 구체적인 이유를 말해보세요.",
-      type: "지원동기",
-      answered: true,
-      answer:
-        "인천하늘고의 자기주도학습 전형이 제 학습 방식과 잘 맞는다고 생각했습니다.",
-      teacherFeedback: "좋은 답변이에요! 학교 건학이념과 더 연결해보세요.",
-      upgradedAnswer: "",
-      finalFeedback: "",
-      tails: ["건학이념 중 어떤 부분이 가장 공감됐나요?"],
-    },
-    {
-      id: 2,
-      text: "자기주도학습 경험을 구체적으로 말해보세요.",
-      type: "자기주도",
-      answered: false,
-      answer: "",
-      teacherFeedback: "",
-      upgradedAnswer: "",
-      finalFeedback: "",
-      tails: [],
-    },
-    {
-      id: 3,
-      text: "입학 후 어떤 활동을 통해 꿈을 키워나갈 계획인가요?",
-      type: "활동계획",
-      answered: false,
-      answer: "",
-      teacherFeedback: "",
-      upgradedAnswer: "",
-      finalFeedback: "",
-      tails: [],
-    },
-    {
-      id: 4,
-      text: "배려나 나눔을 실천한 경험을 말해보세요.",
-      type: "인성",
-      answered: false,
-      answer: "",
-      teacherFeedback: "",
-      upgradedAnswer: "",
-      finalFeedback: "",
-      tails: [],
-    },
-    {
-      id: 5,
-      text: "졸업 후 진로 계획을 구체적으로 말해보세요.",
-      type: "진로",
-      answered: false,
-      answer: "",
-      teacherFeedback: "",
-      upgradedAnswer: "",
-      finalFeedback: "",
-      tails: [],
-    },
-  ],
-  민족사관고: [
-    {
-      id: 1,
-      text: "민족사관고에 지원한 이유와 입학 후 목표를 말해보세요.",
-      type: "지원동기",
-      answered: false,
-      answer: "",
-      teacherFeedback: "",
-      upgradedAnswer: "",
-      finalFeedback: "",
-      tails: [],
-    },
-    {
-      id: 2,
-      text: "리더십을 발휘한 경험이 있다면 구체적으로 말해보세요.",
-      type: "인성",
-      answered: false,
-      answer: "",
-      teacherFeedback: "",
-      upgradedAnswer: "",
-      finalFeedback: "",
-      tails: [],
-    },
-    {
-      id: 3,
-      text: "본인의 강점이 민족사관고에서 어떻게 발휘될 수 있나요?",
-      type: "자기소개",
-      answered: false,
-      answer: "",
-      teacherFeedback: "",
-      upgradedAnswer: "",
-      finalFeedback: "",
-      tails: [],
-    },
-  ],
-  하나고: [
-    {
-      id: 1,
-      text: "하나고의 교육철학과 본인의 가치관이 어떻게 연결되나요?",
-      type: "지원동기",
-      answered: false,
-      answer: "",
-      teacherFeedback: "",
-      upgradedAnswer: "",
-      finalFeedback: "",
-      tails: [],
-    },
-    {
-      id: 2,
-      text: "공동체 생활에서 갈등을 해결한 경험을 말해보세요.",
-      type: "인성",
-      answered: false,
-      answer: "",
-      teacherFeedback: "",
-      upgradedAnswer: "",
-      finalFeedback: "",
-      tails: [],
-    },
-  ],
-  대원외고: [
-    {
-      id: 1,
-      text: "외국어 공부에 관심을 갖게 된 계기가 무엇인가요?",
-      type: "지원동기",
-      answered: false,
-      answer: "",
-      teacherFeedback: "",
-      upgradedAnswer: "",
-      finalFeedback: "",
-      tails: [],
-    },
-    {
-      id: 2,
-      text: "글로벌 이슈 중 관심 있는 주제와 본인의 견해를 말해보세요.",
-      type: "전공",
-      answered: false,
-      answer: "",
-      teacherFeedback: "",
-      upgradedAnswer: "",
-      finalFeedback: "",
-      tails: [],
-    },
-    {
-      id: 3,
-      text: "외국어를 활용한 경험이 있다면 말해보세요.",
-      type: "활동",
-      answered: false,
-      answer: "",
-      teacherFeedback: "",
-      upgradedAnswer: "",
-      finalFeedback: "",
-      tails: [],
-    },
-  ],
-};
+import {
+  useAllSchools,
+  useSchoolQuestions,
+  useMyPastAnswers,
+  usePastFeedback,
+  useSubmitPastAnswer,
+  useSubmitPastUpgrade,
+  useSubmitPastTailAnswer,
+} from "@/pages/middle-student/_hooks/useMyPast";
 
 const TYPE_COLOR: Record<string, string> = {
   지원동기: "bg-[#EEF2FF] text-[#3B5BDB] border-[#BAC8FF]",
@@ -254,12 +75,36 @@ const SubmitBtn = ({
 export default function MiddlePast() {
   const student = useAtomValue(studentState);
   const academy = useAtomValue(academyState);
+  const studentId = student?.id ? String(student.id) : undefined;
 
+  // ⭐ DB 훅
+  const { data: allSchools = [] } = useAllSchools();
   const [selSchool, setSelSchool] = useState("");
   const [schoolSearch, setSchoolSearch] = useState("");
   const [schoolDropOpen, setSchoolDropOpen] = useState(false);
-  const [selQ, setSelQ] = useState<any>(null);
-  const [questions, setQuestions] = useState(PAST_QUESTIONS);
+
+  // 선택한 학교의 질문/답변
+  const { data: questions = [] } = useSchoolQuestions(selSchool || undefined);
+  const { data: answers = [] } = useMyPastAnswers(
+    studentId,
+    selSchool || undefined,
+  );
+
+  // 답변 매핑: question_id → answer
+  const answerByQuestionId = answers.reduce((acc: Record<string, any>, a) => {
+    acc[a.question_id] = a;
+    return acc;
+  }, {});
+
+  // 선택한 질문
+  const [selQId, setSelQId] = useState<string | null>(null);
+  const selQ = questions.find((q) => q.id === selQId) ?? null;
+  const selAnswer = selQ ? answerByQuestionId[selQ.id] : null;
+
+  // 선택한 답변의 피드백
+  const { data: selFeedback } = usePastFeedback(selAnswer?.id);
+
+  // 입력 state
   const [myAnswer, setMyAnswer] = useState("");
   const [upgradedAnswer, setUpgradedAnswer] = useState("");
   const [isRecording1, setIsRecording1] = useState(false);
@@ -267,64 +112,93 @@ export default function MiddlePast() {
   const [tailRecordings, setTailRecordings] = useState<Record<number, boolean>>(
     {},
   );
+  const [tailAnswers, setTailAnswers] = useState<Record<number, string>>({});
   const [editingStep1, setEditingStep1] = useState(false);
   const [editingStep3, setEditingStep3] = useState(false);
 
-  const curQuestions = selSchool ? questions[selSchool] || [] : [];
-  const filteredSchools = ALL_SCHOOLS.filter((s) => s.includes(schoolSearch));
+  // 질문 바뀌면 초기화
+  useEffect(() => {
+    setMyAnswer("");
+    setUpgradedAnswer("");
+    setIsRecording1(false);
+    setIsRecording3(false);
+    setEditingStep1(false);
+    setEditingStep3(false);
+    setTailAnswers({});
+  }, [selQId]);
 
-  const getStep = (q: any) => {
-    if (!q.answered) return 0;
-    if (!q.teacherFeedback) return 1;
-    if (!q.upgradedAnswer) return 2;
-    if (!q.finalFeedback) return 3;
+  // 제출 훅
+  const submitAnswer = useSubmitPastAnswer();
+  const submitUpgrade = useSubmitPastUpgrade();
+  const submitTailAnswer = useSubmitPastTailAnswer();
+
+  const filteredSchools = allSchools.filter((s) => s.includes(schoolSearch));
+
+  const getStep = (answer: any, fb: any) => {
+    if (!answer?.answer) return 0;
+    if (!fb?.teacher_first_feedback) return 1;
+    if (!answer.upgraded_answer) return 2;
+    if (!fb?.teacher_final_feedback) return 3;
     return 4;
   };
 
-  const submitAnswer = () => {
-    if (!myAnswer.trim() || !selQ || !selSchool) return;
-    const updated = {
-      ...questions,
-      [selSchool]: questions[selSchool].map((q) =>
-        q.id === selQ.id
-          ? {
-              ...q,
-              answered: true,
-              answer: myAnswer,
-              teacherFeedback: "",
-              upgradedAnswer: "",
-              finalFeedback: "",
-            }
-          : q,
-      ),
-    };
-    setQuestions(updated);
-    setSelQ({
-      ...selQ,
-      answered: true,
-      answer: myAnswer,
-      teacherFeedback: "",
-      upgradedAnswer: "",
-      finalFeedback: "",
-    });
-    setMyAnswer("");
-    setIsRecording1(false);
-    setEditingStep1(false);
+  // 답변 횟수 계산
+  const answeredCount = questions.filter(
+    (q) => answerByQuestionId[q.id]?.answer,
+  ).length;
+
+  // Step 1 제출
+  const handleSubmitAnswer = async () => {
+    if (!myAnswer.trim() || !selQ) return;
+    if (!student?.id || !academy?.academyId) {
+      alert("로그인 정보를 불러오지 못했어요.");
+      return;
+    }
+    try {
+      await submitAnswer.mutateAsync({
+        question_id: selQ.id,
+        student_id: String(student.id),
+        academy_id: String(academy.academyId),
+        answer: myAnswer,
+      });
+      setMyAnswer("");
+      setIsRecording1(false);
+      setEditingStep1(false);
+    } catch (e: any) {
+      alert(`제출 실패: ${e.message}`);
+    }
   };
 
-  const submitUpgrade = () => {
-    if (!upgradedAnswer.trim() || !selQ || !selSchool) return;
-    const updated = {
-      ...questions,
-      [selSchool]: questions[selSchool].map((q) =>
-        q.id === selQ.id ? { ...q, upgradedAnswer, finalFeedback: "" } : q,
-      ),
-    };
-    setQuestions(updated);
-    setSelQ({ ...selQ, upgradedAnswer, finalFeedback: "" });
-    setUpgradedAnswer("");
-    setIsRecording3(false);
-    setEditingStep3(false);
+  // Step 3 업그레이드 제출
+  const handleSubmitUpgrade = async () => {
+    if (!upgradedAnswer.trim() || !selAnswer) return;
+    try {
+      await submitUpgrade.mutateAsync({
+        answer_id: selAnswer.id,
+        upgraded_answer: upgradedAnswer,
+      });
+      setUpgradedAnswer("");
+      setIsRecording3(false);
+      setEditingStep3(false);
+    } catch (e: any) {
+      alert(`제출 실패: ${e.message}`);
+    }
+  };
+
+  // Step 5 꼬리답변 제출
+  const handleSubmitTailAnswer = async (idx: number) => {
+    const text = tailAnswers[idx] || "";
+    if (!text.trim() || !selAnswer) return;
+    try {
+      await submitTailAnswer.mutateAsync({
+        answer_id: selAnswer.id,
+        tail_index: idx,
+        answer: text,
+      });
+      setTailAnswers((prev) => ({ ...prev, [idx]: "" }));
+    } catch (e: any) {
+      alert(`제출 실패: ${e.message}`);
+    }
   };
 
   const schoolInputValue =
@@ -344,8 +218,7 @@ export default function MiddlePast() {
         </div>
         {selSchool && (
           <div className="bg-brand-middle-bg text-brand-middle-dark text-[12px] font-bold px-3.5 py-1.5 rounded-full border border-brand-middle-light">
-            {curQuestions.filter((q) => q.answered).length}/
-            {curQuestions.length} 답변완료
+            {answeredCount}/{questions.length} 답변완료
           </div>
         )}
       </div>
@@ -367,7 +240,7 @@ export default function MiddlePast() {
               onChange={(e) => {
                 setSchoolSearch(e.target.value);
                 setSelSchool("");
-                setSelQ(null);
+                setSelQId(null);
                 setSchoolDropOpen(true);
               }}
               onFocus={() => setSchoolDropOpen(true)}
@@ -380,7 +253,7 @@ export default function MiddlePast() {
                   e.stopPropagation();
                   setSelSchool("");
                   setSchoolSearch("");
-                  setSelQ(null);
+                  setSelQId(null);
                 }}
                 className="text-[11px] text-ink-muted hover:text-ink transition-colors flex-shrink-0"
               >
@@ -418,7 +291,7 @@ export default function MiddlePast() {
                         setSelSchool(s);
                         setSchoolSearch("");
                         setSchoolDropOpen(false);
-                        setSelQ(null);
+                        setSelQId(null);
                       }}
                       className={`px-3 py-2 text-[13px] text-ink cursor-pointer transition-colors ${
                         selSchool === s
@@ -454,11 +327,11 @@ export default function MiddlePast() {
                 <div className="text-[11px] text-ink-secondary mt-1">
                   총{" "}
                   <span className="text-brand-middle-dark font-bold">
-                    {curQuestions.length}개
+                    {questions.length}개
                   </span>{" "}
                   · 답변완료{" "}
                   <span className="text-brand-middle-dark font-bold">
-                    {curQuestions.filter((q) => q.answered).length}개
+                    {answeredCount}개
                   </span>
                 </div>
               </>
@@ -475,28 +348,22 @@ export default function MiddlePast() {
                 <div className="text-3xl mb-2">🏫</div>
                 위에서 학교를 선택해주세요
               </div>
-            ) : curQuestions.length === 0 ? (
+            ) : questions.length === 0 ? (
               <div className="text-center py-10 text-ink-muted text-[12px]">
                 <div className="text-3xl mb-2">📝</div>
                 기출문제가 없어요.
               </div>
             ) : (
-              curQuestions.map((q, i) => {
+              questions.map((q, i) => {
                 const typeClass = TYPE_COLOR[q.type] || TYPE_COLOR["지원동기"];
+                const ans = answerByQuestionId[q.id];
+                const answered = !!ans?.answer;
                 return (
                   <div
                     key={q.id}
-                    onClick={() => {
-                      setSelQ(q);
-                      setMyAnswer("");
-                      setUpgradedAnswer("");
-                      setIsRecording1(false);
-                      setIsRecording3(false);
-                      setEditingStep1(false);
-                      setEditingStep3(false);
-                    }}
+                    onClick={() => setSelQId(q.id)}
                     className={`border rounded-xl px-3.5 py-3 mb-1.5 cursor-pointer transition-all ${
-                      selQ?.id === q.id
+                      selQId === q.id
                         ? "border-brand-middle bg-brand-middle-pale shadow-[0_4px_16px_rgba(16,185,129,0.12)]"
                         : "border-line bg-white hover:border-brand-middle-light hover:shadow-sm"
                     }`}
@@ -514,9 +381,9 @@ export default function MiddlePast() {
                     <div className="text-[12px] text-ink leading-relaxed font-semibold mb-1.5">
                       {q.text}
                     </div>
-                    {q.answered ? (
+                    {answered ? (
                       <span className="text-[10px] font-semibold text-brand-middle-dark bg-brand-middle-bg px-2 py-0.5 rounded-full border border-brand-middle-light">
-                        답변완료 · {getStep(q)}/5단계
+                        답변완료
                       </span>
                     ) : (
                       <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
@@ -549,7 +416,7 @@ export default function MiddlePast() {
                 <div className="flex items-center justify-between mb-2.5">
                   <div className="flex items-center gap-2">
                     <div className="text-[13px] font-semibold text-ink">
-                      Q{curQuestions.findIndex((q) => q.id === selQ.id) + 1}
+                      Q{questions.findIndex((q) => q.id === selQ.id) + 1}
                     </div>
                     <span className="text-[11px] font-bold text-brand-middle-dark bg-brand-middle-bg px-2 py-0.5 rounded-full">
                       {selSchool}
@@ -562,19 +429,19 @@ export default function MiddlePast() {
                   </div>
                   <span
                     className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${
-                      selQ.answered
+                      selAnswer?.answer
                         ? "bg-brand-middle-bg text-brand-middle-dark border-brand-middle-light"
                         : "bg-amber-50 text-amber-700 border-amber-200"
                     }`}
                   >
-                    {selQ.answered ? "답변완료" : "미답변"}
+                    {selAnswer?.answer ? "답변완료" : "미답변"}
                   </span>
                 </div>
 
                 {/* 5단계 */}
                 <div className="flex">
                   {STEP_LABELS.map((label, i) => {
-                    const step = getStep(selQ);
+                    const step = getStep(selAnswer, selFeedback);
                     const stepNum = i + 1;
                     const isDone = stepNum < step;
                     const isOn = stepNum === step;
@@ -633,16 +500,16 @@ export default function MiddlePast() {
                       내 첫 답변
                     </span>
                   </div>
-                  {selQ.answer && !editingStep1 ? (
+                  {selAnswer?.answer && !editingStep1 ? (
                     <div>
-                      <div className="bg-gray-50 border border-line rounded-lg px-3 py-2.5 text-[13px] text-ink leading-[1.8] mb-2">
-                        {selQ.answer}
+                      <div className="bg-gray-50 border border-line rounded-lg px-3 py-2.5 text-[13px] text-ink leading-[1.8] mb-2 whitespace-pre-wrap">
+                        {selAnswer.answer}
                       </div>
                       <div className="flex justify-end">
                         <button
                           onClick={() => {
                             setEditingStep1(true);
-                            setMyAnswer(selQ.answer);
+                            setMyAnswer(selAnswer.answer || "");
                           }}
                           className="text-[11px] font-medium text-ink-secondary bg-white border border-line rounded-md px-2.5 py-1 hover:border-brand-middle-light hover:text-brand-middle-dark transition-all"
                         >
@@ -684,9 +551,15 @@ export default function MiddlePast() {
                           onClick={() => setIsRecording1(!isRecording1)}
                         />
                         <SubmitBtn
-                          label={editingStep1 ? "수정 완료" : "답변 제출"}
-                          onClick={submitAnswer}
-                          disabled={!myAnswer.trim()}
+                          label={
+                            submitAnswer.isPending
+                              ? "제출 중..."
+                              : editingStep1
+                                ? "수정 완료"
+                                : "답변 제출"
+                          }
+                          onClick={handleSubmitAnswer}
+                          disabled={!myAnswer.trim() || submitAnswer.isPending}
                         />
                       </div>
                     </>
@@ -694,7 +567,7 @@ export default function MiddlePast() {
                 </div>
 
                 {/* Step 2 */}
-                {selQ.answered && (
+                {selAnswer?.answer && (
                   <div className="bg-white border border-line rounded-xl px-4 py-3">
                     <div className="flex items-center gap-1.5 mb-2">
                       <span className="text-[10px] font-bold text-white bg-brand-middle px-2 py-0.5 rounded-full">
@@ -704,9 +577,9 @@ export default function MiddlePast() {
                         선생님 1차 피드백
                       </span>
                     </div>
-                    {selQ.teacherFeedback ? (
-                      <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg px-3 py-2.5 text-[13px] text-[#065F46] leading-[1.8]">
-                        {selQ.teacherFeedback}
+                    {selFeedback?.teacher_first_feedback ? (
+                      <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg px-3 py-2.5 text-[13px] text-[#065F46] leading-[1.8] whitespace-pre-wrap">
+                        {selFeedback.teacher_first_feedback}
                       </div>
                     ) : (
                       <div className="bg-gray-50 rounded-lg px-3 py-2.5 text-[12px] text-ink-muted text-center">
@@ -717,7 +590,7 @@ export default function MiddlePast() {
                 )}
 
                 {/* Step 3 */}
-                {selQ.teacherFeedback && (
+                {selFeedback?.teacher_first_feedback && (
                   <div className="bg-white border border-line rounded-xl px-4 py-3">
                     <div className="flex items-center gap-1.5 mb-2">
                       <span className="text-[10px] font-bold text-white bg-ink-muted px-2 py-0.5 rounded-full">
@@ -727,16 +600,18 @@ export default function MiddlePast() {
                         업그레이드 답변
                       </span>
                     </div>
-                    {selQ.upgradedAnswer && !editingStep3 ? (
+                    {selAnswer?.upgraded_answer && !editingStep3 ? (
                       <div>
-                        <div className="bg-gray-50 border border-line rounded-lg px-3 py-2.5 text-[13px] text-ink leading-[1.8] mb-2">
-                          {selQ.upgradedAnswer}
+                        <div className="bg-gray-50 border border-line rounded-lg px-3 py-2.5 text-[13px] text-ink leading-[1.8] mb-2 whitespace-pre-wrap">
+                          {selAnswer.upgraded_answer}
                         </div>
                         <div className="flex justify-end">
                           <button
                             onClick={() => {
                               setEditingStep3(true);
-                              setUpgradedAnswer(selQ.upgradedAnswer);
+                              setUpgradedAnswer(
+                                selAnswer.upgraded_answer || "",
+                              );
                             }}
                             className="text-[11px] font-medium text-ink-secondary bg-white border border-line rounded-md px-2.5 py-1 hover:border-brand-middle-light hover:text-brand-middle-dark transition-all"
                           >
@@ -782,10 +657,16 @@ export default function MiddlePast() {
                           />
                           <SubmitBtn
                             label={
-                              editingStep3 ? "수정 완료" : "업그레이드 제출"
+                              submitUpgrade.isPending
+                                ? "제출 중..."
+                                : editingStep3
+                                  ? "수정 완료"
+                                  : "업그레이드 제출"
                             }
-                            onClick={submitUpgrade}
-                            disabled={!upgradedAnswer.trim()}
+                            onClick={handleSubmitUpgrade}
+                            disabled={
+                              !upgradedAnswer.trim() || submitUpgrade.isPending
+                            }
                           />
                         </div>
                       </>
@@ -794,7 +675,7 @@ export default function MiddlePast() {
                 )}
 
                 {/* Step 4 */}
-                {selQ.upgradedAnswer && (
+                {selAnswer?.upgraded_answer && (
                   <div className="bg-white border border-line rounded-xl px-4 py-3">
                     <div className="flex items-center gap-1.5 mb-2">
                       <span className="text-[10px] font-bold text-white bg-brand-middle px-2 py-0.5 rounded-full">
@@ -804,9 +685,9 @@ export default function MiddlePast() {
                         선생님 최종 피드백
                       </span>
                     </div>
-                    {selQ.finalFeedback ? (
-                      <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg px-3 py-2.5 text-[13px] text-[#065F46] leading-[1.8]">
-                        {selQ.finalFeedback}
+                    {selFeedback?.teacher_final_feedback ? (
+                      <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg px-3 py-2.5 text-[13px] text-[#065F46] leading-[1.8] whitespace-pre-wrap">
+                        {selFeedback.teacher_final_feedback}
                       </div>
                     ) : (
                       <div className="bg-gray-50 rounded-lg px-3 py-2.5 text-[12px] text-ink-muted text-center">
@@ -817,60 +698,90 @@ export default function MiddlePast() {
                 )}
 
                 {/* Step 5 꼬리질문 */}
-                {selQ.tails && selQ.tails.length > 0 && (
-                  <div className="bg-white border border-line rounded-xl px-4 py-3">
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <span className="text-[10px] font-bold text-white bg-brand-middle px-2 py-0.5 rounded-full">
-                        Step 5
-                      </span>
-                      <span className="text-[11px] text-ink-secondary font-medium">
-                        꼬리질문
-                      </span>
-                    </div>
-                    {selQ.tails.map((t: string, i: number) => (
-                      <div key={i} className="mb-3">
-                        <div className="flex items-start gap-1.5 px-2.5 py-2 bg-gray-50 rounded-md mb-2 text-[12px] text-ink leading-[1.5]">
-                          <span className="text-[10px] font-bold text-brand-middle-dark bg-brand-middle-bg px-1.5 py-0.5 rounded-full flex-shrink-0 mt-[1px]">
-                            꼬리 {i + 1}
-                          </span>
-                          {t}
-                        </div>
-                        {tailRecordings[i] && (
-                          <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-1.5 flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                            <span className="text-[12px] text-red-600 font-semibold">
-                              녹음 중...
-                            </span>
-                          </div>
-                        )}
-                        <div className="bg-gray-50 rounded-lg px-3 py-2.5">
-                          <div className="text-[10px] text-ink-muted mb-1.5">
-                            꼬리질문 답변
-                          </div>
-                          <textarea
-                            placeholder="꼬리질문에 대한 답변을 작성해주세요..."
-                            rows={2}
-                            className="w-full border border-line rounded-md px-2.5 py-2 text-[12px] leading-[1.6] resize-none bg-white focus:outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-all placeholder:text-ink-muted"
-                          />
-                          <div className="flex gap-2 mt-2 justify-end">
-                            <MicBtn
-                              recording={tailRecordings[i]}
-                              onClick={() =>
-                                setTailRecordings((prev) => ({
-                                  ...prev,
-                                  [i]: !prev[i],
-                                }))
-                              }
-                            />
-                            <button className="w-[102px] h-[34px] bg-brand-middle hover:bg-brand-middle-hover text-white rounded-md text-[12px] font-semibold transition-all hover:-translate-y-px hover:shadow-btn-middle">
-                              제출
-                            </button>
-                          </div>
-                        </div>
+                {selFeedback?.tail_questions &&
+                  selFeedback.tail_questions.length > 0 && (
+                    <div className="bg-white border border-line rounded-xl px-4 py-3">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <span className="text-[10px] font-bold text-white bg-brand-middle px-2 py-0.5 rounded-full">
+                          Step 5
+                        </span>
+                        <span className="text-[11px] text-ink-secondary font-medium">
+                          꼬리질문
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                )}
+                      {selFeedback.tail_questions.map((t: any, i: number) => (
+                        <div key={i} className="mb-3">
+                          <div className="flex items-start gap-1.5 px-2.5 py-2 bg-gray-50 rounded-md mb-2 text-[12px] text-ink leading-[1.5]">
+                            <span className="text-[10px] font-bold text-brand-middle-dark bg-brand-middle-bg px-1.5 py-0.5 rounded-full flex-shrink-0 mt-[1px]">
+                              꼬리 {i + 1}
+                            </span>
+                            {t.text}
+                          </div>
+                          {t.answer ? (
+                            <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg px-3 py-2 text-[12.5px] text-[#065F46] leading-[1.7] whitespace-pre-wrap">
+                              {t.answer}
+                            </div>
+                          ) : (
+                            <>
+                              {tailRecordings[i] && (
+                                <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-1.5 flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                                  <span className="text-[12px] text-red-600 font-semibold">
+                                    녹음 중...
+                                  </span>
+                                </div>
+                              )}
+                              <div className="bg-gray-50 rounded-lg px-3 py-2.5">
+                                <div className="text-[10px] text-ink-muted mb-1.5">
+                                  꼬리질문 답변
+                                </div>
+                                <textarea
+                                  value={tailAnswers[i] || ""}
+                                  onChange={(e) =>
+                                    setTailAnswers((prev) => ({
+                                      ...prev,
+                                      [i]: e.target.value,
+                                    }))
+                                  }
+                                  placeholder="꼬리질문에 대한 답변을 작성해주세요..."
+                                  rows={2}
+                                  className="w-full border border-line rounded-md px-2.5 py-2 text-[12px] leading-[1.6] resize-none bg-white focus:outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-all placeholder:text-ink-muted"
+                                />
+                                <div className="flex gap-2 mt-2 justify-end">
+                                  <MicBtn
+                                    recording={tailRecordings[i]}
+                                    onClick={() =>
+                                      setTailRecordings((prev) => ({
+                                        ...prev,
+                                        [i]: !prev[i],
+                                      }))
+                                    }
+                                  />
+                                  <button
+                                    onClick={() => handleSubmitTailAnswer(i)}
+                                    disabled={
+                                      !(tailAnswers[i] || "").trim() ||
+                                      submitTailAnswer.isPending
+                                    }
+                                    className={`w-[102px] h-[34px] rounded-md text-[12px] font-semibold transition-all ${
+                                      (tailAnswers[i] || "").trim() &&
+                                      !submitTailAnswer.isPending
+                                        ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
+                                        : "bg-gray-100 text-ink-muted cursor-not-allowed"
+                                    }`}
+                                  >
+                                    {submitTailAnswer.isPending
+                                      ? "제출 중..."
+                                      : "제출"}
+                                  </button>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
               </div>
             </>
           )}
