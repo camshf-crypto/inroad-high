@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   useMyTargetUniversities,
   useMyTargetUniversitiesAll,
@@ -15,6 +15,8 @@ import {
   inferQuestionType,
   type QuestionWithAnswer,
 } from '../../_hooks/useMyHighQuestions'
+
+const MAX_TARGETS = 6  // 최대 지원 학교 수
 
 const TYPE_COLOR: Record<string, string> = {
   '공통': 'bg-brand-high-pale text-brand-high-dark border-brand-high-light',
@@ -54,10 +56,13 @@ const SubmitBtn = ({ label, onClick, disabled }: { label: string, onClick: () =>
 export default function Past() {
   const [selUnivName, setSelUnivName] = useState('')
   const [selDeptName, setSelDeptName] = useState('')
+  const [showAddForm, setShowAddForm] = useState(false)  // 새 학교 추가 폼 표시
   const [univSearch, setUnivSearch] = useState('')
   const [deptSearch, setDeptSearch] = useState('')
   const [univDropOpen, setUnivDropOpen] = useState(false)
   const [deptDropOpen, setDeptDropOpen] = useState(false)
+  const [pendingUniv, setPendingUniv] = useState('')   // 추가 중 임시 학교명
+  const [pendingDept, setPendingDept] = useState('')   // 추가 중 임시 학과명
 
   const [selQ, setSelQ] = useState<QuestionWithAnswer | null>(null)
   const [myAnswer, setMyAnswer] = useState('')
@@ -70,53 +75,31 @@ export default function Past() {
   const [editingStep1, setEditingStep1] = useState(false)
   const [editingStep3, setEditingStep3] = useState(false)
 
-  // DB 조회
+  const lastProcessedKey = useRef<string>('')
+
   const { data: myTargets = [] } = useMyTargetUniversities()
-  const { data: allTargets = [] } = useMyTargetUniversitiesAll()  // hidden 포함 전체
+  const { data: allTargets = [] } = useMyTargetUniversitiesAll()
   const { data: allUnivs = [] } = useAllUniversities()
-  const { data: allDepts = [] } = useDepartmentsOfUniversity(selUnivName)
+  const { data: allDepts = [] } = useDepartmentsOfUniversity(pendingUniv)
   const { data: curQuestions = [], isLoading: loadingQ } = useMyPastQuestions(selUnivName, selDeptName)
 
   const selAnswerId = selQ?.answer?.id
   const { data: analyses = [] } = useMyAnswerAnalyses(selAnswerId)
   const { data: followups = [] } = useMyAnswerFollowups(selAnswerId)
 
-  // 뮤테이션
   const updateTargets = useUpdateMyTargets()
   const submitFirst = useSubmitFirstAnswer()
   const submitUpgrade = useSubmitUpgradedAnswer()
   const submitFollowup = useSubmitFollowupAnswer()
 
-  // 첫 타깃 자동 선택
+  // 첫 진입 시 첫 번째 학교 자동 선택
   useEffect(() => {
     if (myTargets.length > 0 && !selUnivName) {
       setSelUnivName(myTargets[0].university)
       setSelDeptName(myTargets[0].department)
     }
-  }, [myTargets, selUnivName])
+  }, [myTargets])
 
-  // 학교+학과 선택 시 자동으로 target_universities에 추가 (hidden이면 복구)
-  useEffect(() => {
-    if (!selUnivName || !selDeptName) return
-    const found = allTargets.find(
-      t => t.university === selUnivName && t.department === selDeptName
-    )
-    if (!found) {
-      // 새로 추가
-      const newTargets = [...allTargets, { university: selUnivName, department: selDeptName }]
-      updateTargets.mutate(newTargets)
-    } else if (found.hidden) {
-      // 숨김 처리된 걸 다시 선택하면 복구
-      const newTargets = allTargets.map(t =>
-        t.university === selUnivName && t.department === selDeptName
-          ? { ...t, hidden: false }
-          : t
-      )
-      updateTargets.mutate(newTargets)
-    }
-  }, [selUnivName, selDeptName, allTargets])
-
-  // 질문 변경 시 선택 갱신
   useEffect(() => {
     if (selQ) {
       const updated = curQuestions.find(q => q.id === selQ.id)
@@ -124,13 +107,85 @@ export default function Past() {
     }
   }, [curQuestions])
 
-  // 필터링된 대학/학과
   const filteredUnivs = allUnivs.filter(u => u.includes(univSearch))
   const filteredDepts = allDepts.filter(d => d.includes(deptSearch))
 
   const step = selQ ? getMyStep(selQ.answer, analyses) : 0
   const round1 = analyses.find(a => a.round === 1)
   const round2 = analyses.find(a => a.round === 2)
+
+  // 새 학교/학과 추가
+  const addNewTarget = () => {
+    if (!pendingUniv || !pendingDept) {
+      alert('학교와 학과를 모두 선택해주세요!')
+      return
+    }
+    if (myTargets.length >= MAX_TARGETS) {
+      alert(`지원 학교는 최대 ${MAX_TARGETS}개까지 등록 가능해요.`)
+      return
+    }
+    // 중복 체크
+    const exists = allTargets.find(
+      t => t.university === pendingUniv && t.department === pendingDept
+    )
+    if (exists && !exists.hidden) {
+      alert('이미 등록된 학교/학과예요!')
+      return
+    }
+
+    let newTargets
+    if (exists && exists.hidden) {
+      // 숨김 처리된 거 복구
+      newTargets = allTargets.map(t =>
+        t.university === pendingUniv && t.department === pendingDept
+          ? { ...t, hidden: false }
+          : t
+      )
+    } else {
+      newTargets = [...allTargets, { university: pendingUniv, department: pendingDept }]
+    }
+
+    updateTargets.mutate(newTargets, {
+      onSuccess: () => {
+        // 새로 추가한 학교로 전환
+        setSelUnivName(pendingUniv)
+        setSelDeptName(pendingDept)
+        setSelQ(null)
+        // 폼 리셋
+        setPendingUniv('')
+        setPendingDept('')
+        setUnivSearch('')
+        setDeptSearch('')
+        setShowAddForm(false)
+      },
+    })
+  }
+
+  const removeTarget = (univ: string, dept: string) => {
+    if (!window.confirm(`"${univ} · ${dept}" 목록에서 숨길까요?\n\n⚠️ 답변/피드백은 모두 유지돼요.\n원장님이 언제든 다시 복구할 수 있어요.`)) return
+
+    const newTargets = allTargets.map(t =>
+      t.university === univ && t.department === dept
+        ? { ...t, hidden: true }
+        : t
+    )
+    updateTargets.mutate(newTargets, {
+      onSuccess: () => {
+        // 현재 보고 있는 학교를 삭제했으면 다른 학교로
+        if (selUnivName === univ && selDeptName === dept) {
+          const remaining = newTargets.filter(t => !t.hidden && !(t.university === univ && t.department === dept))
+          if (remaining.length > 0) {
+            setSelUnivName(remaining[0].university)
+            setSelDeptName(remaining[0].department)
+          } else {
+            setSelUnivName('')
+            setSelDeptName('')
+          }
+          setSelQ(null)
+        }
+      },
+    })
+  }
 
   const submitAnswer = () => {
     if (!myAnswer.trim() || !selQ) return
@@ -173,14 +228,6 @@ export default function Past() {
     })
   }
 
-  const resetAll = () => {
-    setSelUnivName('')
-    setSelDeptName('')
-    setUnivSearch('')
-    setDeptSearch('')
-    setSelQ(null)
-  }
-
   const printAnswers = () => {
     const answeredQs = curQuestions.filter(q => q.answer?.student_answer)
     if (answeredQs.length === 0) {
@@ -199,7 +246,6 @@ export default function Past() {
   .q-text { font-size: 12px; font-weight: 600; margin-bottom: 5px; line-height: 1.4; }
   .label { font-size: 10px; font-weight: 600; color: #6B7280; margin-bottom: 3px; margin-top: 5px; }
   .answer-box { background: #F8F9FA; border-radius: 4px; padding: 5px 8px; font-size: 11px; line-height: 1.5; white-space: pre-wrap; }
-  .final-box { background: #ECFDF5; border: 0.5px solid #6EE7B7; border-radius: 4px; padding: 5px 8px; font-size: 11px; line-height: 1.5; white-space: pre-wrap; }
   .footer { text-align: center; font-size: 10px; color: #9CA3AF; margin-top: 12px; padding-top: 8px; border-top: 0.5px solid #E5E7EB; }
   @media print { body { padding: 10px 16px; } }
 </style></head><body>
@@ -220,181 +266,242 @@ ${answeredQs.map((q, i) => `
     if (w) { w.document.write(html); w.document.close() }
   }
 
-  const univInputValue = selUnivName && selDeptName ? '' : (selUnivName && !univDropOpen ? selUnivName : univSearch)
-  const deptInputValue = selUnivName && selDeptName ? '' : (selDeptName && !deptDropOpen ? selDeptName : deptSearch)
+  const canAddMore = myTargets.length < MAX_TARGETS
 
   return (
     <div className="flex flex-col gap-3 h-full overflow-hidden px-6 py-5 font-sans text-ink">
 
-      {/* 상단: 학교/학과 선택 + 내 지원 탭 */}
-      <div className="flex gap-2 flex-shrink-0 items-center flex-wrap">
+      {/* 상단: 지원 학교 탭들 + 추가 버튼 */}
+      <div className="flex flex-col gap-2 flex-shrink-0">
+        <div className="flex gap-1.5 items-center flex-wrap">
+          <span className="text-[11px] text-ink-muted font-semibold mr-1">
+            내 지원 학교 ({myTargets.length}/{MAX_TARGETS}):
+          </span>
 
-        {/* 내 지원 학교 탭 (빠른 선택) */}
-        {myTargets.length > 0 && !selUnivName && (
-          <>
-            <div className="text-[11px] text-ink-muted font-semibold">내 지원:</div>
-            {myTargets.slice(0, 3).map((t, i) => (
-              <button
-                key={i}
-                onClick={() => { setSelUnivName(t.university); setSelDeptName(t.department) }}
-                className="px-3 py-1.5 rounded-full text-[11px] font-semibold bg-brand-high-pale text-brand-high-dark border border-brand-high-light hover:bg-brand-high hover:text-white transition-all"
+          {/* 학교 탭들 */}
+          {myTargets.map((t, i) => {
+            const isSelected = selUnivName === t.university && selDeptName === t.department
+            return (
+              <div
+                key={`${t.university}-${t.department}-${i}`}
+                className={`inline-flex items-center gap-1 rounded-full border transition-all ${
+                  isSelected
+                    ? 'bg-brand-high border-brand-high'
+                    : 'bg-white border-line hover:border-brand-high-light'
+                }`}
               >
-                🎓 {t.university} · {t.department}
-              </button>
-            ))}
-          </>
-        )}
-
-        {/* 학교 검색 */}
-        <div className="relative w-[200px]">
-          <div
-            onClick={() => { if (!selUnivName || !selDeptName) setUnivDropOpen(true) }}
-            className={`flex items-center gap-2 border rounded-lg px-3 py-2 bg-white h-9 transition-colors ${
-              univDropOpen ? 'border-brand-high' : 'border-line'
-            }`}
-          >
-            <span className="text-[14px] flex-shrink-0">🏫</span>
-            <input
-              value={univInputValue}
-              onChange={e => { setUnivSearch(e.target.value); setSelUnivName(''); setSelDeptName(''); setSelQ(null); setUnivDropOpen(true) }}
-              onFocus={() => { if (!selUnivName || !selDeptName) setUnivDropOpen(true) }}
-              placeholder="학교 검색"
-              className="flex-1 border-none outline-none text-[12px] font-sans bg-transparent text-ink min-w-0"
-            />
-            {selUnivName && !selDeptName ? (
-              <button
-                onClick={e => { e.stopPropagation(); setSelUnivName(''); setSelDeptName(''); setUnivSearch(''); setSelQ(null) }}
-                className="text-[10px] text-ink-muted hover:text-ink flex-shrink-0"
-              >
-                ✕
-              </button>
-            ) : !selDeptName ? (
-              <span
-                onClick={e => { e.stopPropagation(); setUnivDropOpen(!univDropOpen) }}
-                className="text-[10px] text-ink-muted cursor-pointer flex-shrink-0 select-none"
-              >
-                ▼
-              </span>
-            ) : null}
-          </div>
-          {univDropOpen && (
-            <>
-              <div onClick={() => setUnivDropOpen(false)} className="fixed inset-0 z-10" />
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-line rounded-lg z-20 max-h-[200px] overflow-y-auto shadow-lg">
-                {filteredUnivs.length === 0 ? (
-                  <div className="px-3 py-2.5 text-[12px] text-ink-muted text-center">검색 결과 없음</div>
-                ) : filteredUnivs.map((u, i) => (
-                  <div
-                    key={i}
-                    onClick={() => { setSelUnivName(u); setUnivSearch(''); setSelDeptName(''); setDeptSearch(''); setUnivDropOpen(false); setSelQ(null) }}
-                    className={`px-3 py-2 text-[12px] cursor-pointer transition-colors ${
-                      selUnivName === u
-                        ? 'bg-brand-high-pale text-brand-high-dark font-semibold'
-                        : 'text-ink hover:bg-brand-high-pale/50'
-                    } ${i < filteredUnivs.length - 1 ? 'border-b border-line-light' : ''}`}
-                  >
-                    {u}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-
-        <span className="text-[14px] text-ink-muted flex-shrink-0">›</span>
-
-        {/* 학과 검색 */}
-        <div className="relative w-[220px]">
-          <div
-            onClick={() => { if (selUnivName && !selDeptName) setDeptDropOpen(true) }}
-            className={`flex items-center gap-2 border rounded-lg px-3 py-2 h-9 transition-colors ${
-              deptDropOpen ? 'border-brand-high bg-white'
-              : selUnivName ? 'border-line bg-white'
-              : 'border-line-light bg-gray-50 cursor-not-allowed'
-            }`}
-          >
-            <span className="text-[14px] flex-shrink-0">📚</span>
-            <input
-              value={deptInputValue}
-              onChange={e => { if (!selUnivName) return; setDeptSearch(e.target.value); setSelDeptName(''); setSelQ(null); setDeptDropOpen(true) }}
-              onFocus={() => { if (selUnivName && !selDeptName) setDeptDropOpen(true) }}
-              placeholder={selUnivName ? '학과 검색' : '학교 먼저 선택'}
-              disabled={!selUnivName}
-              className="flex-1 border-none outline-none text-[12px] font-sans bg-transparent text-ink min-w-0 disabled:cursor-not-allowed"
-            />
-            {selDeptName && selUnivName ? null
-              : selUnivName ? (
-                <span
-                  onClick={e => { e.stopPropagation(); setDeptDropOpen(!deptDropOpen) }}
-                  className="text-[10px] text-ink-muted cursor-pointer flex-shrink-0 select-none"
+                <button
+                  onClick={() => {
+                    setSelUnivName(t.university)
+                    setSelDeptName(t.department)
+                    setSelQ(null)
+                  }}
+                  className={`px-3 py-1.5 text-[11px] ${
+                    isSelected
+                      ? 'text-white font-bold'
+                      : 'text-brand-high-dark font-semibold hover:text-brand-high'
+                  }`}
                 >
-                  ▼
-                </span>
-              ) : (
-                <span className="text-[10px] text-gray-300 flex-shrink-0">▼</span>
-              )}
-          </div>
-          {deptDropOpen && selUnivName && (
-            <>
-              <div onClick={() => setDeptDropOpen(false)} className="fixed inset-0 z-10" />
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-line rounded-lg z-20 max-h-[200px] overflow-y-auto shadow-lg">
-                {filteredDepts.length === 0 ? (
-                  <div className="px-3 py-2.5 text-[12px] text-ink-muted text-center">검색 결과 없음</div>
-                ) : filteredDepts.map((d, i) => (
-                  <div
-                    key={i}
-                    onClick={() => { setSelDeptName(d); setDeptSearch(''); setDeptDropOpen(false); setSelQ(null) }}
-                    className={`px-3 py-2 text-[12px] cursor-pointer transition-colors ${
-                      selDeptName === d
-                        ? 'bg-brand-high-pale text-brand-high-dark font-semibold'
-                        : 'text-ink hover:bg-brand-high-pale/50'
-                    } ${i < filteredDepts.length - 1 ? 'border-b border-line-light' : ''}`}
-                  >
-                    {d}
-                  </div>
-                ))}
+                  🎓 {t.university} · {t.department}
+                </button>
+                <button
+                  onClick={() => removeTarget(t.university, t.department)}
+                  className={`pr-2.5 text-[11px] leading-none ${
+                    isSelected ? 'text-white/70 hover:text-white' : 'text-red-400 hover:text-red-600'
+                  }`}
+                  title="목록에서 숨김"
+                >
+                  ✕
+                </button>
               </div>
-            </>
+            )
+          })}
+
+          {/* + 학교 추가 버튼 */}
+          {canAddMore && !showAddForm && (
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="px-3 py-1.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100 transition-all"
+            >
+              + 학교 추가
+            </button>
           )}
+
+          {!canAddMore && (
+            <div className="text-[10px] text-amber-600 font-medium px-2">
+              ⚠️ 최대 {MAX_TARGETS}개까지 등록 가능
+            </div>
+          )}
+
+          <button
+            onClick={printAnswers}
+            className="ml-auto px-4 py-1.5 bg-white text-brand-high-dark border border-brand-high-light rounded-full text-[12px] font-semibold hover:bg-brand-high-pale flex items-center gap-1.5 transition-all"
+          >
+            🖨️ 최종 답변집 인쇄
+          </button>
         </div>
 
-        {selUnivName && selDeptName && (
-          <div className="flex items-center gap-1.5 text-[11px] text-brand-high-dark bg-brand-high-pale px-3 py-1.5 rounded-full border border-brand-high-light flex-shrink-0 font-semibold">
-            <span>✓ {selUnivName} · {selDeptName}</span>
+        {/* 추가 폼 (학교 + 학과 선택) */}
+        {showAddForm && (
+          <div className="flex gap-2 items-center flex-wrap bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5">
+            <span className="text-[11px] font-bold text-emerald-700">새 지원 학교:</span>
+
+            {/* 학교 검색 */}
+            <div className="relative w-[200px]">
+              <div
+                onClick={() => setUnivDropOpen(true)}
+                className={`flex items-center gap-2 border rounded-lg px-3 py-2 bg-white h-9 transition-colors cursor-text ${
+                  univDropOpen ? 'border-brand-high' : 'border-line hover:border-brand-high-light'
+                }`}
+              >
+                <span className="text-[14px] flex-shrink-0">🏫</span>
+                <input
+                  value={univDropOpen ? univSearch : pendingUniv}
+                  onChange={e => {
+                    setUnivSearch(e.target.value)
+                    setUnivDropOpen(true)
+                  }}
+                  onFocus={() => setUnivDropOpen(true)}
+                  placeholder="학교 검색"
+                  className="flex-1 border-none outline-none text-[12px] font-sans bg-transparent text-ink min-w-0"
+                />
+                {pendingUniv ? (
+                  <button
+                    onClick={e => {
+                      e.stopPropagation()
+                      setPendingUniv('')
+                      setPendingDept('')
+                      setUnivSearch('')
+                    }}
+                    className="text-[10px] text-ink-muted hover:text-ink"
+                  >✕</button>
+                ) : (
+                  <span className="text-[10px] text-ink-muted">▼</span>
+                )}
+              </div>
+              {univDropOpen && (
+                <>
+                  <div onClick={() => setUnivDropOpen(false)} className="fixed inset-0 z-10" />
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-line rounded-lg z-20 max-h-[200px] overflow-y-auto shadow-lg">
+                    {filteredUnivs.length === 0 ? (
+                      <div className="px-3 py-2.5 text-[12px] text-ink-muted text-center">검색 결과 없음</div>
+                    ) : filteredUnivs.map((u, i) => (
+                      <div
+                        key={i}
+                        onClick={() => {
+                          setPendingUniv(u)
+                          setPendingDept('')
+                          setUnivSearch('')
+                          setDeptSearch('')
+                          setUnivDropOpen(false)
+                        }}
+                        className={`px-3 py-2 text-[12px] cursor-pointer transition-colors ${
+                          pendingUniv === u
+                            ? 'bg-brand-high-pale text-brand-high-dark font-semibold'
+                            : 'text-ink hover:bg-brand-high-pale/50'
+                        } ${i < filteredUnivs.length - 1 ? 'border-b border-line-light' : ''}`}
+                      >
+                        {u}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <span className="text-[14px] text-ink-muted">›</span>
+
+            {/* 학과 검색 */}
+            <div className="relative w-[200px]">
+              <div
+                onClick={() => { if (pendingUniv) setDeptDropOpen(true) }}
+                className={`flex items-center gap-2 border rounded-lg px-3 py-2 h-9 transition-colors ${
+                  deptDropOpen ? 'border-brand-high bg-white'
+                  : pendingUniv ? 'border-line bg-white cursor-text hover:border-brand-high-light'
+                  : 'border-line-light bg-gray-50 cursor-not-allowed'
+                }`}
+              >
+                <span className="text-[14px] flex-shrink-0">📚</span>
+                <input
+                  value={deptDropOpen ? deptSearch : pendingDept}
+                  onChange={e => {
+                    if (!pendingUniv) return
+                    setDeptSearch(e.target.value)
+                    setDeptDropOpen(true)
+                  }}
+                  onFocus={() => { if (pendingUniv) setDeptDropOpen(true) }}
+                  placeholder={pendingUniv ? '학과 검색' : '학교 먼저 선택'}
+                  disabled={!pendingUniv}
+                  className="flex-1 border-none outline-none text-[12px] font-sans bg-transparent text-ink min-w-0 disabled:cursor-not-allowed"
+                />
+                {pendingDept ? (
+                  <button
+                    onClick={e => {
+                      e.stopPropagation()
+                      setPendingDept('')
+                      setDeptSearch('')
+                    }}
+                    className="text-[10px] text-ink-muted hover:text-ink"
+                  >✕</button>
+                ) : (
+                  <span className={`text-[10px] ${pendingUniv ? 'text-ink-muted' : 'text-gray-300'}`}>▼</span>
+                )}
+              </div>
+              {deptDropOpen && pendingUniv && (
+                <>
+                  <div onClick={() => setDeptDropOpen(false)} className="fixed inset-0 z-10" />
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-line rounded-lg z-20 max-h-[200px] overflow-y-auto shadow-lg">
+                    {filteredDepts.length === 0 ? (
+                      <div className="px-3 py-2.5 text-[12px] text-ink-muted text-center">검색 결과 없음</div>
+                    ) : filteredDepts.map((d, i) => (
+                      <div
+                        key={i}
+                        onClick={() => {
+                          setPendingDept(d)
+                          setDeptSearch('')
+                          setDeptDropOpen(false)
+                        }}
+                        className={`px-3 py-2 text-[12px] cursor-pointer transition-colors ${
+                          pendingDept === d
+                            ? 'bg-brand-high-pale text-brand-high-dark font-semibold'
+                            : 'text-ink hover:bg-brand-high-pale/50'
+                        } ${i < filteredDepts.length - 1 ? 'border-b border-line-light' : ''}`}
+                      >
+                        {d}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <button
+              onClick={addNewTarget}
+              disabled={!pendingUniv || !pendingDept || updateTargets.isPending}
+              className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {updateTargets.isPending ? '추가중...' : '✓ 추가'}
+            </button>
+
             <button
               onClick={() => {
-                if (!window.confirm(`"${selUnivName} · ${selDeptName}" 목록에서 숨길까요?\n\n⚠️ 답변/피드백은 모두 유지돼요.\n원장님이 언제든 다시 복구할 수 있어요.`)) return
-                const newTargets = allTargets.map(t =>
-                  t.university === selUnivName && t.department === selDeptName
-                    ? { ...t, hidden: true }
-                    : t
-                )
-                updateTargets.mutate(newTargets, {
-                  onSuccess: () => {
-                    resetAll()
-                  },
-                })
+                setShowAddForm(false)
+                setPendingUniv('')
+                setPendingDept('')
+                setUnivSearch('')
+                setDeptSearch('')
               }}
-              className="text-[12px] text-red-500 hover:text-red-700 leading-none transition-colors font-bold"
-              title="목록에서 숨김 (데이터는 유지)"
+              className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-white text-ink-secondary border border-line hover:bg-gray-50 transition-all"
             >
-              ✕
+              취소
             </button>
           </div>
         )}
-
-        <button
-          onClick={printAnswers}
-          className="ml-auto px-4 py-1.5 bg-white text-brand-high-dark border border-brand-high-light rounded-full text-[12px] font-semibold hover:bg-brand-high-pale flex items-center gap-1.5 transition-all"
-        >
-          🖨️ 최종 답변집 인쇄
-        </button>
       </div>
 
       {/* 좌우 패널 */}
       <div className="flex gap-4 flex-1 overflow-hidden">
 
-        {/* 왼쪽: 질문 목록 */}
         <div className="w-[360px] flex-shrink-0 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
           <div className="px-4 py-3 border-b border-line-light flex-shrink-0">
             {selUnivName && selDeptName ? (
@@ -409,7 +516,7 @@ ${answeredQs.map((q, i) => `
                 </div>
               </>
             ) : (
-              <div className="text-[12px] text-ink-muted font-medium">학교와 학과를 선택해주세요</div>
+              <div className="text-[12px] text-ink-muted font-medium">위에서 학교를 선택하거나 추가해주세요</div>
             )}
           </div>
 
@@ -417,7 +524,7 @@ ${answeredQs.map((q, i) => `
             {!selUnivName || !selDeptName ? (
               <div className="text-center py-10 text-ink-muted">
                 <div className="text-3xl mb-2">🏫</div>
-                <div className="text-[12px]">위에서 학교와 학과를 선택해주세요</div>
+                <div className="text-[12px]">위에서 지원 학교를 선택해주세요</div>
               </div>
             ) : loadingQ ? (
               <div className="text-center py-10 text-ink-muted text-[12px]">불러오는 중...</div>
@@ -429,7 +536,6 @@ ${answeredQs.map((q, i) => `
             ) : curQuestions.map((q, i) => {
               const qType = inferQuestionType(q.question)
               const isAnswered = !!q.answer?.student_answer
-              const qStep = getMyStep(q.answer, [])
               return (
                 <div
                   key={q.id}
@@ -468,7 +574,6 @@ ${answeredQs.map((q, i) => `
           </div>
         </div>
 
-        {/* 오른쪽: 상세 */}
         <div className="flex-1 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
           {!selQ ? (
             <div className="flex-1 flex flex-col items-center justify-center text-ink-muted gap-2">
@@ -478,7 +583,6 @@ ${answeredQs.map((q, i) => `
             </div>
           ) : (
             <>
-              {/* 헤더 + 스테퍼 */}
               <div className="px-5 py-3.5 border-b border-line-light flex-shrink-0">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
@@ -526,10 +630,8 @@ ${answeredQs.map((q, i) => `
                 </div>
               </div>
 
-              {/* 본문 */}
               <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-gray-50">
 
-                {/* 질문 */}
                 <div className="bg-white border border-line rounded-xl px-4 py-3">
                   <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">기출 질문</div>
                   <div className="text-[14px] font-bold text-ink leading-relaxed">{selQ.question}</div>
@@ -546,16 +648,14 @@ ${answeredQs.map((q, i) => `
                       <div className="bg-gray-50 border border-line-light rounded-lg px-3 py-2.5 text-[13px] text-ink leading-relaxed mb-2 whitespace-pre-wrap">
                         {selQ.answer.student_answer}
                       </div>
-                      {!round1?.teacher_feedback && (
-                        <div className="flex justify-end">
-                          <button
-                            onClick={() => { setEditingStep1(true); setMyAnswer(selQ.answer!.student_answer!) }}
-                            className="text-[11px] font-semibold text-ink-secondary bg-white border border-line rounded-md px-3 py-1 hover:bg-gray-50 transition-all"
-                          >
-                            ✏️ 수정
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex justify-end">
+                        <button
+                          onClick={() => { setEditingStep1(true); setMyAnswer(selQ.answer!.student_answer!) }}
+                          className="text-[11px] font-semibold text-ink-secondary bg-white border border-line rounded-md px-3 py-1 hover:bg-gray-50 transition-all"
+                        >
+                          ✏️ 수정
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <>
@@ -592,7 +692,6 @@ ${answeredQs.map((q, i) => `
                   )}
                 </div>
 
-                {/* Step 2 */}
                 {selQ.answer?.student_answer && (
                   <div className="bg-white border border-line rounded-xl px-4 py-3">
                     <div className="flex items-center gap-1.5 mb-2">
@@ -623,16 +722,14 @@ ${answeredQs.map((q, i) => `
                         <div className="bg-gray-50 border border-line-light rounded-lg px-3 py-2.5 text-[13px] text-ink leading-relaxed mb-2 whitespace-pre-wrap">
                           {round2.revised_answer}
                         </div>
-                        {!round2.teacher_feedback && (
-                          <div className="flex justify-end">
-                            <button
-                              onClick={() => { setEditingStep3(true); setUpgradedAnswer(round2.revised_answer!) }}
-                              className="text-[11px] font-semibold text-ink-secondary bg-white border border-line rounded-md px-3 py-1 hover:bg-gray-50 transition-all"
-                            >
-                              ✏️ 수정
-                            </button>
-                          </div>
-                        )}
+                        <div className="flex justify-end">
+                          <button
+                            onClick={() => { setEditingStep3(true); setUpgradedAnswer(round2.revised_answer!) }}
+                            className="text-[11px] font-semibold text-ink-secondary bg-white border border-line rounded-md px-3 py-1 hover:bg-gray-50 transition-all"
+                          >
+                            ✏️ 수정
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <>
@@ -673,7 +770,6 @@ ${answeredQs.map((q, i) => `
                   </div>
                 )}
 
-                {/* Step 4 */}
                 {round2?.revised_answer && (
                   <div className="bg-white border border-line rounded-xl px-4 py-3">
                     <div className="flex items-center gap-1.5 mb-2">
@@ -692,7 +788,6 @@ ${answeredQs.map((q, i) => `
                   </div>
                 )}
 
-                {/* Step 5 꼬리질문 */}
                 {followups.length > 0 && (
                   <div className="bg-white border border-line rounded-xl px-4 py-3">
                     <div className="flex items-center gap-1.5 mb-2">

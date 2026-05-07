@@ -61,8 +61,8 @@ export interface QuestionWithAnswer extends PastQuestion {
   answer: PastAnswer | null
 }
 
-// 폴링 주기 (ms)
-const POLL_INTERVAL = 2000
+// 폴링 주기 (ms) — 5초로 늘려서 Network 부담 줄이기
+const POLL_INTERVAL = 5000
 
 // ─────────────────────────────────────────────
 // 1. 내 target_universities 조회
@@ -83,7 +83,6 @@ export function useMyTargetUniversities() {
         .maybeSingle()
       if (error) throw error
       const all = (data?.target_universities || []) as Array<{ university: string; department: string; hidden?: boolean }>
-      // 숨김 처리된 것은 학생에게 안 보임
       return all.filter(t => !t.hidden)
     },
     enabled: !!studentId,
@@ -91,7 +90,6 @@ export function useMyTargetUniversities() {
   })
 }
 
-// 학생 본인 지원 학교 추가/수정 (hidden도 포함한 전체 배열)
 export function useUpdateMyTargets() {
   const student = useAtomValue(studentState)
   const studentId = student?.id as string | undefined
@@ -110,7 +108,6 @@ export function useUpdateMyTargets() {
     onMutate: async (newTargets) => {
       await qc.cancelQueries({ queryKey: ['my-target-universities', studentId] })
       const prev = qc.getQueryData(['my-target-universities', studentId])
-      // 낙관적 업데이트 (hidden 필터링 적용)
       qc.setQueryData(
         ['my-target-universities', studentId],
         newTargets.filter(t => !t.hidden),
@@ -128,7 +125,6 @@ export function useUpdateMyTargets() {
   })
 }
 
-// 학생 - 숨김 포함한 전체 targets 조회 (내부용)
 export function useMyTargetUniversitiesAll() {
   const student = useAtomValue(studentState)
   const studentId = student?.id as string | undefined
@@ -152,6 +148,8 @@ export function useMyTargetUniversitiesAll() {
 
 // ─────────────────────────────────────────────
 // 2. 전체 대학/학과 목록 조회 (드롭다운용)
+// ⭐ 폴링 X — 학교 목록은 자주 안 바뀜
+// ⭐ limit 풀음 (.range)
 // ─────────────────────────────────────────────
 
 export function useAllUniversities() {
@@ -167,6 +165,7 @@ export function useAllUniversities() {
       const unique = Array.from(new Set((data ?? []).map(r => r.university)))
       return unique
     },
+    staleTime: 60_000, // 1분 동안 캐시 유지 (재요청 안 함)
   })
 }
 
@@ -186,6 +185,7 @@ export function useDepartmentsOfUniversity(university: string) {
       return unique
     },
     enabled: !!university,
+    staleTime: 60_000,
   })
 }
 
@@ -205,7 +205,6 @@ export function useMyPastQuestions(
     queryFn: async (): Promise<QuestionWithAnswer[]> => {
       if (!studentId || !university || !department) return []
 
-      // 1. 기출문제
       const { data: questions, error: qErr } = await supabase
         .from('high_questions')
         .select('*')
@@ -216,7 +215,6 @@ export function useMyPastQuestions(
       if (qErr) throw qErr
       if (!questions || questions.length === 0) return []
 
-      // 2. 내 답변
       const questionIds = questions.map(q => q.id)
       const { data: answers, error: aErr } = await supabase
         .from('high_questions_answer')
@@ -298,7 +296,6 @@ export function useSubmitFirstAnswer() {
     }) => {
       if (!studentId) throw new Error('로그인 필요')
 
-      // 1. answer 레코드가 있는지 확인
       const { data: existingAnswer } = await supabase
         .from('high_questions_answer')
         .select('id')
@@ -308,7 +305,6 @@ export function useSubmitFirstAnswer() {
 
       let answerId: string
       if (existingAnswer) {
-        // update
         const { error } = await supabase
           .from('high_questions_answer')
           .update({
@@ -320,7 +316,6 @@ export function useSubmitFirstAnswer() {
         if (error) throw error
         answerId = existingAnswer.id
       } else {
-        // insert
         const { data, error } = await supabase
           .from('high_questions_answer')
           .insert({
@@ -336,7 +331,6 @@ export function useSubmitFirstAnswer() {
         answerId = data.id
       }
 
-      // 2. analysis round 1 - 학생 답변을 revised_answer에도 저장
       const { data: existingR1 } = await supabase
         .from('high_questions_analysis')
         .select('id')
@@ -460,7 +454,6 @@ export function getMyStep(
   answer: PastAnswer | null,
   analyses: PastAnalysis[]
 ): number {
-  // 0: 미답변, 1: 답변완료, 2: 1차피드백, 3: 업그레이드, 4: 최종피드백
   if (!answer?.student_answer) return 0
   const round1 = analyses.find(a => a.round === 1)
   if (!round1?.teacher_feedback) return 1
@@ -470,7 +463,6 @@ export function getMyStep(
   return 4
 }
 
-// 문제 타입 분류 (키워드 기반)
 export function inferQuestionType(question: string): '공통' | '전공' | '인성' {
   if (/전공|학과|학부|연구|논문|이론|기술|과학|공학|전문|학문|AI|인공지능|컴퓨터|수학|물리|화학|생물|의학|법|경영|경제|심리|공부|수업|과목/.test(question)) {
     return '전공'
