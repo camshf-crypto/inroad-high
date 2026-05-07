@@ -72,11 +72,12 @@ export interface MockExamReport {
   teacher_comment: string | null
   season_guide: any
   growth_narrative: any
-  detailed_scores: any 
+  detailed_scores: any
   saenggibu_direction: any
   next_period_plan: string | null
   published_at: string | null
   created_at: string
+  [key: string]: any
 }
 
 export interface MockExamYearlyReport {
