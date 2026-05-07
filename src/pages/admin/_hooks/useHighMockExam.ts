@@ -71,6 +71,8 @@ export interface MockExamReport {
   university_fit: any
   teacher_comment: string | null
   season_guide: any
+  growth_narrative: any
+  detailed_scores: any 
   saenggibu_direction: any
   next_period_plan: string | null
   published_at: string | null

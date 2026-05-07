@@ -1,4 +1,4 @@
-import type { MockExam, MockExamReport, MockExamQuestion, MockExamMajor } from '../../../../../_hooks/useHighMockExam'
+import type { MockExam, MockExamReport, MockExamQuestion, MockExamMajor } from '@/pages/admin/_hooks/useHighMockExam'
 const THEME = {
   accent: '#2563EB',
   accentDark: '#1E3A8A',
