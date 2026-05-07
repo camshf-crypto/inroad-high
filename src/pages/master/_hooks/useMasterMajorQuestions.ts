@@ -20,6 +20,7 @@ export function useMasterMajorDepartments(grade: Grade) {
         .select('grade, school_year, department_code, department_name, master_code, total_days, created_at')
         .eq('grade', grade)
         .order('created_at', { ascending: false })
+        .range(0, 199999)
 
       if (error) throw error
 
@@ -64,6 +65,7 @@ export function useMasterMajorQuestions(masterCode: string | null) {
         .eq('master_code', masterCode!)
         .order('day', { ascending: true })
         .order('seq', { ascending: true })
+        .range(0, 199999)
 
       if (error) throw error
       return (data ?? []) as MajorQuestion[]

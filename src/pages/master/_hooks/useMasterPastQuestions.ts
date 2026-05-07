@@ -5,7 +5,13 @@ import type { PastQuestion, Grade } from '@/lib/types/questions'
 /**
  * 기출문제 목록 조회 (학년별)
  * - 답변 공식과 조인해서 formula_name도 가져옴
- * - Supabase 기본 limit 1000 우회 위해 .range(0, 9999) 사용
+ * - Supabase 기본 limit 1000 우회 위해 .range(0, 199999) 사용
+ *
+ * ⚠️ TODO (데모 후 필수): 서버 페이지네이션으로 전환
+ *   - 20만 행 전부 다운로드 = 100MB+ JSON
+ *   - 학원 와이파이에서 30초+ 로딩 가능성
+ *   - .range(page*50, page*50+49) + .ilike() 검색으로 변경 필요
+ *   - university, created_at 인덱스 추가 필요
  */
 export function useMasterPastQuestions(grade: Grade) {
   return useQuery({
@@ -25,7 +31,7 @@ export function useMasterPastQuestions(grade: Grade) {
           .from('high_questions')
           .select('*')
           .order('created_at', { ascending: false })
-          .range(0, 9999)
+          .range(0, 199999)
 
         if (error) throw error
 
@@ -47,7 +53,7 @@ export function useMasterPastQuestions(grade: Grade) {
           .from('middle_questions')
           .select('*')
           .order('created_at', { ascending: false })
-          .range(0, 9999)
+          .range(0, 199999)
 
         if (error) throw error
 
