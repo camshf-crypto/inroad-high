@@ -5,6 +5,7 @@ import type { PastQuestion, Grade } from '@/lib/types/questions'
 /**
  * 기출문제 목록 조회 (학년별)
  * - 답변 공식과 조인해서 formula_name도 가져옴
+ * - Supabase 기본 limit 1000 우회 위해 .range(0, 9999) 사용
  */
 export function useMasterPastQuestions(grade: Grade) {
   return useQuery({
@@ -14,6 +15,7 @@ export function useMasterPastQuestions(grade: Grade) {
       const { data: formulas } = await supabase
         .from('answer_formulas')
         .select('id, name')
+        .range(0, 999)
 
       const formulaMap = new Map((formulas ?? []).map(f => [f.id, f.name]))
 
@@ -23,6 +25,7 @@ export function useMasterPastQuestions(grade: Grade) {
           .from('high_questions')
           .select('*')
           .order('created_at', { ascending: false })
+          .range(0, 9999)
 
         if (error) throw error
 
@@ -44,6 +47,7 @@ export function useMasterPastQuestions(grade: Grade) {
           .from('middle_questions')
           .select('*')
           .order('created_at', { ascending: false })
+          .range(0, 9999)
 
         if (error) throw error
 

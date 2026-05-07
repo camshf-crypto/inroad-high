@@ -49,11 +49,6 @@ export default function BookTab({ student, onOpenChat }: {
     setFeedbackInput('')
   }, [selReadingId])
 
-  const chatEndRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages.length])
-
   useEffect(() => {
     if (isFeedbackOpen) {
       setTimeout(() => textareaRef.current?.focus(), 100)
@@ -266,7 +261,6 @@ export default function BookTab({ student, onOpenChat }: {
                   </div>
                 )
               })}
-              <div ref={chatEndRef} />
             </div>
 
             {isCompleted ? (

@@ -119,6 +119,9 @@ export default function PastQuestionsTab({ grade }: Props) {
     })
   }
 
+  // 테이블 최소 너비 (컬럼 합 + 여유)
+  const tableMinWidth = isHigh ? 1180 : 870
+
   return (
     <>
       {/* 액션 바 */}
@@ -149,7 +152,7 @@ export default function PastQuestionsTab({ grade }: Props) {
 
         <button
           onClick={() => setShowUploadModal(true)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-white text-[12px] font-bold rounded-full transition-all hover:-translate-y-px"
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-white text-[12px] font-bold rounded-full transition-all hover:-translate-y-px whitespace-nowrap"
           style={{ background: THEME.gradient, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
         >
           <span>↑</span> 엑셀 업로드
@@ -206,18 +209,22 @@ export default function PastQuestionsTab({ grade }: Props) {
         </div>
       )}
 
-      <div className="bg-white border border-line rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
+      {/* 테이블 컨테이너 — overflow-x-auto 로 변경해서 좁을 땐 가로 스크롤 */}
+      <div className="bg-white border border-line rounded-2xl overflow-x-auto shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
         {isLoading ? (
           <div className="px-10 py-16 text-center">
             <div className="inline-block w-6 h-6 border-2 border-gray-200 rounded-full animate-spin mb-3" style={{ borderTopColor: THEME.accent }} />
             <div className="text-[13px] text-ink-secondary font-medium">기출문제를 불러오는 중...</div>
           </div>
         ) : (
-          <table className="w-full border-collapse">
+          <table
+            className="w-full border-collapse"
+            style={{ minWidth: tableMinWidth, tableLayout: 'fixed' }}
+          >
             <thead>
               <tr className="bg-[#F8FAFC]">
                 {/* ⭐ 전체 선택 체크박스 */}
-                <th className="px-4 py-3 border-b border-line w-[44px] text-center">
+                <th className="px-4 py-3 border-b border-line text-center" style={{ width: 44 }}>
                   <input
                     type="checkbox"
                     checked={allSelected}
@@ -228,17 +235,44 @@ export default function PastQuestionsTab({ grade }: Props) {
                     className="w-4 h-4 rounded cursor-pointer accent-purple-600"
                   />
                 </th>
-                <th className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line">{schoolLabel}</th>
+                <th
+                  className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line"
+                  style={{ width: 140 }}
+                >
+                  {schoolLabel}
+                </th>
                 {isHigh && (
                   <>
-                    <th className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line">학과</th>
-                    <th className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line">전형</th>
+                    <th
+                      className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line"
+                      style={{ width: 170 }}
+                    >
+                      학과
+                    </th>
+                    <th
+                      className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line"
+                      style={{ width: 110 }}
+                    >
+                      전형
+                    </th>
                   </>
                 )}
-                <th className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line">질문</th>
-                <th className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line">유형 (공식)</th>
-                <th className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line">등록일</th>
-                <th className="px-5 py-3 border-b border-line w-[160px]"></th>
+                <th className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line">
+                  질문
+                </th>
+                <th
+                  className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line"
+                  style={{ width: 160 }}
+                >
+                  유형 (공식)
+                </th>
+                <th
+                  className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line"
+                  style={{ width: 110 }}
+                >
+                  등록일
+                </th>
+                <th className="px-5 py-3 border-b border-line" style={{ width: 160 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -274,23 +308,58 @@ export default function PastQuestionsTab({ grade }: Props) {
                           className="w-4 h-4 rounded cursor-pointer accent-purple-600"
                         />
                       </td>
+
+                      {/* 대학/학교 — 칩 스타일이라 한 줄 유지 */}
                       <td className="px-5 py-3">
-                        <span className="text-[11px] font-bold text-ink-secondary bg-gray-100 px-2.5 py-1 rounded-full">{q.university}</span>
+                        <span
+                          className="inline-block text-[11px] font-bold text-ink-secondary bg-gray-100 px-2.5 py-1 rounded-full whitespace-nowrap max-w-full truncate"
+                          title={q.university}
+                        >
+                          {q.university}
+                        </span>
                       </td>
+
                       {isHigh && (
                         <>
-                          <td className="px-5 py-3 text-[13px] font-bold text-ink">{q.major || '-'}</td>
-                          <td className="px-5 py-3 text-[12px] font-semibold text-ink-secondary">{q.admission_type || '-'}</td>
+                          {/* 학과 — 길면 ... 처리, 마우스오버 시 풀텍스트 */}
+                          <td
+                            className="px-5 py-3 text-[13px] font-bold text-ink truncate"
+                            title={q.major || ''}
+                          >
+                            {q.major || '-'}
+                          </td>
+                          {/* 전형 */}
+                          <td
+                            className="px-5 py-3 text-[12px] font-semibold text-ink-secondary truncate"
+                            title={q.admission_type || ''}
+                          >
+                            {q.admission_type || '-'}
+                          </td>
                         </>
                       )}
-                      <td className="px-5 py-3 text-[13px] font-medium text-ink">{q.question}</td>
+
+                      {/* 질문 — 한국어 어절 단위로 줄바꿈 */}
+                      <td
+                        className="px-5 py-3 text-[13px] font-medium text-ink leading-relaxed"
+                        style={{ wordBreak: 'keep-all', overflowWrap: 'break-word' }}
+                      >
+                        {q.question}
+                      </td>
+
+                      {/* 유형(공식) */}
                       <td className="px-5 py-3">
                         {q.formula_id ? (
-                          <div className="inline-flex items-center gap-1.5">
-                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ color: THEME.accent, background: THEME.accentBg }}>
+                          <div className="inline-flex items-center gap-1.5 max-w-full">
+                            <span
+                              className="text-[11px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shrink-0"
+                              style={{ color: THEME.accent, background: THEME.accentBg }}
+                            >
                               #{q.formula_id}
                             </span>
-                            <span className="text-[12px] font-semibold text-ink-secondary">
+                            <span
+                              className="text-[12px] font-semibold text-ink-secondary truncate"
+                              title={q.formula_name || ''}
+                            >
                               {q.formula_name || ''}
                             </span>
                           </div>
@@ -298,14 +367,18 @@ export default function PastQuestionsTab({ grade }: Props) {
                           <span className="text-[11px] text-ink-muted">-</span>
                         )}
                       </td>
-                      <td className="px-5 py-3 text-[12px] font-semibold text-ink-secondary">
+
+                      {/* 등록일 */}
+                      <td className="px-5 py-3 text-[12px] font-semibold text-ink-secondary whitespace-nowrap">
                         {q.created_at?.slice(0, 10) || '-'}
                       </td>
+
+                      {/* 액션 */}
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-1.5 justify-end">
                           <button
                             onClick={() => setSelectedQuestion(q)}
-                            className="px-3 py-1.5 text-[11px] font-bold rounded-full transition-all hover:-translate-y-px"
+                            className="px-3 py-1.5 text-[11px] font-bold rounded-full transition-all hover:-translate-y-px whitespace-nowrap"
                             style={{
                               background: THEME.accentBg,
                               color: THEME.accent,

@@ -599,8 +599,8 @@ export default function ExpectTab({ student }: { student: any }) {
                           cursor: generateAI.isPending ? 'not-allowed' : 'pointer', marginBottom: 10,
                         }}>
                         {generateAI.isPending
-                          ? '🤖 질문 생성 중... (1~2분 소요)'
-                          : '✨ AI 예상질문 생성 + 학생에게 전달'}
+                          ? '질문 생성 중... (5~10분 소요)'
+                          : 'AI 예상질문 생성 + 학생에게 전달'}
                       </button>
                     </>
                   )}
