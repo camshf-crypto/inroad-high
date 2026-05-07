@@ -162,6 +162,7 @@ export function useAllUniversities() {
         .from('high_questions')
         .select('university')
         .order('university')
+        .range(0, 199999)
       if (error) throw error
       const unique = Array.from(new Set((data ?? []).map(r => r.university)))
       return unique
@@ -179,6 +180,7 @@ export function useDepartmentsOfUniversity(university: string) {
         .select('department')
         .eq('university', university)
         .order('department')
+        .range(0, 199999)
       if (error) throw error
       const unique = Array.from(new Set((data ?? []).map(r => r.department)))
       return unique
@@ -210,6 +212,7 @@ export function useMyPastQuestions(
         .eq('university', university)
         .eq('department', department)
         .order('created_at', { ascending: true })
+        .range(0, 9999)
       if (qErr) throw qErr
       if (!questions || questions.length === 0) return []
 
@@ -219,6 +222,7 @@ export function useMyPastQuestions(
         .from('high_questions_answer')
         .select('*')
         .in('question_id', questionIds)
+        .range(0, 9999)
       if (aErr) throw aErr
 
       const answerMap = new Map((answers || []).map(a => [a.question_id, a]))
