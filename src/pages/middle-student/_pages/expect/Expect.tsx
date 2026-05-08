@@ -15,6 +15,8 @@ import {
   useRequestDeleteEssay,
   useCancelDeleteRequest,
 } from "@/pages/middle-student/_hooks/useExpect";
+// ⭐ 5단계 자소서 마법사 import
+import EssayWizard from "./EssayWizard";
 
 const STEP_LABELS = [
   "첫 답변",
@@ -87,11 +89,10 @@ const MicBtn = ({
 }) => (
   <button
     onClick={onClick}
-    className={`w-9 h-9 rounded-lg border flex items-center justify-center flex-shrink-0 text-base transition-all ${
-      recording
-        ? "bg-red-50 border-red-200 text-red-500 hover:bg-red-100"
-        : "bg-brand-middle-pale border-brand-middle-light text-brand-middle-dark hover:bg-brand-middle-bg"
-    }`}
+    className={`w-9 h-9 rounded-lg border flex items-center justify-center flex-shrink-0 text-base transition-all ${recording
+      ? "bg-red-50 border-red-200 text-red-500 hover:bg-red-100"
+      : "bg-brand-middle-pale border-brand-middle-light text-brand-middle-dark hover:bg-brand-middle-bg"
+      }`}
   >
     {recording ? "⏹" : "🎙️"}
   </button>
@@ -109,11 +110,10 @@ const SubmitBtn = ({
   <button
     onClick={onClick}
     disabled={disabled}
-    className={`w-[108px] h-9 rounded-lg text-[12px] font-semibold flex-shrink-0 transition-all ${
-      !disabled
-        ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
-        : "bg-gray-100 text-ink-muted cursor-not-allowed"
-    }`}
+    className={`w-[108px] h-9 rounded-lg text-[12px] font-semibold flex-shrink-0 transition-all ${!disabled
+      ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
+      : "bg-gray-100 text-ink-muted cursor-not-allowed"
+      }`}
   >
     {label}
   </button>
@@ -134,6 +134,9 @@ export default function MiddleExpect() {
   // 자소서 선택
   const [selEssayId, setSelEssayId] = useState<string | null>(null);
   const selEssay = essays.find((e) => e.id === selEssayId) ?? null;
+
+  // ⭐ 5단계 마법사 모드
+  const [showWizard, setShowWizard] = useState(false);
 
   // 자소서 첫 항목 자동 선택
   useEffect(() => {
@@ -165,7 +168,7 @@ export default function MiddleExpect() {
   const [newSchool, setNewSchool] = useState("");
   const [customSchool, setCustomSchool] = useState("");
 
-  // 자소서 작성/수정
+  // 자소서 작성/수정 (전체 수정 모드 — 기존 textarea 5개)
   const [editingEssay, setEditingEssay] = useState(false);
   const [tempContent, setTempContent] = useState({ ...EMPTY_ESSAY });
   const [editingSection, setEditingSection] = useState<string | null>(null);
@@ -254,9 +257,6 @@ export default function MiddleExpect() {
     }
   };
 
-  // 모든 자소서 가져온 questions 카운트 (UI용)
-  const allQuestionsCount = essays.reduce((sum) => sum, 0); // 일단 0, 정확한 카운트는 나중
-
   const countChars = (content: any) =>
     Object.values(content || {})
       .join("")
@@ -289,7 +289,8 @@ export default function MiddleExpect() {
       });
       setSelEssayId(newE.id);
       setTempContent({ ...EMPTY_ESSAY });
-      setEditingEssay(true);
+      // ⭐ 새 학교 추가 → 자동으로 5단계 마법사 시작
+      setShowWizard(true);
       setShowAddEssay(false);
       setNewSchool("");
       setCustomSchool("");
@@ -298,7 +299,7 @@ export default function MiddleExpect() {
     }
   };
 
-  // 자소서 전체 저장
+  // 자소서 전체 저장 (textarea 5개 모드)
   const saveEssay = async () => {
     if (!selEssay) return;
     try {
@@ -306,9 +307,26 @@ export default function MiddleExpect() {
         essay_id: selEssay.id,
         content: tempContent,
         version: selEssay.version + 1,
-        previousContent: selEssay.content, // ⭐ 이전 답변 (변경된 섹션만 history INSERT)
+        previousContent: selEssay.content,
       });
       setEditingEssay(false);
+    } catch (e: any) {
+      alert(`저장 실패: ${e.message}`);
+    }
+  };
+
+  // ⭐ 5단계 마법사 완료 → DB 저장
+  const handleWizardComplete = async (finalContent: typeof EMPTY_ESSAY) => {
+    if (!selEssay) return;
+    try {
+      await updateEssay.mutateAsync({
+        essay_id: selEssay.id,
+        content: finalContent,
+        version: selEssay.version + 1,
+        previousContent: selEssay.content,
+      });
+      setShowWizard(false);
+      alert("✅ 자소서가 저장되었어요!\n선생님이 피드백을 드릴 거예요.");
     } catch (e: any) {
       alert(`저장 실패: ${e.message}`);
     }
@@ -323,7 +341,7 @@ export default function MiddleExpect() {
         essay_id: selEssay.id,
         content: newContent,
         version: selEssay.version + 1,
-        previousContent: selEssay.content, // ⭐ 이전 답변
+        previousContent: selEssay.content,
       });
       setEditingSection(null);
       setTempSection("");
@@ -395,6 +413,20 @@ export default function MiddleExpect() {
     {},
   );
 
+  // ⭐⭐⭐ 5단계 마법사 모드 — 전체 화면 차지 ⭐⭐⭐
+  if (showWizard && selEssay) {
+    return (
+      <EssayWizard
+        schoolName={selEssay.school}
+        essayId={selEssay.id}
+        studentId={String(student?.id || "")}
+        academyId={academy?.academyId ? String(academy.academyId) : null}
+        onComplete={handleWizardComplete}
+        onCancel={() => setShowWizard(false)}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-3 h-[calc(100vh-90px)] overflow-hidden px-6 py-5 font-sans text-ink">
       {/* 헤더 */}
@@ -411,7 +443,7 @@ export default function MiddleExpect() {
           <div className="bg-brand-middle-bg text-brand-middle-dark text-[12px] font-bold px-3.5 py-1.5 rounded-full border border-brand-middle-light">
             자소서 {essays.length}개
           </div>
-          <div className="bg-[#EEF2FF] text-[#3B5BDB] text-[12px] font-bold px-3.5 py-1.5 rounded-full border border-[#BAC8FF]">
+          <div className="bg-brand-middle-pale text-brand-middle-dark text-[12px] font-bold px-3.5 py-1.5 rounded-full border border-brand-middle-light">
             예상질문 학교 {schoolsWithQuestions.length}개
           </div>
         </div>
@@ -429,11 +461,10 @@ export default function MiddleExpect() {
               <button
                 key={t.key}
                 onClick={() => setActiveTab(t.key as any)}
-                className={`flex-1 py-3 text-center text-[13px] transition-all ${
-                  activeTab === t.key
-                    ? "text-brand-middle-dark font-bold border-b-2 border-brand-middle"
-                    : "text-ink-muted font-medium border-b-2 border-transparent hover:text-ink"
-                }`}
+                className={`flex-1 py-3 text-center text-[13px] transition-all ${activeTab === t.key
+                  ? "text-brand-middle-dark font-bold border-b-2 border-brand-middle"
+                  : "text-ink-muted font-medium border-b-2 border-transparent hover:text-ink"
+                  }`}
               >
                 {t.label}
               </button>
@@ -481,11 +512,10 @@ export default function MiddleExpect() {
                           setEditingEssay(false);
                           setEditingSection(null);
                         }}
-                        className={`border rounded-xl px-3.5 py-3 mb-1.5 cursor-pointer transition-all ${
-                          isSel
-                            ? "border-brand-middle bg-brand-middle-pale shadow-[0_4px_16px_rgba(16,185,129,0.12)]"
-                            : "border-line bg-white hover:border-brand-middle-light hover:shadow-sm"
-                        }`}
+                        className={`border rounded-xl px-3.5 py-3 mb-1.5 cursor-pointer transition-all ${isSel
+                          ? "border-brand-middle bg-brand-middle-pale shadow-[0_4px_16px_rgba(16,185,129,0.12)]"
+                          : "border-line bg-white hover:border-brand-middle-light hover:shadow-sm"
+                          }`}
                       >
                         <div
                           className={`text-[13px] font-bold mb-1.5 ${isSel ? "text-brand-middle-dark" : "text-ink"}`}
@@ -503,7 +533,7 @@ export default function MiddleExpect() {
                             </span>
                           )}
                           {e.version > 1 && (
-                            <span className="text-[10px] font-semibold text-[#3B5BDB] bg-[#EEF2FF] px-2 py-0.5 rounded-full">
+                            <span className="text-[10px] font-semibold text-brand-middle-dark bg-brand-middle-bg px-2 py-0.5 rounded-full">
                               v{e.version}
                             </span>
                           )}
@@ -544,11 +574,10 @@ export default function MiddleExpect() {
                           setSelSchoolFilter(school);
                           setSelQId(null);
                         }}
-                        className={`px-3 py-1 rounded-full text-[11px] border-[1.5px] transition-all ${
-                          selSchoolFilter === school
-                            ? "border-brand-middle bg-brand-middle-pale text-brand-middle-dark font-bold"
-                            : "border-line bg-white text-ink-secondary font-medium hover:border-brand-middle-light"
-                        }`}
+                        className={`px-3 py-1 rounded-full text-[11px] border-[1.5px] transition-all ${selSchoolFilter === school
+                          ? "border-brand-middle bg-brand-middle-pale text-brand-middle-dark font-bold"
+                          : "border-line bg-white text-ink-secondary font-medium hover:border-brand-middle-light"
+                          }`}
                       >
                         {school}
                       </button>
@@ -586,11 +615,10 @@ export default function MiddleExpect() {
                     <div
                       key={q.id}
                       onClick={() => setSelQId(q.id)}
-                      className={`border rounded-xl px-3.5 py-3 mb-1.5 cursor-pointer transition-all ${
-                        selQId === q.id
-                          ? "border-brand-middle bg-brand-middle-pale shadow-[0_4px_16px_rgba(16,185,129,0.12)]"
-                          : "border-line bg-white hover:border-brand-middle-light hover:shadow-sm"
-                      }`}
+                      className={`border rounded-xl px-3.5 py-3 mb-1.5 cursor-pointer transition-all ${selQId === q.id
+                        ? "border-brand-middle bg-brand-middle-pale shadow-[0_4px_16px_rgba(16,185,129,0.12)]"
+                        : "border-line bg-white hover:border-brand-middle-light hover:shadow-sm"
+                        }`}
                     >
                       <div className="flex items-center gap-1.5 mb-1.5">
                         <span className="text-[10px] font-bold text-brand-middle-dark bg-brand-middle-bg px-2 py-0.5 rounded-full">
@@ -669,21 +697,31 @@ export default function MiddleExpect() {
                           !editingSection &&
                           !selEssay.delete_requested && (
                             <>
+                              {/* ⭐ 5단계 마법사 (메인 작성 버튼) */}
                               <button
-                                onClick={() => {
-                                  setEditingEssay(true);
-                                  setTempContent({
-                                    ...EMPTY_ESSAY,
-                                    ...selEssay.content,
-                                  });
-                                }}
-                                className="text-[11px] font-semibold text-brand-middle-dark bg-brand-middle-bg border border-brand-middle-light rounded-md px-3 py-1.5 hover:bg-brand-middle hover:text-white transition-all"
+                                onClick={() => setShowWizard(true)}
+                                className="text-[11px] font-bold text-white bg-brand-middle hover:bg-brand-middle-hover rounded-md px-3 py-1.5 transition-all hover:-translate-y-px hover:shadow-btn-middle"
                               >
-                                ✏️{" "}
+                                🎯{" "}
                                 {selEssay.content.selfStudy
-                                  ? "전체 수정"
-                                  : "작성하기"}
+                                  ? "5단계로 다시 작성"
+                                  : "5단계로 작성하기"}
                               </button>
+                              {/* 전체 수정 (textarea 5개) — 이미 작성한 사람용 */}
+                              {selEssay.content.selfStudy && (
+                                <button
+                                  onClick={() => {
+                                    setEditingEssay(true);
+                                    setTempContent({
+                                      ...EMPTY_ESSAY,
+                                      ...selEssay.content,
+                                    });
+                                  }}
+                                  className="text-[11px] font-semibold text-brand-middle-dark bg-brand-middle-bg border border-brand-middle-light rounded-md px-3 py-1.5 hover:bg-brand-middle hover:text-white transition-all"
+                                >
+                                  ✏️ 전체 수정
+                                </button>
+                              )}
                               <button
                                 onClick={handleRequestDelete}
                                 disabled={requestDelete.isPending}
@@ -719,7 +757,7 @@ export default function MiddleExpect() {
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-4">
-                    {/* 전체 작성 모드 */}
+                    {/* 전체 작성 모드 (textarea 5개) */}
                     {editingEssay && (
                       <div>
                         {SECTIONS.map((s) => (
@@ -728,11 +766,11 @@ export default function MiddleExpect() {
                               {s.label}
                             </label>
 
-                            {/* ⭐ 전체 수정 모드 - 섹션별 선생님 피드백 표시 (참고용) */}
+                            {/* 전체 수정 모드 - 섹션별 선생님 피드백 표시 (참고용) */}
                             {feedbackBySection[s.key] &&
                               feedbackBySection[s.key].length > 0 && (
-                                <div className="bg-[#EEF2FF] border-2 border-[#BAC8FF] rounded-lg px-3 py-2 mb-2">
-                                  <div className="text-[10px] font-bold text-[#3B5BDB] mb-1.5 flex items-center gap-1">
+                                <div className="bg-brand-middle-pale border-2 border-brand-middle-light rounded-lg px-3 py-2 mb-2">
+                                  <div className="text-[10px] font-bold text-brand-middle-dark mb-1.5 flex items-center gap-1">
                                     💬 선생님 피드백 (
                                     {feedbackBySection[s.key].length}차까지)
                                   </div>
@@ -743,11 +781,11 @@ export default function MiddleExpect() {
                                         className="bg-white rounded-md px-2.5 py-1.5"
                                       >
                                         <div className="flex items-center gap-1.5 mb-0.5">
-                                          <span className="text-[9px] font-extrabold text-white bg-[#3B5BDB] px-1.5 py-0.5 rounded-full">
+                                          <span className="text-[9px] font-extrabold text-white bg-brand-middle px-1.5 py-0.5 rounded-full">
                                             {fb.round}차
                                           </span>
                                         </div>
-                                        <div className="text-[11px] text-[#1E3A8A] leading-[1.5] whitespace-pre-wrap">
+                                        <div className="text-[11px] text-brand-middle-dark leading-[1.5] whitespace-pre-wrap">
                                           {fb.text}
                                         </div>
                                       </div>
@@ -775,13 +813,12 @@ export default function MiddleExpect() {
                             * 띄어쓰기 제외 1,500자 이내
                           </div>
                           <div
-                            className={`text-[13px] font-bold ${
-                              charCount > 1500
-                                ? "text-red-500"
-                                : charCount > 1200
-                                  ? "text-amber-500"
-                                  : "text-brand-middle-dark"
-                            }`}
+                            className={`text-[13px] font-bold ${charCount > 1500
+                              ? "text-red-500"
+                              : charCount > 1200
+                                ? "text-amber-500"
+                                : "text-brand-middle-dark"
+                              }`}
                           >
                             {charCount} / 1,500자{" "}
                             {charCount > 1500 && (
@@ -800,11 +837,10 @@ export default function MiddleExpect() {
                           <button
                             onClick={saveEssay}
                             disabled={charCount > 1500 || updateEssay.isPending}
-                            className={`flex-[2] h-10 rounded-lg text-[13px] font-semibold transition-all ${
-                              charCount > 1500 || updateEssay.isPending
-                                ? "bg-gray-100 text-ink-muted cursor-not-allowed"
-                                : "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
-                            }`}
+                            className={`flex-[2] h-10 rounded-lg text-[13px] font-semibold transition-all ${charCount > 1500 || updateEssay.isPending
+                              ? "bg-gray-100 text-ink-muted cursor-not-allowed"
+                              : "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
+                              }`}
                           >
                             {updateEssay.isPending
                               ? "저장 중..."
@@ -816,15 +852,25 @@ export default function MiddleExpect() {
                       </div>
                     )}
 
-                    {/* 읽기 모드 - 비어있음 */}
+                    {/* ⭐ 읽기 모드 - 비어있음 (5단계 마법사 추천) */}
                     {!editingEssay && !selEssay.content.selfStudy && (
-                      <div className="text-center py-16 text-ink-muted">
-                        <div className="text-4xl mb-2.5">📝</div>
-                        <div className="text-[13px] font-medium">
-                          아직 작성된 내용이 없어요.
+                      <div className="text-center py-16">
+                        <div className="text-5xl mb-4">📝</div>
+                        <div className="text-[16px] font-bold text-ink mb-2">
+                          아직 작성된 자소서가 없어요!
                         </div>
-                        <div className="text-[11px] mt-1">
-                          작성하기 버튼을 눌러 자소서를 작성해보세요!
+                        <div className="text-[13px] text-ink-secondary mb-5 leading-[1.7]">
+                          중학생도 자소서를 어떻게 써야 할지 어렵죠?<br />
+                          <strong className="text-brand-middle-dark">5단계 마법사</strong>를 따라 키워드부터 차근차근 만들어봐요!
+                        </div>
+                        <button
+                          onClick={() => setShowWizard(true)}
+                          className="px-6 py-3 bg-brand-middle hover:bg-brand-middle-hover text-white rounded-lg text-[14px] font-bold transition-all hover:-translate-y-px hover:shadow-btn-middle"
+                        >
+                          🎯 5단계로 자소서 작성 시작하기
+                        </button>
+                        <div className="text-[11px] text-ink-muted mt-4">
+                          1) 키워드 잡기 → 2) 경험 꺼내기 → 3) 항목 매칭 → 4) 항목별 작성 → 5) 최종 점검
                         </div>
                       </div>
                     )}
@@ -844,12 +890,9 @@ export default function MiddleExpect() {
                           if (!currentContent && !answersBySection[s.key])
                             return null;
 
-                          // 답변 이력
                           const answers = answersBySection[s.key] || [];
-                          // 피드백 이력
                           const feedbacks = feedbackBySection[s.key] || [];
 
-                          // 인터리브: 1차 답변 → 1차 피드백 → 2차 답변 → 2차 피드백 ...
                           const maxRound = Math.max(
                             answers.length > 0
                               ? Math.max(...answers.map((a) => a.round))
@@ -859,7 +902,6 @@ export default function MiddleExpect() {
                               : 0,
                           );
 
-                          // 마지막 답변 round 계산 (다음 round 표시용)
                           const lastAnswerRound =
                             answers.length > 0
                               ? Math.max(...answers.map((a) => a.round))
@@ -869,8 +911,6 @@ export default function MiddleExpect() {
                               ? Math.max(...feedbacks.map((f) => f.round))
                               : 0;
 
-                          // 새 답변 작성 가능한지: 마지막 피드백 round >= 마지막 답변 round
-                          // (1차 답변 + 1차 피드백 받음 → 2차 답변 작성 가능)
                           const canWriteNextAnswer =
                             lastFeedbackRound >= lastAnswerRound &&
                             lastAnswerRound > 0;
@@ -878,7 +918,6 @@ export default function MiddleExpect() {
 
                           return (
                             <div key={s.key} className="mb-6">
-                              {/* 섹션 제목 */}
                               <div className="text-[12px] font-bold text-brand-middle-dark mb-2 flex items-center justify-between">
                                 <span>{s.label}</span>
                                 {answers.length > 1 && (
@@ -888,7 +927,6 @@ export default function MiddleExpect() {
                                 )}
                               </div>
 
-                              {/* 회차별 답변 + 피드백 */}
                               {Array.from(
                                 { length: maxRound },
                                 (_, i) => i + 1,
@@ -902,7 +940,6 @@ export default function MiddleExpect() {
 
                                 return (
                                   <div key={round} className="mb-2">
-                                    {/* N차 답변 */}
                                     {ans && (
                                       <div className="bg-gray-50 border border-line rounded-xl px-4 py-3 mb-1.5">
                                         <div className="flex items-center gap-1.5 mb-1.5">
@@ -923,15 +960,14 @@ export default function MiddleExpect() {
                                       </div>
                                     )}
 
-                                    {/* N차 피드백 */}
                                     {fb && (
-                                      <div className="bg-[#EEF2FF] border border-[#BAC8FF] rounded-md px-4 py-2.5 flex gap-2 ml-3">
+                                      <div className="bg-brand-middle-pale border border-brand-middle-light rounded-md px-4 py-2.5 flex gap-2 ml-3">
                                         <span className="text-sm flex-shrink-0">
                                           💬
                                         </span>
                                         <div className="flex-1">
                                           <div className="flex items-center gap-1.5 mb-0.5">
-                                            <span className="text-[9px] font-extrabold text-white bg-[#3B5BDB] px-1.5 py-0.5 rounded-full">
+                                            <span className="text-[9px] font-extrabold text-white bg-brand-middle px-1.5 py-0.5 rounded-full">
                                               {round}차 피드백
                                             </span>
                                             <span className="text-[9px] text-ink-muted ml-auto">
@@ -940,7 +976,7 @@ export default function MiddleExpect() {
                                               ).toLocaleDateString("ko-KR")}
                                             </span>
                                           </div>
-                                          <div className="text-[12px] text-[#1E3A8A] leading-[1.7] whitespace-pre-wrap">
+                                          <div className="text-[12px] text-brand-middle-dark leading-[1.7] whitespace-pre-wrap">
                                             {fb.text}
                                           </div>
                                         </div>
@@ -950,7 +986,6 @@ export default function MiddleExpect() {
                                 );
                               })}
 
-                              {/* 새 답변 작성 칸 (피드백 받고 답변 안 한 상태일 때만) */}
                               {canWriteNextAnswer && (
                                 <div className="bg-white border-2 border-dashed border-brand-middle rounded-xl px-4 py-3 mt-2">
                                   <div className="flex items-center gap-1.5 mb-2">
@@ -1021,7 +1056,6 @@ export default function MiddleExpect() {
                                 </div>
                               )}
 
-                              {/* 피드백 대기 중 */}
                               {!canWriteNextAnswer &&
                                 lastAnswerRound > lastFeedbackRound && (
                                   <div className="bg-gray-50 border border-line rounded-md px-4 py-2.5 mt-2">
@@ -1031,7 +1065,6 @@ export default function MiddleExpect() {
                                   </div>
                                 )}
 
-                              {/* 답변 없음 */}
                               {!canWriteNextAnswer &&
                                 answers.length === 0 &&
                                 lastFeedbackRound === 0 && (
@@ -1088,17 +1121,15 @@ export default function MiddleExpect() {
                         )}
                       </div>
                       <span
-                        className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${
-                          selQ.answer
-                            ? "bg-brand-middle-bg text-brand-middle-dark border-brand-middle-light"
-                            : "bg-amber-50 text-amber-700 border-amber-200"
-                        }`}
+                        className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${selQ.answer
+                          ? "bg-brand-middle-bg text-brand-middle-dark border-brand-middle-light"
+                          : "bg-amber-50 text-amber-700 border-amber-200"
+                          }`}
                       >
                         {selQ.answer ? "답변완료" : "미답변"}
                       </span>
                     </div>
 
-                    {/* 5단계 */}
                     <div className="flex">
                       {STEP_LABELS.map((label, i) => {
                         const step = getStep(selQ, selQFeedback);
@@ -1116,20 +1147,18 @@ export default function MiddleExpect() {
                               />
                             )}
                             <div
-                              className={`w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-semibold z-10 relative ${
-                                isDone || isOn
-                                  ? "bg-brand-middle text-white border border-brand-middle"
-                                  : "bg-gray-100 text-ink-muted border border-line"
-                              }`}
+                              className={`w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-semibold z-10 relative ${isDone || isOn
+                                ? "bg-brand-middle text-white border border-brand-middle"
+                                : "bg-gray-100 text-ink-muted border border-line"
+                                }`}
                             >
                               {isDone ? "✓" : stepNum}
                             </div>
                             <div
-                              className={`text-[10px] whitespace-nowrap ${
-                                isDone || isOn
-                                  ? "text-brand-middle-dark font-semibold"
-                                  : "text-ink-muted font-medium"
-                              }`}
+                              className={`text-[10px] whitespace-nowrap ${isDone || isOn
+                                ? "text-brand-middle-dark font-semibold"
+                                : "text-ink-muted font-medium"
+                                }`}
                             >
                               {label}
                             </div>
@@ -1158,7 +1187,7 @@ export default function MiddleExpect() {
                           {selQ.purpose.map((p: string, i: number) => (
                             <li
                               key={i}
-                              className="text-[12px] text-[#065F46] leading-[1.7] list-disc"
+                              className="text-[12px] text-brand-middle-dark leading-[1.7] list-disc"
                             >
                               {p}
                             </li>
@@ -1257,7 +1286,7 @@ export default function MiddleExpect() {
                           </span>
                         </div>
                         {selQFeedback?.teacher_first_feedback ? (
-                          <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg px-3 py-2.5 text-[13px] text-[#065F46] leading-[1.8] whitespace-pre-wrap">
+                          <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg px-3 py-2.5 text-[13px] text-brand-middle-dark leading-[1.8] whitespace-pre-wrap">
                             {selQFeedback.teacher_first_feedback}
                           </div>
                         ) : (
@@ -1299,8 +1328,7 @@ export default function MiddleExpect() {
                         ) : (
                           <>
                             <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[12px] text-amber-700 font-medium mb-2">
-                              💡 선생님 피드백을 반영해서 답변을
-                              업그레이드해보세요!
+                              💡 선생님 피드백을 반영해서 답변을 업그레이드해보세요!
                             </div>
                             {isRecording3 && (
                               <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2 flex items-center gap-2">
@@ -1367,7 +1395,7 @@ export default function MiddleExpect() {
                           </span>
                         </div>
                         {selQFeedback?.teacher_final_feedback ? (
-                          <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg px-3 py-2.5 text-[13px] text-[#065F46] leading-[1.8] whitespace-pre-wrap">
+                          <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg px-3 py-2.5 text-[13px] text-brand-middle-dark leading-[1.8] whitespace-pre-wrap">
                             {selQFeedback.teacher_final_feedback}
                           </div>
                         ) : (
@@ -1400,7 +1428,7 @@ export default function MiddleExpect() {
                                   {t.text}
                                 </div>
                                 {t.answer ? (
-                                  <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg px-3 py-2 text-[12.5px] text-[#065F46] leading-[1.7] whitespace-pre-wrap">
+                                  <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg px-3 py-2 text-[12.5px] text-brand-middle-dark leading-[1.7] whitespace-pre-wrap">
                                     {t.answer}
                                   </div>
                                 ) : (
@@ -1447,12 +1475,11 @@ export default function MiddleExpect() {
                                             !(tailAnswers[i] || "").trim() ||
                                             submitTailAnswer.isPending
                                           }
-                                          className={`w-[102px] h-[34px] rounded-md text-[12px] font-semibold transition-all ${
-                                            (tailAnswers[i] || "").trim() &&
+                                          className={`w-[102px] h-[34px] rounded-md text-[12px] font-semibold transition-all ${(tailAnswers[i] || "").trim() &&
                                             !submitTailAnswer.isPending
-                                              ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
-                                              : "bg-gray-100 text-ink-muted cursor-not-allowed"
-                                          }`}
+                                            ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
+                                            : "bg-gray-100 text-ink-muted cursor-not-allowed"
+                                            }`}
                                         >
                                           {submitTailAnswer.isPending
                                             ? "제출 중..."
@@ -1513,11 +1540,10 @@ export default function MiddleExpect() {
                 <button
                   key={s}
                   onClick={() => setNewSchool(s)}
-                  className={`px-3 py-1 rounded-full text-[12px] border-[1.5px] transition-all ${
-                    newSchool === s
-                      ? "border-brand-middle bg-brand-middle-pale text-brand-middle-dark font-bold"
-                      : "border-line bg-white text-ink-secondary font-medium hover:border-brand-middle-light"
-                  }`}
+                  className={`px-3 py-1 rounded-full text-[12px] border-[1.5px] transition-all ${newSchool === s
+                    ? "border-brand-middle bg-brand-middle-pale text-brand-middle-dark font-bold"
+                    : "border-line bg-white text-ink-secondary font-medium hover:border-brand-middle-light"
+                    }`}
                 >
                   {s}
                 </button>
@@ -1536,6 +1562,13 @@ export default function MiddleExpect() {
               </div>
             )}
 
+            <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg px-3 py-2.5 mb-4 flex gap-2">
+              <span className="text-base">💡</span>
+              <div className="text-[11px] text-brand-middle-dark leading-[1.6]">
+                학교를 추가하면 <strong>5단계 자소서 작성 마법사</strong>가 자동으로 시작돼요!
+              </div>
+            </div>
+
             <button
               onClick={handleAddSchool}
               disabled={
@@ -1543,15 +1576,14 @@ export default function MiddleExpect() {
                 (newSchool === "직접입력" && !customSchool) ||
                 addEssay.isPending
               }
-              className={`w-full h-11 rounded-lg text-[14px] font-semibold transition-all ${
-                newSchool &&
+              className={`w-full h-11 rounded-lg text-[14px] font-semibold transition-all ${newSchool &&
                 (newSchool !== "직접입력" || customSchool) &&
                 !addEssay.isPending
-                  ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
-                  : "bg-gray-100 text-ink-muted cursor-not-allowed"
-              }`}
+                ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
+                : "bg-gray-100 text-ink-muted cursor-not-allowed"
+                }`}
             >
-              {addEssay.isPending ? "추가 중..." : "추가하기"}
+              {addEssay.isPending ? "추가 중..." : "추가하고 자소서 작성 시작 🎯"}
             </button>
           </div>
         </div>

@@ -1321,7 +1321,7 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
                                 <div className="flex items-center gap-3 mb-8">
                                   <div className="w-10 h-0.5" style={{ background: '#FCD34D' }} />
                                   <div className="text-[10px] font-bold tracking-[6px]" style={{ color: '#FCD34D' }}>
-                                    B-KEARS · PREMIUM REPORT
+                                    B-KURS · PREMIUM REPORT
                                   </div>
                                 </div>
                                 <div className="text-[11px] font-bold tracking-[3px] opacity-70 mb-4">
@@ -1455,7 +1455,7 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
                                 </div>
                                 <div className="text-[24px] font-extrabold text-center mb-6" style={{ color: '#78350F', fontFamily: 'Georgia, serif' }}>학부모님께 드리는 메시지</div>
                                 <div className="text-[15px] leading-[2.2] text-center font-medium" style={{ color: '#78350F', fontFamily: 'Georgia, serif' }}>{report.summary_for_parents}</div>
-                                <div className="text-right mt-8 text-[12px] font-bold" style={{ color: '#92400E', fontFamily: 'Georgia, serif' }}>— B-KEARS 입시 컨설팅 드림</div>
+                                <div className="text-right mt-8 text-[12px] font-bold" style={{ color: '#92400E', fontFamily: 'Georgia, serif' }}>— B-KURS 입시 컨설팅 드림</div>
                               </div>
                             </div>
                           )}
@@ -1628,13 +1628,13 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
                           <div className="bg-white rounded-3xl p-8 text-center shadow-sm border border-slate-100">
                             <div className="flex items-center justify-center gap-3 mb-4">
                               <div className="w-12 h-0.5" style={{ background: THEME.accent }} />
-                              <div className="text-[24px] font-black tracking-[4px]" style={{ color: THEME.accent, fontFamily: 'Georgia, serif' }}>B-KEARS</div>
+                              <div className="text-[24px] font-black tracking-[4px]" style={{ color: THEME.accent, fontFamily: 'Georgia, serif' }}>B-KURS</div>
                               <div className="w-12 h-0.5" style={{ background: THEME.accent }} />
                             </div>
                             <div className="text-[11px] font-bold text-slate-600 tracking-[3px] uppercase mb-2">AI Premium College Admission Consulting</div>
                             <div className="text-[10px] text-slate-400 leading-[1.8] max-w-lg mx-auto">
                               본 리포트는 AI 분석과 담당 선생님의 전문 코멘트를 바탕으로 작성되었습니다.<br />
-                              © 2026 B-KEARS · Powered by 마스터웨이학원
+                              © 2026 B-KURS · Powered by 마스터웨이학원
                             </div>
                           </div>
 

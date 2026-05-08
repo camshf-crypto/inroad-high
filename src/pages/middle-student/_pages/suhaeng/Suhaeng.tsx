@@ -464,6 +464,44 @@ const PRACTICE = [
 type Mode = "list" | "practice" | "feedback";
 
 // ──────────────────────────────────────────
+// ⭐ sections key → 한글 라벨 매핑 (전역)
+// ──────────────────────────────────────────
+const SECTION_LABEL_MAP: Record<string, string> = {
+  background: "1. 탐구 배경",
+  method: "2. 조사 방법",
+  content: "3. 조사 내용",
+  analysis: "4. 분석 및 결론",
+  reference: "5. 참고 자료",
+  purpose: "실험 목적",
+  hypothesis: "가설",
+  materials: "준비물",
+  procedure: "실험 과정",
+  result: "결과 및 데이터",
+  conclusion: "결론",
+  topic: "발표 주제",
+  script: "발표 원고",
+};
+
+const SECTION_ORDER = Object.keys(SECTION_LABEL_MAP);
+
+// sections 객체를 한글 라벨 + 정렬된 텍스트로 변환
+const formatSectionsToText = (sections: Record<string, string>): string => {
+  return Object.entries(sections)
+    .sort(([a], [b]) => {
+      const ai = SECTION_ORDER.indexOf(a);
+      const bi = SECTION_ORDER.indexOf(b);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    })
+    .map(([k, v]) => {
+      const label = SECTION_LABEL_MAP[k] || k;
+      return `[${label}]\n${v}`;
+    })
+    .join("\n\n");
+};
+
+// ──────────────────────────────────────────
 // 파일 업로드 헬퍼 (Supabase Storage)
 // ──────────────────────────────────────────
 const uploadFileToStorage = async (
@@ -474,7 +512,6 @@ const uploadFileToStorage = async (
   fileName?: string,
 ): Promise<string | null> => {
   try {
-    // 파일 경로: {studentId}/{questionKey}/{fileType}-{timestamp}.{ext}
     const ext =
       fileName?.split(".").pop() ||
       (fileType === "audio" ? "webm" : fileType === "video" ? "mp4" : "jpg");
@@ -490,7 +527,6 @@ const uploadFileToStorage = async (
 
     if (error) throw error;
 
-    // public URL 가져오기
     const { data } = supabase.storage
       .from("suhaeng-files")
       .getPublicUrl(filePath);
@@ -574,7 +610,7 @@ function SearchBox() {
           onClick={() => setEngine("google")}
           className={`flex-1 text-[10px] font-bold py-1 rounded-md transition-all ${engine === "google" ? "bg-blue-500 text-white" : "bg-gray-100 text-ink-secondary hover:bg-gray-200"}`}
         >
-          G 구글
+          구글
         </button>
       </div>
       <div className="relative">
@@ -633,22 +669,10 @@ function PracticeSidebar({ q }: { q: any }) {
           </div>
           <div className="space-y-1">
             {[
-              {
-                icon: "📚",
-                label: "네이버 지식백과",
-                url: "https://terms.naver.com",
-              },
-              {
-                icon: "📖",
-                label: "위키백과",
-                url: "https://ko.wikipedia.org",
-              },
+              { icon: "📚", label: "네이버 지식백과", url: "https://terms.naver.com" },
+              { icon: "📖", label: "위키백과", url: "https://ko.wikipedia.org" },
               { icon: "📊", label: "통계청 KOSIS", url: "https://kosis.kr" },
-              {
-                icon: "📰",
-                label: "네이버 뉴스",
-                url: "https://news.naver.com",
-              },
+              { icon: "📰", label: "네이버 뉴스", url: "https://news.naver.com" },
             ].map((link, i) => (
               <button
                 key={i}
@@ -670,16 +694,11 @@ function PracticeSidebar({ q }: { q: any }) {
         <div className="bg-white border border-line rounded-xl p-4 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
           <div className="flex items-center gap-1.5 mb-2.5">
             <span className="text-amber-500">💡</span>
-            <span className="text-[12px] font-extrabold text-ink">
-              작성 힌트
-            </span>
+            <span className="text-[12px] font-extrabold text-ink">작성 힌트</span>
           </div>
           <div className="space-y-2">
             {q.hints.map((h: any, i: number) => (
-              <div
-                key={i}
-                className="bg-gray-50 rounded-md p-2 border border-line"
-              >
+              <div key={i} className="bg-gray-50 rounded-md p-2 border border-line">
                 <div className="text-[11px] font-bold text-brand-middle-dark mb-0.5">
                   {i + 1}. {h.title}
                 </div>
@@ -696,20 +715,12 @@ function PracticeSidebar({ q }: { q: any }) {
         <div className="bg-white border border-line rounded-xl p-4 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
           <div className="flex items-center gap-1.5 mb-2.5">
             <span className="text-amber-500">✅</span>
-            <span className="text-[12px] font-extrabold text-ink">
-              발표 체크리스트
-            </span>
+            <span className="text-[12px] font-extrabold text-ink">발표 체크리스트</span>
           </div>
           <div className="space-y-1.5">
             {q.checklist.map((item: string, i: number) => (
-              <label
-                key={i}
-                className="flex items-start gap-2 text-[11px] text-ink-secondary leading-[1.5] cursor-pointer hover:text-ink transition-colors"
-              >
-                <input
-                  type="checkbox"
-                  className="mt-0.5 accent-brand-middle flex-shrink-0"
-                />
+              <label key={i} className="flex items-start gap-2 text-[11px] text-ink-secondary leading-[1.5] cursor-pointer hover:text-ink transition-colors">
+                <input type="checkbox" className="mt-0.5 accent-brand-middle flex-shrink-0" />
                 <span>{item}</span>
               </label>
             ))}
@@ -770,7 +781,6 @@ function PracticeHeader({
       const ok = onSaveDraft();
       if (ok) {
         setSavedAt(new Date());
-        // 3초 후 메시지 사라짐
         setTimeout(() => setSavedAt(null), 3000);
       }
     }
@@ -778,10 +788,7 @@ function PracticeHeader({
   return (
     <div className="flex items-center justify-between flex-shrink-0">
       <div className="flex items-center gap-3">
-        <button
-          onClick={onBack}
-          className="text-[12px] font-semibold text-ink-secondary hover:text-ink transition-colors"
-        >
+        <button onClick={onBack} className="text-[12px] font-semibold text-ink-secondary hover:text-ink transition-colors">
           ← 목록으로
         </button>
         <div className="w-px h-4 bg-line" />
@@ -799,20 +806,13 @@ function PracticeHeader({
             ✓ 저장됨
           </div>
         )}
-        <div
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${timeUrgent ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}
-        >
+        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${timeUrgent ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
           <span className="text-xs">🕐</span>
-          <span
-            className={`text-[13px] font-extrabold tabular-nums ${timeUrgent ? "text-red-600 animate-pulse" : "text-amber-700"}`}
-          >
+          <span className={`text-[13px] font-extrabold tabular-nums ${timeUrgent ? "text-red-600 animate-pulse" : "text-amber-700"}`}>
             {formatTime(secondsLeft)}
           </span>
         </div>
-        <button
-          onClick={handleSave}
-          className="h-8 px-3 text-[11px] font-medium text-ink-secondary bg-white border border-line rounded-md hover:border-brand-middle-light hover:bg-brand-middle-pale transition-all"
-        >
+        <button onClick={handleSave} className="h-8 px-3 text-[11px] font-medium text-ink-secondary bg-white border border-line rounded-md hover:border-brand-middle-light hover:bg-brand-middle-pale transition-all">
           💾 임시저장
         </button>
         <button
@@ -831,7 +831,6 @@ function PracticeHeader({
 // 논술형
 // ──────────────────────────────────────────
 function EssayPractice({ q, onBack, onSubmit, submitting }: any) {
-  // ⭐ 임시저장 자동 불러오기
   const [answer, setAnswer] = useState(() => {
     const draft = loadDraft(q);
     return draft?.answer_text || "";
@@ -861,15 +860,7 @@ function EssayPractice({ q, onBack, onSubmit, submitting }: any) {
   };
   return (
     <div className="flex flex-col gap-3 h-[calc(100vh-90px)] overflow-hidden px-6 py-5 font-sans text-ink">
-      <PracticeHeader
-        q={q}
-        secondsLeft={secondsLeft}
-        onBack={onBack}
-        onSubmit={handleSubmit}
-        onSaveDraft={handleSaveDraft}
-        canSubmit={isValid}
-        submitting={submitting}
-      />
+      <PracticeHeader q={q} secondsLeft={secondsLeft} onBack={onBack} onSubmit={handleSubmit} onSaveDraft={handleSaveDraft} canSubmit={isValid} submitting={submitting} />
       <div className="flex-1 flex gap-3 min-h-0">
         <div className="flex-1 h-full overflow-y-auto pr-1 space-y-3">
           <QuestionCard q={q} />
@@ -880,14 +871,10 @@ function EssayPractice({ q, onBack, onSubmit, submitting }: any) {
                 <span className="text-[12px] font-bold text-ink">내 답안</span>
               </div>
               <div className="flex items-center gap-2 text-[11px]">
-                <span
-                  className={`font-extrabold tabular-nums ${wordCount < q.minChars ? "text-ink-muted" : wordCount > q.maxChars ? "text-red-500" : "text-brand-middle-dark"}`}
-                >
+                <span className={`font-extrabold tabular-nums ${wordCount < q.minChars ? "text-ink-muted" : wordCount > q.maxChars ? "text-red-500" : "text-brand-middle-dark"}`}>
                   {wordCount}자
                 </span>
-                <span className="text-ink-muted">
-                  / {q.minChars}~{q.maxChars}자
-                </span>
+                <span className="text-ink-muted">/ {q.minChars}~{q.maxChars}자</span>
               </div>
             </div>
             <textarea
@@ -937,15 +924,7 @@ function ShortAnswerPractice({ q, onBack, onSubmit, submitting }: any) {
   };
   return (
     <div className="flex flex-col gap-3 h-[calc(100vh-90px)] overflow-hidden px-6 py-5 font-sans text-ink">
-      <PracticeHeader
-        q={q}
-        secondsLeft={secondsLeft}
-        onBack={onBack}
-        onSubmit={handleSubmit}
-        onSaveDraft={handleSaveDraft}
-        canSubmit={isValid}
-        submitting={submitting}
-      />
+      <PracticeHeader q={q} secondsLeft={secondsLeft} onBack={onBack} onSubmit={handleSubmit} onSaveDraft={handleSaveDraft} canSubmit={isValid} submitting={submitting} />
       <div className="flex-1 flex gap-3 min-h-0">
         <div className="flex-1 h-full overflow-y-auto pr-1 space-y-3">
           <QuestionCard q={q} />
@@ -953,19 +932,13 @@ function ShortAnswerPractice({ q, onBack, onSubmit, submitting }: any) {
             <div className="px-4 py-2.5 bg-gray-50 border-b border-line flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-brand-middle-dark">📝</span>
-                <span className="text-[12px] font-bold text-ink">
-                  서술형 답안 (짧고 정확하게)
-                </span>
+                <span className="text-[12px] font-bold text-ink">서술형 답안 (짧고 정확하게)</span>
               </div>
               <div className="flex items-center gap-2 text-[11px]">
-                <span
-                  className={`font-extrabold tabular-nums ${wordCount < q.minChars ? "text-ink-muted" : wordCount > q.maxChars ? "text-red-500" : "text-brand-middle-dark"}`}
-                >
+                <span className={`font-extrabold tabular-nums ${wordCount < q.minChars ? "text-ink-muted" : wordCount > q.maxChars ? "text-red-500" : "text-brand-middle-dark"}`}>
                   {wordCount}자
                 </span>
-                <span className="text-ink-muted">
-                  / {q.minChars}~{q.maxChars}자
-                </span>
+                <span className="text-ink-muted">/ {q.minChars}~{q.maxChars}자</span>
               </div>
             </div>
             <textarea
@@ -976,8 +949,7 @@ function ShortAnswerPractice({ q, onBack, onSubmit, submitting }: any) {
             />
           </div>
           <div className="bg-amber-50 border border-amber-200 rounded-md px-3 py-2 text-[11px] text-amber-700 flex items-center gap-2">
-            <span>💡</span>서술형은 핵심 개념을 간결하고 정확하게 쓰는 것이
-            중요해요.
+            <span>💡</span>서술형은 핵심 개념을 간결하고 정확하게 쓰는 것이 중요해요.
           </div>
         </div>
         <PracticeSidebar q={q} />
@@ -993,10 +965,7 @@ function ResearchPractice({ q, onBack, onSubmit, submitting }: any) {
   const [sections, setSections] = useState<Record<string, string>>(() => {
     const draft = loadDraft(q);
     if (draft?.sections) return draft.sections;
-    return q.sections.reduce(
-      (acc: any, s: any) => ({ ...acc, [s.key]: "" }),
-      {},
-    );
+    return q.sections.reduce((acc: any, s: any) => ({ ...acc, [s.key]: "" }), {});
   });
   const [secondsLeft, setSecondsLeft] = useState(q.timeLimit * 60);
   useEffect(() => {
@@ -1005,9 +974,7 @@ function ResearchPractice({ q, onBack, onSubmit, submitting }: any) {
     return () => clearInterval(t);
   }, [secondsLeft]);
   const totalChars = Object.values(sections).join("").length;
-  const allValid = q.sections.every(
-    (s: any) => (sections[s.key]?.length || 0) >= s.minChars,
-  );
+  const allValid = q.sections.every((s: any) => (sections[s.key]?.length || 0) >= s.minChars);
   const handleSubmit = () => {
     if (!allValid) {
       alert("모든 섹션을 최소 글자수만큼 작성해주세요.");
@@ -1026,15 +993,7 @@ function ResearchPractice({ q, onBack, onSubmit, submitting }: any) {
   };
   return (
     <div className="flex flex-col gap-3 h-[calc(100vh-90px)] overflow-hidden px-6 py-5 font-sans text-ink">
-      <PracticeHeader
-        q={q}
-        secondsLeft={secondsLeft}
-        onBack={onBack}
-        onSubmit={handleSubmit}
-        onSaveDraft={handleSaveDraft}
-        canSubmit={allValid}
-        submitting={submitting}
-      />
+      <PracticeHeader q={q} secondsLeft={secondsLeft} onBack={onBack} onSubmit={handleSubmit} onSaveDraft={handleSaveDraft} canSubmit={allValid} submitting={submitting} />
       <div className="flex-1 flex gap-3 min-h-0">
         <div className="flex-1 h-full overflow-y-auto pr-1 space-y-3">
           <QuestionCard q={q} />
@@ -1042,16 +1001,10 @@ function ResearchPractice({ q, onBack, onSubmit, submitting }: any) {
             <div className="px-4 py-2.5 bg-gray-50 border-b border-line flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-brand-middle-dark">🔬</span>
-                <span className="text-[12px] font-bold text-ink">
-                  탐구 보고서
-                </span>
+                <span className="text-[12px] font-bold text-ink">탐구 보고서</span>
               </div>
               <div className="text-[11px] text-ink-muted">
-                총{" "}
-                <span className="font-extrabold text-brand-middle-dark">
-                  {totalChars}
-                </span>
-                자 · {q.sections.length}개 섹션
+                총 <span className="font-extrabold text-brand-middle-dark">{totalChars}</span>자 · {q.sections.length}개 섹션
               </div>
             </div>
             <div className="p-4 space-y-4">
@@ -1061,21 +1014,14 @@ function ResearchPractice({ q, onBack, onSubmit, submitting }: any) {
                 return (
                   <div key={s.key}>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[12px] font-bold text-ink">
-                        {s.label}
-                      </label>
-                      <span
-                        className={`text-[10px] font-bold tabular-nums ${valid ? "text-brand-middle-dark" : "text-ink-muted"}`}
-                      >
-                        {value.length}자{" "}
-                        {valid ? "✓" : `/ 최소 ${s.minChars}자`}
+                      <label className="text-[12px] font-bold text-ink">{s.label}</label>
+                      <span className={`text-[10px] font-bold tabular-nums ${valid ? "text-brand-middle-dark" : "text-ink-muted"}`}>
+                        {value.length}자 {valid ? "✓" : `/ 최소 ${s.minChars}자`}
                       </span>
                     </div>
                     <textarea
                       value={value}
-                      onChange={(e) =>
-                        setSections({ ...sections, [s.key]: e.target.value })
-                      }
+                      onChange={(e) => setSections({ ...sections, [s.key]: e.target.value })}
                       placeholder={s.placeholder}
                       rows={4}
                       className="w-full px-3 py-2.5 text-[12px] border border-line rounded-lg focus:outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-all placeholder:text-ink-muted resize-y leading-[1.7]"
@@ -1095,20 +1041,11 @@ function ResearchPractice({ q, onBack, onSubmit, submitting }: any) {
 // ──────────────────────────────────────────
 // 구술발표 — 음성 녹음 + 영상 업로드
 // ──────────────────────────────────────────
-function PresentationPractice({
-  q,
-  onBack,
-  onSubmit,
-  submitting,
-  studentId,
-}: any) {
+function PresentationPractice({ q, onBack, onSubmit, submitting, studentId }: any) {
   const [sections, setSections] = useState<Record<string, string>>(() => {
     const draft = loadDraft(q);
     if (draft?.sections) return draft.sections;
-    return q.sections.reduce(
-      (acc: any, s: any) => ({ ...acc, [s.key]: "" }),
-      {},
-    );
+    return q.sections.reduce((acc: any, s: any) => ({ ...acc, [s.key]: "" }), {});
   });
   const [secondsLeft, setSecondsLeft] = useState(q.timeLimit * 60);
   const [isRecording, setIsRecording] = useState(false);
@@ -1132,25 +1069,17 @@ function PresentationPractice({
     return () => clearInterval(t);
   }, [isRecording]);
 
-  const allValid = q.sections.every(
-    (s: any) => (sections[s.key]?.length || 0) >= s.minChars,
-  );
+  const allValid = q.sections.every((s: any) => (sections[s.key]?.length || 0) >= s.minChars);
 
-  // ⭐ 녹음 시작/정지
   const toggleRecording = async () => {
     if (isRecording) {
-      // 정지
       mediaRecorderRef.current?.stop();
       setIsRecording(false);
     } else {
-      // 시작
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const recorder = new MediaRecorder(stream);
         audioChunksRef.current = [];
-
         recorder.ondataavailable = (e) => {
           if (e.data.size > 0) audioChunksRef.current.push(e.data);
         };
@@ -1160,7 +1089,6 @@ function PresentationPractice({
           setAudioUrl(URL.createObjectURL(blob));
           stream.getTracks().forEach((t) => t.stop());
         };
-
         mediaRecorderRef.current = recorder;
         recorder.start();
         setIsRecording(true);
@@ -1171,7 +1099,6 @@ function PresentationPractice({
     }
   };
 
-  // ⭐ 영상 파일 선택
   const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1183,7 +1110,6 @@ function PresentationPractice({
     setVideoUrl(URL.createObjectURL(file));
   };
 
-  // ⭐ 제출 시 파일 업로드
   const handleSubmit = async () => {
     if (!allValid) {
       alert("발표 주제와 원고를 모두 작성해주세요.");
@@ -1193,21 +1119,14 @@ function PresentationPractice({
       alert("로그인 정보를 불러올 수 없어요.");
       return;
     }
-
     setUploading(true);
     try {
       const questionKey = q.school ? `practice-${q.id}` : `school-${q.id}`;
       let audioUploadedUrl: string | undefined;
       let videoUploadedUrl: string | undefined;
 
-      // 음성 업로드
       if (audioBlob) {
-        const url = await uploadFileToStorage(
-          audioBlob,
-          studentId,
-          questionKey,
-          "audio",
-        );
+        const url = await uploadFileToStorage(audioBlob, studentId, questionKey, "audio");
         if (url) audioUploadedUrl = url;
         else {
           alert("음성 파일 업로드 실패");
@@ -1216,15 +1135,8 @@ function PresentationPractice({
         }
       }
 
-      // 영상 업로드
       if (videoFile) {
-        const url = await uploadFileToStorage(
-          videoFile,
-          studentId,
-          questionKey,
-          "video",
-          videoFile.name,
-        );
+        const url = await uploadFileToStorage(videoFile, studentId, questionKey, "video", videoFile.name);
         if (url) videoUploadedUrl = url;
         else {
           alert("영상 파일 업로드 실패");
@@ -1263,15 +1175,7 @@ function PresentationPractice({
 
   return (
     <div className="flex flex-col gap-3 h-[calc(100vh-90px)] overflow-hidden px-6 py-5 font-sans text-ink">
-      <PracticeHeader
-        q={q}
-        secondsLeft={secondsLeft}
-        onBack={onBack}
-        onSubmit={handleSubmit}
-        onSaveDraft={handleSaveDraft}
-        canSubmit={allValid}
-        submitting={submitting || uploading}
-      />
+      <PracticeHeader q={q} secondsLeft={secondsLeft} onBack={onBack} onSubmit={handleSubmit} onSaveDraft={handleSaveDraft} canSubmit={allValid} submitting={submitting || uploading} />
       <div className="flex-1 flex gap-3 min-h-0">
         <div className="flex-1 h-full overflow-y-auto pr-1 space-y-3">
           <QuestionCard q={q} />
@@ -1279,9 +1183,7 @@ function PresentationPractice({
             <div className="px-4 py-2.5 bg-gray-50 border-b border-line flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-brand-middle-dark">🎤</span>
-                <span className="text-[12px] font-bold text-ink">
-                  발표 준비
-                </span>
+                <span className="text-[12px] font-bold text-ink">발표 준비</span>
               </div>
               <div className="text-[11px] text-ink-muted">
                 발표 시간: {q.presentTimeMin}~{q.presentTimeMax}분
@@ -1294,32 +1196,23 @@ function PresentationPractice({
                 return (
                   <div key={s.key}>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[12px] font-bold text-ink">
-                        {s.label}
-                      </label>
-                      <span
-                        className={`text-[10px] font-bold tabular-nums ${valid ? "text-brand-middle-dark" : "text-ink-muted"}`}
-                      >
-                        {value.length}자{" "}
-                        {valid ? "✓" : `/ 최소 ${s.minChars}자`}
+                      <label className="text-[12px] font-bold text-ink">{s.label}</label>
+                      <span className={`text-[10px] font-bold tabular-nums ${valid ? "text-brand-middle-dark" : "text-ink-muted"}`}>
+                        {value.length}자 {valid ? "✓" : `/ 최소 ${s.minChars}자`}
                       </span>
                     </div>
                     {s.key === "topic" ? (
                       <input
                         type="text"
                         value={value}
-                        onChange={(e) =>
-                          setSections({ ...sections, [s.key]: e.target.value })
-                        }
+                        onChange={(e) => setSections({ ...sections, [s.key]: e.target.value })}
                         placeholder={s.placeholder}
                         className="w-full h-10 px-3 text-[13px] border border-line rounded-lg focus:outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-all placeholder:text-ink-muted"
                       />
                     ) : (
                       <textarea
                         value={value}
-                        onChange={(e) =>
-                          setSections({ ...sections, [s.key]: e.target.value })
-                        }
+                        onChange={(e) => setSections({ ...sections, [s.key]: e.target.value })}
                         placeholder={s.placeholder}
                         rows={8}
                         className="w-full px-3 py-2.5 text-[12px] border border-line rounded-lg focus:outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-all placeholder:text-ink-muted resize-y leading-[1.7]"
@@ -1331,14 +1224,11 @@ function PresentationPractice({
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {/* 음성 녹음 */}
             <div className="bg-white border border-line rounded-xl p-4 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-1.5">
                   <span>🎙️</span>
-                  <span className="text-[12px] font-extrabold text-ink">
-                    음성 녹음
-                  </span>
+                  <span className="text-[12px] font-extrabold text-ink">음성 녹음</span>
                 </div>
                 {audioUrl && (
                   <span className="text-[10px] font-bold text-brand-middle-dark bg-brand-middle-bg border border-brand-middle-light px-1.5 py-0.5 rounded-full">
@@ -1350,13 +1240,9 @@ function PresentationPractice({
                 onClick={toggleRecording}
                 className={`w-full h-16 rounded-lg font-bold text-white transition-all flex flex-col items-center justify-center gap-1 ${isRecording ? "bg-red-500 hover:bg-red-600 animate-pulse" : "bg-brand-middle hover:bg-brand-middle-hover"}`}
               >
-                <span className="text-xl">{isRecording ? "⏹" : "🎙️"}</span>
+                <span className="text-xl">{isRecording ? "⏹" : ""}</span>
                 <span className="text-[11px]">
-                  {isRecording
-                    ? `녹음 중 ${formatRecTime(recordTime)}`
-                    : audioUrl
-                      ? "다시 녹음"
-                      : "녹음 시작"}
+                  {isRecording ? `녹음 중 ${formatRecTime(recordTime)}` : audioUrl ? "다시 녹음" : "녹음 시작"}
                 </span>
               </button>
               {audioUrl && (
@@ -1380,14 +1266,11 @@ function PresentationPractice({
               )}
             </div>
 
-            {/* 영상 업로드 */}
             <div className="bg-white border border-line rounded-xl p-4 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-1.5">
                   <span>📹</span>
-                  <span className="text-[12px] font-extrabold text-ink">
-                    영상 업로드
-                  </span>
+                  <span className="text-[12px] font-extrabold text-ink">영상 업로드</span>
                 </div>
                 {videoUrl && (
                   <span className="text-[10px] font-bold text-brand-middle-dark bg-brand-middle-bg border border-brand-middle-light px-1.5 py-0.5 rounded-full">
@@ -1396,26 +1279,15 @@ function PresentationPractice({
                 )}
               </div>
               <label className="w-full h-16 rounded-lg font-bold text-white bg-brand-middle hover:bg-brand-middle-hover transition-all flex flex-col items-center justify-center gap-1 cursor-pointer">
-                <span className="text-xl">📹</span>
+                <span className="text-xl"></span>
                 <span className="text-[11px]">
-                  {videoFile
-                    ? videoFile.name.slice(0, 15) + "..."
-                    : "영상 선택"}
+                  {videoFile ? videoFile.name.slice(0, 15) + "..." : "영상 선택"}
                 </span>
-                <input
-                  type="file"
-                  accept="video/mp4,video/quicktime,video/webm"
-                  onChange={handleVideoSelect}
-                  className="hidden"
-                />
+                <input type="file" accept="video/mp4,video/quicktime,video/webm" onChange={handleVideoSelect} className="hidden" />
               </label>
               {videoUrl && (
                 <div className="mt-2">
-                  <video
-                    controls
-                    src={videoUrl}
-                    className="w-full max-h-32 rounded"
-                  />
+                  <video controls src={videoUrl} className="w-full max-h-32 rounded" />
                   <button
                     onClick={() => {
                       setVideoFile(null);
@@ -1441,12 +1313,8 @@ function PresentationPractice({
         <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center backdrop-blur-sm">
           <div className="bg-white rounded-2xl px-8 py-6 flex flex-col items-center gap-3 shadow-2xl">
             <div className="text-3xl animate-spin">⏳</div>
-            <div className="text-[14px] font-bold text-ink">
-              파일 업로드 중...
-            </div>
-            <div className="text-[11px] text-ink-muted">
-              잠시만 기다려주세요
-            </div>
+            <div className="text-[14px] font-bold text-ink">파일 업로드 중...</div>
+            <div className="text-[11px] text-ink-muted">잠시만 기다려주세요</div>
           </div>
         </div>
       )}
@@ -1455,22 +1323,13 @@ function PresentationPractice({
 }
 
 // ──────────────────────────────────────────
-// 탐구수행 (실험 보고서) — 사진 업로드 추가
+// 탐구수행
 // ──────────────────────────────────────────
-function ExperimentPractice({
-  q,
-  onBack,
-  onSubmit,
-  submitting,
-  studentId,
-}: any) {
+function ExperimentPractice({ q, onBack, onSubmit, submitting, studentId }: any) {
   const [sections, setSections] = useState<Record<string, string>>(() => {
     const draft = loadDraft(q);
     if (draft?.sections) return draft.sections;
-    return q.sections.reduce(
-      (acc: any, s: any) => ({ ...acc, [s.key]: "" }),
-      {},
-    );
+    return q.sections.reduce((acc: any, s: any) => ({ ...acc, [s.key]: "" }), {});
   });
   const [secondsLeft, setSecondsLeft] = useState(q.timeLimit * 60);
   const [photos, setPhotos] = useState<File[]>([]);
@@ -1481,16 +1340,13 @@ function ExperimentPractice({
     const t = setInterval(() => setSecondsLeft((p) => p - 1), 1000);
     return () => clearInterval(t);
   }, [secondsLeft]);
-  const allValid = q.sections.every(
-    (s: any) => (sections[s.key]?.length || 0) >= s.minChars,
-  );
+  const allValid = q.sections.every((s: any) => (sections[s.key]?.length || 0) >= s.minChars);
   const totalChars = Object.values(sections).join("").length;
 
-  // ⭐ 사진 선택
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
-    const newPhotos = [...photos, ...files].slice(0, 5); // 최대 5장
+    const newPhotos = [...photos, ...files].slice(0, 5);
     setPhotos(newPhotos);
     setPhotoPreviews(newPhotos.map((f) => URL.createObjectURL(f)));
   };
@@ -1501,7 +1357,6 @@ function ExperimentPractice({
     setPhotoPreviews(newPhotos.map((f) => URL.createObjectURL(f)));
   };
 
-  // ⭐ 제출 시 사진 업로드
   const handleSubmit = async () => {
     if (!allValid) {
       alert("모든 항목을 최소 글자수만큼 작성해주세요.");
@@ -1511,20 +1366,12 @@ function ExperimentPractice({
       alert("로그인 정보를 불러올 수 없어요.");
       return;
     }
-
     setUploading(true);
     try {
       const questionKey = q.school ? `practice-${q.id}` : `school-${q.id}`;
       const photoUrls: string[] = [];
-
       for (const file of photos) {
-        const url = await uploadFileToStorage(
-          file,
-          studentId,
-          questionKey,
-          "photo",
-          file.name,
-        );
+        const url = await uploadFileToStorage(file, studentId, questionKey, "photo", file.name);
         if (url) photoUrls.push(url);
         else {
           alert("사진 업로드 실패");
@@ -1532,7 +1379,6 @@ function ExperimentPractice({
           return;
         }
       }
-
       onSubmit({
         answer_sections: sections,
         answer_photo_urls: photoUrls.length > 0 ? photoUrls : undefined,
@@ -1556,15 +1402,7 @@ function ExperimentPractice({
 
   return (
     <div className="flex flex-col gap-3 h-[calc(100vh-90px)] overflow-hidden px-6 py-5 font-sans text-ink">
-      <PracticeHeader
-        q={q}
-        secondsLeft={secondsLeft}
-        onBack={onBack}
-        onSubmit={handleSubmit}
-        onSaveDraft={handleSaveDraft}
-        canSubmit={allValid}
-        submitting={submitting || uploading}
-      />
+      <PracticeHeader q={q} secondsLeft={secondsLeft} onBack={onBack} onSubmit={handleSubmit} onSaveDraft={handleSaveDraft} canSubmit={allValid} submitting={submitting || uploading} />
       <div className="flex-1 flex gap-3 min-h-0">
         <div className="flex-1 h-full overflow-y-auto pr-1 space-y-3">
           <QuestionCard q={q} />
@@ -1572,16 +1410,10 @@ function ExperimentPractice({
             <div className="px-4 py-2.5 bg-gray-50 border-b border-line flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-brand-middle-dark">🧪</span>
-                <span className="text-[12px] font-bold text-ink">
-                  실험 보고서
-                </span>
+                <span className="text-[12px] font-bold text-ink">실험 보고서</span>
               </div>
               <div className="text-[11px] text-ink-muted">
-                총{" "}
-                <span className="font-extrabold text-brand-middle-dark">
-                  {totalChars}
-                </span>
-                자
+                총 <span className="font-extrabold text-brand-middle-dark">{totalChars}</span>자
               </div>
             </div>
             <div className="p-4 space-y-4">
@@ -1591,21 +1423,14 @@ function ExperimentPractice({
                 return (
                   <div key={s.key}>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[12px] font-bold text-ink">
-                        {s.label}
-                      </label>
-                      <span
-                        className={`text-[10px] font-bold tabular-nums ${valid ? "text-brand-middle-dark" : "text-ink-muted"}`}
-                      >
-                        {value.length}자{" "}
-                        {valid ? "✓" : `/ 최소 ${s.minChars}자`}
+                      <label className="text-[12px] font-bold text-ink">{s.label}</label>
+                      <span className={`text-[10px] font-bold tabular-nums ${valid ? "text-brand-middle-dark" : "text-ink-muted"}`}>
+                        {value.length}자 {valid ? "✓" : `/ 최소 ${s.minChars}자`}
                       </span>
                     </div>
                     <textarea
                       value={value}
-                      onChange={(e) =>
-                        setSections({ ...sections, [s.key]: e.target.value })
-                      }
+                      onChange={(e) => setSections({ ...sections, [s.key]: e.target.value })}
                       placeholder={s.placeholder}
                       rows={s.key === "procedure" || s.key === "result" ? 5 : 3}
                       className="w-full px-3 py-2.5 text-[12px] border border-line rounded-lg focus:outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-all placeholder:text-ink-muted resize-y leading-[1.7]"
@@ -1615,13 +1440,10 @@ function ExperimentPractice({
               })}
             </div>
           </div>
-          {/* ⭐ 실험 사진 업로드 */}
           <div className="bg-white border border-line rounded-xl p-4 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
             <div className="flex items-center gap-1.5 mb-3">
               <span>📷</span>
-              <span className="text-[12px] font-extrabold text-ink">
-                실험 사진 첨부
-              </span>
+              <span className="text-[12px] font-extrabold text-ink">실험 사진 첨부</span>
               <span className="text-[10px] text-ink-muted ml-auto">
                 선택사항 · 최대 5장 ({photos.length}/5)
               </span>
@@ -1630,11 +1452,7 @@ function ExperimentPractice({
               <div className="grid grid-cols-3 gap-2 mb-3">
                 {photoPreviews.map((url, i) => (
                   <div key={i} className="relative group">
-                    <img
-                      src={url}
-                      alt={`실험 사진 ${i + 1}`}
-                      className="w-full aspect-square object-cover rounded-lg border border-line"
-                    />
+                    <img src={url} alt={`실험 사진 ${i + 1}`} className="w-full aspect-square object-cover rounded-lg border border-line" />
                     <button
                       onClick={() => removePhoto(i)}
                       className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity"
@@ -1649,13 +1467,7 @@ function ExperimentPractice({
               <label className="w-full h-20 rounded-lg font-bold text-brand-middle-dark bg-brand-middle-pale border-2 border-dashed border-brand-middle-light hover:bg-brand-middle-bg transition-all flex flex-col items-center justify-center gap-1 cursor-pointer">
                 <span className="text-2xl">📷</span>
                 <span className="text-[11px]">실험 과정 사진 업로드</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handlePhotoSelect}
-                  className="hidden"
-                />
+                <input type="file" accept="image/*" multiple onChange={handlePhotoSelect} className="hidden" />
               </label>
             )}
           </div>
@@ -1666,12 +1478,8 @@ function ExperimentPractice({
         <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center backdrop-blur-sm">
           <div className="bg-white rounded-2xl px-8 py-6 flex flex-col items-center gap-3 shadow-2xl">
             <div className="text-3xl animate-spin">⏳</div>
-            <div className="text-[14px] font-bold text-ink">
-              사진 업로드 중...
-            </div>
-            <div className="text-[11px] text-ink-muted">
-              잠시만 기다려주세요
-            </div>
+            <div className="text-[14px] font-bold text-ink">사진 업로드 중...</div>
+            <div className="text-[11px] text-ink-muted">잠시만 기다려주세요</div>
           </div>
         </div>
       )}
@@ -1680,7 +1488,7 @@ function ExperimentPractice({
 }
 
 // ──────────────────────────────────────────
-// 피드백 화면 — 학생이 받은 피드백 보기 + 재제출
+// 피드백 화면
 // ──────────────────────────────────────────
 function FeedbackView({ submission, onBack }: any) {
   const { data: feedback, isLoading } = useMyFeedback(submission.id);
@@ -1708,13 +1516,11 @@ function FeedbackView({ submission, onBack }: any) {
 
   const status = submission.status;
 
-  // 학생 답안 표시용 (text 또는 sections)
+  // ⭐ 학생 답안 표시용 — 한글 라벨 + 정렬
   const studentAnswerDisplay =
     submission.answer_text ||
     (submission.answer_sections
-      ? Object.entries(submission.answer_sections as Record<string, string>)
-          .map(([k, v]) => `[${k}]\n${v}`)
-          .join("\n\n")
+      ? formatSectionsToText(submission.answer_sections as Record<string, string>)
       : "");
 
   return (
@@ -1722,21 +1528,15 @@ function FeedbackView({ submission, onBack }: any) {
       {/* 헤더 */}
       <div className="flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="text-[12px] font-semibold text-ink-secondary hover:text-ink transition-colors"
-          >
+          <button onClick={onBack} className="text-[12px] font-semibold text-ink-secondary hover:text-ink transition-colors">
             ← 목록으로
           </button>
           <div className="w-px h-4 bg-line" />
           <div>
             <div className="text-[11px] text-ink-muted font-semibold">
-              {submission.question_school_name || "우리 학교"} ·{" "}
-              {submission.question_subject} · {submission.question_type}
+              {submission.question_school_name || "우리 학교"} · {submission.question_subject} · {submission.question_type}
             </div>
-            <div className="text-[14px] font-bold text-ink">
-              {submission.question_title}
-            </div>
+            <div className="text-[14px] font-bold text-ink">{submission.question_title}</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -1744,44 +1544,25 @@ function FeedbackView({ submission, onBack }: any) {
             className="px-3 py-1.5 rounded-lg text-[12px] font-bold border"
             style={{
               background:
-                status === "pending"
-                  ? "#FEF3C7"
-                  : status === "analyzed"
-                    ? "#FEF3C7"
-                    : status === "first_done"
-                      ? "#ECFDF5"
-                      : status === "completed"
-                        ? "#D1FAE5"
-                        : "#FED7AA",
+                status === "pending" ? "#FEF3C7" :
+                status === "analyzed" ? "#FEF3C7" :
+                status === "first_done" ? "#ECFDF5" :
+                status === "completed" ? "#D1FAE5" : "#FED7AA",
               color:
-                status === "pending"
-                  ? "#92400E"
-                  : status === "analyzed"
-                    ? "#92400E"
-                    : status === "first_done"
-                      ? "#065F46"
-                      : status === "completed"
-                        ? "#065F46"
-                        : "#9A3412",
+                status === "pending" ? "#92400E" :
+                status === "analyzed" ? "#92400E" :
+                status === "first_done" ? "#065F46" :
+                status === "completed" ? "#065F46" : "#9A3412",
               borderColor:
-                status === "pending"
-                  ? "#FCD34D"
-                  : status === "analyzed"
-                    ? "#FCD34D"
-                    : "#6EE7B7",
+                status === "pending" ? "#FCD34D" :
+                status === "analyzed" ? "#FCD34D" : "#6EE7B7",
             }}
           >
-            {status === "pending"
-              ? "⏳ 피드백 대기 중"
-              : status === "analyzed"
-                ? "⏳ 선생님이 검토 중"
-                : status === "first_done"
-                  ? "📩 1차 피드백 받음"
-                  : status === "resubmitted"
-                    ? "🔄 재제출 완료"
-                    : status === "completed"
-                      ? "✓ 최종 완료"
-                      : ""}
+            {status === "pending" ? "⏳ 피드백 대기 중" :
+             status === "analyzed" ? "⏳ 선생님이 검토 중" :
+             status === "first_done" ? "📩 1차 피드백 받음" :
+             status === "resubmitted" ? "🔄 재제출 완료" :
+             status === "completed" ? "✓ 최종 완료" : ""}
           </span>
         </div>
       </div>
@@ -1791,7 +1572,7 @@ function FeedbackView({ submission, onBack }: any) {
         {/* 출제 문제 */}
         <div className="bg-gray-50 border border-line rounded-xl px-4 py-3">
           <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">
-            📌 출제 문제
+            출제 문제
           </div>
           <div className="text-[13px] font-medium text-ink leading-[1.7]">
             {submission.question_content}
@@ -1804,7 +1585,7 @@ function FeedbackView({ submission, onBack }: any) {
             <span className="text-[10px] font-extrabold text-white bg-gray-500 px-2 py-0.5 rounded-full">
               Step 1
             </span>
-            <span className="text-[12px] font-bold text-ink">📝 내 답안</span>
+            <span className="text-[12px] font-bold text-ink">내 답안</span>
             <span className="ml-auto text-[10px] text-ink-muted">
               {studentAnswerDisplay.length}자
             </span>
@@ -1814,49 +1595,40 @@ function FeedbackView({ submission, onBack }: any) {
           </div>
         </div>
 
-        {/* Step 2: 선생님 1차 피드백 (있으면) */}
+        {/* Step 2: 선생님 1차 피드백 */}
         {feedback?.teacher_first_feedback ? (
           <div className="bg-white border border-line rounded-xl overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
             <div className="px-4 py-2.5 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-line flex items-center gap-2">
               <span className="text-[10px] font-extrabold text-white bg-amber-600 px-2 py-0.5 rounded-full">
                 Step 2
               </span>
-              <span className="text-[12px] font-bold text-ink">
-                👨‍🏫 선생님 1차 피드백
-              </span>
+              <span className="text-[12px] font-bold text-ink">선생님 1차 피드백</span>
               {feedback.teacher_first_at && (
                 <span className="ml-auto text-[10px] text-ink-muted">
-                  {new Date(feedback.teacher_first_at).toLocaleDateString(
-                    "ko-KR",
-                  )}
+                  {new Date(feedback.teacher_first_at).toLocaleDateString("ko-KR")}
                 </span>
               )}
             </div>
             <div className="p-4 text-[13px] font-medium text-ink leading-[1.8] whitespace-pre-wrap bg-amber-50/50">
               {feedback.teacher_first_feedback}
             </div>
-            {/* 재제출 영역 (1차 받았고 재제출 안 한 경우) */}
             {!submission.resubmitted_text && (
               <div className="p-4 border-t border-line bg-white">
                 {!isResubmitting ? (
                   <button
                     onClick={() => {
                       setIsResubmitting(true);
-                      setResubmitText(submission.answer_text || "");
+                      setResubmitText(submission.answer_text || studentAnswerDisplay || "");
                     }}
                     className="w-full h-10 bg-brand-middle hover:bg-brand-middle-hover text-white text-[13px] font-bold rounded-lg transition-all hover:-translate-y-px"
                   >
-                    🔄 피드백 반영해서 재제출하기
+                    🔄 피드백 반영해서 2차 제출하기
                   </button>
                 ) : (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <label className="text-[12px] font-bold text-ink">
-                        📝 수정한 답안
-                      </label>
-                      <span className="text-[10px] text-ink-muted">
-                        {resubmitText.length}자
-                      </span>
+                      <label className="text-[12px] font-bold text-ink">📝 수정한 답안</label>
+                      <span className="text-[10px] text-ink-muted">{resubmitText.length}자</span>
                     </div>
                     <textarea
                       value={resubmitText}
@@ -1880,7 +1652,7 @@ function FeedbackView({ submission, onBack }: any) {
                         disabled={!resubmitText.trim() || resubmit.isPending}
                         className="flex-1 h-10 bg-brand-middle hover:bg-brand-middle-hover text-white text-[12px] font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {resubmit.isPending ? "제출 중..." : "📤 재제출"}
+                        {resubmit.isPending ? "제출 중..." : "2차 제출"}
                       </button>
                     </div>
                   </div>
@@ -1905,21 +1677,17 @@ function FeedbackView({ submission, onBack }: any) {
           </div>
         ) : null}
 
-        {/* Step 3: 재제출 답안 (있으면) */}
+        {/* Step 3: 재제출 답안 */}
         {submission.resubmitted_text && (
           <div className="bg-white border border-line rounded-xl overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
             <div className="px-4 py-2.5 bg-orange-50 border-b border-line flex items-center gap-2">
               <span className="text-[10px] font-extrabold text-white bg-orange-500 px-2 py-0.5 rounded-full">
                 Step 3
               </span>
-              <span className="text-[12px] font-bold text-ink">
-                📝 내 재제출 답안
-              </span>
+              <span className="text-[12px] font-bold text-ink">📝 내 재제출 답안</span>
               {submission.resubmitted_at && (
                 <span className="ml-auto text-[10px] text-ink-muted">
-                  {new Date(submission.resubmitted_at).toLocaleDateString(
-                    "ko-KR",
-                  )}
+                  {new Date(submission.resubmitted_at).toLocaleDateString("ko-KR")}
                 </span>
               )}
             </div>
@@ -1929,21 +1697,17 @@ function FeedbackView({ submission, onBack }: any) {
           </div>
         )}
 
-        {/* Step 4: 최종 피드백 (있으면) */}
+        {/* Step 4: 최종 피드백 */}
         {feedback?.teacher_final_feedback ? (
           <div className="bg-white border border-line rounded-xl overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
             <div className="px-4 py-2.5 bg-gradient-to-r from-emerald-50 to-blue-50 border-b border-line flex items-center gap-2">
               <span className="text-[10px] font-extrabold text-white bg-emerald-600 px-2 py-0.5 rounded-full">
                 최종
               </span>
-              <span className="text-[12px] font-bold text-ink">
-                🎉 선생님 최종 피드백
-              </span>
+              <span className="text-[12px] font-bold text-ink">🎉 선생님 최종 피드백</span>
               {feedback.teacher_final_at && (
                 <span className="ml-auto text-[10px] text-ink-muted">
-                  {new Date(feedback.teacher_final_at).toLocaleDateString(
-                    "ko-KR",
-                  )}
+                  {new Date(feedback.teacher_final_at).toLocaleDateString("ko-KR")}
                 </span>
               )}
             </div>
@@ -1960,8 +1724,6 @@ function FeedbackView({ submission, onBack }: any) {
           </div>
         ) : null}
       </div>
-
-      {/* 재제출 모달 */}
     </div>
   );
 }
@@ -1978,7 +1740,6 @@ export default function MiddleSuhaeng() {
   const [showAllModal, setShowAllModal] = useState(false);
   const [modalGrade, setModalGrade] = useState("중2");
 
-  // ⭐ DB 훅
   const submitAnswer = useSubmitAnswer();
   const { data: mySubmissions } = useMySuhaengSubmissions(
     student?.id ? String(student.id) : undefined,
@@ -1989,18 +1750,13 @@ export default function MiddleSuhaeng() {
   const [feedbackSubmission, setFeedbackSubmission] = useState<any>(null);
 
   const startPractice = (question: any) => {
-    // 이미 제출했는지 확인
     const existingKey = `${question.school ? "practice" : "school"}-${question.id}`;
-    const submitted = mySubmissions?.find(
-      (s) => s.question_key === existingKey,
-    );
+    const submitted = mySubmissions?.find((s) => s.question_key === existingKey);
     if (submitted) {
-      // 제출했으면 피드백 화면으로
       setFeedbackSubmission(submitted);
       setMode("feedback");
       return;
     }
-
     setSelectedQuestion(question);
     setMode("practice");
   };
@@ -2011,20 +1767,14 @@ export default function MiddleSuhaeng() {
     setFeedbackSubmission(null);
   };
 
-  // ⭐ 진짜 DB 저장
-  const handleSubmit = async (answerData: {
-    answer_text?: string;
-    answer_sections?: any;
-  }) => {
+  const handleSubmit = async (answerData: { answer_text?: string; answer_sections?: any }) => {
     if (!student?.id || !academy?.academyId || !selectedQuestion) {
       alert("로그인 정보를 불러오지 못했어요.");
       return;
     }
-
     const q = selectedQuestion;
-    const isSchool = !q.school; // school 필드 없으면 우리학교 (MY_SCHOOL_SUHAENG)
+    const isSchool = !q.school;
     const questionKey = isSchool ? `school-${q.id}` : `practice-${q.id}`;
-
     try {
       await submitAnswer.mutateAsync({
         student_id: String(student.id),
@@ -2041,7 +1791,6 @@ export default function MiddleSuhaeng() {
         question_max_chars: q.maxChars || null,
         ...answerData,
       });
-
       alert("✅ 제출 완료!\n선생님 피드백을 기다려주세요.");
       backToList();
     } catch (error: any) {
@@ -2051,7 +1800,6 @@ export default function MiddleSuhaeng() {
 
   const filteredPractice = PRACTICE.filter((p) => p.type === selectedType);
 
-  // ⭐ 피드백 모드 — 제출한 답안 클릭 시
   if (mode === "feedback" && feedbackSubmission) {
     return <FeedbackView submission={feedbackSubmission} onBack={backToList} />;
   }
@@ -2060,61 +1808,22 @@ export default function MiddleSuhaeng() {
     const q = selectedQuestion;
     const submitting = submitAnswer.isPending;
     if (q.type === "논술형")
-      return (
-        <EssayPractice
-          q={q}
-          onBack={backToList}
-          onSubmit={handleSubmit}
-          submitting={submitting}
-        />
-      );
+      return <EssayPractice q={q} onBack={backToList} onSubmit={handleSubmit} submitting={submitting} />;
     if (q.type === "서술형")
-      return (
-        <ShortAnswerPractice
-          q={q}
-          onBack={backToList}
-          onSubmit={handleSubmit}
-          submitting={submitting}
-        />
-      );
+      return <ShortAnswerPractice q={q} onBack={backToList} onSubmit={handleSubmit} submitting={submitting} />;
     if (q.type === "주제탐구")
-      return (
-        <ResearchPractice
-          q={q}
-          onBack={backToList}
-          onSubmit={handleSubmit}
-          submitting={submitting}
-        />
-      );
+      return <ResearchPractice q={q} onBack={backToList} onSubmit={handleSubmit} submitting={submitting} />;
     if (q.type === "구술발표")
-      return (
-        <PresentationPractice
-          q={q}
-          onBack={backToList}
-          onSubmit={handleSubmit}
-          submitting={submitting}
-          studentId={student?.id ? String(student.id) : undefined}
-        />
-      );
+      return <PresentationPractice q={q} onBack={backToList} onSubmit={handleSubmit} submitting={submitting} studentId={student?.id ? String(student.id) : undefined} />;
     if (q.type === "탐구수행")
-      return (
-        <ExperimentPractice
-          q={q}
-          onBack={backToList}
-          onSubmit={handleSubmit}
-          submitting={submitting}
-          studentId={student?.id ? String(student.id) : undefined}
-        />
-      );
+      return <ExperimentPractice q={q} onBack={backToList} onSubmit={handleSubmit} submitting={submitting} studentId={student?.id ? String(student.id) : undefined} />;
   }
 
   return (
     <div className="flex flex-col gap-3 h-[calc(100vh-90px)] overflow-hidden px-6 py-5 font-sans text-ink">
       <div className="flex items-center justify-between flex-shrink-0">
         <div>
-          <div className="text-[18px] font-extrabold text-ink tracking-tight">
-            수행평가
-          </div>
+          <div className="text-[18px] font-extrabold text-ink tracking-tight">수행평가</div>
           <div className="text-[12px] text-ink-muted mt-0.5">
             {student?.name} · {academy?.academyName}
           </div>
@@ -2135,25 +1844,18 @@ export default function MiddleSuhaeng() {
         <div className="bg-white border border-line rounded-xl shadow-[0_4px_16px_rgba(15,23,42,0.04)] flex-shrink-0">
           <div className="px-4 py-3 border-b border-line flex items-center justify-between">
             <div>
-              <div className="text-[14px] font-extrabold text-ink tracking-tight">
-                우리 학교 다가오는 수행평가
-              </div>
+              <div className="text-[14px] font-extrabold text-ink tracking-tight">우리 학교 다가오는 수행평가</div>
               <div className="text-[11px] text-ink-muted mt-0.5">
                 인천 신정중학교 중2 · 2026학년도 1학기 평가 계획
               </div>
             </div>
-            <button
-              onClick={() => setShowAllModal(true)}
-              className="text-[11px] font-semibold text-brand-middle-dark hover:text-brand-middle transition-colors"
-            >
+            <button onClick={() => setShowAllModal(true)} className="text-[11px] font-semibold text-brand-middle-dark hover:text-brand-middle transition-colors">
               전체 보기 ›
             </button>
           </div>
           <div className="grid grid-cols-4 gap-2.5 p-3">
             {myGradeSuhaeng.map((t) => {
-              const submitted = mySubmissions?.find(
-                (s) => s.question_key === `school-${t.id}`,
-              );
+              const submitted = mySubmissions?.find((s) => s.question_key === `school-${t.id}`);
               return (
                 <div
                   key={t.id}
@@ -2189,14 +1891,9 @@ export default function MiddleSuhaeng() {
                     {t.title}
                   </div>
                   <div className="flex items-center justify-between text-[10px] pt-2 border-t border-line">
-                    <span className="text-ink-muted">
-                      D-{t.dueIn} · {t.ratio}%
-                    </span>
+                    <span className="text-ink-muted">D-{t.dueIn} · {t.ratio}%</span>
                     <span className="text-ink-secondary">
-                      연습{" "}
-                      <span className="font-bold text-brand-middle-dark">
-                        {t.practiced}회
-                      </span>
+                      연습 <span className="font-bold text-brand-middle-dark">{t.practiced}회</span>
                     </span>
                   </div>
                   <div className="mt-1.5 text-[10px] font-bold text-brand-middle-dark flex items-center gap-1">
@@ -2225,32 +1922,20 @@ export default function MiddleSuhaeng() {
                   onClick={() => setSelectedType(t.id)}
                   className={`rounded-xl px-3 py-3 text-left transition-all border ${sel ? "bg-gradient-to-br from-brand-middle-dark to-brand-middle text-white border-brand-middle shadow-[0_4px_16px_rgba(16,185,129,0.2)] -translate-y-0.5" : "bg-white border-line hover:border-brand-middle-light hover:-translate-y-px"}`}
                 >
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 text-base ${sel ? "bg-white/15" : "bg-brand-middle-bg"}`}
-                  >
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 text-base ${sel ? "bg-white/15" : "bg-brand-middle-bg"}`}>
                     {t.icon}
                   </div>
-                  <div
-                    className={`text-[13px] font-bold mb-0.5 ${sel ? "text-white" : "text-ink"}`}
-                  >
+                  <div className={`text-[13px] font-bold mb-0.5 ${sel ? "text-white" : "text-ink"}`}>
                     {t.id}
                   </div>
-                  <div
-                    className={`text-[10px] leading-tight mb-2 ${sel ? "text-white/80" : "text-ink-muted"}`}
-                  >
+                  <div className={`text-[10px] leading-tight mb-2 ${sel ? "text-white/80" : "text-ink-muted"}`}>
                     {t.desc}
                   </div>
-                  <div
-                    className={`pt-2 border-t flex items-center justify-between ${sel ? "border-white/15" : "border-line"}`}
-                  >
-                    <span
-                      className={`text-[9px] ${sel ? "text-white/70" : "text-ink-muted"}`}
-                    >
+                  <div className={`pt-2 border-t flex items-center justify-between ${sel ? "border-white/15" : "border-line"}`}>
+                    <span className={`text-[9px] ${sel ? "text-white/70" : "text-ink-muted"}`}>
                       {t.subjects}
                     </span>
-                    <span
-                      className={`text-[10px] font-bold ${sel ? "text-amber-300" : "text-brand-middle-dark"}`}
-                    >
+                    <span className={`text-[10px] font-bold ${sel ? "text-amber-300" : "text-brand-middle-dark"}`}>
                       {t.count}개
                     </span>
                   </div>
@@ -2279,9 +1964,7 @@ export default function MiddleSuhaeng() {
               </div>
             ) : (
               filteredPractice.map((p, idx) => {
-                const submitted = mySubmissions?.find(
-                  (s) => s.question_key === `practice-${p.id}`,
-                );
+                const submitted = mySubmissions?.find((s) => s.question_key === `practice-${p.id}`);
                 return (
                   <div
                     key={p.id}
@@ -2306,12 +1989,8 @@ export default function MiddleSuhaeng() {
                           <span className="text-[10px] font-semibold text-ink-muted">
                             {p.school} · {p.subject}
                           </span>
-                          <span className="text-[10px] text-amber-500">
-                            {p.difficulty}
-                          </span>
-                          <span className="text-[10px] text-ink-muted">
-                            · 배점 {p.score}%
-                          </span>
+                          <span className="text-[10px] text-amber-500">{p.difficulty}</span>
+                          <span className="text-[10px] text-ink-muted">· 배점 {p.score}%</span>
                           {submitted && (
                             <span className="text-[9px] font-bold text-white bg-blue-500 px-1.5 py-0.5 rounded">
                               ✓ 제출됨
@@ -2324,31 +2003,23 @@ export default function MiddleSuhaeng() {
                       </div>
                       <div className="flex items-center gap-4 flex-shrink-0">
                         <div className="text-center min-w-[36px]">
-                          <div className="text-[9px] text-ink-muted font-medium">
-                            평균
-                          </div>
+                          <div className="text-[9px] text-ink-muted font-medium">평균</div>
                           <div className="text-[12px] font-extrabold text-ink-secondary">
                             {p.avg}점
                           </div>
                         </div>
                         <div className="text-center min-w-[36px]">
-                          <div className="text-[9px] text-ink-muted font-medium">
-                            내 최고
-                          </div>
+                          <div className="text-[9px] text-ink-muted font-medium">내 최고</div>
                           {p.myBest ? (
                             <div className="text-[12px] font-extrabold text-brand-middle-dark">
                               {p.myBest}점
                             </div>
                           ) : (
-                            <div className="text-[12px] font-bold text-ink-muted">
-                              —
-                            </div>
+                            <div className="text-[12px] font-bold text-ink-muted">—</div>
                           )}
                         </div>
                         <div className="text-center min-w-[36px]">
-                          <div className="text-[9px] text-ink-muted font-medium">
-                            응시
-                          </div>
+                          <div className="text-[9px] text-ink-muted font-medium">응시</div>
                           <div className="text-[12px] font-extrabold text-ink-secondary">
                             {p.attempts}
                           </div>
@@ -2367,14 +2038,8 @@ export default function MiddleSuhaeng() {
       </div>
 
       {showAllModal && (
-        <div
-          onClick={() => setShowAllModal(false)}
-          className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center backdrop-blur-sm"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl w-[720px] max-h-[80vh] flex flex-col shadow-[0_20px_60px_rgba(15,23,42,0.25)]"
-          >
+        <div onClick={() => setShowAllModal(false)} className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center backdrop-blur-sm">
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl w-[720px] max-h-[80vh] flex flex-col shadow-[0_20px_60px_rgba(15,23,42,0.25)]">
             <div className="flex items-center justify-between px-5 py-4 border-b border-line">
               <div>
                 <div className="text-[16px] font-extrabold text-ink tracking-tight">
@@ -2384,10 +2049,7 @@ export default function MiddleSuhaeng() {
                   학년별 전체 수행평가 일정
                 </div>
               </div>
-              <button
-                onClick={() => setShowAllModal(false)}
-                className="text-ink-muted hover:text-ink text-xl transition-colors"
-              >
+              <button onClick={() => setShowAllModal(false)} className="text-ink-muted hover:text-ink text-xl transition-colors">
                 ✕
               </button>
             </div>
@@ -2398,59 +2060,45 @@ export default function MiddleSuhaeng() {
                   onClick={() => setModalGrade(g)}
                   className={`px-4 py-1.5 rounded-full text-[12px] font-bold border transition-all ${modalGrade === g ? "bg-brand-middle text-white border-brand-middle" : "bg-white text-ink-secondary border-line hover:border-brand-middle-light"}`}
                 >
-                  {g}{" "}
-                  {g === "중2" && (
-                    <span className="ml-1 text-[10px] text-amber-400">
-                      (내 학년)
-                    </span>
-                  )}
+                  {g} {g === "중2" && <span className="ml-1 text-[10px] text-amber-400">(내 학년)</span>}
                 </button>
               ))}
             </div>
             <div className="flex-1 overflow-y-auto p-5">
-              {MY_SCHOOL_SUHAENG.filter((s) => s.grade === modalGrade)
-                .length === 0 ? (
+              {MY_SCHOOL_SUHAENG.filter((s) => s.grade === modalGrade).length === 0 ? (
                 <div className="text-center py-10 text-ink-muted text-[12px]">
                   <div className="text-3xl mb-2">📅</div>
                   {modalGrade} 수행평가 정보가 없어요
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {MY_SCHOOL_SUHAENG.filter((s) => s.grade === modalGrade).map(
-                    (s) => (
-                      <div
-                        key={s.id}
-                        onClick={() => {
-                          setShowAllModal(false);
-                          startPractice(s);
-                        }}
-                        className="border border-line rounded-lg p-3 hover:border-brand-middle-light hover:bg-brand-middle-pale/20 cursor-pointer transition-all"
-                      >
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <span className="text-[10px] font-bold text-ink-secondary bg-white border border-line px-1.5 py-0.5 rounded">
-                            {s.subject}
+                  {MY_SCHOOL_SUHAENG.filter((s) => s.grade === modalGrade).map((s) => (
+                    <div
+                      key={s.id}
+                      onClick={() => {
+                        setShowAllModal(false);
+                        startPractice(s);
+                      }}
+                      className="border border-line rounded-lg p-3 hover:border-brand-middle-light hover:bg-brand-middle-pale/20 cursor-pointer transition-all"
+                    >
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-[10px] font-bold text-ink-secondary bg-white border border-line px-1.5 py-0.5 rounded">
+                          {s.subject}
+                        </span>
+                        <span className="text-[10px] font-semibold text-brand-middle-dark">
+                          {s.type}
+                        </span>
+                        <span className="text-[10px] text-ink-muted">· 배점 {s.ratio}%</span>
+                        {s.urgent && (
+                          <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded">
+                            D-{s.dueIn}
                           </span>
-                          <span className="text-[10px] font-semibold text-brand-middle-dark">
-                            {s.type}
-                          </span>
-                          <span className="text-[10px] text-ink-muted">
-                            · 배점 {s.ratio}%
-                          </span>
-                          {s.urgent && (
-                            <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded">
-                              D-{s.dueIn}
-                            </span>
-                          )}
-                          <span className="ml-auto text-[10px] text-ink-muted">
-                            {s.scheduledAt}
-                          </span>
-                        </div>
-                        <div className="text-[13px] font-bold text-ink">
-                          {s.title}
-                        </div>
+                        )}
+                        <span className="ml-auto text-[10px] text-ink-muted">{s.scheduledAt}</span>
                       </div>
-                    ),
-                  )}
+                      <div className="text-[13px] font-bold text-ink">{s.title}</div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

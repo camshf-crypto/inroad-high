@@ -585,7 +585,7 @@ export default function BookList() {
                       {selSearchBook.url && (
                         <a href={selSearchBook.url} target="_blank" rel="noopener noreferrer"
                           className="mt-auto inline-flex items-center gap-1.5 text-[12px] font-bold text-brand-high-dark hover:text-brand-high bg-white border border-brand-high-light hover:border-brand-high px-3 py-1.5 rounded-lg transition-all self-start">
-                          🔗 다음 책에서 보기
+                          🔗 내용 상세 보기
                         </a>
                       )}
                     </div>

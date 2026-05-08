@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { academyState, tokenState, studentState } from '@/lib/auth/atoms'
 import { supabase } from '@/lib/supabase'
+import { useStudentRealtime } from '@/lib/realtime/useStudentRealtime'
 
 const MENUS = [
   { path: '/middle-student/roadmap', label: '내 커리큘럼', icon: '⊞' },
@@ -18,6 +19,49 @@ const MENUS = [
 
 const MIDDLE_GRADES = ['중1', '중2', '중3'] as const
 
+// ============================================================
+// 🆕 중등 학생이 실시간 갱신을 받을 테이블 목록
+// (student_id 컬럼이 있는 테이블만 — 자기 row만 푸시 받음)
+// ============================================================
+const MIDDLE_STUDENT_TABLES = [
+  // 로드맵 / 커리큘럼
+  'middle_roadmap',
+  'middle_homework_progress',
+  'middle_lessons_progress',
+
+  // 숙제
+  'middle_homework_submissions',
+
+  // 수행평가
+  'suhaeng_submissions',
+
+  // 독서
+  'middle_reading',
+
+  // 자소서 / 예상질문
+  'middle_essays',
+  'middle_essays_analysis',
+  'middle_essays_followups',
+  'middle_question_answers',
+  'middle_question_answers_analysis',
+  'middle_question_answers_followups',
+
+  // 기출
+  'middle_past_answers',
+
+  // 면접 시뮬레이션
+  'middle_simulations',
+  'middle_interview',
+  'middle_interview_analysis',
+  'middle_interview_followups',
+
+  // 제시문 면접
+  'middle_passage',
+  'middle_passage_answers',
+  'middle_passage_analysis',
+  'middle_passage_followups',
+]
+
 export default function MiddleLayout() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -29,6 +73,20 @@ export default function MiddleLayout() {
 
   // 학원 연결 여부
   const isAcademyConnected = !!academy.academyId
+
+  // ============================================================
+  // 🆕 실시간 갱신
+  // 선생님이 무언가 송출(피드백 발행, AI 분석 생성, 재제출 허용 등)
+  // 하면 'teacher-action' 이벤트가 발행됨.
+  // 각 페이지(MiddleHomework.tsx 등)에서 이 이벤트를 듣고 자기 데이터 다시 fetch.
+  // ============================================================
+  useStudentRealtime({
+    studentId: student?.id,
+    tables: MIDDLE_STUDENT_TABLES,
+    onTeacherAction: () => {
+      window.dispatchEvent(new CustomEvent('teacher-action'))
+    },
+  })
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -55,7 +113,6 @@ export default function MiddleLayout() {
               <div className="text-[11px] text-ink-secondary mt-0.5">{academy.academyName}</div>
             </div>
           ) : (
-            // 학원 미연결 - 정사각형 박스 (고등 스타일과 통일)
             <div className="flex items-center justify-center">
               <div className="w-20 h-20 rounded-lg flex flex-col items-center justify-center border-2 border-dashed border-line bg-gray-50">
                 <span className="text-[20px] mb-0.5 opacity-40">🏫</span>
@@ -97,7 +154,7 @@ export default function MiddleLayout() {
 
         {/* Footer */}
         <div className="px-5 py-3 border-t border-line-light">
-          <div className="text-[11px] text-ink-muted">© 2026 B-KEARS</div>
+          <div className="text-[11px] text-ink-muted">© 2026 B-KURS</div>
         </div>
       </aside>
 

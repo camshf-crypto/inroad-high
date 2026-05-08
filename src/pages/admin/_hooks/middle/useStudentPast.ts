@@ -49,7 +49,7 @@ export interface StudentPastFeedback {
 }
 
 // ──────────────────────────────────────────
-// 모든 학교 목록
+// 모든 학교 목록 (학생용 — 모든 학교)
 // ──────────────────────────────────────────
 export function useAllPastSchools() {
   return useQuery({
@@ -65,6 +65,46 @@ export function useAllPastSchools() {
       );
       return schools as string[];
     },
+  });
+}
+
+// ──────────────────────────────────────────
+// ⭐ 학생이 답변한 학교 목록 (어드민용)
+// ──────────────────────────────────────────
+export function useStudentAnsweredSchools(studentId: string | undefined) {
+  return useQuery({
+    queryKey: ["student-answered-schools", studentId],
+    enabled: !!studentId,
+    queryFn: async () => {
+      if (!studentId) return [];
+
+      // 1. 학생 답변 가져오기
+      const { data: answers, error: aErr } = await supabase
+        .from("middle_past_answers")
+        .select("question_id")
+        .eq("student_id", studentId);
+
+      if (aErr) throw aErr;
+      if (!answers || answers.length === 0) return [];
+
+      const questionIds = Array.from(
+        new Set(answers.map((a: any) => a.question_id)),
+      );
+
+      // 2. question_id로 학교 추출
+      const { data: questions, error: qErr } = await supabase
+        .from("middle_past_questions")
+        .select("school")
+        .in("id", questionIds);
+
+      if (qErr) throw qErr;
+
+      const schools = Array.from(
+        new Set((questions ?? []).map((q: any) => q.school)),
+      );
+      return schools as string[];
+    },
+    refetchInterval: 5000,
   });
 }
 

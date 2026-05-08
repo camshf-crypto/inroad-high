@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAtomValue } from "jotai";
 import { studentState, academyState } from "@/lib/auth/atoms";
-import { searchBooks } from "@/lib/kakaoBooks";
+import { searchBooksPaged, type BookSearchResult } from "@/lib/kakaoBooks";
 import {
   useMyBooks,
   useAddBook,
@@ -29,76 +29,110 @@ const CATEGORIES = [
   { label: "🎨 예술/디자인", searchKeyword: "예술" },
   { label: "🔬 과학", searchKeyword: "과학" },
   { label: "🌱 생명/환경", searchKeyword: "생명과학" },
-  { label: "📂 기타", searchKeyword: "" }, // 빈 문자열 = 직접 검색
+  { label: "📂 기타", searchKeyword: "" },
 ];
 
 const EMPTY_RECORD = { summary: "", quote: "", feeling: "", careerLink: "" };
+const PAGE_SIZE = 10;
+
+const stripHtml = (str: string) => (str || "").replace(/<[^>]*>/g, "");
+const formatDate = (iso: string) => {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+  } catch {
+    return "";
+  }
+};
 
 export default function MiddleBookList() {
   const student = useAtomValue(studentState);
   const academy = useAtomValue(academyState);
 
-  // ⭐ DB 훅
   const studentId = student?.id ? String(student.id) : undefined;
   const { data: books = [], isLoading } = useMyBooks(studentId);
   const addBook = useAddBook();
   const updateRecord = useUpdateBookRecord();
 
   const [selBookId, setSelBookId] = useState<string | null>(null);
-  const [showSearch, setShowSearch] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [selCategory, setSelCategory] = useState("");
   const [editRecord, setEditRecord] = useState(false);
   const [tempRecord, setTempRecord] = useState({ ...EMPTY_RECORD });
 
-  // ⭐ 선택된 책 + 피드백
+  // 모달 상태 (1: 카테고리/검색, 2: 상세, 3: 등록)
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [modalStep, setModalStep] = useState<1 | 2 | 3>(1);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<BookSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [pageableCount, setPageableCount] = useState(0);
+  const [isEnd, setIsEnd] = useState(false);
+  const [selSearchBook, setSelSearchBook] = useState<BookSearchResult | null>(null);
+  const [selCategory, setSelCategory] = useState("");
+
+  const searchListRef = useRef<HTMLDivElement>(null);
+
   const selBook = books.find((b) => b.id === selBookId) ?? null;
   const { data: selBookFeedback } = useBookFeedback(selBookId ?? undefined);
 
-  const [isSearching, setIsSearching] = useState(false);
-
-  // ⭐ 검색 (카테고리 클릭 또는 직접 검색)
-  const runSearch = async (query: string) => {
-    if (!query.trim()) return;
-    setIsSearching(true);
+  // 검색 실행
+  const runSearch = async (query: string, pageNum: number) => {
+    setSearching(true);
+    setSearchError("");
     try {
-      const results = await searchBooks(query, 10);
-      const mapped = results.map((b) => ({
-        isbn: (b.isbn || "").split(" ")[0],
-        title: b.title,
-        author: b.author,
-        publisher: b.publisher,
-        year: b.datetime ? b.datetime.slice(0, 4) : "",
-        thumbnail: b.thumbnail,
-        contents: b.description,
-      }));
-      setSearchResults(mapped);
-    } catch (e: any) {
-      alert(`검색 실패: ${e.message}`);
+      const { results, totalCount, pageableCount, isEnd } =
+        await searchBooksPaged(query, pageNum, PAGE_SIZE);
+      setSearchResults(results);
+      setTotalCount(totalCount);
+      setPageableCount(pageableCount);
+      setIsEnd(isEnd);
+      setSearchQuery(query);
+      setPage(pageNum);
+      searchListRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err: any) {
+      console.error(err);
+      setSearchError("검색에 실패했어요. 잠시 후 다시 시도해주세요.");
       setSearchResults([]);
     } finally {
-      setIsSearching(false);
+      setSearching(false);
     }
   };
 
-  const handleSearch = () => runSearch(searchQuery);
+  // debounce 자동 검색
+  useEffect(() => {
+    if (!searchInput.trim()) {
+      setSearchResults([]);
+      setSearchError("");
+      setPage(1);
+      setTotalCount(0);
+      setPageableCount(0);
+      setIsEnd(false);
+      return;
+    }
+    const timer = setTimeout(() => runSearch(searchInput, 1), 500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
 
-  // ⭐ 카테고리 클릭 → 자동 검색 (기타는 검색창 포커스만)
+  const goPage = (p: number) => {
+    if (p < 1 || searching) return;
+    runSearch(searchInput, p);
+  };
+
+  // 카테고리 클릭 → 자동 검색
   const handleCategoryClick = (category: {
     label: string;
     searchKeyword: string;
   }) => {
     setSelCategory(category.label);
     if (category.searchKeyword) {
-      // 직업군 클릭 → 자동 검색
-      setSearchQuery(category.searchKeyword);
-      runSearch(category.searchKeyword);
+      setSearchInput(category.searchKeyword);
     } else {
-      // "기타" 클릭 → 검색창 비우고 포커스
-      setSearchQuery("");
-      setSearchResults([]);
-      // 검색창에 포커스
+      setSearchInput("");
       setTimeout(() => {
         const input = document.getElementById(
           "book-search-input",
@@ -108,15 +142,22 @@ export default function MiddleBookList() {
     }
   };
 
-  const closeSearch = () => {
-    setShowSearch(false);
-    setSearchQuery("");
-    setSearchResults([]);
-    setSelCategory("");
+  const openBookDetail = (book: BookSearchResult) => {
+    setSelSearchBook(book);
+    setModalStep(2);
   };
 
-  // ⭐ 책 추가 — DB INSERT
-  const handleAddBook = async (book: any) => {
+  const goToRegister = () => {
+    if (!selSearchBook) return;
+    setModalStep(3);
+  };
+
+  const backToSearch = () => setModalStep(1);
+  const backToDetail = () => setModalStep(2);
+
+  // 책 등록
+  const handleAddBook = async () => {
+    if (!selSearchBook) return;
     if (!student?.id || !academy?.academyId) {
       alert("로그인 정보를 불러오지 못했어요.");
       return;
@@ -125,24 +166,39 @@ export default function MiddleBookList() {
       const newBook = await addBook.mutateAsync({
         student_id: String(student.id),
         academy_id: String(academy.academyId),
-        isbn: book.isbn,
-        title: book.title,
-        author: book.author,
-        publisher: book.publisher,
-        year: book.year,
-        thumbnail: book.thumbnail,
-        contents: book.contents,
-        category: selCategory || "기타", // ⭐ 카테고리 안 골랐으면 "기타"
+        isbn: (selSearchBook.isbn || "").split(" ")[0],
+        title: stripHtml(selSearchBook.title),
+        author: selSearchBook.author,
+        publisher: selSearchBook.publisher,
+        year: selSearchBook.datetime ? selSearchBook.datetime.slice(0, 4) : "",
+        thumbnail: selSearchBook.thumbnail,
+        contents: stripHtml(selSearchBook.description),
+        category: selCategory || "기타",
       });
       setSelBookId(newBook.id);
       setEditRecord(false);
-      closeSearch();
+      closeModal();
     } catch (e: any) {
       alert(`책 추가 실패: ${e.message}`);
     }
   };
 
-  // ⭐ 독서 기록 저장 — DB UPDATE
+  const closeModal = () => {
+    setShowAddModal(false);
+    setModalStep(1);
+    setSearchQuery("");
+    setSearchInput("");
+    setSearchResults([]);
+    setSearchError("");
+    setPage(1);
+    setTotalCount(0);
+    setPageableCount(0);
+    setIsEnd(false);
+    setSelSearchBook(null);
+    setSelCategory("");
+  };
+
+  // 독서 기록 저장
   const saveRecord = async () => {
     if (!selBook) return;
     try {
@@ -162,8 +218,31 @@ export default function MiddleBookList() {
     setEditRecord(true);
   };
 
-  const totalCount = books.length;
+  const totalPages = Math.ceil(pageableCount / PAGE_SIZE);
+  const pageButtons = (() => {
+    if (totalPages <= 1) return [];
+    const maxVisible = 5;
+    const startPage = Math.max(
+      1,
+      Math.min(page - Math.floor(maxVisible / 2), totalPages - maxVisible + 1),
+    );
+    const endPage = Math.min(startPage + maxVisible - 1, totalPages);
+    const arr: number[] = [];
+    for (let i = startPage; i <= endPage; i++) arr.push(i);
+    return arr;
+  })();
+
+  const totalCountBooks = books.length;
   const recordedCount = books.filter((b) => b.record?.summary).length;
+
+  const modalTitle =
+    modalStep === 1 ? "📚 책 추가하기" : modalStep === 2 ? "도서 상세" : "도서 등록";
+  const modalDesc =
+    modalStep === 1
+      ? "관심 분야를 선택하거나 직접 검색해보세요"
+      : modalStep === 2
+        ? "책 정보를 확인하고 등록할지 결정해주세요"
+        : "이 책으로 등록할까요?";
 
   return (
     <div className="flex h-full overflow-hidden font-sans text-ink">
@@ -181,10 +260,10 @@ export default function MiddleBookList() {
           </div>
           <div className="flex items-center gap-2">
             <div className="bg-brand-middle-bg text-brand-middle-dark text-[13px] font-semibold px-4 py-1.5 rounded-full border border-brand-middle-light">
-              총 {totalCount}권 · {recordedCount}권 기록완료
+              총 {totalCountBooks}권 · {recordedCount}권 기록완료
             </div>
             <button
-              onClick={() => setShowSearch(true)}
+              onClick={() => setShowAddModal(true)}
               className="h-9 px-4 bg-brand-middle hover:bg-brand-middle-hover text-white text-[13px] font-semibold rounded-lg transition-all hover:-translate-y-px hover:shadow-btn-middle"
             >
               + 책 추가
@@ -192,7 +271,6 @@ export default function MiddleBookList() {
           </div>
         </div>
 
-        {/* 로딩 / 책 없음 */}
         {isLoading && (
           <div className="text-center py-20 text-ink-muted">
             <div className="text-3xl mb-3">⏳</div>
@@ -221,10 +299,8 @@ export default function MiddleBookList() {
           </div>
         )}
 
-        {/* 책 상세 */}
         {selBook && (
           <div className="bg-white border border-line rounded-2xl p-6 shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
-            {/* 책 정보 */}
             <div className="flex gap-4 mb-5">
               <div className="w-[70px] h-[92px] bg-brand-middle-pale rounded-lg flex items-center justify-center text-3xl flex-shrink-0 border border-line overflow-hidden">
                 {selBook.thumbnail ? (
@@ -256,7 +332,6 @@ export default function MiddleBookList() {
               </div>
             </div>
 
-            {/* 독서 기록장 */}
             <div className="border-t border-line-light pt-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="text-[14px] font-bold text-ink">
@@ -272,10 +347,8 @@ export default function MiddleBookList() {
                 )}
               </div>
 
-              {/* 편집 모드 */}
               {editRecord && (
                 <div>
-                  {/* ⭐ 편집 모드일 때도 선생님 피드백 위에 표시 (참고용) */}
                   {selBookFeedback?.teacher_feedback && (
                     <div className="bg-[#EEF2FF] border-2 border-[#BAC8FF] rounded-xl px-4 py-3 mb-4 sticky top-0">
                       <div className="text-[12px] font-bold text-[#3B5BDB] mb-1.5 flex items-center gap-1">
@@ -299,14 +372,12 @@ export default function MiddleBookList() {
                     {
                       key: "quote",
                       label: "💬 인상 깊은 구절",
-                      placeholder:
-                        "가장 기억에 남는 문장이나 구절을 적어보세요.",
+                      placeholder: "가장 기억에 남는 문장이나 구절을 적어보세요.",
                     },
                     {
                       key: "feeling",
                       label: "💭 느낀 점",
-                      placeholder:
-                        "이 책을 읽고 어떤 생각이나 감정이 들었나요?",
+                      placeholder: "이 책을 읽고 어떤 생각이나 감정이 들었나요?",
                     },
                     {
                       key: "careerLink",
@@ -352,7 +423,6 @@ export default function MiddleBookList() {
                 </div>
               )}
 
-              {/* 기록 있음 - 읽기 모드 */}
               {!editRecord && selBook.record?.summary && (
                 <div>
                   {[
@@ -402,7 +472,6 @@ export default function MiddleBookList() {
                     ) : null,
                   )}
 
-                  {/* 선생님 피드백 */}
                   <div
                     className={`${selBookFeedback?.teacher_feedback ? "bg-[#EEF2FF] border-[#BAC8FF]" : "bg-gray-50 border-line"} border rounded-xl px-4 py-3 mt-1`}
                   >
@@ -431,7 +500,6 @@ export default function MiddleBookList() {
                 </div>
               )}
 
-              {/* 기록 없음 */}
               {!editRecord && !selBook.record?.summary && (
                 <div className="text-center py-10 text-ink-muted">
                   <div className="text-4xl mb-2.5">📖</div>
@@ -448,7 +516,6 @@ export default function MiddleBookList() {
         )}
       </div>
 
-      {/* 구분선 */}
       <div className="w-px bg-line flex-shrink-0" />
 
       {/* 오른쪽: 책 목록 */}
@@ -520,167 +587,428 @@ export default function MiddleBookList() {
         )}
       </div>
 
-      {/* 검색 모달 */}
-      {showSearch && (
+      {/* ⭐⭐⭐ 3단계 모달 ⭐⭐⭐ */}
+      {showAddModal && (
         <div
-          onClick={closeSearch}
-          className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center backdrop-blur-sm"
+          onClick={closeModal}
+          className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl p-7 w-[600px] max-h-[85vh] overflow-y-auto shadow-[0_20px_60px_rgba(15,23,42,0.25)]"
+            className={`bg-white rounded-2xl max-h-[88vh] flex flex-col overflow-hidden shadow-2xl ${
+              modalStep === 1 ? "w-[640px]" : modalStep === 2 ? "w-[600px]" : "w-[480px]"
+            } max-w-full`}
           >
             {/* 헤더 */}
-            <div className="flex items-center justify-between mb-1">
-              <div>
-                <div className="text-[18px] font-extrabold text-ink tracking-tight">
-                  📚 책 추가하기
-                </div>
-                <div className="text-[12px] text-ink-muted mt-0.5">
-                  관심 분야를 선택하면 추천 책이 자동으로 나와요
-                </div>
-              </div>
-              <button
-                onClick={closeSearch}
-                className="text-ink-muted hover:text-ink text-xl transition-colors cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* 카테고리 선택 — 큰 버튼 (5×4 = 20개) */}
-            <div className="mt-5 mb-4">
-              <div className="text-[12px] font-bold text-ink-secondary mb-2">
-                📂 어떤 분야 책이야?
-              </div>
-              <div className="grid grid-cols-5 gap-1.5">
-                {CATEGORIES.map((c) => (
+            <div className="px-6 py-4 border-b border-line-light flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                {modalStep === 2 && (
                   <button
-                    key={c.label}
-                    onClick={() => handleCategoryClick(c)}
-                    disabled={isSearching}
-                    className={`h-10 rounded-lg text-[11px] font-bold transition-all border-[1.5px] disabled:opacity-50 px-1 ${
-                      selCategory === c.label
-                        ? "border-brand-middle bg-brand-middle text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)]"
-                        : "border-line bg-white text-ink-secondary hover:border-brand-middle-light hover:bg-brand-middle-pale"
-                    }`}
+                    onClick={backToSearch}
+                    className="text-ink-secondary hover:text-ink text-[14px] transition-colors"
                   >
-                    {c.label}
+                    ←
                   </button>
-                ))}
+                )}
+                {modalStep === 3 && (
+                  <button
+                    onClick={backToDetail}
+                    className="text-ink-secondary hover:text-ink text-[14px] transition-colors"
+                  >
+                    ←
+                  </button>
+                )}
+                <div>
+                  <div className="text-[15px] font-bold text-ink tracking-tight">
+                    {modalTitle}
+                  </div>
+                  <div className="text-[11px] text-ink-muted mt-0.5 font-medium">
+                    {modalDesc}
+                  </div>
+                </div>
               </div>
-            </div>
-
-            {/* 또는 직접 검색 */}
-            <div className="mt-4 mb-5">
-              <div className="text-[11px] font-medium text-ink-muted mb-1.5">
-                또는 직접 검색해보기
-              </div>
-              <div className="flex gap-2">
-                <input
-                  id="book-search-input"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  placeholder="책 제목이나 저자로 검색"
-                  className="flex-1 h-10 border border-line rounded-lg px-4 text-[13px] focus:outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-all placeholder:text-ink-muted"
-                />
+              <div className="flex items-center gap-3">
+                <div className="flex gap-1.5">
+                  {[1, 2, 3].map((s) => (
+                    <div
+                      key={s}
+                      className={`h-2 rounded-full transition-all ${
+                        s === modalStep
+                          ? "w-5 bg-brand-middle"
+                          : s < modalStep
+                            ? "w-2 bg-brand-middle-dark"
+                            : "w-2 bg-line"
+                      }`}
+                    />
+                  ))}
+                </div>
                 <button
-                  onClick={handleSearch}
-                  disabled={isSearching || !searchQuery.trim()}
-                  className="h-10 px-4 bg-white border border-line text-ink-secondary text-[12px] font-semibold rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={closeModal}
+                  className="text-ink-muted hover:text-ink text-[18px] transition-colors"
                 >
-                  🔍 검색
+                  ✕
                 </button>
               </div>
             </div>
 
-            {/* 검색 전 안내 */}
-            {searchResults.length === 0 && !searchQuery && !isSearching && (
-              <div className="text-center py-10 text-ink-muted bg-gray-50 rounded-xl">
-                <div className="text-4xl mb-2">📚</div>
-                <div className="text-[13px] font-medium">
-                  위에서 분야를 선택하면 추천 책이 나타나요!
+            {/* Step 1: 카테고리 + 검색 (전체 스크롤) */}
+            {modalStep === 1 && (
+              <div ref={searchListRef} className="flex-1 overflow-y-auto">
+                {/* 카테고리 */}
+                <div className="px-6 pt-4 pb-2">
+                  <div className="text-[12px] font-bold text-ink-secondary mb-2">
+                    📂 어떤 분야 책이야?
+                  </div>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {CATEGORIES.map((c) => (
+                      <button
+                        key={c.label}
+                        onClick={() => handleCategoryClick(c)}
+                        disabled={searching}
+                        className={`h-10 rounded-lg text-[11px] font-bold transition-all border-[1.5px] disabled:opacity-50 px-1 ${
+                          selCategory === c.label
+                            ? "border-brand-middle bg-brand-middle text-white shadow-[0_2px_8px_rgba(16,185,129,0.25)]"
+                            : "border-line bg-white text-ink-secondary hover:border-brand-middle-light hover:bg-brand-middle-pale"
+                        }`}
+                      >
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="text-[11px] mt-1">
-                  또는 책 제목으로 직접 검색해도 됩니다
-                </div>
-              </div>
-            )}
 
-            {/* 검색 중 */}
-            {isSearching && (
-              <div className="text-center py-10 text-ink-muted">
-                <div className="text-4xl mb-2 animate-pulse">🔍</div>
-                <div className="text-[13px] font-medium">
-                  카카오에서 책을 찾고 있어요...
-                </div>
-              </div>
-            )}
-
-            {/* 검색 결과 없음 */}
-            {!isSearching && searchResults.length === 0 && searchQuery && (
-              <div className="text-center py-10 text-ink-muted">
-                <div className="text-4xl mb-2">😅</div>
-                <div className="text-[13px] font-medium">
-                  검색 결과가 없어요
-                </div>
-                <div className="text-[11px] mt-1">
-                  다른 검색어로 시도해보세요
-                </div>
-              </div>
-            )}
-
-            {/* 검색 결과 */}
-            {searchResults.length > 0 && (
-              <div>
-                <div className="text-[12px] font-bold text-ink-secondary mb-3">
-                  검색 결과 {searchResults.length}건
-                </div>
-                {searchResults.map((b, i) => (
-                  <div
-                    key={i}
-                    className="border border-line rounded-xl p-4 mb-2.5 hover:border-brand-middle-light hover:shadow-sm transition-all"
-                  >
-                    <div className="flex gap-3">
-                      <div className="w-[70px] h-[92px] rounded-lg overflow-hidden flex-shrink-0 bg-brand-middle-pale flex items-center justify-center border border-line">
-                        {b.thumbnail ? (
-                          <img
-                            src={b.thumbnail}
-                            alt={b.title}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-2xl">📚</span>
-                        )}
+                {/* 검색 input */}
+                <div className="px-6 pt-3 pb-3">
+                  <div className="text-[11px] font-medium text-ink-muted mb-1.5">
+                    또는 직접 검색해보기
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted">
+                      🔍
+                    </span>
+                    <input
+                      id="book-search-input"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      placeholder="책 제목, 저자, 키워드로 검색"
+                      className="w-full h-11 border border-line rounded-lg pl-10 pr-10 text-[13px] outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-colors font-sans"
+                    />
+                    {searching && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div className="w-4 h-4 border-2 border-gray-200 border-t-brand-middle rounded-full animate-spin" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[14px] font-bold text-ink mb-1 tracking-tight">
-                          {b.title}
-                        </div>
-                        <div className="text-[11px] text-ink-secondary mb-2">
-                          {b.author} · {b.publisher} · {b.year}
-                        </div>
-                        {b.contents && (
-                          <div className="text-[11px] text-ink-secondary leading-[1.6] mb-2.5 line-clamp-3">
-                            {b.contents}
-                          </div>
-                        )}
-                        <button
-                          onClick={() => handleAddBook(b)}
-                          disabled={addBook.isPending}
-                          className={`h-9 px-4 rounded-lg text-[12.5px] font-bold transition-all ${
-                            !addBook.isPending
-                              ? "bg-brand-middle hover:bg-brand-middle-hover text-white cursor-pointer hover:-translate-y-px hover:shadow-btn-middle"
-                              : "bg-gray-100 text-ink-muted cursor-not-allowed"
-                          }`}
-                        >
-                          {addBook.isPending ? "추가 중..." : "📚 추가하기"}
-                        </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 검색 결과 */}
+                <div className="px-6 pb-4">
+                  {!searchInput && searchResults.length === 0 && (
+                    <div className="text-center py-8 bg-gray-50 rounded-xl">
+                      <div className="text-3xl mb-2">📚</div>
+                      <div className="text-[13px] font-medium text-ink-secondary mb-1">
+                        위에서 분야를 선택하면 추천 책이 나타나요!
+                      </div>
+                      <div className="text-[11px] text-ink-muted">
+                        또는 책 제목으로 직접 검색해도 됩니다
                       </div>
                     </div>
+                  )}
+
+                  {searchError && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-3">
+                      <div className="text-[12px] text-red-600 font-medium">
+                        ⚠️ {searchError}
+                      </div>
+                    </div>
+                  )}
+
+                  {searchInput &&
+                    !searching &&
+                    !searchError &&
+                    searchResults.length === 0 && (
+                      <div className="text-center py-10">
+                        <div className="text-3xl mb-2">🔍</div>
+                        <div className="text-[13px] text-ink-muted">
+                          검색 결과가 없어요.
+                        </div>
+                      </div>
+                    )}
+
+                  {searchResults.length > 0 && (
+                    <div className="text-[11px] text-ink-muted mb-2 font-medium">
+                      "
+                      <span className="text-brand-middle-dark font-bold">
+                        {searchQuery}
+                      </span>
+                      " 검색 결과 총{" "}
+                      <span className="text-brand-middle-dark font-bold">
+                        {totalCount.toLocaleString()}
+                      </span>
+                      건
+                      {totalCount > pageableCount && (
+                        <span className="ml-1">
+                          · 상위 {pageableCount.toLocaleString()}건 노출
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {searchResults.map((book, i) => (
+                    <div
+                      key={i}
+                      onClick={() => openBookDetail(book)}
+                      className="border border-line rounded-xl px-4 py-3 mb-2 cursor-pointer flex gap-3 items-start bg-white hover:bg-brand-middle-pale/50 hover:border-brand-middle-light transition-all"
+                    >
+                      {book.thumbnail ? (
+                        <img
+                          src={book.thumbnail}
+                          alt={book.title}
+                          className="w-12 h-16 object-cover rounded flex-shrink-0 bg-gray-100"
+                        />
+                      ) : (
+                        <div className="w-12 h-16 bg-brand-middle-pale rounded flex-shrink-0 flex items-center justify-center text-xl">
+                          📖
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-semibold text-ink mb-0.5 line-clamp-1">
+                          {stripHtml(book.title)}
+                        </div>
+                        <div className="text-[11px] text-ink-secondary mb-1.5 font-medium">
+                          {book.author}
+                          {book.publisher && ` · ${book.publisher}`}
+                        </div>
+                        {book.description && (
+                          <div className="text-[11px] text-ink-muted leading-relaxed line-clamp-2">
+                            {stripHtml(book.description)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-[11px] font-bold text-brand-middle-dark flex-shrink-0 mt-1">
+                        상세 →
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* 페이지네이션 — 결과 리스트 바로 아래 */}
+                  {searchResults.length > 0 && totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-1 mt-4 pt-4 border-t border-line">
+                      <button
+                        onClick={() => goPage(1)}
+                        disabled={page === 1 || searching}
+                        className="w-8 h-8 rounded-lg text-[12px] font-semibold text-ink-secondary hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        title="처음"
+                      >
+                        «
+                      </button>
+                      <button
+                        onClick={() => goPage(page - 1)}
+                        disabled={page === 1 || searching}
+                        className="w-8 h-8 rounded-lg text-[12px] font-semibold text-ink-secondary hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        title="이전"
+                      >
+                        ‹
+                      </button>
+                      {pageButtons.map((p) => (
+                        <button
+                          key={p}
+                          onClick={() => goPage(p)}
+                          disabled={searching}
+                          className={`w-8 h-8 rounded-lg text-[12px] font-bold transition-all disabled:opacity-50 ${
+                            p === page
+                              ? "bg-brand-middle text-white shadow-[0_2px_6px_rgba(16,185,129,0.25)]"
+                              : "text-ink hover:bg-gray-100"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => goPage(page + 1)}
+                        disabled={isEnd || page >= totalPages || searching}
+                        className="w-8 h-8 rounded-lg text-[12px] font-semibold text-ink-secondary hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        title="다음"
+                      >
+                        ›
+                      </button>
+                      <button
+                        onClick={() => goPage(totalPages)}
+                        disabled={page >= totalPages || searching}
+                        className="w-8 h-8 rounded-lg text-[12px] font-semibold text-ink-secondary hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        title="마지막"
+                      >
+                        »
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: 도서 상세 */}
+            {modalStep === 2 && selSearchBook && (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-y-auto px-6 py-5">
+                  <div className="flex gap-4 mb-5">
+                    {selSearchBook.thumbnail ? (
+                      <img
+                        src={selSearchBook.thumbnail}
+                        alt={selSearchBook.title}
+                        className="w-[120px] h-[168px] object-cover rounded-lg flex-shrink-0 bg-gray-100 shadow-[0_4px_16px_rgba(0,0,0,0.12)]"
+                      />
+                    ) : (
+                      <div className="w-[120px] h-[168px] bg-brand-middle-pale rounded-lg flex-shrink-0 flex items-center justify-center text-4xl shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
+                        📖
+                      </div>
+                    )}
+
+                    <div className="flex-1 min-w-0 flex flex-col">
+                      <div className="text-[17px] font-bold text-ink leading-snug mb-2 tracking-tight">
+                        {stripHtml(selSearchBook.title)}
+                      </div>
+                      <div className="text-[13px] font-semibold text-ink-secondary mb-1">
+                        {selSearchBook.author}
+                      </div>
+                      {selSearchBook.translators &&
+                        selSearchBook.translators.length > 0 && (
+                          <div className="text-[12px] text-ink-muted mb-1">
+                            번역: {selSearchBook.translators.join(", ")}
+                          </div>
+                        )}
+                      {selSearchBook.publisher && (
+                        <div className="text-[12px] text-ink-muted mb-1">
+                          출판사:{" "}
+                          <span className="font-semibold text-ink-secondary">
+                            {selSearchBook.publisher}
+                          </span>
+                        </div>
+                      )}
+                      {selSearchBook.datetime && (
+                        <div className="text-[12px] text-ink-muted mb-1">
+                          출간일:{" "}
+                          <span className="font-semibold text-ink-secondary">
+                            {formatDate(selSearchBook.datetime)}
+                          </span>
+                        </div>
+                      )}
+                      {selSearchBook.isbn && (
+                        <div className="text-[11px] text-ink-muted mb-1 font-mono">
+                          ISBN: {selSearchBook.isbn}
+                        </div>
+                      )}
+                      {selSearchBook.status &&
+                        selSearchBook.status !== "정상판매" && (
+                          <div className="mt-1">
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                              {selSearchBook.status}
+                            </span>
+                          </div>
+                        )}
+                      {selSearchBook.url && (
+                        <a
+                          href={selSearchBook.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-auto inline-flex items-center gap-1.5 text-[12px] font-bold text-brand-middle-dark hover:text-brand-middle bg-white border border-brand-middle-light hover:border-brand-middle px-3 py-1.5 rounded-lg transition-all self-start"
+                        >
+                          🔗 내용 상세 보기
+                        </a>
+                      )}
+                    </div>
                   </div>
-                ))}
+
+                  {selSearchBook.description ? (
+                    <div>
+                      <div className="text-[12px] font-bold text-ink mb-2 flex items-center gap-1.5">
+                        📝 책 소개
+                      </div>
+                      <div className="bg-gray-50 border border-line rounded-xl px-4 py-3.5 text-[13px] text-ink leading-[1.75] whitespace-pre-wrap">
+                        {stripHtml(selSearchBook.description)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 border border-line rounded-xl px-4 py-6 text-center">
+                      <div className="text-[12px] text-ink-muted">
+                        이 책에 대한 소개 정보가 없어요.
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="px-6 py-4 border-t border-line-light flex gap-2 flex-shrink-0 bg-white">
+                  <button
+                    onClick={backToSearch}
+                    className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-all"
+                  >
+                    ← 다른 책 보기
+                  </button>
+                  <button
+                    onClick={goToRegister}
+                    className="flex-[1.5] h-11 bg-brand-middle text-white rounded-lg text-[13px] font-bold hover:bg-brand-middle-hover transition-all hover:-translate-y-px hover:shadow-btn-middle"
+                  >
+                    이 책으로 등록하기 →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: 등록 확인 */}
+            {modalStep === 3 && selSearchBook && (
+              <div className="flex-1 overflow-y-auto px-6 py-5">
+                <div className="bg-brand-middle-pale border border-brand-middle-light rounded-xl px-4 py-4 mb-5 flex items-start gap-3">
+                  {selSearchBook.thumbnail ? (
+                    <img
+                      src={selSearchBook.thumbnail}
+                      alt={selSearchBook.title}
+                      className="w-14 h-20 object-cover rounded flex-shrink-0 bg-white"
+                    />
+                  ) : (
+                    <span className="text-2xl flex-shrink-0">📖</span>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[14px] font-bold text-brand-middle-dark mb-1">
+                      {stripHtml(selSearchBook.title)}
+                    </div>
+                    <div className="text-[12px] text-brand-middle-dark/80 font-medium mb-1">
+                      {selSearchBook.author}
+                      {selSearchBook.publisher && ` · ${selSearchBook.publisher}`}
+                    </div>
+                    {selCategory && (
+                      <span className="inline-block text-[10px] font-bold text-white bg-brand-middle px-2 py-0.5 rounded-full mt-1">
+                        {selCategory}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5 flex gap-2">
+                  <span className="text-base flex-shrink-0">💡</span>
+                  <div className="text-[12px] text-amber-900 leading-[1.6]">
+                    이 책을 독서 리스트에 추가할까요?<br />
+                    추가 후 줄거리·느낀점·진로 연결점을 기록할 수 있어요.
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={closeModal}
+                    className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-all"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handleAddBook}
+                    disabled={addBook.isPending}
+                    className={`flex-[2] h-11 rounded-lg text-[13px] font-bold transition-all ${
+                      !addBook.isPending
+                        ? "bg-brand-middle text-white hover:bg-brand-middle-hover hover:-translate-y-px hover:shadow-btn-middle"
+                        : "bg-gray-200 text-ink-muted cursor-not-allowed"
+                    }`}
+                  >
+                    {addBook.isPending ? "추가 중..." : "📚 독서 리스트에 추가"}
+                  </button>
+                </div>
               </div>
             )}
           </div>

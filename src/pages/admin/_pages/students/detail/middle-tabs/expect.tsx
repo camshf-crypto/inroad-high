@@ -6,7 +6,6 @@ import {
   useAddSectionFeedback,
   useUpdateSectionFeedback,
   useDeleteSectionFeedback,
-  useGenerateQuestions,
   useStudentQuestions,
   useStudentQuestionFeedback,
   useSaveFirstFeedback,
@@ -15,6 +14,14 @@ import {
   useApproveDeleteEssay,
   useRejectDeleteRequest,
 } from "@/pages/admin/_hooks/middle/useStudentExpect";
+// ⭐ AI Edge Function hook
+import {
+  useAnalyzeSection,
+  useGenerateQuestionsAi,
+  useAnalyzeAnswer,
+  type SectionAnalysisResult,
+} from "@/pages/admin/_hooks/middle/useAiEssay";
+import { supabase } from "@/lib/supabase";
 
 const THEME = {
   accent: "#059669",
@@ -33,12 +40,13 @@ const STEP_LABELS = [
   "꼬리질문",
 ];
 
+// ⭐ 자소서 섹션 — 4개로 단순화 (selfStudy 제거, AI는 4개 항목만 분석)
 const SECTIONS = [
-  { key: "selfStudy", label: "📚 자기주도학습 과정" },
-  { key: "reason", label: "🏫 지원동기 (건학이념 연계)" },
-  { key: "activity", label: "🎯 꿈과 끼를 살리기 위한 활동계획" },
-  { key: "career", label: "🚀 진로계획" },
-  { key: "character", label: "🤝 인성" },
+  { key: "selfStudy", label: "📚 자기주도학습 과정", aiKey: null },
+  { key: "reason", label: "🏫 지원동기 (건학이념 연계)", aiKey: "지원동기" },
+  { key: "activity", label: "🎯 꿈과 끼를 살리기 위한 활동계획", aiKey: "활동계획" },
+  { key: "career", label: "🚀 진로계획", aiKey: "진로계획" },
+  { key: "character", label: "🤝 인성", aiKey: "인성" },
 ];
 
 const AI_TAIL_SUGGESTIONS = [
@@ -47,129 +55,29 @@ const AI_TAIL_SUGGESTIONS = [
   "이 활동이 본인의 진로 선택에 어떤 영향을 미쳤나요?",
 ];
 
-// 자소서 섹션별 AI 선생님 말투 피드백 (mock)
-// 선생님 말투로 자동 작성 (mock)
-const AI_TEACHER_FEEDBACK: Record<string, string> = {
-  selfStudy:
-    "○○이의 자기주도학습 과정을 잘 읽었어요. 매일 꾸준히 학습 습관을 만들어온 점이 정말 인상 깊네요. 한 가지만 보완해보면 좋겠어요. 본인이 가장 어려워했던 과목이 있다면 그것을 어떻게 스스로 극복했는지 구체적인 사례를 하나 더 추가해보세요. 예를 들어 어떤 단원에서 막혔을 때 어떤 방법으로 해결했는지 적으면 자기주도학습 능력이 더 잘 드러날 거예요. 화이팅! 💪",
-  reason:
-    '지원동기가 진정성 있게 잘 작성됐어요. 학교에 대한 이해도도 잘 보이네요. 한 가지 보완할 점은 학교의 건학이념과 본인 가치관의 연결고리를 한 문장 더 추가해보는 거예요. "이 학교의 ○○ 정신이 제가 추구하는 ○○과 맞닿아 있다"처럼 본인의 경험과 연결해서 써보면 더 강력해져요. 학교 홈페이지 정보 인용보다 본인 이야기로 풀어내는 게 차별화 포인트입니다!',
-  activity:
-    "활동 계획이 구체적이어서 좋아요! 입학 후 무엇을 하고 싶은지 잘 보입니다. 한 가지 더 보완해보면 본인이 왜 그 활동을 하고 싶은지 동기를 추가해보세요. 또 1학년/2학년/3학년 시기별로 단계적 계획으로 나눠서 보여주면 훨씬 체계적으로 보여요. 활동을 통해 얻고 싶은 구체적인 역량까지 함께 적으면 완성도가 올라갈 거예요.",
-  career:
-    '진로 비전이 명확해서 좋아요! 꿈이 잘 드러납니다. 한 가지 보완할 점은 "왜 이 진로를 선택했는지" 본인의 경험이나 계기를 추가해보세요. 그리고 그 진로를 위해 지금부터 어떤 노력을 할 계획인지, 고등학교-대학-직업까지 단계별 중간 목표를 함께 보여주면 진정성이 훨씬 높아질 거예요. ○○이의 꿈을 응원합니다!',
-  character:
-    "인성 사례가 구체적이어서 좋아요. 리더십 경험이 잘 드러납니다. 한 가지만 더 보완해보면, 그 경험을 통해 본인이 어떻게 변화하고 성장했는지 추가해보세요. 그리고 결과만 언급하지 말고 과정에서의 갈등이나 어려움도 솔직하게 보여주면 더 인상 깊어요. 한 가지 구체적 일화를 깊게 풀어쓰는 게 여러 일화를 나열하는 것보다 효과적이에요!",
-};
-
-// AI 답변 분석 (mock)
-const AI_ESSAY_ANALYSIS: Record<
-  string,
-  { strengths: string[]; improvements: string[]; recommendations: string[] }
-> = {
-  selfStudy: {
-    strengths: [
-      "구체적인 학습 방법(독서 30분, 복습 노트)이 명확하게 드러남",
-      "꾸준함과 습관 형성에 대한 의지가 잘 보임",
-      "자기주도성을 보여주는 구체적 행동이 포함됨",
-    ],
-    improvements: [
-      "학습 결과(성적 향상, 깨달음)가 빠져있음",
-      "어려움을 극복한 사례가 부족함",
-      "왜 그런 학습 방법을 선택했는지 동기가 없음",
-    ],
-    recommendations: [
-      "가장 어려웠던 과목 구체 사례 추가",
-      "학습을 통해 얻은 성장이나 변화 명시",
-      "자기주도학습이 진로와 어떻게 연결되는지 언급",
-    ],
-  },
-  reason: {
-    strengths: [
-      "학교에 대한 관심과 이해도가 보임",
-      "지원 의지가 진정성 있게 표현됨",
-    ],
-    improvements: [
-      "학교 건학이념과의 연결이 약함",
-      "본인의 경험과 학교의 연결점이 부족",
-      "왜 다른 학교가 아닌 이 학교인지 차별화 포인트 부족",
-    ],
-    recommendations: [
-      "건학이념과 본인 가치관 1:1 매칭",
-      "본인 경험에서 학교를 알게 된 계기 추가",
-      '"이 학교에서만 가능한 것"을 구체적으로 언급',
-    ],
-  },
-  activity: {
-    strengths: ["입학 후 계획이 구체적임", "활동에 대한 열정이 느껴짐"],
-    improvements: [
-      "왜 그 활동을 하고 싶은지 동기 부족",
-      "시기별 단계적 계획 부재",
-      "활동을 통한 성장 목표 불명확",
-    ],
-    recommendations: [
-      "1/2/3학년 시기별 계획으로 구분",
-      "활동 동기 + 기대 역량 추가",
-      "진로와 활동의 연관성 강조",
-    ],
-  },
-  career: {
-    strengths: ["진로 목표가 명확함", "비전이 잘 드러남"],
-    improvements: [
-      "진로 선택 계기/경험 부족",
-      "진로 실현 계획 구체성 부족",
-      "단계별 중간 목표 부재",
-    ],
-    recommendations: [
-      "진로 선택 계기가 된 경험 추가",
-      "고등학교-대학-직업 단계별 로드맵",
-      "진로를 위한 현재 노력 구체화",
-    ],
-  },
-  character: {
-    strengths: ["구체적인 인성 사례 포함", "리더십/배려 경험이 명확함"],
-    improvements: [
-      "경험을 통한 변화/성장 부족",
-      "과정에서의 갈등/어려움 부재",
-      "여러 사례 나열로 깊이 부족",
-    ],
-    recommendations: [
-      "한 가지 일화를 깊이 있게 풀어쓰기",
-      "그 경험으로 본인이 어떻게 변했는지 명시",
-      "갈등 상황과 해결 과정 솔직하게 묘사",
-    ],
-  },
-};
-
 export default function MiddleExpectTab({ student }: { student: any }) {
-  // ⭐ DB 훅
   const studentId = student?.id ? String(student.id) : undefined;
   const { data: essays = [], isLoading } = useStudentEssays(studentId);
 
   const [activeTab, setActiveTab] = useState<"essay" | "questions">("essay");
 
-  // 자소서 선택
   const [selEssayId, setSelEssayId] = useState<string | null>(null);
   const selEssay = essays.find((e) => e.id === selEssayId) ?? null;
 
-  // 첫 자소서 자동 선택
   useEffect(() => {
     if (!selEssayId && essays.length > 0) {
       setSelEssayId(essays[0].id);
     }
   }, [essays.length, selEssayId]);
 
-  // 자소서 섹션 피드백
   const { data: sectionFeedbacks = [] } = useStudentEssayFeedback(
     selEssayId ?? undefined,
   );
 
-  // ⭐ 답변 이력 조회
   const { data: essayAnswers = [] } = useStudentEssayAnswers(
     selEssayId ?? undefined,
   );
 
-  // 섹션별 답변 이력 그룹핑
   const answersBySection = essayAnswers.reduce(
     (acc: Record<string, any[]>, a) => {
       if (!acc[a.section_key]) acc[a.section_key] = [];
@@ -179,7 +87,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
     {},
   );
 
-  // 섹션별 그룹핑
   const feedbackBySection = sectionFeedbacks.reduce(
     (acc: Record<string, any[]>, fb) => {
       if (!acc[fb.section_key]) acc[fb.section_key] = [];
@@ -189,7 +96,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
     {},
   );
 
-  // 새 피드백 입력
   const [newSectionFbs, setNewSectionFbs] = useState<Record<string, string>>(
     {},
   );
@@ -199,21 +105,27 @@ export default function MiddleExpectTab({ student }: { student: any }) {
   } | null>(null);
   const [editingText, setEditingText] = useState("");
 
-  // 섹션 피드백 훅
   const addSectionFb = useAddSectionFeedback();
   const updateSectionFb = useUpdateSectionFeedback();
   const deleteSectionFb = useDeleteSectionFeedback();
-  const generateQuestions = useGenerateQuestions();
+
+  // ⭐ AI Edge Function hooks
+  const analyzeSection = useAnalyzeSection();
+  const generateQuestionsAi = useGenerateQuestionsAi();
+  const analyzeAnswer = useAnalyzeAnswer();
+
+  // ⭐ AI 분석 결과 캐시 (섹션별)
+  const [aiResults, setAiResults] = useState<Record<string, SectionAnalysisResult>>({});
+  // ⭐ 예상질문 답변 분석 결과 (질문 ID별)
+  const [qaiResults, setQaiResults] = useState<Record<string, SectionAnalysisResult>>({});
 
   // 예상질문 탭
   const [selSchoolFilter, setSelSchoolFilter] = useState<string>("");
   const [selQId, setSelQId] = useState<string | null>(null);
 
-  // 학교 필터에 해당하는 자소서 찾기
   const filterEssay = essays.find((e) => e.school === selSchoolFilter);
   const { data: questions = [] } = useStudentQuestions(filterEssay?.id);
 
-  // 첫 학교 자동 선택
   useEffect(() => {
     if (!selSchoolFilter) {
       const generated = essays.find((e) => e.questions_generated);
@@ -223,17 +135,14 @@ export default function MiddleExpectTab({ student }: { student: any }) {
     }
   }, [essays, selSchoolFilter]);
 
-  // 선택 질문
   const selQ = questions.find((q) => q.id === selQId) ?? null;
   const { data: selQFeedback } = useStudentQuestionFeedback(
     selQId ?? undefined,
   );
 
-  // 피드백 텍스트 입력
   const [teacherFbText, setTeacherFbText] = useState("");
   const [finalFbText, setFinalFbText] = useState("");
 
-  // 질문 바뀌면 텍스트 초기화
   useEffect(() => {
     setTeacherFbText(selQFeedback?.teacher_first_feedback || "");
     setFinalFbText(selQFeedback?.teacher_final_feedback || "");
@@ -243,28 +152,24 @@ export default function MiddleExpectTab({ student }: { student: any }) {
     selQFeedback?.teacher_final_feedback,
   ]);
 
-  // 꼬리질문 입력
   const [showAiTailModal, setShowAiTailModal] = useState(false);
   const [aiTailLoading, setAiTailLoading] = useState(false);
   const [newTailText, setNewTailText] = useState("");
 
-  // AI 선생님 말투 자동 작성 - 섹션별 로딩 상태
-  const [aiWritingSection, setAiWritingSection] = useState<string | null>(null);
-
   // AI 분석 사이드 패널
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [aiPanelSection, setAiPanelSection] = useState<string>("");
+  // ⭐ 예상질문 답변용 사이드 패널
+  const [showQAiPanel, setShowQAiPanel] = useState(false);
+  const [qAiPanelKey, setQAiPanelKey] = useState<string>(""); // selQ.id 또는 selQ.id_upgrade
 
-  // 질문 피드백 훅
   const saveFirstFb = useSaveFirstFeedback();
   const saveFinalFb = useSaveFinalFeedback();
   const updateTails = useUpdateTailQuestions();
 
-  // 삭제 승인/거부 훅
   const approveDelete = useApproveDeleteEssay();
   const rejectDelete = useRejectDeleteRequest();
 
-  // 삭제 승인
   const handleApproveDelete = async () => {
     if (!selEssay) return;
     if (
@@ -282,7 +187,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
     }
   };
 
-  // 삭제 요청 거부
   const handleRejectDelete = async () => {
     if (!selEssay) return;
     if (!confirm("학생의 삭제 요청을 거부할까요?")) return;
@@ -307,7 +211,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
     return 4;
   };
 
-  // 섹션 피드백 추가 (다회차)
   const handleAddSectionFb = async (key: string) => {
     const text = newSectionFbs[key] || "";
     if (!text.trim() || !selEssay) return;
@@ -323,7 +226,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
     }
   };
 
-  // 섹션 피드백 수정
   const handleUpdateSectionFb = async () => {
     if (!editingText.trim() || !editingSection) return;
     try {
@@ -338,7 +240,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
     }
   };
 
-  // 섹션 피드백 삭제
   const handleDeleteSectionFb = async (id: string) => {
     if (!confirm("이 피드백을 삭제할까요?")) return;
     try {
@@ -348,23 +249,68 @@ export default function MiddleExpectTab({ student }: { student: any }) {
     }
   };
 
-  // 예상질문 생성
+  // ⭐ 예상질문 생성 — 진짜 AI Edge Function 호출
   const handleGenerateQuestions = async () => {
     if (!selEssay) return;
+    if (!selEssay.content) {
+      alert("자소서 내용이 없어요.");
+      return;
+    }
+
     try {
-      await generateQuestions.mutateAsync({
-        essay_id: selEssay.id,
-        school: selEssay.school,
+      // 1. AI Edge Function 호출
+      const generated = await generateQuestionsAi.mutateAsync({
+        schoolName: selEssay.school,
+        studentName: student?.name,
+        sections: {
+          지원동기: selEssay.content.reason || "",
+          활동계획: selEssay.content.activity || "",
+          진로계획: selEssay.content.career || "",
+          인성: selEssay.content.character || "",
+        },
+        count: 8,
       });
+
+      if (!generated || generated.length === 0) {
+        alert("질문 생성 실패. 다시 시도해주세요.");
+        return;
+      }
+
+      // 2. DB에 INSERT
+      const rows = generated.map((q, idx) => ({
+        essay_id: selEssay.id,
+        question_index: idx,
+        text: q.text,
+        tag: q.tag,
+        purpose: q.purpose,
+      }));
+
+      const { error: insertError } = await supabase
+        .from("jaso_questions")
+        .insert(rows);
+
+      if (insertError) throw insertError;
+
+      // 3. 자소서 questions_generated = true
+      const { error: updateError } = await supabase
+        .from("jaso_essays")
+        .update({ questions_generated: true })
+        .eq("id", selEssay.id);
+
+      if (updateError) throw updateError;
+
       setSelSchoolFilter(selEssay.school);
       setActiveTab("questions");
-      alert("✅ 예상질문 5개가 생성되었어요!");
+      alert(`✅ 예상질문 ${generated.length}개가 AI로 생성되었어요!`);
+
+      // 페이지 새로고침으로 강제 데이터 재조회
+      window.location.reload();
     } catch (e: any) {
+      console.error("질문 생성 실패:", e);
       alert(`질문 생성 실패: ${e.message}`);
     }
   };
 
-  // 1차 피드백 전달
   const handleSendFirstFb = async () => {
     if (!teacherFbText.trim() || !selQ) return;
     try {
@@ -378,7 +324,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
     }
   };
 
-  // 최종 피드백 전달
   const handleSendFinalFb = async () => {
     if (!finalFbText.trim() || !selQ) return;
     try {
@@ -392,7 +337,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
     }
   };
 
-  // 꼬리질문 추가
   const handleAddTail = async (text: string) => {
     if (!text.trim() || !selQ) return;
     const currentTails = selQFeedback?.tail_questions || [];
@@ -408,7 +352,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
     }
   };
 
-  // 꼬리질문 삭제
   const handleRemoveTail = async (idx: number) => {
     if (!selQ) return;
     const currentTails = selQFeedback?.tail_questions || [];
@@ -423,31 +366,68 @@ export default function MiddleExpectTab({ student }: { student: any }) {
     }
   };
 
-  // AI 꼬리질문 모달
   const openAiTailModal = () => {
     setShowAiTailModal(true);
     setAiTailLoading(true);
     setTimeout(() => setAiTailLoading(false), 1200);
   };
 
-  // ✨ AI가 선생님 말투로 피드백 자동 작성 → textarea에 직접 입력
-  const writeAiFeedback = (sectionKey: string) => {
-    setAiWritingSection(sectionKey);
-    setTimeout(() => {
-      const aiText = AI_TEACHER_FEEDBACK[sectionKey] || "";
-      setNewSectionFbs((prev) => ({ ...prev, [sectionKey]: aiText }));
-      setAiWritingSection(null);
-    }, 1000);
-  };
-
-  // ✨ AI 분석 패널 토글
-  const toggleAiPanel = (sectionKey: string) => {
+  // ⭐ AI 분석 패널 토글 — 진짜 호출
+  const toggleAiPanel = async (sectionKey: string) => {
     if (showAiPanel && aiPanelSection === sectionKey) {
       setShowAiPanel(false);
       return;
     }
     setAiPanelSection(sectionKey);
     setShowAiPanel(true);
+
+    // 이미 분석 결과 있으면 그대로 사용
+    if (aiResults[sectionKey]) return;
+
+    // 섹션 매핑
+    const sectionInfo = SECTIONS.find((s) => s.key === sectionKey);
+    if (!sectionInfo?.aiKey) {
+      // selfStudy 같은 건 AI 매핑 없음
+      return;
+    }
+
+    // 학생이 작성한 답변 가져오기
+    const sectionAnswers = answersBySection[sectionKey] || [];
+    const latestAnswer = sectionAnswers.length > 0
+      ? sectionAnswers[sectionAnswers.length - 1]
+      : null;
+
+    const answerText = latestAnswer?.content || (selEssay?.content as any)?.[sectionKey] || "";
+
+    if (!answerText || answerText.length < 20) {
+      alert("학생이 아직 충분한 답변을 작성하지 않았어요.");
+      return;
+    }
+
+    try {
+      const result = await analyzeSection.mutateAsync({
+        schoolName: selEssay?.school || "",
+        sectionKey: sectionInfo.aiKey as any,
+        sectionLabel: sectionInfo.label,
+        answerText,
+        studentName: student?.name,
+      });
+      setAiResults((prev) => ({ ...prev, [sectionKey]: result }));
+    } catch (e: any) {
+      console.error("AI 분석 실패:", e);
+      alert(`AI 분석 실패: ${e.message}`);
+      setShowAiPanel(false);
+    }
+  };
+
+  // ⭐ AI가 작성한 피드백 (teacherDraft) 그대로 textarea에 입력
+  const writeAiFeedback = (sectionKey: string) => {
+    const result = aiResults[sectionKey];
+    if (!result?.teacherDraft) {
+      alert("먼저 AI 분석을 받아주세요.");
+      return;
+    }
+    setNewSectionFbs((prev) => ({ ...prev, [sectionKey]: result.teacherDraft }));
   };
 
   const handleTextareaFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
@@ -494,10 +474,7 @@ export default function MiddleExpectTab({ student }: { student: any }) {
             <div className="px-4 py-2.5 border-b border-line flex-shrink-0">
               <div className="text-[12px] font-medium text-ink-secondary">
                 총{" "}
-                <span
-                  className="font-extrabold"
-                  style={{ color: THEME.accent }}
-                >
+                <span className="font-extrabold" style={{ color: THEME.accent }}>
                   {essays.length}개
                 </span>{" "}
                 학교
@@ -522,7 +499,7 @@ export default function MiddleExpectTab({ student }: { student: any }) {
               ) : (
                 essays.map((e) => {
                   const isSelected = selEssayId === e.id;
-                  const hasContent = !!e.content?.selfStudy;
+                  const hasContent = !!e.content?.selfStudy || !!e.content?.reason;
 
                   return (
                     <button
@@ -531,6 +508,7 @@ export default function MiddleExpectTab({ student }: { student: any }) {
                         setSelEssayId(e.id);
                         setNewSectionFbs({});
                         setEditingSection(null);
+                        setAiResults({}); // 자소서 바뀌면 AI 분석 캐시 초기화
                       }}
                       className="w-full rounded-xl px-3.5 py-3 mb-1.5 text-left transition-all"
                       style={{
@@ -642,17 +620,11 @@ export default function MiddleExpectTab({ student }: { student: any }) {
             <div className="px-4 py-2 border-b border-line flex-shrink-0">
               <div className="text-[12px] font-medium text-ink-secondary">
                 총{" "}
-                <span
-                  className="font-extrabold"
-                  style={{ color: THEME.accent }}
-                >
+                <span className="font-extrabold" style={{ color: THEME.accent }}>
                   {questions.length}개
                 </span>{" "}
                 · 답변{" "}
-                <span
-                  className="font-extrabold"
-                  style={{ color: THEME.accent }}
-                >
+                <span className="font-extrabold" style={{ color: THEME.accent }}>
                   {questions.filter((q) => q.answer).length}개
                 </span>
               </div>
@@ -743,7 +715,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
             ) : (
               <>
                 <div className="px-5 py-4 border-b border-line flex-shrink-0">
-                  {/* 삭제 요청 알림 배너 */}
                   {selEssay.delete_requested && (
                     <div className="bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 mb-3 flex items-center justify-between flex-wrap gap-2">
                       <div className="flex items-center gap-2">
@@ -815,20 +786,20 @@ export default function MiddleExpectTab({ student }: { student: any }) {
                       </div>
                     </div>
                     <div className="flex gap-2 flex-wrap">
-                      {selEssay.content?.selfStudy &&
+                      {(selEssay.content?.selfStudy || selEssay.content?.reason) &&
                         !selEssay.questions_generated && (
                           <button
                             onClick={handleGenerateQuestions}
-                            disabled={generateQuestions.isPending}
+                            disabled={generateQuestionsAi.isPending}
                             className="px-3 py-2 text-white rounded-lg text-[11px] font-bold transition-all hover:-translate-y-px disabled:opacity-50"
                             style={{
                               background: THEME.accent,
                               boxShadow: `0 4px 12px ${THEME.accentShadow}`,
                             }}
                           >
-                            {generateQuestions.isPending
-                              ? "생성 중..."
-                              : "✨ 예상질문 생성"}
+                            {generateQuestionsAi.isPending
+                              ? "🤖 AI 생성 중..."
+                              : "✨ AI로 예상질문 생성"}
                           </button>
                         )}
                       {selEssay.questions_generated && (
@@ -848,7 +819,7 @@ export default function MiddleExpectTab({ student }: { student: any }) {
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-5 py-4">
-                  {!selEssay.content?.selfStudy && (
+                  {!selEssay.content?.selfStudy && !selEssay.content?.reason && (
                     <div className="bg-gray-50 border border-line rounded-xl px-4 py-12 text-center">
                       <div className="text-4xl mb-3">📝</div>
                       <div className="text-[14px] font-bold text-ink-secondary">
@@ -857,7 +828,7 @@ export default function MiddleExpectTab({ student }: { student: any }) {
                     </div>
                   )}
 
-                  {selEssay.content?.selfStudy && (
+                  {(selEssay.content?.selfStudy || selEssay.content?.reason) && (
                     <div>
                       <div className="text-right text-[11px] font-semibold text-ink-muted mb-3">
                         총 {countChars(selEssay.content)} / 1,500자
@@ -871,7 +842,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
                         if (!currentContent && answers.length === 0)
                           return null;
 
-                        // 인터리브 — 가장 큰 round
                         const lastAnswerRound =
                           answers.length > 0
                             ? Math.max(...answers.map((a) => a.round))
@@ -885,14 +855,13 @@ export default function MiddleExpectTab({ student }: { student: any }) {
                           lastFeedbackRound,
                         );
 
-                        // 새 피드백 작성 가능한지: 답변 N차 받음 & 피드백 N차 아직 없음
                         const canWriteNextFb =
-                          lastAnswerRound > lastFeedbackRound;
-                        const nextFbRound = lastAnswerRound;
+                          lastAnswerRound > lastFeedbackRound ||
+                          (currentContent && answers.length === 0 && sectionFbs.length === 0);
+                        const nextFbRound = Math.max(lastAnswerRound, 1);
 
                         return (
                           <div key={s.key} className="mb-6">
-                            {/* 섹션 제목 */}
                             <div className="flex items-center justify-between mb-2">
                               <div
                                 className="text-[12px] font-extrabold tracking-tight"
@@ -907,7 +876,26 @@ export default function MiddleExpectTab({ student }: { student: any }) {
                               )}
                             </div>
 
-                            {/* 회차별 답변 + 피드백 */}
+                            {/* 본문이 있고 답변 이력은 없으면 — 본문을 표시 */}
+                            {currentContent && answers.length === 0 && (
+                              <div className="bg-gray-50 border border-line rounded-xl px-4 py-3 mb-1.5">
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span
+                                    className="text-[10px] font-extrabold text-white px-1.5 py-0.5 rounded-full"
+                                    style={{ background: THEME.accent }}
+                                  >
+                                    학생 자소서
+                                  </span>
+                                  <span className="text-[10px] font-semibold text-ink-muted">
+                                    {currentContent.length}자
+                                  </span>
+                                </div>
+                                <div className="text-[13px] font-medium text-ink leading-[1.8] whitespace-pre-wrap">
+                                  {currentContent}
+                                </div>
+                              </div>
+                            )}
+
                             {Array.from(
                               { length: maxRound },
                               (_, i) => i + 1,
@@ -921,7 +909,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
 
                               return (
                                 <div key={round} className="mb-2">
-                                  {/* N차 답변 */}
                                   {ans && (
                                     <div className="bg-gray-50 border border-line rounded-xl px-4 py-3 mb-1.5">
                                       <div className="flex items-center justify-between mb-1.5">
@@ -950,7 +937,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
                                     </div>
                                   )}
 
-                                  {/* N차 피드백 */}
                                   {fb && (
                                     <div
                                       className="rounded-md px-3 py-2.5 ml-3 mb-1.5"
@@ -1054,7 +1040,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
                               );
                             })}
 
-                            {/* 새 피드백 작성 칸 (답변 받았는데 피드백 안 한 상태) */}
                             {canWriteNextFb && (
                               <div
                                 className="bg-white rounded-md p-2 mt-2"
@@ -1067,29 +1052,35 @@ export default function MiddleExpectTab({ student }: { student: any }) {
                                   >
                                     ➕ {nextFbRound}차 피드백 작성
                                   </div>
-                                  <button
-                                    onClick={() => toggleAiPanel(s.key)}
-                                    className="text-[9px] font-bold px-2 py-0.5 rounded-full transition-all hover:-translate-y-px"
-                                    style={{
-                                      color:
-                                        showAiPanel && aiPanelSection === s.key
-                                          ? "#fff"
-                                          : THEME.accent,
-                                      background:
-                                        showAiPanel && aiPanelSection === s.key
-                                          ? THEME.accent
-                                          : "#fff",
-                                      border: `1px solid ${THEME.accent}`,
-                                      boxShadow:
-                                        showAiPanel && aiPanelSection === s.key
-                                          ? `0 2px 6px ${THEME.accentShadow}`
-                                          : "none",
-                                    }}
-                                  >
-                                    {showAiPanel && aiPanelSection === s.key
-                                      ? "✨ AI 분석 닫기"
-                                      : "✨ AI 분석 보기"}
-                                  </button>
+                                  {/* selfStudy는 AI 분석 안 됨 */}
+                                  {s.aiKey && (
+                                    <button
+                                      onClick={() => toggleAiPanel(s.key)}
+                                      disabled={analyzeSection.isPending && aiPanelSection === s.key}
+                                      className="text-[9px] font-bold px-2 py-0.5 rounded-full transition-all hover:-translate-y-px disabled:opacity-50"
+                                      style={{
+                                        color:
+                                          showAiPanel && aiPanelSection === s.key
+                                            ? "#fff"
+                                            : THEME.accent,
+                                        background:
+                                          showAiPanel && aiPanelSection === s.key
+                                            ? THEME.accent
+                                            : "#fff",
+                                        border: `1px solid ${THEME.accent}`,
+                                        boxShadow:
+                                          showAiPanel && aiPanelSection === s.key
+                                            ? `0 2px 6px ${THEME.accentShadow}`
+                                            : "none",
+                                      }}
+                                    >
+                                      {analyzeSection.isPending && aiPanelSection === s.key
+                                        ? "🤖 분석 중..."
+                                        : showAiPanel && aiPanelSection === s.key
+                                        ? "✨ AI 분석 닫기"
+                                        : "✨ AI 분석 보기"}
+                                    </button>
+                                  )}
                                 </div>
                                 <textarea
                                   value={newSectionFbs[s.key] || ""}
@@ -1134,7 +1125,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
                               </div>
                             )}
 
-                            {/* 학생이 다음 답변 작성 대기 중 (피드백 보냈는데 학생이 아직 답변 안 한 상태) */}
                             {!canWriteNextFb &&
                               lastFeedbackRound >= lastAnswerRound &&
                               lastFeedbackRound > 0 && (
@@ -1304,21 +1294,67 @@ export default function MiddleExpectTab({ student }: { student: any }) {
 
                   {selQ.answer && (
                     <div className="bg-white border border-line rounded-xl px-4 py-3">
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <span
-                          className="text-[10px] font-extrabold text-white px-2 py-0.5 rounded-full"
-                          style={{ background: THEME.accent }}
+                      <div className="flex items-center justify-between gap-1.5 mb-2">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="text-[10px] font-extrabold text-white px-2 py-0.5 rounded-full"
+                            style={{ background: THEME.accent }}
+                          >
+                            Step 2
+                          </span>
+                          <span className="text-[11px] font-bold text-ink-secondary">
+                            💬 선생님 1차 피드백
+                          </span>
+                        </div>
+                        {/* ⭐ AI 분석 사이드 패널 열기 버튼 */}
+                        <button
+                          onClick={async () => {
+                            // 이미 결과 있으면 패널만 열기
+                            if (qaiResults[selQ.id]) {
+                              setQAiPanelKey(selQ.id);
+                              setShowQAiPanel(true);
+                              return;
+                            }
+                            // 패널 먼저 열고 분석 시작
+                            setQAiPanelKey(selQ.id);
+                            setShowQAiPanel(true);
+                            try {
+                              const result = await analyzeAnswer.mutateAsync({
+                                schoolName: selSchoolFilter,
+                                questionText: selQ.text,
+                                studentAnswer: selQ.answer || "",
+                                questionPurpose: selQ.purpose,
+                                studentName: student?.name,
+                              });
+                              setQaiResults((prev) => ({ ...prev, [selQ.id]: result }));
+                            } catch (e: any) {
+                              alert(`AI 분석 실패: ${e.message}`);
+                              setShowQAiPanel(false);
+                            }
+                          }}
+                          disabled={analyzeAnswer.isPending && qAiPanelKey === selQ.id}
+                          className="text-[11px] font-bold px-3 py-1 rounded-md transition-all hover:-translate-y-px disabled:opacity-50"
+                          style={{
+                            color: showQAiPanel && qAiPanelKey === selQ.id ? "#fff" : THEME.accent,
+                            background: showQAiPanel && qAiPanelKey === selQ.id ? THEME.accent : "#fff",
+                            border: `1px solid ${THEME.accent}`,
+                            boxShadow: showQAiPanel && qAiPanelKey === selQ.id
+                              ? `0 2px 6px ${THEME.accentShadow}`
+                              : "none",
+                          }}
                         >
-                          Step 2
-                        </span>
-                        <span className="text-[11px] font-bold text-ink-secondary">
-                          💬 선생님 1차 피드백
-                        </span>
+                          {analyzeAnswer.isPending && qAiPanelKey === selQ.id
+                            ? "🤖 분석 중..."
+                            : showQAiPanel && qAiPanelKey === selQ.id
+                            ? "✨ AI 분석 닫기"
+                            : "✨ AI 분석 보기"}
+                        </button>
                       </div>
+
                       <textarea
                         value={teacherFbText}
                         onChange={(e) => setTeacherFbText(e.target.value)}
-                        placeholder="학생 답변에 대한 피드백을 작성해주세요..."
+                        placeholder="학생 답변에 대한 피드백을 작성해주세요... (또는 위 ✨ AI 분석 버튼을 눌러주세요)"
                         rows={3}
                         className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] font-medium outline-none resize-y leading-[1.7] transition-all placeholder:text-ink-muted"
                         onFocus={handleTextareaFocus}
@@ -1376,21 +1412,68 @@ export default function MiddleExpectTab({ student }: { student: any }) {
 
                   {selQ.upgraded_answer && (
                     <div className="bg-white border border-line rounded-xl px-4 py-3">
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <span
-                          className="text-[10px] font-extrabold text-white px-2 py-0.5 rounded-full"
-                          style={{ background: THEME.accent }}
+                      <div className="flex items-center justify-between gap-1.5 mb-2">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="text-[10px] font-extrabold text-white px-2 py-0.5 rounded-full"
+                            style={{ background: THEME.accent }}
+                          >
+                            Step 4
+                          </span>
+                          <span className="text-[11px] font-bold text-ink-secondary">
+                            💬 선생님 최종 피드백
+                          </span>
+                        </div>
+                        {/* ⭐ AI 분석 사이드 패널 (업그레이드 답변용) */}
+                        <button
+                          onClick={async () => {
+                            const cacheKey = `${selQ.id}_upgrade`;
+                            if (qaiResults[cacheKey]) {
+                              setQAiPanelKey(cacheKey);
+                              setShowQAiPanel(true);
+                              return;
+                            }
+                            setQAiPanelKey(cacheKey);
+                            setShowQAiPanel(true);
+                            try {
+                              const result = await analyzeAnswer.mutateAsync({
+                                schoolName: selSchoolFilter,
+                                questionText: selQ.text,
+                                studentAnswer: selQ.upgraded_answer || "",
+                                questionPurpose: selQ.purpose,
+                                studentName: student?.name,
+                                isUpgrade: true,
+                                previousFeedback: selQFeedback?.teacher_first_feedback || undefined,
+                              });
+                              setQaiResults((prev) => ({ ...prev, [cacheKey]: result }));
+                            } catch (e: any) {
+                              alert(`AI 분석 실패: ${e.message}`);
+                              setShowQAiPanel(false);
+                            }
+                          }}
+                          disabled={analyzeAnswer.isPending && qAiPanelKey === `${selQ.id}_upgrade`}
+                          className="text-[11px] font-bold px-3 py-1 rounded-md transition-all hover:-translate-y-px disabled:opacity-50"
+                          style={{
+                            color: showQAiPanel && qAiPanelKey === `${selQ.id}_upgrade` ? "#fff" : THEME.accent,
+                            background: showQAiPanel && qAiPanelKey === `${selQ.id}_upgrade` ? THEME.accent : "#fff",
+                            border: `1px solid ${THEME.accent}`,
+                            boxShadow: showQAiPanel && qAiPanelKey === `${selQ.id}_upgrade`
+                              ? `0 2px 6px ${THEME.accentShadow}`
+                              : "none",
+                          }}
                         >
-                          Step 4
-                        </span>
-                        <span className="text-[11px] font-bold text-ink-secondary">
-                          💬 선생님 최종 피드백
-                        </span>
+                          {analyzeAnswer.isPending && qAiPanelKey === `${selQ.id}_upgrade`
+                            ? "🤖 분석 중..."
+                            : showQAiPanel && qAiPanelKey === `${selQ.id}_upgrade`
+                            ? "✨ AI 분석 닫기"
+                            : "✨ 2차 AI 분석 보기"}
+                        </button>
                       </div>
+
                       <textarea
                         value={finalFbText}
                         onChange={(e) => setFinalFbText(e.target.value)}
-                        placeholder="최종 피드백을 작성해주세요..."
+                        placeholder="최종 피드백을 작성해주세요... (또는 위 ✨ AI 분석 버튼)"
                         rows={3}
                         className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] font-medium outline-none resize-y leading-[1.7] transition-all placeholder:text-ink-muted"
                         onFocus={handleTextareaFocus}
@@ -1477,7 +1560,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
                                       ✕
                                     </button>
                                   </div>
-                                  {/* 학생 답변 */}
                                   {t.answer && (
                                     <div className="mt-2 pt-2 border-t border-line">
                                       <div className="text-[10px] font-bold text-ink-muted mb-1">
@@ -1552,6 +1634,7 @@ export default function MiddleExpectTab({ student }: { student: any }) {
         )}
       </div>
 
+      {/* AI 꼬리질문 모달 (mock 그대로 유지 — 토큰 부족) */}
       {showAiTailModal && (
         <div
           onClick={() => setShowAiTailModal(false)}
@@ -1627,7 +1710,7 @@ export default function MiddleExpectTab({ student }: { student: any }) {
         </div>
       )}
 
-      {/* ========== 우측 AI 분석 사이드 패널 (자소서 섹션별) ========== */}
+      {/* ⭐⭐⭐ 우측 AI 분석 사이드 패널 — 진짜 데이터 ⭐⭐⭐ */}
       {showAiPanel && aiPanelSection && (
         <div className="fixed top-0 right-0 bottom-0 w-[440px] bg-white border-l border-line flex flex-col shadow-[-8px_0_24px_rgba(15,23,42,0.08)] z-50">
           <div className="px-4 py-4 border-b border-line flex-shrink-0 flex items-center justify-between">
@@ -1648,123 +1731,396 @@ export default function MiddleExpectTab({ student }: { student: any }) {
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
-            {/* 강점 분석 */}
-            <div
-              className="rounded-xl px-4 py-3.5"
-              style={{
-                background: THEME.accentBg,
-                border: `1px solid ${THEME.accentBorder}60`,
-              }}
-            >
-              <div className="flex items-center gap-1.5 mb-2">
-                <span className="text-sm">✅</span>
-                <div
-                  className="text-[11px] font-extrabold uppercase tracking-wider"
-                  style={{ color: THEME.accent }}
-                >
-                  강점
+            {/* 로딩 */}
+            {analyzeSection.isPending && !aiResults[aiPanelSection] && (
+              <div className="text-center py-10">
+                <div className="text-3xl mb-3 animate-pulse">🤖</div>
+                <div className="text-[13px] font-bold text-ink-secondary mb-1">
+                  AI가 자소서를 분석 중이에요...
+                </div>
+                <div className="text-[11px] text-ink-muted">
+                  보통 5~15초 정도 걸려요
                 </div>
               </div>
-              <ul className="space-y-1">
-                {(AI_ESSAY_ANALYSIS[aiPanelSection]?.strengths || []).map(
-                  (item, i) => (
-                    <li
-                      key={i}
-                      className="text-[12px] font-medium leading-[1.6] flex gap-1.5"
+            )}
+
+            {/* 분석 결과 있을 때 */}
+            {aiResults[aiPanelSection] && (
+              <>
+                {/* 점수 요약 */}
+                <div
+                  className="rounded-xl px-4 py-3.5"
+                  style={{
+                    background: THEME.accentBg,
+                    border: `1px solid ${THEME.accentBorder}60`,
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div
+                      className="text-[11px] font-extrabold uppercase tracking-wider"
+                      style={{ color: THEME.accent }}
+                    >
+                      📊 종합 점수
+                    </div>
+                    <div
+                      className="text-[24px] font-extrabold"
                       style={{ color: THEME.accentDark }}
                     >
-                      <span>•</span>
-                      <span>{item}</span>
-                    </li>
-                  ),
-                )}
-              </ul>
-            </div>
+                      {aiResults[aiPanelSection].totalScore}
+                      <span className="text-[12px] text-ink-muted">/100</span>
+                    </div>
+                  </div>
+                  {aiResults[aiPanelSection].summary && (
+                    <div className="text-[11.5px] leading-[1.6] mt-1" style={{ color: THEME.accentDark }}>
+                      {aiResults[aiPanelSection].summary}
+                    </div>
+                  )}
+                </div>
 
-            {/* 보완할 점 */}
-            <div className="rounded-xl px-4 py-3.5 bg-amber-50 border border-amber-200">
-              <div className="flex items-center gap-1.5 mb-2">
-                <span className="text-sm">⚠️</span>
-                <div className="text-[11px] font-extrabold uppercase tracking-wider text-amber-700">
-                  보완할 점
+                {/* 4축 점수 */}
+                {aiResults[aiPanelSection].scores.length > 0 && (
+                  <div className="bg-white border border-line rounded-xl px-4 py-3.5">
+                    <div className="text-[11px] font-extrabold uppercase tracking-wider text-ink mb-2">
+                      📐 평가 4축
+                    </div>
+                    <div className="space-y-2">
+                      {aiResults[aiPanelSection].scores.map((s, i) => (
+                        <div key={i}>
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="text-[11px] font-bold text-ink-secondary">
+                              {s.label}
+                            </span>
+                            <span className="text-[11px] font-extrabold" style={{ color: THEME.accent }}>
+                              {s.score}/{s.max}
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-0.5">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${(s.score / s.max) * 100}%`,
+                                background: THEME.accent,
+                              }}
+                            />
+                          </div>
+                          <div className="text-[10px] text-ink-muted leading-[1.4]">{s.desc}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 강점 */}
+                {aiResults[aiPanelSection].strengths.length > 0 && (
+                  <div
+                    className="rounded-xl px-4 py-3.5"
+                    style={{
+                      background: THEME.accentBg,
+                      border: `1px solid ${THEME.accentBorder}60`,
+                    }}
+                  >
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <span className="text-sm">✅</span>
+                      <div
+                        className="text-[11px] font-extrabold uppercase tracking-wider"
+                        style={{ color: THEME.accent }}
+                      >
+                        강점
+                      </div>
+                    </div>
+                    <ul className="space-y-1">
+                      {aiResults[aiPanelSection].strengths.map((item, i) => (
+                        <li
+                          key={i}
+                          className="text-[12px] font-medium leading-[1.6] flex gap-1.5"
+                          style={{ color: THEME.accentDark }}
+                        >
+                          <span>•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* 개선점 */}
+                {aiResults[aiPanelSection].improvements.length > 0 && (
+                  <div className="rounded-xl px-4 py-3.5 bg-amber-50 border border-amber-200">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <span className="text-sm">⚠️</span>
+                      <div className="text-[11px] font-extrabold uppercase tracking-wider text-amber-700">
+                        보완할 점
+                      </div>
+                    </div>
+                    <ul className="space-y-1">
+                      {aiResults[aiPanelSection].improvements.map((item, i) => (
+                        <li
+                          key={i}
+                          className="text-[12px] font-medium leading-[1.6] flex gap-1.5 text-amber-800"
+                        >
+                          <span>•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* 키워드 반영도 */}
+                {aiResults[aiPanelSection].keywordReflection && (
+                  <div className="rounded-xl px-4 py-3.5 bg-blue-50 border border-blue-200">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <span className="text-sm">🎯</span>
+                      <div className="text-[11px] font-extrabold uppercase tracking-wider text-blue-700">
+                        키워드 반영도
+                      </div>
+                    </div>
+                    <div className="text-[12px] font-medium leading-[1.6] text-blue-900">
+                      {aiResults[aiPanelSection].keywordReflection}
+                    </div>
+                  </div>
+                )}
+
+                {/* AI 작성 피드백 미리보기 + 버튼 */}
+                {aiResults[aiPanelSection].teacherDraft && (
+                  <div
+                    className="bg-white rounded-xl px-4 py-3.5 border-2"
+                    style={{ borderColor: THEME.accent }}
+                  >
+                    <div
+                      className="text-[11px] font-extrabold uppercase tracking-wider mb-2"
+                      style={{ color: THEME.accent }}
+                    >
+                      ✨ AI가 작성한 피드백 초안
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3 text-[12px] leading-[1.7] text-ink whitespace-pre-wrap mb-3">
+                      {aiResults[aiPanelSection].teacherDraft}
+                    </div>
+                    <button
+                      onClick={() => {
+                        writeAiFeedback(aiPanelSection);
+                        setShowAiPanel(false);
+                      }}
+                      className="w-full h-10 text-white rounded-lg text-[12px] font-bold transition-all hover:-translate-y-px"
+                      style={{
+                        background: THEME.accent,
+                        boxShadow: `0 4px 12px ${THEME.accentShadow}`,
+                      }}
+                    >
+                      ✨ 이 피드백 사용하기
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* 분석 결과 없고 로딩도 아닐 때 — selfStudy 같은 경우 */}
+            {!analyzeSection.isPending && !aiResults[aiPanelSection] && (
+              <div className="text-center py-10">
+                <div className="text-3xl mb-2">💭</div>
+                <div className="text-[13px] font-bold text-ink-secondary">
+                  이 항목은 AI 분석을 지원하지 않아요
                 </div>
               </div>
-              <ul className="space-y-1">
-                {(AI_ESSAY_ANALYSIS[aiPanelSection]?.improvements || []).map(
-                  (item, i) => (
-                    <li
-                      key={i}
-                      className="text-[12px] font-medium leading-[1.6] flex gap-1.5 text-amber-800"
-                    >
-                      <span>•</span>
-                      <span>{item}</span>
-                    </li>
-                  ),
-                )}
-              </ul>
-            </div>
+            )}
+          </div>
+        </div>
+      )}
 
-            {/* 추천 방향 */}
-            <div className="rounded-xl px-4 py-3.5 bg-blue-50 border border-blue-200">
-              <div className="flex items-center gap-1.5 mb-2">
-                <span className="text-sm">💡</span>
-                <div className="text-[11px] font-extrabold uppercase tracking-wider text-blue-700">
-                  추천 방향
-                </div>
+      {/* ⭐⭐⭐ 예상질문 답변용 AI 분석 사이드 패널 ⭐⭐⭐ */}
+      {showQAiPanel && qAiPanelKey && selQ && (
+        <div className="fixed top-0 right-0 bottom-0 w-[440px] bg-white border-l border-line flex flex-col shadow-[-8px_0_24px_rgba(15,23,42,0.08)] z-50">
+          <div className="px-4 py-4 border-b border-line flex-shrink-0 flex items-center justify-between">
+            <div>
+              <div className="text-[14px] font-extrabold text-ink tracking-tight">
+                ✨ AI 분석
               </div>
-              <ul className="space-y-1">
-                {(AI_ESSAY_ANALYSIS[aiPanelSection]?.recommendations || []).map(
-                  (item, i) => (
-                    <li
-                      key={i}
-                      className="text-[12px] font-medium leading-[1.6] flex gap-1.5 text-blue-900"
-                    >
-                      <span>•</span>
-                      <span>{item}</span>
-                    </li>
-                  ),
-                )}
-              </ul>
+              <div className="text-[11px] font-medium text-ink-secondary mt-0.5">
+                🏫 {selSchoolFilter} · Q{questions.findIndex((q) => q.id === selQ.id) + 1}
+                {qAiPanelKey.endsWith("_upgrade") && " · 업그레이드 답변"}
+              </div>
             </div>
-
-            {/* 선생님 말투로 작성 버튼 */}
-            <div
-              className="bg-white rounded-xl px-4 py-3.5 border-2"
-              style={{ borderColor: THEME.accent }}
+            <button
+              onClick={() => setShowQAiPanel(false)}
+              className="text-ink-muted hover:text-ink text-base w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors"
             >
-              <div
-                className="text-[11px] font-extrabold uppercase tracking-wider mb-1"
-                style={{ color: THEME.accent }}
-              >
-                ✨ AI 자동 작성
+              ✕
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+            {/* 로딩 */}
+            {analyzeAnswer.isPending && !qaiResults[qAiPanelKey] && (
+              <div className="text-center py-10">
+                <div className="text-3xl mb-3 animate-pulse">🤖</div>
+                <div className="text-[13px] font-bold text-ink-secondary mb-1">
+                  AI가 답변을 분석 중이에요...
+                </div>
+                <div className="text-[11px] text-ink-muted">
+                  보통 5~15초 정도 걸려요
+                </div>
               </div>
-              <div className="text-[11px] text-ink-secondary mb-2.5 leading-[1.6]">
-                위 분석을 바탕으로 선생님 말투의 피드백을 자동으로
-                작성해드릴게요. 클릭하면 작성창에 자동 입력돼요.
-              </div>
-              <button
-                onClick={() => {
-                  writeAiFeedback(aiPanelSection);
-                  setShowAiPanel(false);
-                }}
-                disabled={aiWritingSection === aiPanelSection}
-                className="w-full h-10 text-white rounded-lg text-[12px] font-bold transition-all hover:-translate-y-px disabled:cursor-not-allowed"
-                style={{
-                  background:
-                    aiWritingSection === aiPanelSection
-                      ? "#9CA3AF"
-                      : THEME.accent,
-                  boxShadow:
-                    aiWritingSection === aiPanelSection
-                      ? "none"
-                      : `0 4px 12px ${THEME.accentShadow}`,
-                }}
-              >
-                {aiWritingSection === aiPanelSection
-                  ? "✨ 작성 중..."
-                  : "✨ 선생님 말투로 자동 작성"}
-              </button>
-            </div>
+            )}
+
+            {/* 분석 결과 */}
+            {qaiResults[qAiPanelKey] && (
+              <>
+                {/* 종합 점수 */}
+                <div
+                  className="rounded-xl px-4 py-3.5"
+                  style={{
+                    background: THEME.accentBg,
+                    border: `1px solid ${THEME.accentBorder}60`,
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div
+                      className="text-[11px] font-extrabold uppercase tracking-wider"
+                      style={{ color: THEME.accent }}
+                    >
+                      📊 종합 점수
+                    </div>
+                    <div
+                      className="text-[24px] font-extrabold"
+                      style={{ color: THEME.accentDark }}
+                    >
+                      {qaiResults[qAiPanelKey].totalScore}
+                      <span className="text-[12px] text-ink-muted">/100</span>
+                    </div>
+                  </div>
+                  {qaiResults[qAiPanelKey].summary && (
+                    <div className="text-[11.5px] leading-[1.6] mt-1" style={{ color: THEME.accentDark }}>
+                      {qaiResults[qAiPanelKey].summary}
+                    </div>
+                  )}
+                </div>
+
+                {/* 4축 점수 */}
+                {qaiResults[qAiPanelKey].scores.length > 0 && (
+                  <div className="bg-white border border-line rounded-xl px-4 py-3.5">
+                    <div className="text-[11px] font-extrabold uppercase tracking-wider text-ink mb-2">
+                      📐 평가 4축
+                    </div>
+                    <div className="space-y-2">
+                      {qaiResults[qAiPanelKey].scores.map((s, i) => (
+                        <div key={i}>
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="text-[11px] font-bold text-ink-secondary">
+                              {s.label}
+                            </span>
+                            <span className="text-[11px] font-extrabold" style={{ color: THEME.accent }}>
+                              {s.score}/{s.max}
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-0.5">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${(s.score / s.max) * 100}%`,
+                                background: THEME.accent,
+                              }}
+                            />
+                          </div>
+                          <div className="text-[10px] text-ink-muted leading-[1.4]">{s.desc}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 강점 */}
+                {qaiResults[qAiPanelKey].strengths.length > 0 && (
+                  <div
+                    className="rounded-xl px-4 py-3.5"
+                    style={{
+                      background: THEME.accentBg,
+                      border: `1px solid ${THEME.accentBorder}60`,
+                    }}
+                  >
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <span className="text-sm">✅</span>
+                      <div
+                        className="text-[11px] font-extrabold uppercase tracking-wider"
+                        style={{ color: THEME.accent }}
+                      >
+                        강점
+                      </div>
+                    </div>
+                    <ul className="space-y-1">
+                      {qaiResults[qAiPanelKey].strengths.map((item, i) => (
+                        <li
+                          key={i}
+                          className="text-[12px] font-medium leading-[1.6] flex gap-1.5"
+                          style={{ color: THEME.accentDark }}
+                        >
+                          <span>•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* 개선점 */}
+                {qaiResults[qAiPanelKey].improvements.length > 0 && (
+                  <div className="rounded-xl px-4 py-3.5 bg-amber-50 border border-amber-200">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <span className="text-sm">⚠️</span>
+                      <div className="text-[11px] font-extrabold uppercase tracking-wider text-amber-700">
+                        보완할 점
+                      </div>
+                    </div>
+                    <ul className="space-y-1">
+                      {qaiResults[qAiPanelKey].improvements.map((item, i) => (
+                        <li
+                          key={i}
+                          className="text-[12px] font-medium leading-[1.6] flex gap-1.5 text-amber-800"
+                        >
+                          <span>•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* AI 작성 피드백 + 사용 버튼 */}
+                {qaiResults[qAiPanelKey].teacherDraft && (
+                  <div
+                    className="bg-white rounded-xl px-4 py-3.5 border-2"
+                    style={{ borderColor: THEME.accent }}
+                  >
+                    <div
+                      className="text-[11px] font-extrabold uppercase tracking-wider mb-2"
+                      style={{ color: THEME.accent }}
+                    >
+                      ✨ AI가 작성한 피드백 초안
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3 text-[12px] leading-[1.7] text-ink whitespace-pre-wrap mb-3">
+                      {qaiResults[qAiPanelKey].teacherDraft}
+                    </div>
+                    <button
+                      onClick={() => {
+                        const draft = qaiResults[qAiPanelKey].teacherDraft;
+                        if (qAiPanelKey.endsWith("_upgrade")) {
+                          setFinalFbText(draft);
+                        } else {
+                          setTeacherFbText(draft);
+                        }
+                        setShowQAiPanel(false);
+                      }}
+                      className="w-full h-10 text-white rounded-lg text-[12px] font-bold transition-all hover:-translate-y-px"
+                      style={{
+                        background: THEME.accent,
+                        boxShadow: `0 4px 12px ${THEME.accentShadow}`,
+                      }}
+                    >
+                      ✏️ 이 피드백 사용하기
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}

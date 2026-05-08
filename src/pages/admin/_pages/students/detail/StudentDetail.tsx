@@ -28,28 +28,28 @@ import MiddleSimulationTab from './middle-tabs/simulation'
 import MiddlePresentationTab from './middle-tabs/presentation'
 
 const HIGH_TABS = [
-  { key: 'roadmap', label: '🗺️ 로드맵' },
-  { key: 'topic', label: '🔬 탐구주제' },
-  { key: 'book', label: '📖 독서리스트' },
-  { key: 'record', label: '📋 생기부' },
-  { key: 'expect', label: '💬 생기부 예상질문' },
-  { key: 'past', label: '🎓 기출문제' },
-  { key: 'mockexam', label: '📝 면접 모의고사' },
-  { key: 'simulation', label: '🎤 면접 시뮬레이션' },
-  { key: 'presentation', label: '📄 제시문 면접' },
-  { key: 'major', label: '🧠 전공특화문제' },
+  { key: 'roadmap', label: '로드맵' },
+  { key: 'topic', label: '탐구주제' },
+  { key: 'book', label: '독서리스트' },
+  { key: 'record', label: '생기부' },
+  { key: 'expect', label: '생기부 예상질문' },
+  { key: 'past', label: '기출문제' },
+  { key: 'mockexam', label: '면접 모의고사' },
+  { key: 'simulation', label: '면접 시뮬레이션' },
+  { key: 'presentation', label: '제시문 면접' },
+  { key: 'major', label: '전공특화문제' },
 ]
 
 const MIDDLE_TABS = [
-  { key: 'roadmap', label: '🗺️ 로드맵' },
-  { key: 'lesson', label: '📚 수업' },
-  { key: 'homework', label: '✏️ 숙제' },
-  { key: 'suhaeng', label: '📝 수행평가' },
-  { key: 'book', label: '📖 독서리스트' },
-  { key: 'expect', label: '💬 자소서·예상질문' },
-  { key: 'past', label: '🎓 기출문제' },
-  { key: 'simulation', label: '🎤 면접 시뮬레이션' },
-  { key: 'presentation', label: '📄 제시문 면접' },
+  { key: 'roadmap', label: '로드맵' },
+  { key: 'lesson', label: '수업' },
+  { key: 'homework', label: '숙제' },
+  { key: 'suhaeng', label: '수행평가' },
+  { key: 'book', label: '독서리스트' },
+  { key: 'expect', label: '자소서·예상질문' },
+  { key: 'past', label: '기출문제' },
+  { key: 'simulation', label: '면접 시뮬레이션' },
+  { key: 'presentation', label: '제시문 면접' },
 ]
 
 const ALL_GRADES: GradeKey[] = ['고1', '고2', '고3']
@@ -270,9 +270,9 @@ export default function StudentDetail() {
                     <div className="text-[15px] font-extrabold text-white">{overallPct}%</div>
                   </div>
                   {[
-                    { label: '✅ 완료 미션', val: `${doneMissions}/${totalMissions}` },
-                    { label: '📅 현재 월', val: curMonth },
-                    { label: '🎓 학생 학년', val: studentGrade },
+                    { label: '완료 미션', val: `${doneMissions}/${totalMissions}` },
+                    { label: '현재 월', val: curMonth },
+                    { label: '학생 학년', val: studentGrade },
                   ].map((s, i) => (
                     <div key={i} className="bg-white border border-line rounded-xl px-4 py-2">
                       <div className="text-[10px] text-ink-secondary mb-0.5 font-medium">{s.label}</div>

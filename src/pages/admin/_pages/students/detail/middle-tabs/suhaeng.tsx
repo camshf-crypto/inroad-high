@@ -6,6 +6,7 @@ import {
   PolarAngleAxis,
   ResponsiveContainer,
 } from "recharts";
+import { supabase } from "@/lib/supabase";
 import {
   useStudentSuhaengSubmissions,
   useSubmissionFeedback,
@@ -21,7 +22,6 @@ const THEME = {
   accentBorder: "#6EE7B7",
   accentLight: "#D1FAE5",
   accentShadow: "rgba(16, 185, 129, 0.15)",
-  gradient: "linear-gradient(135deg, #065F46, #10B981)",
 };
 
 const STEP_LABELS = ["학생 답안", "AI 분석", "1차 피드백", "재제출 → 최종"];
@@ -60,6 +60,23 @@ const EVAL_CRITERIA: Record<
   ],
 };
 
+function getFunctionNameByType(questionType: string): string | null {
+  switch (questionType) {
+    case "논술형":
+      return "middle-suhaeng-essay";
+    case "서술형":
+      return "middle-suhaeng-short";
+    case "주제탐구":
+      return "middle-suhaeng-research";
+    case "구술발표":
+      return "middle-suhaeng-presentation";
+    case "탐구수행":
+      return "middle-suhaeng-experiment";
+    default:
+      return null;
+  }
+}
+
 type SubmissionStatus =
   | "pending"
   | "analyzed"
@@ -75,21 +92,13 @@ interface ScoreSection {
   desc: string;
 }
 
-interface SecondAnalysis {
-  beforeDistribution: {
-    factorCode: string;
-    factorName: string;
-    distribution: number;
-    evidence: string;
-  }[];
-  afterDistribution: {
-    factorCode: string;
-    factorName: string;
-    distribution: number;
-    evidence: string;
-  }[];
-  structureComment: string;
-  practiceAnswer: string;
+// ⭐ 2차 분석 — 비교 중심으로 단순화
+interface ComparisonAnalysis {
+  isComparison: true;
+  improvedPoints: string[];
+  remainingIssues: string[];
+  comparisonSummary: string;
+  teacherDraft: string;
 }
 
 interface AiAnalysis {
@@ -101,11 +110,12 @@ interface AiAnalysis {
   improvements: string[];
   totalScore: number;
   maxScore: number;
-  second: SecondAnalysis | null;
+  second: ComparisonAnalysis | null;
+  teacherDraft?: string;
 }
 
 interface Submission {
-  id: string; // ⭐ DB UUID로 변경 (number → string)
+  id: string;
   questionType: string;
   category: string;
   schoolName: string;
@@ -124,16 +134,32 @@ interface Submission {
   teacherFinalFeedback: string;
 }
 
-// ⭐ DB row → 화면 Submission 형식으로 변환
 const dbToSubmission = (db: any, fb: any | null): Submission => {
-  // answer_text가 있으면 그대로, answer_sections가 있으면 합쳐서
   let studentAnswer = "";
   if (db.answer_text) {
     studentAnswer = db.answer_text;
   } else if (db.answer_sections) {
     const sections = db.answer_sections as Record<string, string>;
     studentAnswer = Object.entries(sections)
-      .map(([key, value]) => `[${key}]\n${value}`)
+      .map(([key, value]) => {
+  const labelMap: Record<string, string> = {
+    background: "1. 탐구 배경",
+    method: "2. 조사 방법",
+    content: "3. 조사 내용",
+    analysis: "4. 분석 및 결론",
+    reference: "5. 참고 자료",
+    purpose: "실험 목적",
+    hypothesis: "가설",
+    materials: "준비물",
+    procedure: "실험 과정",
+    result: "결과 및 데이터",
+    conclusion: "결론",
+    topic: "발표 주제",
+    script: "발표 원고",
+  };
+  const label = labelMap[key] || key;
+  return `[${label}]\n${value}`;
+})
       .join("\n\n");
   }
 
@@ -168,167 +194,8 @@ const dbToSubmission = (db: any, fb: any | null): Submission => {
     teacherFinalFeedback: fb?.teacher_final_feedback || "",
   };
 };
-const generateAiAnalysis = (sub: Submission): AiAnalysis => {
-  if (sub.questionType === "논술형") {
-    return {
-      evalCriteria:
-        "논술형 평가는 구조의 명확성, 주장의 일관성, 근거의 구체성, 문장력을 종합적으로 평가합니다.",
-      studentScores: [88, 90, 73, 70],
-      scores: [
-        {
-          label: "구조 (두괄식)",
-          score: 9,
-          max: 10,
-          desc: "주장이 첫 문장에 명확히 제시되어 두괄식 구조가 잘 잡혔다.",
-        },
-        {
-          label: "주장의 명확성",
-          score: 9,
-          max: 10,
-          desc: "입장이 일관되고 양면을 고려한 균형잡힌 논리이다.",
-        },
-        {
-          label: "근거의 구체성",
-          score: 11,
-          max: 15,
-          desc: "근거가 제시되어 있으나 실제 통계나 사례가 부족하다.",
-        },
-        {
-          label: "문장력·맞춤법",
-          score: 3,
-          max: 5,
-          desc: "대체로 자연스러우나 일부 표현이 어색하다.",
-        },
-      ],
-      summary:
-        "구조와 주장은 우수하나 근거의 구체성에서 통계·사례 보강이 필요하다.",
-      strengths: [
-        "두괄식 구조가 명확함 — 첫 문장에서 주장이 분명히 보임",
-        "양면을 고려한 논리 — 부작용도 인정하면서 해결책 제시",
-        '결론에서 "디지털 시대 생존력"이라는 새로운 관점 제시',
-      ],
-      improvements: [
-        '구체적인 통계나 수치 추가 (예: "한국 청소년의 일평균 SNS 사용시간 ○○분")',
-        "본인의 경험 사례 1~2개 더 넣으면 설득력 상승",
-        '"양날의 검" 같은 비유 표현은 좋으나, 첫 문장의 임팩트가 약함',
-      ],
-      totalScore: 32,
-      maxScore: sub.ratio,
-      second: null,
-    };
-  }
-  if (sub.questionType === "서술형") {
-    return {
-      evalCriteria:
-        "서술형 평가는 핵심 개념의 이해, 정답의 정확성, 표현의 간결성을 중점적으로 평가합니다.",
-      studentScores: [92, 85, 80],
-      scores: [
-        {
-          label: "4가지 원리 정의",
-          score: 9,
-          max: 10,
-          desc: "4가지 원리를 모두 정확하게 정의했다.",
-        },
-        {
-          label: "예시의 구체성",
-          score: 4,
-          max: 5,
-          desc: "권력 분립 예시는 적절하나, 더 구체적인 사례가 있으면 좋다.",
-        },
-        { label: "문장력", score: 4, max: 5, desc: "간결하고 명확하다." },
-      ],
-      summary: "핵심 개념을 잘 이해하고 있고 구조도 깔끔하나 예시 보강 필요.",
-      strengths: [
-        "핵심 개념을 정확하게 이해하고 있음",
-        "간결한 표현력 — 군더더기 없는 답안",
-        "구조가 잘 잡혀 있음",
-      ],
-      improvements: [
-        "예시 부분에서 실제 사례(정부 부처명, 사건)를 추가하면 더 좋음",
-        "각 원리간의 관계 언급 (예: 법치주의 → 기본권 보장의 토대)",
-      ],
-      totalScore: 17,
-      maxScore: sub.ratio,
-      second: null,
-    };
-  }
-  return {
-    evalCriteria: "다양한 평가 기준에 따라 답안을 종합적으로 분석합니다.",
-    studentScores: [80, 75, 70, 65],
-    scores: [
-      { label: "내용", score: 8, max: 10, desc: "내용이 충실하다." },
-      { label: "구성", score: 7, max: 10, desc: "구성이 적절하다." },
-    ],
-    summary: "전반적으로 양호한 답안.",
-    strengths: ["내용 충실", "논리 명확"],
-    improvements: ["예시 보강 필요"],
-    totalScore: Math.floor(sub.ratio * 0.8),
-    maxScore: sub.ratio,
-    second: null,
-  };
-};
-
-const generateSecondAnalysis = (): SecondAnalysis => ({
-  beforeDistribution: [
-    {
-      factorCode: "F01",
-      factorName: "구조",
-      distribution: 30,
-      evidence: "두괄식 시도",
-    },
-    {
-      factorCode: "F02",
-      factorName: "근거 구체성",
-      distribution: 25,
-      evidence: "근거 제시 부족",
-    },
-    {
-      factorCode: "F03",
-      factorName: "문장력",
-      distribution: 25,
-      evidence: "비유 표현 사용",
-    },
-    {
-      factorCode: "F04",
-      factorName: "결론",
-      distribution: 20,
-      evidence: "간단한 마무리",
-    },
-  ],
-  afterDistribution: [
-    {
-      factorCode: "F01",
-      factorName: "구조",
-      distribution: 30,
-      evidence: "구조 유지됨",
-    },
-    {
-      factorCode: "F02",
-      factorName: "근거 구체성",
-      distribution: 40,
-      evidence: "통계·사례 보강됨",
-    },
-    {
-      factorCode: "F03",
-      factorName: "문장력",
-      distribution: 20,
-      evidence: "간결성 향상",
-    },
-    {
-      factorCode: "F04",
-      factorName: "결론",
-      distribution: 10,
-      evidence: "결론 명확화",
-    },
-  ],
-  structureComment:
-    "재제출 답안은 근거의 구체성이 크게 향상되었습니다. 통계와 본인 경험이 추가되어 설득력이 높아졌어요. 다만 결론 부분이 짧아져서, 결론에서 다시 한 번 주장을 강조하는 문장을 추가하면 완성도가 더 올라갑니다.",
-  practiceAnswer:
-    "SNS는 청소년에게 양날의 검과 같다. 나는 청소년의 SNS 사용이 자기 관리만 동반된다면 긍정적인 효과가 더 크다고 생각한다. 한국 청소년의 일평균 SNS 사용시간은 2시간으로, 이를 활용하여 또래와의 소통과 정보 접근성 향상의 기회를 얻을 수 있다. 실제로 나는 SNS를 통해 진로 관련 자료를 찾고 또래와 학습 정보를 공유한 경험이 있다. 물론 중독·사이버폭력의 위험은 있으나, 사용 시간 제한과 미디어 리터러시 교육으로 해결 가능하다. 따라서 SNS는 막을 것이 아니라 올바르게 가르쳐야 할 디지털 시대의 도구이다.",
-});
 
 export default function MiddleSuhaengTab({ student }: { student: any }) {
-  // ⭐ DB에서 학생 답안 가져오기
   const studentId = student?.id ? String(student.id) : undefined;
   const { data: dbSubmissions = [], isLoading } =
     useStudentSuhaengSubmissions(studentId);
@@ -340,46 +207,42 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [aiTab, setAiTab] = useState<"first" | "second">("first");
   const [secondAiLoading, setSecondAiLoading] = useState(false);
+  const [draftLoading, setDraftLoading] = useState(false);
   const [localAiAnalysis, setLocalAiAnalysis] = useState<
     Map<string, AiAnalysis>
   >(new Map());
 
-  // ⭐ DB row를 화면 형식으로 변환
-  // 선택된 답안의 피드백도 가져오기
   const { data: selFeedback } = useSubmissionFeedback(selSubId ?? undefined);
 
-  // ⭐ 모든 답안의 피드백 한번에 가져오기 (간단하게 - 선택된 것만 포함)
   const submissions: Submission[] = useMemo(() => {
     return dbSubmissions.map((db: any) => {
-      // 선택된 답안만 피드백 정보 포함
       const fb = db.id === selSubId ? selFeedback : null;
       const sub = dbToSubmission(db, fb);
-      // 로컬 AI 분석 (메모리에만)
       const local = localAiAnalysis.get(db.id);
       if (local && !sub.aiAnalysis) {
         sub.aiAnalysis = local;
+      }
+      // 로컬에 second가 있으면 합치기
+      if (local?.second && sub.aiAnalysis && !sub.aiAnalysis.second) {
+        sub.aiAnalysis = { ...sub.aiAnalysis, second: local.second };
       }
       return sub;
     });
   }, [dbSubmissions, selSubId, selFeedback, localAiAnalysis]);
 
-  // ⭐ 첫 답안 자동 선택
   useEffect(() => {
     if (!selSubId && submissions.length > 0) {
       setSelSubId(submissions[0].id);
     }
   }, [submissions.length, selSubId]);
 
-  // ⭐ DB 저장 훅
   const saveAi = useSaveAiAnalysis();
   const saveFirst = useSaveFirstFeedback();
   const saveFinal = useSaveFinalFeedback();
 
   const selSub = submissions.find((s) => s.id === selSubId) ?? null;
 
-  // 제출된 답안만 (미제출은 DB에 row 없으므로 빈 배열)
   const filteredSubs = submissions.filter((s) => s.status !== "not_submitted");
-  const notSubmitted: Submission[] = []; // DB엔 미제출 row가 없음
 
   const handleSelect = (sub: Submission) => {
     setSelSubId(sub.id);
@@ -398,21 +261,51 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
     return 0;
   };
 
-  // ⭐ AI 분석 → 로컬 메모리 + DB 저장
-  const runAiAnalysis = () => {
+  // 1차 AI 분석
+  const runAiAnalysis = async () => {
     if (!selSub) return;
+
+    const fnName = getFunctionNameByType(selSub.questionType);
+    if (!fnName) {
+      alert(`${selSub.questionType} 유형의 AI 분석은 아직 준비 중이에요.`);
+      return;
+    }
+
+    if (!selSub.studentAnswer || selSub.studentAnswer.length < 10) {
+      alert("학생 답안이 너무 짧거나 없어요.");
+      return;
+    }
+
     setAnalyzing(true);
     setShowAiPanel(true);
     setAiTab("first");
-    setTimeout(async () => {
-      const analysis = generateAiAnalysis(selSub);
-      // 로컬 메모리 업데이트 (즉시 UI 반영)
+
+    try {
+      const { data, error } = await supabase.functions.invoke(fnName, {
+        body: {
+          questionTitle: selSub.title,
+          questionContent: selSub.questionContent,
+          questionSubject: selSub.subject,
+          minChars: selSub.minChars,
+          maxChars: selSub.maxChars,
+          answerText: selSub.studentAnswer,
+          grade: student?.grade,
+          studentName: student?.name,
+          ratio: selSub.ratio,
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "AI 분석 실패");
+
+      const analysis: AiAnalysis = data.analysis;
+
       setLocalAiAnalysis((prev) => {
         const next = new Map(prev);
         next.set(selSub.id, analysis);
         return next;
       });
-      // DB에도 저장
+
       try {
         await saveAi.mutateAsync({
           submission_id: selSub.id,
@@ -421,8 +314,67 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
       } catch (e) {
         console.error("AI 분석 저장 실패:", e);
       }
+    } catch (e: any) {
+      console.error("[1차 AI 분석 실패]", e);
+      alert(`AI 분석 실패: ${e?.message || "알 수 없는 오류"}`);
+    } finally {
       setAnalyzing(false);
-    }, 1500);
+    }
+  };
+
+  // 2차 AI 분석 (비교 중심)
+  const runSecondAnalysis = async () => {
+    if (!selSub) return;
+    if (!selSub.studentResubmission || selSub.studentResubmission.length < 10) {
+      alert("학생 재제출 답안이 너무 짧거나 없어요.");
+      return;
+    }
+
+    const fnName = getFunctionNameByType(selSub.questionType);
+    if (!fnName) return;
+
+    setSecondAiLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke(fnName, {
+        body: {
+          questionTitle: selSub.title,
+          questionContent: selSub.questionContent,
+          questionSubject: selSub.subject,
+          minChars: selSub.minChars,
+          maxChars: selSub.maxChars,
+          answerText: selSub.studentResubmission,
+          grade: student?.grade,
+          studentName: student?.name,
+          ratio: selSub.ratio,
+          previousAnswer: selSub.studentAnswer || "",
+          previousFeedback: selSub.teacherFirstFeedback || "",
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "2차 분석 실패");
+
+      // 2차 응답은 비교 중심 (isComparison: true)
+      const comparison: ComparisonAnalysis = data.analysis;
+
+      setLocalAiAnalysis((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(selSub.id) || selSub.aiAnalysis;
+        if (existing) {
+          next.set(selSub.id, {
+            ...existing,
+            second: comparison,
+          });
+        }
+        return next;
+      });
+    } catch (e: any) {
+      console.error("[2차 분석 실패]", e);
+      alert(`2차 분석 실패: ${e?.message || "알 수 없는 오류"}`);
+    } finally {
+      setSecondAiLoading(false);
+    }
   };
 
   const togglePanel = (tab: "first" | "second" = "first") => {
@@ -432,35 +384,48 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
     }
     setShowAiPanel(true);
     setAiTab(tab);
-    if (tab === "second" && selSub?.aiAnalysis && !selSub.aiAnalysis.second) {
-      setSecondAiLoading(true);
-      setTimeout(() => {
-        const second = generateSecondAnalysis();
-        // 로컬 메모리만 업데이트 (2차는 mock으로만)
-        setLocalAiAnalysis((prev) => {
-          const next = new Map(prev);
-          const existing = next.get(selSub.id) || selSub.aiAnalysis;
-          if (existing) {
-            next.set(selSub.id, { ...existing, second });
-          }
-          return next;
-        });
-        setSecondAiLoading(false);
-      }, 1200);
+
+    if (
+      tab === "second" &&
+      selSub?.studentResubmission &&
+      selSub?.aiAnalysis &&
+      !selSub.aiAnalysis.second &&
+      !secondAiLoading
+    ) {
+      runSecondAnalysis();
     }
   };
 
-  const importAiToFirstFeedback = () => {
+  // "선생님 답변 작성하기"
+  const generateTeacherDraft = () => {
     if (!selSub?.aiAnalysis) return;
-    const a = selSub.aiAnalysis;
-    const text =
-      `[총평]\n${a.summary}\n\n` +
-      `[잘한 점]\n${a.strengths.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n\n` +
-      `[개선할 점]\n${a.improvements.map((s, i) => `${i + 1}. ${s}`).join("\n")}`;
-    setFirstFbText(text);
+
+    setDraftLoading(true);
+    setTimeout(() => {
+      if (aiTab === "first") {
+        const draft = selSub.aiAnalysis?.teacherDraft || "";
+        if (!draft) {
+          alert("AI 작성 피드백이 없어요. AI 분석을 먼저 다시 시도해주세요.");
+          setDraftLoading(false);
+          return;
+        }
+        setFirstFbText(draft);
+        alert(`✏️ AI가 1차 피드백을 작성했어요!\n\nStep 3에서 확인하고 수정 후 전달해주세요.`);
+      } else {
+        // 2차 — comparison.teacherDraft
+        const draft = selSub.aiAnalysis?.second?.teacherDraft || "";
+        if (!draft) {
+          alert("AI 작성 피드백이 없어요. 2차 AI 분석을 먼저 시도해주세요.");
+          setDraftLoading(false);
+          return;
+        }
+        setFinalFbText(draft);
+        alert(`✏️ AI가 최종 피드백을 작성했어요!\n\nStep 4에서 확인하고 수정 후 전달해주세요.`);
+      }
+      setDraftLoading(false);
+    }, 300);
   };
 
-  // ⭐ 1차 피드백 → DB 저장
   const sendFirstFeedback = async () => {
     if (!firstFbText.trim() || !selSub) return;
     try {
@@ -474,7 +439,6 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
     }
   };
 
-  // ⭐ 최종 피드백 → DB 저장
   const sendFinalFeedback = async () => {
     if (!finalFbText.trim() || !selSub) return;
     try {
@@ -527,15 +491,49 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
     (s) => s.status === "completed",
   ).length;
 
-  const secondData = selSub?.aiAnalysis?.second || null;
+  // 2차 분석 데이터 — 옛날 형식이거나 깨진 데이터도 안전하게 처리
+  const rawSecond = selSub?.aiAnalysis?.second;
+  const secondData = rawSecond
+    ? {
+        improvedPoints: Array.isArray((rawSecond as any).improvedPoints)
+          ? (rawSecond as any).improvedPoints
+          : [],
+        remainingIssues: Array.isArray((rawSecond as any).remainingIssues)
+          ? (rawSecond as any).remainingIssues
+          : [],
+        comparisonSummary:
+          (rawSecond as any).comparisonSummary ||
+          (rawSecond as any).structureComment ||
+          "",
+        teacherDraft:
+          (rawSecond as any).teacherDraft ||
+          (rawSecond as any).practiceAnswer ||
+          "",
+      }
+    : null;
+
+  // 옛날 형식이면 (improvedPoints/remainingIssues 둘 다 비어있고 비교요약도 빈 거) → 무효 처리
+  const secondIsValid =
+    secondData &&
+    (secondData.improvedPoints.length > 0 ||
+      (secondData?.remainingIssues?.length ?? 0) > 0 ||
+      secondData.comparisonSummary);
+
+  // 현재 탭 기준 버튼 표시 여부
+  const currentRoundHasAnalysis =
+    aiTab === "first"
+      ? !!selSub?.aiAnalysis
+      : !!selSub?.aiAnalysis?.second;
+  const currentRoundFeedbackDone =
+    aiTab === "first"
+      ? !!selSub?.teacherFirstFeedback
+      : !!selSub?.teacherFinalFeedback;
 
   return (
     <>
-      {/* ========== 메인 콘텐츠 (2-pane: 사이드바 + 가운데) ========== */}
       <div className="flex gap-4 h-full overflow-hidden">
-        {/* 좌측 사이드바 — 독서리스트 스타일 */}
+        {/* 좌측 사이드바 */}
         <div className="w-[300px] flex-shrink-0 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
-          {/* 헤더 — 가로 텍스트 통계 */}
           <div className="px-4 py-3.5 border-b border-line flex-shrink-0">
             <div className="flex items-center gap-1.5 mb-1">
               <span className="text-[16px]">📝</span>
@@ -559,7 +557,6 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
             </div>
           </div>
 
-          {/* 카드 리스트 — 좌측 아이콘 + 우측 정보 (독서리스트 스타일) */}
           <div className="flex-1 overflow-y-auto px-3 py-3">
             {isLoading ? (
               <div className="text-center py-10 text-ink-muted text-[12px]">
@@ -572,48 +569,38 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                 <div className="font-medium mb-1">
                   아직 제출한 답안이 없어요
                 </div>
-                <div className="text-[10px] text-ink-muted">
-                  학생이 수행평가에 답안을 제출하면 여기에 표시돼요.
-                </div>
               </div>
             ) : (
               filteredSubs.map((sub) => {
                 const isSelected = selSubId === sub.id;
                 const statusInfo =
-                  sub.status === "pending"
+                  sub.status === "pending" || sub.status === "analyzed"
                     ? {
                         label: "⏳ 피드백 대기",
                         bg: "#FEF3C7",
                         color: "#92400E",
                         border: "#FCD34D",
                       }
-                    : sub.status === "analyzed"
+                    : sub.status === "first_done"
                       ? {
-                          label: "🤖 AI 분석 완료",
-                          bg: "#DBEAFE",
-                          color: "#1E40AF",
-                          border: "#93C5FD",
+                          label: "📩 1차 피드백",
+                          bg: THEME.accentBg,
+                          color: THEME.accentDark,
+                          border: THEME.accentBorder,
                         }
-                      : sub.status === "first_done"
+                      : sub.status === "resubmitted"
                         ? {
-                            label: "📩 1차 피드백",
-                            bg: THEME.accentBg,
-                            color: THEME.accentDark,
-                            border: THEME.accentBorder,
+                            label: "🔄 재제출됨",
+                            bg: "#FED7AA",
+                            color: "#9A3412",
+                            border: "#FB923C",
                           }
-                        : sub.status === "resubmitted"
-                          ? {
-                              label: "🔄 재제출됨",
-                              bg: "#FED7AA",
-                              color: "#9A3412",
-                              border: "#FB923C",
-                            }
-                          : {
-                              label: "✓ 피드백완료",
-                              bg: "#D1FAE5",
-                              color: "#065F46",
-                              border: "#6EE7B7",
-                            };
+                        : {
+                            label: "✓ 피드백완료",
+                            bg: "#D1FAE5",
+                            color: "#065F46",
+                            border: "#6EE7B7",
+                          };
 
                 return (
                   <button
@@ -629,7 +616,6 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                     }}
                   >
                     <div className="flex items-start gap-2.5">
-                      {/* 좌측 아이콘 */}
                       <div
                         className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 text-lg"
                         style={{
@@ -640,7 +626,6 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                         📝
                       </div>
 
-                      {/* 우측 정보 */}
                       <div className="flex-1 min-w-0">
                         <div
                           className="text-[13px] font-extrabold leading-[1.35] mb-0.5"
@@ -677,45 +662,6 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                 );
               })
             )}
-
-            {notSubmitted.length > 0 && (
-              <>
-                <div className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted mt-4 mb-2 px-1">
-                  미제출 ({notSubmitted.length})
-                </div>
-                {notSubmitted.map((sub) => (
-                  <div
-                    key={sub.id}
-                    className="rounded-xl px-3 py-3 mb-1.5 bg-gray-50 border border-line opacity-60"
-                  >
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 text-lg bg-white border border-line">
-                        📝
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[13px] font-bold text-ink-muted leading-[1.35] mb-0.5 line-clamp-2">
-                          {sub.title}
-                        </div>
-                        <div className="text-[11px] font-medium text-ink-muted mb-1.5">
-                          {sub.category === "school"
-                            ? `🏫 ${sub.schoolName}`
-                            : "연습 문제"}{" "}
-                          · {sub.subject}
-                        </div>
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white border border-line text-ink-muted">
-                            {sub.questionType}
-                          </span>
-                          <span className="text-[10px] font-bold text-ink-muted bg-white border border-line px-2 py-0.5 rounded-full">
-                            ⏳ 미제출
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </>
-            )}
           </div>
         </div>
 
@@ -728,18 +674,10 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                 답안을 선택해주세요
               </div>
             </div>
-          ) : selSub.status === "not_submitted" ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-ink-muted gap-2">
-              <div className="text-4xl">⏳</div>
-              <div className="text-[14px] font-bold text-ink-secondary">
-                학생이 아직 답안을 제출하지 않았어요
-              </div>
-            </div>
           ) : (
             <>
-              {/* 헤더 — 좌상단 ID + 우상단 버튼 (큰 사이즈) */}
+              {/* 헤더 */}
               <div className="px-5 py-5 border-b border-line flex-shrink-0">
-                {/* 좌측 Q배지 + 우측 큰 버튼 */}
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-2">
                     <span className="text-[16px] font-extrabold text-ink tracking-tight">
@@ -762,7 +700,6 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                     )}
                   </div>
 
-                  {/* 우상단 큰 버튼 두개 — 항상 표시 (기출문제처럼) */}
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => {
@@ -784,7 +721,7 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                       }}
                     >
                       {analyzing
-                        ? "🤖 분석 중..."
+                        ? "분석 중..."
                         : !selSub.aiAnalysis
                           ? "✨ AI 분석 시작"
                           : `✨ AI 분석 ${showAiPanel ? "닫기" : "보기"}`}
@@ -793,30 +730,31 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                       className="px-4 py-2 rounded-lg text-[13px] font-bold"
                       style={{
                         background:
-                          selSub.status === "pending"
+                          selSub.status === "pending" ||
+                          selSub.status === "analyzed"
                             ? "#FEF3C7"
                             : THEME.accentBg,
                         color:
-                          selSub.status === "pending"
+                          selSub.status === "pending" ||
+                          selSub.status === "analyzed"
                             ? "#92400E"
                             : THEME.accentDark,
-                        border: `1.5px solid ${selSub.status === "pending" ? "#FCD34D" : THEME.accentBorder}`,
+                        border: `1.5px solid ${selSub.status === "pending" || selSub.status === "analyzed" ? "#FCD34D" : THEME.accentBorder}`,
                       }}
                     >
-                      {selSub.status === "pending"
+                      {selSub.status === "pending" ||
+                      selSub.status === "analyzed"
                         ? "⏳ 피드백 대기"
-                        : selSub.status === "analyzed"
-                          ? "🤖 AI 분석 완료"
-                          : selSub.status === "first_done"
-                            ? "📩 1차 피드백 전달"
-                            : selSub.status === "resubmitted"
-                              ? "🔄 재제출됨"
-                              : "✓ 완료"}
+                        : selSub.status === "first_done"
+                          ? "📩 1차 피드백 전달"
+                          : selSub.status === "resubmitted"
+                            ? "🔄 재제출됨"
+                            : "✓ 완료"}
                     </span>
                   </div>
                 </div>
 
-                {/* 4단계 스텝퍼 — 가운데 영역 */}
+                {/* 4단계 스텝퍼 */}
                 <div className="flex px-8 mb-3">
                   {STEP_LABELS.map((label, i) => {
                     const step = getStep(selSub);
@@ -860,7 +798,6 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                   })}
                 </div>
 
-                {/* 답안 제목 + 정보 — 스텝퍼 아래에 깔끔하게 */}
                 <div className="flex items-center justify-between gap-2 pt-3 border-t border-gray-100">
                   <div>
                     <div className="text-[15px] font-extrabold text-ink tracking-tight">
@@ -878,7 +815,6 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
               </div>
 
               <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
-                {/* 문제 */}
                 <div className="bg-gray-50 border border-line rounded-xl px-4 py-3">
                   <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">
                     📌 출제 문제
@@ -898,7 +834,7 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                     📜 답변 · 피드백 히스토리
                   </div>
                   <div className="flex flex-col gap-3.5">
-                    {/* Step 1: 학생 답안 */}
+                    {/* Step 1 */}
                     <div>
                       <div className="flex items-center gap-1.5 mb-2">
                         <span className="text-[10px] font-extrabold text-white bg-gray-500 px-2 py-0.5 rounded-full">
@@ -916,9 +852,7 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                       </div>
                     </div>
 
-                    {/* Step 2 (AI 분석)는 우상단 버튼 + 우측 패널로 처리됨 — 본문에서 제거 */}
-
-                    {/* Step 3: 1차 피드백 — 항상 표시 */}
+                    {/* Step 3 */}
                     <div>
                       <div className="flex items-center gap-1.5 mb-2 flex-wrap">
                         <span
@@ -949,8 +883,8 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                             onChange={(e) => setFirstFbText(e.target.value)}
                             placeholder={
                               selSub.aiAnalysis
-                                ? "AI 분석 결과를 참고해서 피드백을 작성해주세요..."
-                                : "학생 답안에 대한 피드백을 작성해주세요. 우상단 'AI 분석'을 활용하면 더 좋아요."
+                                ? "직접 피드백을 작성하거나, 우측 'AI 분석 보기'에서 '✏️ 선생님 답변 작성하기' 버튼을 활용하세요..."
+                                : "학생 답안에 대한 피드백을 작성해주세요. 우상단 'AI 분석 시작'을 누르면 AI 활용이 가능해요."
                             }
                             rows={5}
                             className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] font-medium outline-none resize-y leading-[1.7] transition-all placeholder:text-ink-muted"
@@ -958,18 +892,6 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                             onBlur={handleTextareaBlur}
                           />
                           <div className="flex gap-2 mt-2 justify-end">
-                            {selSub.aiAnalysis && (
-                              <button
-                                onClick={importAiToFirstFeedback}
-                                className="px-3 py-2 bg-white border rounded-lg text-[12px] font-bold transition-all hover:-translate-y-px"
-                                style={{
-                                  color: THEME.accent,
-                                  borderColor: THEME.accent,
-                                }}
-                              >
-                                ✨ AI 결과 가져오기
-                              </button>
-                            )}
                             <button
                               onClick={sendFirstFeedback}
                               disabled={!firstFbText.trim()}
@@ -991,7 +913,7 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                       )}
                     </div>
 
-                    {/* Step 4-A: 학생 재제출 */}
+                    {/* Step 4-A */}
                     {selSub.teacherFirstFeedback && (
                       <div>
                         <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
@@ -1038,10 +960,10 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                       </div>
                     )}
 
-                    {/* Step 4-B: 최종 피드백 */}
+                    {/* Step 4-B */}
                     {selSub.studentResubmission && (
                       <div>
-                        <div className="flex items-center gap-1.5 mb-2">
+                        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
                           <span
                             className="text-[10px] font-extrabold text-white px-2 py-0.5 rounded-full"
                             style={{ background: THEME.accent }}
@@ -1068,7 +990,7 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                             <textarea
                               value={finalFbText}
                               onChange={(e) => setFinalFbText(e.target.value)}
-                              placeholder="재제출된 답안에 대한 최종 피드백을 작성해주세요..."
+                              placeholder="재제출된 답안에 대한 최종 피드백을 작성해주세요. 우측 '2차 AI 분석'에서 '✏️ 선생님 답변 작성하기' 활용 가능."
                               rows={4}
                               className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] font-medium outline-none resize-y leading-[1.7] transition-all placeholder:text-ink-muted"
                               onFocus={handleTextareaFocus}
@@ -1106,7 +1028,7 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
         </div>
       </div>
 
-      {/* ========== 우측 AI 분석 패널 — fixed로 화면 끝까지 ========== */}
+      {/* ========== 우측 AI 분석 패널 ========== */}
       {showAiPanel && selSub && selSub.aiAnalysis && (
         <div className="fixed top-0 right-0 bottom-0 w-[440px] bg-white border-l border-line flex flex-col shadow-[-8px_0_24px_rgba(15,23,42,0.08)] z-50">
           <div className="px-4 py-4 border-b border-line flex-shrink-0 flex items-center justify-between">
@@ -1126,7 +1048,6 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
             </button>
           </div>
 
-          {/* 1차/2차 탭 */}
           <div className="flex border-b border-line flex-shrink-0">
             <button
               onClick={() => setAiTab("first")}
@@ -1155,17 +1076,16 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                 background: aiTab === "second" ? THEME.accentBg : "transparent",
               }}
             >
-              📈 2차 답변 분석
+              📈 2차 비교 분석
               {!selSub.studentResubmission && (
                 <div className="text-[9px]">재제출 필요</div>
               )}
             </button>
           </div>
 
-          {/* 1차 분석 */}
+          {/* 1차 분석 (기존 그대로) */}
           {aiTab === "first" && (
             <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
-              {/* 정합성 분석 */}
               <div
                 className="rounded-xl px-4 py-3.5"
                 style={{
@@ -1222,19 +1142,6 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                     </RadarChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="flex gap-4 justify-center mb-3">
-                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-secondary">
-                    <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
-                    평가 기준
-                  </div>
-                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-secondary">
-                    <div
-                      className="w-2.5 h-2.5 rounded-full"
-                      style={{ background: THEME.accent }}
-                    />
-                    학생 답안
-                  </div>
-                </div>
 
                 {getBarData().map((d, i) => (
                   <div key={i} className="mb-2.5 bg-white rounded-lg px-3 py-2">
@@ -1265,7 +1172,6 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                 ))}
               </div>
 
-              {/* 종합 분석 */}
               <div className="bg-white border border-line rounded-xl px-4 py-3.5">
                 <div className="flex items-center gap-1.5 mb-1">
                   <span className="text-sm">📊</span>
@@ -1346,21 +1252,24 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
             </div>
           )}
 
-          {/* 2차 분석 */}
+          {/* ⭐⭐⭐ 2차 비교 분석 (단순화) */}
           {aiTab === "second" &&
             (secondAiLoading ? (
               <div className="flex-1 flex flex-col items-center justify-center gap-3 text-ink-muted">
                 <div className="text-3xl animate-pulse">✨</div>
                 <div className="text-[13px] font-medium">
-                  AI가 2차 답변을 분석 중...
+                  AI가 1차/2차 답안을 비교 중...
                 </div>
               </div>
-            ) : !secondData ? (
-              <div className="flex-1 flex items-center justify-center text-ink-muted text-[13px] font-medium">
-                2차 분석 데이터가 없어요.
+            ) : !secondIsValid ? (
+              <div className="flex-1 flex items-center justify-center text-ink-muted text-[13px] font-medium px-4 text-center leading-[1.7]">
+                재제출 답안이 있어야 2차 분석이 가능해요.
+                <br />
+                재제출 후 다시 시도해주세요.
               </div>
             ) : (
               <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+                {/* 비교 요약 */}
                 <div
                   className="rounded-xl px-4 py-3.5"
                   style={{
@@ -1368,133 +1277,141 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                     border: `1px solid ${THEME.accentBorder}60`,
                   }}
                 >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-sm">📊</span>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span className="text-sm">🔄</span>
                     <div
                       className="text-[13px] font-extrabold"
                       style={{ color: THEME.accentDark }}
                     >
-                      1차 vs 2차 평가요소 분포
+                      1차 → 2차 비교 요약
                     </div>
                   </div>
-                  <div className="text-[11px] font-medium text-ink-secondary mb-3">
-                    1차 답안과 재제출(2차) 답안의 평가요소 변화를 확인해보세요.
+                  <div className="text-[12px] font-medium text-ink leading-[1.7] bg-white rounded-lg px-3 py-2.5">
+                    {secondData?.comparisonSummary}
                   </div>
-                  <div className="flex gap-3 mb-2">
-                    <div className="text-[10px] font-semibold text-ink-secondary flex items-center gap-1">
-                      <div className="w-2 h-2 rounded bg-blue-300" />
-                      1차
-                    </div>
-                    <div className="text-[10px] font-semibold text-ink-secondary flex items-center gap-1">
-                      <div
-                        className="w-2 h-2 rounded"
-                        style={{ background: THEME.accent }}
-                      />
-                      2차
+                </div>
+
+                {/* 좋아진 점 */}
+                <div className="bg-white border border-line rounded-xl px-4 py-3.5">
+                  <div className="flex items-center gap-1.5 mb-2.5">
+                    <span className="text-sm">📈</span>
+                    <div
+                      className="text-[13px] font-extrabold"
+                      style={{ color: THEME.accent }}
+                    >
+                      좋아진 점
                     </div>
                   </div>
-                  {secondData.beforeDistribution.map((b, i) => {
-                    const after = secondData.afterDistribution.find(
-                      (a) => a.factorCode === b.factorCode,
-                    );
-                    const diff = (after?.distribution || 0) - b.distribution;
-                    return (
+                  {secondData?.improvedPoints?.length === 0 ? (
+                    <div className="text-[12px] font-medium text-ink-muted py-2">
+                      AI가 좋아진 점을 찾지 못했어요.
+                    </div>
+                  ) : (
+                    secondData?.improvedPoints?.map((p: string, i: number) => (
                       <div
                         key={i}
-                        className="mb-3 bg-white rounded-lg px-3 py-2.5"
+                        className="text-[12px] font-medium leading-[1.7] px-3 py-2 rounded-lg mb-1.5"
+                        style={{
+                          background: THEME.accentBg,
+                          border: `1px solid ${THEME.accentBorder}40`,
+                          color: THEME.accentDark,
+                        }}
                       >
-                        <div className="flex justify-between items-center mb-1.5">
-                          <span className="text-[12px] font-bold text-ink">
-                            {b.factorName}
-                          </span>
-                          <span
-                            className="text-[11px] font-extrabold"
-                            style={{
-                              color:
-                                diff > 0
-                                  ? THEME.accent
-                                  : diff < 0
-                                    ? "#EF4444"
-                                    : "#6B7280",
-                            }}
-                          >
-                            {diff > 0
-                              ? `▲ +${diff}%`
-                              : diff < 0
-                                ? `▼ ${diff}%`
-                                : "변동없음"}
-                          </span>
-                        </div>
-                        <div className="mb-1">
-                          <div className="text-[10px] font-semibold text-ink-muted mb-0.5">
-                            1차 · {b.distribution}%
-                          </div>
-                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-blue-300"
-                              style={{ width: `${b.distribution}%` }}
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] font-semibold text-ink-muted mb-0.5">
-                            2차 · {after?.distribution || 0}%
-                          </div>
-                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div
-                              className="h-full rounded-full transition-all"
-                              style={{
-                                width: `${after?.distribution || 0}%`,
-                                background: THEME.accent,
-                              }}
-                            />
-                          </div>
-                        </div>
-                        {after?.evidence && (
-                          <div className="text-[11px] font-medium text-ink-secondary mt-1.5 leading-[1.5]">
-                            → {after.evidence}
-                          </div>
-                        )}
+                        ▲ {p}
                       </div>
-                    );
-                  })}
+                    ))
+                  )}
                 </div>
 
-                <div className="bg-white border border-line rounded-xl px-4 py-3.5">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <span className="text-sm">🏗️</span>
-                    <div className="text-[13px] font-extrabold text-ink">
-                      구조 코멘트
+                {/* 아직 부족한 점 */}
+                {(secondData?.remainingIssues?.length ?? 0) > 0 && (
+                  <div className="bg-white border border-line rounded-xl px-4 py-3.5">
+                    <div className="flex items-center gap-1.5 mb-2.5">
+                      <span className="text-sm">⚠️</span>
+                      <div className="text-[13px] font-extrabold text-amber-700">
+                        아직 보완할 점
+                      </div>
                     </div>
+                    {secondData?.improvedPoints?.map((p: string, i: number) => (
+                      <div
+                        key={i}
+                        className="text-[12px] font-medium leading-[1.7] px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg mb-1.5 text-amber-900"
+                      >
+                        △ {p}
+                      </div>
+                    ))}
                   </div>
-                  <div
-                    className="rounded-lg px-3.5 py-3 text-[13px] font-medium leading-[1.8]"
-                    style={{
-                      background: THEME.accentBg,
-                      border: `1px solid ${THEME.accentBorder}60`,
-                      color: THEME.accentDark,
-                    }}
-                  >
-                    {secondData.structureComment}
-                  </div>
-                </div>
-
-                <div className="bg-white border border-line rounded-xl px-4 py-3.5">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-sm">✍️</span>
-                    <div className="text-[13px] font-extrabold text-ink">
-                      모범 답안
-                    </div>
-                  </div>
-                  <div className="text-[11px] font-medium text-ink-secondary mb-2.5">
-                    재제출 답안을 평가 기준에 맞게 재정렬한 모범 답안입니다.
-                  </div>
-                  <div className="bg-gray-50 rounded-lg px-3.5 py-3 text-[13px] font-medium text-ink leading-[1.9] italic">
-                    "{secondData.practiceAnswer}"
-                  </div>
-                </div>
+                )}
               </div>
             ))}
+
+          {/* 하단 — "선생님 답변 작성하기" 버튼 */}
+          {/* AI 작성 버튼 — 분석 결과 있고, 아직 피드백 전달 안 됐고, 아직 textarea에 내용도 없을 때만 */}
+          {currentRoundHasAnalysis &&
+            !currentRoundFeedbackDone &&
+            (aiTab === "first" ? !firstFbText.trim() : !finalFbText.trim()) && (
+              <div
+                className="px-4 py-3 border-t border-line flex-shrink-0"
+                style={{ background: "#FAFBFC" }}
+              >
+                <button
+                  onClick={generateTeacherDraft}
+                  disabled={draftLoading}
+                  className="w-full py-3 text-white rounded-lg text-[13px] font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  style={{
+                    background: draftLoading ? "#A7F3D0" : THEME.accent,
+                    boxShadow: !draftLoading
+                      ? `0 4px 12px ${THEME.accentShadow}`
+                      : "none",
+                  }}
+                >
+                  {draftLoading
+                    ? "✨ AI가 답변 작성 중..."
+                    : `✏️ 선생님 ${aiTab === "first" ? "1차" : "최종"} 답변 작성하기`}
+                </button>
+                <div className="text-[10px] text-ink-muted mt-1.5 text-center leading-[1.5]">
+                  AI가 분석 결과를 토대로 친근한 코치 말투로 작성해요
+                </div>
+              </div>
+            )}
+
+          {/* AI가 이미 작성한 상태 (textarea에 내용 있음, 아직 전달 X) */}
+          {currentRoundHasAnalysis &&
+            !currentRoundFeedbackDone &&
+            (aiTab === "first" ? firstFbText.trim() : finalFbText.trim()) && (
+              <div
+                className="px-4 py-3 border-t border-line flex-shrink-0"
+                style={{ background: "#FAFBFC" }}
+              >
+                <div
+                  className="w-full py-3 rounded-lg text-[12px] font-bold flex items-center justify-center gap-1.5"
+                  style={{
+                    background: "#F3F4F6",
+                    color: "#6B7280",
+                    border: "1px dashed #D1D5DB",
+                  }}
+                >
+                  ✓ AI 답변 작성 완료
+                </div>
+                <div className="text-[10px] text-ink-muted mt-1.5 text-center leading-[1.5]">
+                  Step {aiTab === "first" ? "3" : "4"}에서 검토 후 전달해주세요
+                </div>
+              </div>
+            )}
+
+          {currentRoundFeedbackDone && (
+            <div
+              className="px-4 py-3 border-t border-line flex-shrink-0"
+              style={{ background: THEME.accentBg }}
+            >
+              <div
+                className="text-[12px] text-center font-bold"
+                style={{ color: THEME.accentDark }}
+              >
+                ✓ 이미 {aiTab === "first" ? "1차" : "최종"} 피드백이 전달되었어요
+              </div>
+            </div>
+          )}
         </div>
       )}
     </>

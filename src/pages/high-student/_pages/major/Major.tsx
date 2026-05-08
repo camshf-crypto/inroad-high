@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   useMajorSeeds,
@@ -25,6 +25,9 @@ const THEME = {
   accentBg: '#EFF6FF',
   accentBorder: '#93C5FD',
 }
+
+// AI 생성 평균 소요 시간 (초)
+const AI_GENERATION_AVG_SEC = 90
 
 export default function Major() {
   const navigate = useNavigate()
@@ -53,6 +56,10 @@ export default function Major() {
   const [bioFile, setBioFile] = useState<File | null>(null)
   const [bioWaiting, setBioWaiting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // ⭐ AI 생성 진행률 시각화
+  const [progressPercent, setProgressPercent] = useState(0)
+  const [elapsedSec, setElapsedSec] = useState(0)
 
   // DB 조회
   const { data: majors = [] } = useMajorSeeds()
@@ -86,6 +93,27 @@ export default function Major() {
   }, [objAnswered, objQuestions])
 
   const score = objAnswered.filter((a: any) => a.is_correct).length
+
+  // ⭐ AI 생성 중 진행률 시뮬레이션
+  useEffect(() => {
+    if (saenggibu?.status === 'uploaded' || saenggibu?.status === 'generating') {
+      setProgressPercent(0)
+      setElapsedSec(0)
+      
+      const startTime = Date.now()
+      const interval = setInterval(() => {
+        const elapsed = (Date.now() - startTime) / 1000
+        setElapsedSec(Math.floor(elapsed))
+        
+        const pct = Math.min(95, (elapsed / AI_GENERATION_AVG_SEC) * 95)
+        setProgressPercent(pct)
+      }, 500)
+      
+      return () => clearInterval(interval)
+    } else if (saenggibu?.status === 'ready') {
+      setProgressPercent(100)
+    }
+  }, [saenggibu?.status])
 
   // 학과 선택
   const selectMajor = (m: { id: string; name: string }) => {
@@ -132,13 +160,12 @@ export default function Major() {
     setObjAnswers(prev => ({ ...prev, [questionId]: choice }))
   }
 
-  // 객관식 다음 문제 / 객관식 4개 끝나면 한꺼번에 제출
+  // 객관식 다음 문제
   const handleNextObj = async () => {
     if (currentQIndex < 3) {
       setCurrentQIndex(i => i + 1)
       return
     }
-    // 4번째 문제까지 풀었으면 일괄 제출
     if (!chapterProgress) return
     
     const answers = objQuestions.map(q => ({
@@ -149,7 +176,7 @@ export default function Major() {
     
     try {
       await submitObj.mutateAsync({ progressId: chapterProgress.id, answers })
-      setCurrentQIndex(4) // 주관식
+      setCurrentQIndex(4)
     } catch (e: any) {
       alert('객관식 저장 실패: ' + e.message)
     }
@@ -219,7 +246,6 @@ export default function Major() {
       <div className="flex-1 overflow-y-auto">
         {filteredMajors.length === 0 ? (
           <div className="text-center py-20 text-ink-muted">
-            <div className="text-5xl mb-3">🔍</div>
             <div className="text-[13px]">검색 결과가 없어요</div>
           </div>
         ) : (
@@ -233,9 +259,6 @@ export default function Major() {
                 <div className="absolute top-3.5 left-3.5 right-16 z-10">
                   <div className="text-[13px] font-bold text-ink leading-snug mb-1.5">{m.name}</div>
                   <div className="text-[10px] text-ink-muted leading-relaxed font-medium">객관식 120문항, 주관식 30문항</div>
-                </div>
-                <div className="absolute bottom-0 right-0 w-[72px] h-[88px] flex items-end justify-center pb-0.5">
-                  <div className="text-[52px] leading-none opacity-[0.12]">👤</div>
                 </div>
               </button>
             ))}
@@ -258,26 +281,22 @@ export default function Major() {
         <div className="text-[16px] font-bold text-ink tracking-tight">전공특화문제</div>
       </div>
 
-      <div className="bg-gradient-to-br from-blue-50 to-white border border-blue-200 rounded-2xl px-6 py-5 mb-7 flex items-center gap-4">
-        <div className="w-14 h-14 rounded-xl bg-white flex items-center justify-center text-3xl flex-shrink-0 shadow-sm">📚</div>
-        <div>
-          <div className="text-[16px] font-extrabold text-ink tracking-tight">{selMajorName}</div>
-          <div className="text-[12px] text-ink-secondary mt-1 font-medium">학년을 선택해주세요</div>
-        </div>
+      <div className="bg-gradient-to-br from-blue-50 to-white border border-blue-200 rounded-2xl px-6 py-5 mb-7">
+        <div className="text-[16px] font-extrabold text-ink tracking-tight">{selMajorName}</div>
+        <div className="text-[12px] text-ink-secondary mt-1 font-medium">학년을 선택해주세요</div>
       </div>
 
       <div className="grid grid-cols-3 gap-4 max-md:grid-cols-1">
         {[
-          { g: '고1', emoji: '🌱', sub: '기초 개념 다지기', desc: '챕터 30개 · 문제 150개', cls: 'from-blue-50 to-white border-blue-200', textCls: 'text-blue-700' },
-          { g: '고2', emoji: '🌿', sub: '심화 개념 학습', desc: '챕터 30개 · 문제 150개', cls: 'from-emerald-50 to-white border-emerald-200', textCls: 'text-emerald-700' },
-          { g: '고3', emoji: '🎯', sub: '생기부 기반 맞춤', desc: '생기부 업로드 필요', cls: 'from-amber-50 to-white border-amber-200', textCls: 'text-amber-700' },
-        ].map(({ g, emoji, sub, desc, cls, textCls }) => (
+          { g: '고1', sub: '기초 개념 다지기', desc: '챕터 30개 · 문제 150개', cls: 'from-blue-50 to-white border-blue-200', textCls: 'text-blue-700' },
+          { g: '고2', sub: '심화 개념 학습', desc: '챕터 30개 · 문제 150개', cls: 'from-emerald-50 to-white border-emerald-200', textCls: 'text-emerald-700' },
+          { g: '고3', sub: '생기부 기반 맞춤', desc: '생기부 업로드 필요', cls: 'from-amber-50 to-white border-amber-200', textCls: 'text-amber-700' },
+        ].map(({ g, sub, desc, cls, textCls }) => (
           <button
             key={g}
             onClick={() => selectGrade(g)}
             className={`bg-gradient-to-br border-[1.5px] rounded-2xl p-7 text-center hover:-translate-y-1 hover:shadow-[0_12px_28px_rgba(37,99,235,0.15)] transition-all ${cls}`}
           >
-            <div className="text-5xl mb-3">{emoji}</div>
             <div className={`text-[24px] font-extrabold mb-1.5 ${textCls}`}>{g}</div>
             <div className="text-[12px] text-ink-secondary mb-4 leading-relaxed font-medium">{sub}</div>
             <div className={`py-2 bg-white rounded-lg text-[12px] font-bold border ${textCls.replace('text-', 'border-')}/30`}>
@@ -293,18 +312,28 @@ export default function Major() {
   if (screen === 'chapter' && selGrade === '고3' && saenggibu?.status !== 'ready') {
     // 업로드 전
     if (!saenggibu || saenggibu.status === 'pending') return (
-      <div className="px-7 py-6 font-sans text-ink">
-        <div className="flex items-center gap-2.5 mb-5">
+      <div className="px-7 py-5 font-sans text-ink">
+        <div className="flex items-center gap-2.5 mb-4">
           <button onClick={() => navigate(-1)} className="w-8 h-8 rounded-lg bg-white border border-line flex items-center justify-center text-ink-secondary text-base hover:bg-gray-50 transition-all">←</button>
           <div className="text-[16px] font-bold text-ink tracking-tight">전공특화문제 · 고3</div>
         </div>
 
-        <div className="max-w-[480px] mx-auto mt-12 text-center">
-          <div className="text-7xl mb-10">📋</div>
-          <div className="text-[22px] font-extrabold text-ink tracking-tight mb-2.5">생기부를 업로드해주세요</div>
-          <div className="text-[14px] text-ink-secondary leading-relaxed mb-8">
-            고3 전공특화문제는 <span className="font-bold text-ink">본인의 생활기록부</span>를 바탕으로<br />
-            AI가 맞춤 질문을 만들어줘요.
+        {/* 학과 표시 카드 */}
+        <div className="max-w-[480px] mx-auto mb-5 bg-gradient-to-br from-amber-50 to-white border border-amber-200 rounded-2xl px-5 py-3.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] text-ink-muted font-bold tracking-wider mb-0.5">선택한 학과</div>
+              <div className="text-[15px] font-extrabold text-ink tracking-tight truncate">{selMajorName}</div>
+            </div>
+            <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full flex-shrink-0">고3</span>
+          </div>
+        </div>
+
+        <div className="max-w-[480px] mx-auto text-center">
+          <div className="text-[20px] font-extrabold text-ink tracking-tight mb-2 mt-6">생기부를 업로드해주세요</div>
+          <div className="text-[13px] text-ink-secondary leading-relaxed mb-6">
+            <span className="font-bold text-ink">{selMajorName}</span>에 맞춰<br />
+            AI가 본인 생활기록부 기반 <span className="font-bold text-ink">맞춤 문제</span>를 만들어줘요
           </div>
           <input
             ref={fileRef}
@@ -316,49 +345,126 @@ export default function Major() {
           <button
             onClick={() => fileRef.current?.click()}
             disabled={saveSaenggibu.isPending}
-            className="w-full h-14 bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-2xl text-[15px] font-bold shadow-[0_8px_24px_rgba(217,119,6,0.25)] hover:shadow-[0_12px_32px_rgba(217,119,6,0.35)] transition-all mb-2.5 disabled:opacity-60"
+            className="w-full py-3.5 bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-2xl text-[14px] font-bold shadow-[0_8px_24px_rgba(217,119,6,0.25)] hover:shadow-[0_12px_32px_rgba(217,119,6,0.35)] transition-all mb-2 disabled:opacity-60"
           >
-            {saveSaenggibu.isPending ? '업로드 중...' : '📎 생기부 PDF 업로드'}
+            {saveSaenggibu.isPending ? '업로드 중...' : '생기부 PDF 업로드'}
           </button>
-          <div className="text-[12px] text-ink-muted font-medium">PDF 파일만 업로드 가능해요</div>
+          <div className="text-[11px] text-ink-muted font-medium">PDF 파일만 업로드 가능해요</div>
         </div>
       </div>
     )
 
-    // AI 생성 대기
+    // ⭐ AI 생성 대기 + 진행률 표시 (이모티콘 X)
     return (
-      <div className="px-7 py-6 font-sans text-ink">
-        <div className="flex items-center gap-2.5 mb-5">
+      <div className="px-7 py-4 font-sans text-ink">
+        <div className="flex items-center gap-2.5 mb-3">
           <button onClick={() => navigate(-1)} className="w-8 h-8 rounded-lg bg-white border border-line flex items-center justify-center text-ink-secondary text-base hover:bg-gray-50 transition-all">←</button>
           <div className="text-[16px] font-bold text-ink tracking-tight">전공특화문제 · 고3</div>
         </div>
 
-        <div className="max-w-[480px] mx-auto mt-12 text-center">
-          <div className="text-7xl mb-4">{saenggibu.status === 'error' ? '⚠️' : '⏳'}</div>
-          <div className="text-[22px] font-extrabold text-ink tracking-tight mb-4">
-            {saenggibu.status === 'error' ? 'AI 생성 실패' : '업로드 완료!'}
-          </div>
-          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-4 mb-5 flex items-center gap-3">
-            <span className="text-2xl">📄</span>
-            <div className="text-left flex-1">
-              <div className="text-[13px] font-bold text-emerald-800">생기부 업로드 완료</div>
-              <div className="text-[11px] text-emerald-600 mt-0.5 font-medium">
-                ✓ {new Date(saenggibu.saenggibu_uploaded_at || '').toLocaleString('ko-KR')}
-              </div>
+        {/* 학과 표시 카드 (컴팩트) */}
+        <div className="max-w-[520px] mx-auto mb-4 bg-gradient-to-br from-amber-50 to-white border border-amber-200 rounded-xl px-4 py-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="text-[9px] text-ink-muted font-bold tracking-wider">선택한 학과</div>
+              <div className="text-[14px] font-extrabold text-ink tracking-tight truncate">{selMajorName}</div>
             </div>
+            <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full flex-shrink-0">고3</span>
           </div>
+        </div>
+
+        <div className="max-w-[520px] mx-auto">
           {saenggibu.status === 'error' ? (
-            <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-3.5 text-[13px] text-red-700">
-              {saenggibu.error_message || 'AI 생성 중 오류가 발생했어요. 다시 업로드해주세요.'}
+            // 에러 화면
+            <div className="text-center">
+              <div className="text-[18px] font-extrabold text-ink tracking-tight mb-3 mt-4">AI 생성 실패</div>
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-[12px] text-red-700 mb-4">
+                {saenggibu.error_message || 'AI 생성 중 오류가 발생했어요. 다시 업로드해주세요.'}
+              </div>
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="w-full h-11 bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-xl text-[13px] font-bold shadow-lg"
+              >
+                다시 업로드
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".pdf"
+                className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleBioUpload(f) }}
+              />
             </div>
           ) : (
+            // ⭐ 컴팩트 로딩 화면 (이모티콘 X)
             <>
-              <div className="text-[14px] text-ink-secondary leading-relaxed mb-5">
-                <span className="font-bold text-ink">AI가 생기부를 분석하고 있어요.</span><br />
-                30챕터 맞춤 문제를 생성하고 있어요.
+              {/* 헤더 — 텍스트만 */}
+              <div className="text-center mb-4 mt-2">
+                <div className="text-[18px] font-extrabold text-ink tracking-tight">AI가 분석 중이에요</div>
+                <div className="text-[12px] text-ink-secondary font-medium mt-1">
+                  {selMajorName} 맞춤 6챕터 30문제 생성 중
+                </div>
               </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-3.5 text-[13px] text-blue-700 font-medium">
-                💡 잠시만 기다려주세요. 자동으로 새로고침돼요.
+
+              {/* 진행률 바 */}
+              <div className="bg-white border border-amber-200 rounded-xl p-4 mb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[12px] font-bold text-amber-700">진행률</span>
+                  <span className="text-[14px] font-extrabold text-amber-700 tabular-nums">
+                    {Math.floor(progressPercent)}%
+                  </span>
+                </div>
+                
+                <div className="h-2.5 bg-amber-100 rounded-full overflow-hidden mb-2">
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-400 to-amber-600 transition-all duration-500 ease-out rounded-full"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between text-[10px] text-ink-muted font-medium">
+                  <span>경과: {Math.floor(elapsedSec / 60)}분 {elapsedSec % 60}초</span>
+                  <span>예상: 약 1~2분</span>
+                </div>
+              </div>
+
+              {/* 단계별 안내 (텍스트 + 점) */}
+              <div className="bg-white border border-line rounded-xl p-3 mb-3">
+                <div className="flex flex-col gap-1.5">
+                  {[
+                    { label: '생기부 PDF 업로드 완료', threshold: 5 },
+                    { label: '생기부 텍스트 추출 (OCR)', threshold: 25 },
+                    { label: `${selMajorName} 전공 활동 분석`, threshold: 50 },
+                    { label: '맞춤 면접 문제 생성', threshold: 80 },
+                    { label: '완료', threshold: 100 },
+                  ].map((step, i) => {
+                    const isDone = progressPercent > step.threshold
+                    const isCurrent = progressPercent > (i === 0 ? 0 : (i === 1 ? 5 : i === 2 ? 25 : i === 3 ? 50 : 80)) && !isDone
+                    return (
+                      <div key={i} className="flex items-center gap-2.5">
+                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                          isDone ? 'bg-emerald-500' : isCurrent ? 'bg-amber-500 animate-pulse' : 'bg-gray-300'
+                        }`} />
+                        <span className={`text-[11px] font-semibold ${
+                          isDone ? 'text-emerald-700' : isCurrent ? 'text-amber-700' : 'text-ink-muted'
+                        }`}>
+                          {step.label}
+                        </span>
+                        {isDone && (
+                          <span className="text-[10px] text-emerald-600 font-bold ml-auto">완료</span>
+                        )}
+                        {isCurrent && (
+                          <span className="text-[10px] text-amber-600 font-bold ml-auto">진행중</span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* 안내 (이모티콘 X) */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-[11px] text-blue-700 font-medium leading-snug text-center">
+                페이지를 닫지 말고 잠시만 기다려주세요. 완료되면 자동으로 챕터로 이동해요
               </div>
             </>
           )}
@@ -377,9 +483,8 @@ export default function Major() {
       const retryQ = wrongQs[retryIndex]
       if (!retryQ) return (
         <div className="px-16 py-16 text-center">
-          <div className="text-6xl mb-4">🎉</div>
-          <div className="text-[22px] font-extrabold text-emerald-600 mb-2 tracking-tight">모든 틀린 문제 완료!</div>
-          <div className="text-[14px] text-ink-secondary mb-7 font-medium">수고했어요!</div>
+          <div className="text-[22px] font-extrabold text-emerald-600 mb-2 tracking-tight">모든 틀린 문제 완료</div>
+          <div className="text-[14px] text-ink-secondary mb-7 font-medium">수고했어요</div>
           <button
             onClick={() => { setRetryMode(false); setRetryIndex(0); setRetryAnswers({}) }}
             className="px-9 py-3 bg-ink text-white rounded-xl text-[14px] font-bold hover:bg-ink-secondary transition-all shadow-lg"
@@ -403,7 +508,7 @@ export default function Major() {
           </div>
 
           <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 mb-4 text-[12px] text-red-600 font-bold">
-            ❌ 처음에 틀린 문제예요. 다시 풀어보세요!
+            처음에 틀린 문제예요. 다시 풀어보세요
           </div>
 
           <div className="bg-white border border-line rounded-2xl px-6 py-5 mb-4 shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
@@ -431,8 +536,6 @@ export default function Major() {
                   >
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[12px] font-extrabold flex-shrink-0 ${labelCls}`}>{letter}</div>
                     <span className={`text-[13px] flex-1 text-left ${isSel ? 'font-bold' : 'font-medium'}`}>{text}</span>
-                    {answered && isAns && <span>✅</span>}
-                    {answered && isSel && !isAns && <span>❌</span>}
                   </button>
                 )
               })}
@@ -440,15 +543,15 @@ export default function Major() {
 
             {answered && (
               <div className={`mt-4 border rounded-xl px-4 py-3 text-[13px] leading-relaxed ${isCorrect ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
-                <span className="font-bold">💡 해설</span>　{retryQ.explanation}
+                <span className="font-bold">해설</span>　{retryQ.explanation}
               </div>
             )}
           </div>
 
           {answered && (
             retryIndex < wrongQs.length - 1
-              ? <button onClick={() => setRetryIndex(i => i + 1)} className="w-full h-12 bg-ink text-white rounded-xl text-[14px] font-bold hover:bg-ink-secondary transition-all shadow-lg">다음 →</button>
-              : <button onClick={() => { setRetryMode(false); setRetryIndex(0); setRetryAnswers({}) }} className="w-full h-12 bg-emerald-600 text-white rounded-xl text-[14px] font-bold hover:bg-emerald-700 transition-all shadow-lg">🎉 복습 완료!</button>
+              ? <button onClick={() => setRetryIndex(i => i + 1)} className="w-full h-12 bg-ink text-white rounded-xl text-[14px] font-bold hover:bg-ink-secondary transition-all shadow-lg">다음</button>
+              : <button onClick={() => { setRetryMode(false); setRetryIndex(0); setRetryAnswers({}) }} className="w-full h-12 bg-emerald-600 text-white rounded-xl text-[14px] font-bold hover:bg-emerald-700 transition-all shadow-lg">복습 완료</button>
           )}
         </div>
       )
@@ -490,8 +593,8 @@ export default function Major() {
                   }`}
                 >
                   <span className="text-[12px]">{ch.title}</span>
-                  <span className={`text-[14px] ${isDone ? 'text-emerald-500' : 'text-gray-300'}`}>
-                    {isDone ? '✓' : '○'}
+                  <span className={`text-[11px] font-bold ${isDone ? 'text-emerald-500' : 'text-gray-300'}`}>
+                    {isDone ? '완료' : ''}
                   </span>
                 </button>
               )
@@ -503,14 +606,12 @@ export default function Major() {
         <div className="flex-1 overflow-y-auto p-6">
           {!selChapter ? (
             <div className="flex flex-col items-center justify-center h-full text-ink-muted">
-              <div className="text-5xl mb-3">📚</div>
               <div className="text-[14px] font-bold">챕터를 선택해주세요</div>
             </div>
           ) : !questions ? (
             <div className="flex items-center justify-center h-full text-ink-muted">불러오는 중...</div>
           ) : objQuestions.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-ink-muted">
-              <div className="text-5xl mb-3">📝</div>
               <div className="text-[14px] font-bold">이 챕터에는 문제가 없어요</div>
             </div>
           ) : (
@@ -547,7 +648,7 @@ export default function Major() {
                       <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full">객관식</span>
                       {answered && (
                         <span className={`text-[11px] font-bold ${correct ? 'text-emerald-600' : 'text-red-600'}`}>
-                          {correct ? '✅ 정답' : '❌ 오답'}
+                          {correct ? '정답' : '오답'}
                         </span>
                       )}
                     </div>
@@ -575,8 +676,6 @@ export default function Major() {
                           >
                             <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[12px] font-extrabold flex-shrink-0 ${labelCls}`}>{letter}</div>
                             <span className={`text-[14px] flex-1 text-left ${isSel ? 'font-bold' : 'font-medium'}`}>{text}</span>
-                            {answered && isAns && <span>✅</span>}
-                            {answered && isSel && !isAns && <span>❌</span>}
                           </button>
                         )
                       })}
@@ -585,14 +684,14 @@ export default function Major() {
                     {answered && (
                       <>
                         <div className={`mt-4 border rounded-xl px-4 py-3.5 text-[13px] leading-relaxed ${correct ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
-                          <span className="font-bold">💡 해설</span>　{q.explanation}
+                          <span className="font-bold">해설</span>　{q.explanation}
                         </div>
                         <button
                           onClick={handleNextObj}
                           disabled={submitObj.isPending}
                           className="w-full h-12 bg-ink text-white rounded-xl text-[14px] font-bold mt-3.5 hover:bg-ink-secondary transition-all shadow-lg disabled:opacity-50"
                         >
-                          {currentQIndex < 3 ? '다음 문제 →' : (submitObj.isPending ? '저장 중...' : '주관식 풀기 →')}
+                          {currentQIndex < 3 ? '다음 문제' : (submitObj.isPending ? '저장 중...' : '주관식 풀기')}
                         </button>
                       </>
                     )}
@@ -605,7 +704,7 @@ export default function Major() {
                 <div className={`bg-white rounded-2xl px-7 py-6 shadow-[0_1px_4px_rgba(15,23,42,0.03)] border ${selProgress?.subj_answer ? 'border-amber-300' : 'border-line'}`}>
                   <div className="flex items-center gap-2 mb-4">
                     <span className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">주관식</span>
-                    {selProgress?.subj_answer && <span className="text-[11px] text-emerald-600 font-bold">✓ 제출 완료</span>}
+                    {selProgress?.subj_answer && <span className="text-[11px] text-emerald-600 font-bold">제출 완료</span>}
                   </div>
 
                   <div className="bg-gray-50 border border-line rounded-xl px-4 py-3.5 mb-5">
@@ -621,7 +720,7 @@ export default function Major() {
                       {selProgress.subj_ai_feedback ? (
                         <>
                           <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5 text-[13px] text-amber-900 leading-relaxed mb-3.5">
-                            <div className="font-extrabold mb-2 text-amber-700">✨ AI 피드백</div>
+                            <div className="font-extrabold mb-2 text-amber-700">AI 피드백</div>
                             {selProgress.subj_ai_feedback}
                           </div>
 
@@ -646,7 +745,7 @@ export default function Major() {
                               }}
                               className="w-full h-12 bg-emerald-600 text-white rounded-xl text-[14px] font-bold hover:bg-emerald-700 transition-all shadow-lg"
                             >
-                              🎉 다음 챕터로 →
+                              다음 챕터로
                             </button>
                           )}
                         </>

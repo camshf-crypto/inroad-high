@@ -358,6 +358,7 @@ export async function uploadSaenggibuMajor(file: File, studentId: string, majorI
   return fileName
 }
 
+// ⭐ 수정됨: PDF 업로드 후 자동으로 AI 전공질문 생성 트리거
 export function useSaveSaenggibu() {
   const qc = useQueryClient()
   return useMutation({
@@ -365,6 +366,7 @@ export function useSaveSaenggibu() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('로그인 필요')
       
+      // 1. saenggibu 테이블에 PDF 정보 저장
       const { data, error } = await supabase
         .from('high_major_saenggibu')
         .upsert({
@@ -381,7 +383,36 @@ export function useSaveSaenggibu() {
         .single()
       
       if (error) throw error
-      return data as MajorSaenggibu
+      const saved = data as MajorSaenggibu
+
+      // 2. 🆕 학과명 가져오기
+      const { data: majorData } = await supabase
+        .from('high_major_seed')
+        .select('name')
+        .eq('id', input.majorId)
+        .single()
+      
+      const majorName = majorData?.name || '미정'
+
+      // 3. 🆕 AI 전공질문 생성 트리거 (백그라운드 - await 안 함)
+      // 학생 페이지는 5초 폴링으로 status='ready' 되면 자동 갱신됨
+      supabase.functions.invoke('ai-generate-major-questions', {
+        body: {
+          saenggibuId: saved.id,
+          saenggibu_pdf_url: input.pdfUrl,
+          majorName,
+        }
+      }).then(({ data: aiData, error: aiError }) => {
+        if (aiError) {
+          console.error('❌ AI 생성 실패:', aiError)
+        } else {
+          console.log('✅ AI 생성 완료:', aiData)
+        }
+      }).catch(err => {
+        console.error('❌ AI 호출 에러:', err)
+      })
+
+      return saved
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['my-major-saenggibu'] })

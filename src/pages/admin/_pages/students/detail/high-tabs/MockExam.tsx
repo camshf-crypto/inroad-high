@@ -394,9 +394,9 @@ export default function MockExam({ student }: { student: any }) {
         <>
           <div className="flex gap-1.5 mb-3.5 flex-shrink-0">
             {[
-              { key: 'main', label: `📝 면접 질문 (${mainQuestions.length}문항)` },
-              { key: 'major', label: `🧠 전공특화 (${majors.length}문항)` },
-              { key: 'report', label: '📊 보고서' },
+              { key: 'main', label: `면접 질문 (${mainQuestions.length}문항)` },
+              { key: 'major', label: `전공특화 (${majors.length}문항)` },
+              { key: 'report', label: '보고서' },
             ].map(tab => (
               <button key={tab.key} onClick={() => setActiveSection(tab.key as any)}
                 className="px-4 py-2 rounded-full text-[12px] border transition-all"
