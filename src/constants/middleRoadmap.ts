@@ -65,7 +65,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
       ],
     },
     {
-      m: '4월', theme: '수행평가 유형별 ①', freq: '주 1회 (4주)', missions: [
+      m: '5월', theme: '수행평가 유형별 ①', freq: '주 1회 (4주)', missions: [
         { key: 'middle1-04-1', t: '국어 수행평가 실전 — 실제 기출 연습', type: 'tab', tab: 'past' },
         { key: 'middle1-04-2', t: '사회 수행평가 실전 — 실제 기출 연습', type: 'tab', tab: 'past' },
         { key: 'middle1-04-3', t: '1분 스피치 — 즉흥 발표', type: 'tab', tab: 'simulation' },
@@ -73,7 +73,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
       ],
     },
     {
-      m: '5월', theme: '고교 탐색 시작', freq: '주 1회 (4주)', missions: [
+      m: '7월', theme: '고교 탐색 시작', freq: '주 1회 (4주)', missions: [
         { key: 'middle1-05-1', t: '고교 중요성 — 합격 사례 분석', type: 'teacher' },
         { key: 'middle1-05-2', t: '자사고·특목고 이해 — 유형 비교', type: 'teacher' },
         { key: 'middle1-05-3', t: '면접 맛보기 — 면접이란?', type: 'tab', tab: 'simulation' },
@@ -81,7 +81,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
       ],
     },
     {
-      m: '6월', theme: '수행평가 유형별 ②', freq: '주 1회 (4주)', missions: [
+      m: '8월', theme: '수행평가 유형별 ②', freq: '주 1회 (4주)', missions: [
         { key: 'middle1-06-1', t: '과학 수행평가 — 실험 보고서 기초', type: 'tab', tab: 'past' },
         { key: 'middle1-06-2', t: '역사 수행평가 — 주제탐구 연결', type: 'tab', tab: 'past' },
         { key: 'middle1-06-3', t: '탐구 보고서 작성 — 보고서 구조', type: 'teacher' },
@@ -89,7 +89,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
       ],
     },
     {
-      m: '7월', theme: '종합 실전', freq: '주 1회 (4주)', missions: [
+      m: '10월', theme: '종합 실전', freq: '주 1회 (4주)', missions: [
         { key: 'middle1-07-1', t: '실전 논술 2차 — 심화 첨삭', type: 'teacher' },
         { key: 'middle1-07-2', t: '스토리텔링 스피치 — 경험 발표', type: 'tab', tab: 'simulation' },
         { key: 'middle1-07-3', t: '생기부 작성법 — 항목별 글쓰기', type: 'tab', tab: 'expect' },
@@ -97,7 +97,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
       ],
     },
     {
-      m: '8월', theme: '마무리 + 포트폴리오', freq: '주 1회 (4주)', missions: [
+      m: '12월', theme: '마무리 + 포트폴리오', freq: '주 1회 (4주)', missions: [
         { key: 'middle1-08-1', t: '실전 논술 3차 — 최종 완성본', type: 'teacher' },
         { key: 'middle1-08-2', t: '자기소개서 기초 — 첫 초안 작성', type: 'tab', tab: 'expect' },
         { key: 'middle1-08-3', t: '스피치 완성 — 녹화·피드백', type: 'tab', tab: 'simulation' },
@@ -131,7 +131,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
       ],
     },
     {
-      m: '4월', theme: '고입 전형 이해 + 내신 전략', freq: '주 1회 (4주)', missions: [
+      m: '5월', theme: '고입 전형 이해 + 내신 전략', freq: '주 1회 (4주)', missions: [
         { key: 'middle2-04-1', t: '고입 전형 구조 — 1·2단계 이해', type: 'teacher' },
         { key: 'middle2-04-2', t: '내신 반영 분석 — 학교별 비율', type: 'teacher' },
         { key: 'middle2-04-3', t: '합격 내신 갭 분석 — 필요 등급', type: 'teacher' },
@@ -139,7 +139,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
       ],
     },
     {
-      m: '5월', theme: '자기주도학습계획서 기초', freq: '주 1회 (4주)', missions: [
+      m: '7월', theme: '자기주도학습계획서 기초', freq: '주 1회 (4주)', missions: [
         { key: 'middle2-05-1', t: '자소서 항목 이해 — 요구 포인트', type: 'tab', tab: 'expect' },
         { key: 'middle2-05-2', t: 'STAR 경험 정리 — 구조화', type: 'tab', tab: 'expect' },
         { key: 'middle2-05-3', t: '초안 작성 — 항목별 초안', type: 'tab', tab: 'expect' },
@@ -147,7 +147,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
       ],
     },
     {
-      m: '6월', theme: '면접 기초 시작', freq: '주 1회 (4주)', missions: [
+      m: '8월', theme: '면접 기초 시작', freq: '주 1회 (4주)', missions: [
         { key: 'middle2-06-1', t: '인성 면접 유형 — 공동체·리더십', type: 'tab', tab: 'simulation' },
         { key: 'middle2-06-2', t: '두괄식 답변 구조 — 답변 훈련', type: 'tab', tab: 'simulation' },
         { key: 'middle2-06-3', t: '답변집 20개 제작 — 녹화·피드백', type: 'tab', tab: 'simulation' },
@@ -155,7 +155,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
       ],
     },
     {
-      m: '7월', theme: '면접 심화 + 학교별 기출', freq: '주 1회 (4주)', missions: [
+      m: '10월', theme: '면접 심화 + 학교별 기출', freq: '주 1회 (4주)', missions: [
         { key: 'middle2-07-1', t: '지원동기 답변 — 학교+진로 연결', type: 'tab', tab: 'simulation' },
         { key: 'middle2-07-2', t: '기출 분석 — 지망별 3년 기출', type: 'tab', tab: 'past' },
         { key: 'middle2-07-3', t: '수행평가 종합 1 — 국·사·역 통합', type: 'teacher' },
@@ -163,7 +163,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
       ],
     },
     {
-      m: '8월', theme: '중간 점검 + 중3 준비', freq: '주 1회 (4주)', missions: [
+      m: '12월', theme: '중간 점검 + 중3 준비', freq: '주 1회 (4주)', missions: [
         { key: 'middle2-08-1', t: '성과 점검 발표회 — 1년 발표', type: 'teacher' },
         { key: 'middle2-08-2', t: '취약점 진단 — 우선순위 재설정', type: 'teacher' },
         { key: 'middle2-08-3', t: '중3 대비 계획 — 방학 플랜', type: 'teacher' },
@@ -197,7 +197,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
       ],
     },
     {
-      m: '4월', theme: '인성 면접 훈련', freq: '주 1회 (4주)', missions: [
+      m: '5월', theme: '인성 면접 훈련', freq: '주 1회 (4주)', missions: [
         { key: 'middle3-04-1', t: '인성 평가 요소 — 학교별 중시도', type: 'tab', tab: 'simulation' },
         { key: 'middle3-04-2', t: '리더십 답변 (STAR) — 구조화', type: 'tab', tab: 'simulation' },
         { key: 'middle3-04-3', t: '배려·성실성 답변 — 갈등 해결 사례', type: 'tab', tab: 'simulation' },
@@ -205,7 +205,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
       ],
     },
     {
-      m: '5월', theme: '전공·학업 면접', freq: '주 1회 (4주)', missions: [
+      m: '7월', theme: '전공·학업 면접', freq: '주 1회 (4주)', missions: [
         { key: 'middle3-05-1', t: '지원동기 완성 — 학교+진로 연결', type: 'tab', tab: 'simulation' },
         { key: 'middle3-05-2', t: '학업 계획 답변 — 입학 후 설계', type: 'tab', tab: 'simulation' },
         { key: 'middle3-05-3', t: '전공 지식 대응 — 모르는 질문 대처', type: 'tab', tab: 'simulation' },
@@ -213,7 +213,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
       ],
     },
     {
-      m: '6월', theme: '학교별 기출 & 맞춤', freq: '주 1회 (4주)', missions: [
+      m: '8월', theme: '학교별 기출 & 맞춤', freq: '주 1회 (4주)', missions: [
         { key: 'middle3-06-1', t: '1지망 기출 5년 — 심층 분석', type: 'tab', tab: 'past' },
         { key: 'middle3-06-2', t: '1지망 답변집 40개 — 학교 맞춤', type: 'tab', tab: 'simulation' },
         { key: 'middle3-06-3', t: '2지망 답변집 30개 — 차별화', type: 'tab', tab: 'simulation' },
@@ -221,7 +221,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
       ],
     },
     {
-      m: '7월', theme: 'AI 압박면접 & 실전', freq: '주 1회 (4주)', missions: [
+      m: '10월', theme: 'AI 압박면접 & 실전', freq: '주 1회 (4주)', missions: [
         { key: 'middle3-07-1', t: 'AI 모의면접 1차 — 전체 녹화·분석', type: 'tab', tab: 'simulation' },
         { key: 'middle3-07-2', t: '꼬리질문 대응 — 압박 대응', type: 'tab', tab: 'simulation' },
         { key: 'middle3-07-3', t: 'AI 모의면접 2차 — 난이도 상승', type: 'tab', tab: 'simulation' },
@@ -229,7 +229,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
       ],
     },
     {
-      m: '8월', theme: '최종 리허설 & 파이널', freq: '주 1회 (4주)', missions: [
+      m: '12월', theme: '최종 리허설 & 파이널', freq: '주 1회 (4주)', missions: [
         { key: 'middle3-08-1', t: '최종 점검 — 약점 보완', type: 'teacher' },
         { key: 'middle3-08-2', t: '리허설 1차 (1·2지망) — 완전 실전', type: 'tab', tab: 'simulation' },
         { key: 'middle3-08-3', t: '리허설 2차 (3지망) — 최종 피드백', type: 'tab', tab: 'simulation' },
