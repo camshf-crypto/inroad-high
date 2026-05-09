@@ -39,12 +39,15 @@ const MIDDLE_STUDENT_TABLES = [
   'middle_reading',
 
   // 자소서 / 예상질문
-  'middle_essays',
-  'middle_essays_analysis',
-  'middle_essays_followups',
-  'middle_question_answers',
-  'middle_question_answers_analysis',
-  'middle_question_answers_followups',
+  // 자소서 / 예상질문
+  'jaso_essays',
+  'jaso_essay_answers',
+  'jaso_essay_feedback',
+  'jaso_essay_section_history',
+  'jaso_questions',
+  'jaso_question_feedback',
+  'middle_essay_wizard',
+  'middle_student_target_schools',
 
   // 기출
   'middle_past_answers',
