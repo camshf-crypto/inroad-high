@@ -8,6 +8,17 @@ export interface SimulationQuestion {
   num: number;
   text: string;
   answered: boolean;
+  answer_audio_url?: string | null;
+  answer_transcript?: string | null;
+  answer_duration_sec?: number;
+}
+
+// 학생이 답변한 데이터 (업로드 전)
+export interface SimulationAnswerInput {
+  num: number;
+  text: string;
+  audio_blob: Blob | null;
+  duration_sec: number;
 }
 
 export interface MySimulation {
@@ -53,7 +64,7 @@ export function useMySimulations(studentId: string | undefined) {
 }
 
 // ──────────────────────────────────────────
-// 음성 파일 업로드 + 시뮬레이션 저장
+// 질문별 음성 업로드 + STT + 시뮬레이션 저장
 // ──────────────────────────────────────────
 export function useCreateSimulation() {
   const qc = useQueryClient();
@@ -67,31 +78,66 @@ export function useCreateSimulation() {
       school: string;
       tail_question: boolean;
       question_mode: "text" | "voice" | "both";
-      questions: SimulationQuestion[];
-      audio_blob: Blob | null;
+      answers: SimulationAnswerInput[];
       duration: string;
     }) => {
-      let audioUrl: string | null = null;
+      // 1️⃣ 각 질문별 음성 업로드 + STT
+      const processedQuestions: SimulationQuestion[] = [];
+      const transcriptParts: string[] = [];
 
-      // 음성 파일 업로드
-      if (input.audio_blob) {
-        const fileName = `${input.student_id}/${Date.now()}.webm`;
-        const { error: uploadError } = await supabase.storage
-          .from("simulation-audio")
-          .upload(fileName, input.audio_blob, {
-            contentType: "audio/webm",
-          });
+      for (let i = 0; i < input.answers.length; i++) {
+        const ans = input.answers[i];
+        let audioUrl: string | null = null;
+        let transcript: string | null = null;
 
-        if (uploadError) throw uploadError;
+        if (ans.audio_blob && ans.audio_blob.size > 0) {
+          // 업로드
+          const fileName = `${input.student_id}/${Date.now()}-q${ans.num}.webm`;
+          const { error: uploadError } = await supabase.storage
+            .from("simulation-audio")
+            .upload(fileName, ans.audio_blob, {
+              contentType: "audio/webm",
+            });
 
-        const { data: urlData } = supabase.storage
-          .from("simulation-audio")
-          .getPublicUrl(fileName);
+          if (!uploadError) {
+            const { data: urlData } = supabase.storage
+              .from("simulation-audio")
+              .getPublicUrl(fileName);
+            audioUrl = urlData.publicUrl;
 
-        audioUrl = urlData.publicUrl;
+            // ⭐ STT 호출 (각 질문마다)
+            try {
+              const { data: sttData, error: sttError } =
+                await supabase.functions.invoke("middle-homework-stt-start", {
+                  body: { videoUrl: audioUrl, language: "ko-KR" },
+                });
+
+              if (!sttError && sttData?.success && sttData?.transcript) {
+                transcript = sttData.transcript;
+                transcriptParts.push(`Q${ans.num}. ${transcript}`);
+                console.log(`✅ Q${ans.num} STT:`, transcript?.slice(0, 50));
+              }
+            } catch (e) {
+              console.error(`Q${ans.num} STT 오류:`, e);
+            }
+          } else {
+            console.error(`Q${ans.num} 업로드 실패:`, uploadError);
+          }
+        }
+
+        processedQuestions.push({
+          num: ans.num,
+          text: ans.text,
+          answered: !!ans.audio_blob,
+          answer_audio_url: audioUrl,
+          answer_transcript: transcript,
+          answer_duration_sec: ans.duration_sec,
+        });
       }
 
-      // 시뮬레이션 INSERT
+      // 2️⃣ 시뮬레이션 INSERT
+      const fullTranscript = transcriptParts.join("\n\n");
+
       const { data, error } = await supabase
         .from("middle_simulations")
         .insert({
@@ -102,9 +148,10 @@ export function useCreateSimulation() {
           school: input.school,
           tail_question: input.tail_question,
           question_mode: input.question_mode,
-          questions: input.questions,
-          audio_url: audioUrl,
+          questions: processedQuestions,
+          audio_url: null,
           duration: input.duration,
+          transcript: fullTranscript || null,
         })
         .select()
         .single();
@@ -127,22 +174,28 @@ export function useDeleteSimulation() {
 
   return useMutation({
     mutationFn: async (simId: string) => {
-      // 음성 파일 먼저 가져와서 Storage에서 삭제
+      // 시뮬레이션 + 질문별 audio_url 다 가져오기
       const { data: sim } = await supabase
         .from("middle_simulations")
-        .select("audio_url, student_id")
+        .select("questions")
         .eq("id", simId)
         .single();
 
-      if (sim?.audio_url) {
-        // URL에서 파일 경로 추출
-        const url = new URL(sim.audio_url);
-        const pathParts = url.pathname.split("/simulation-audio/");
-        if (pathParts.length > 1) {
-          await supabase.storage
-            .from("simulation-audio")
-            .remove([pathParts[1]]);
+      // 각 질문별 음성 파일 삭제
+      const filesToDelete: string[] = [];
+      const questions = (sim?.questions ?? []) as SimulationQuestion[];
+      for (const q of questions) {
+        if (q.answer_audio_url) {
+          const url = new URL(q.answer_audio_url);
+          const pathParts = url.pathname.split("/simulation-audio/");
+          if (pathParts.length > 1) {
+            filesToDelete.push(pathParts[1]);
+          }
         }
+      }
+
+      if (filesToDelete.length > 0) {
+        await supabase.storage.from("simulation-audio").remove(filesToDelete);
       }
 
       // DB 삭제
