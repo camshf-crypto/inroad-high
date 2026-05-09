@@ -9,7 +9,13 @@ import {
   useSubmitPastAnswer,
   useSubmitPastUpgrade,
   useSubmitPastTailAnswer,
+  // ⭐ 지원 학교 hooks
+  useMyTargetSchools,
+  useAddTargetSchool,
+  useHideTargetSchool,
 } from "@/pages/middle-student/_hooks/useMyPast";
+
+const MAX_TARGETS = 6; // 최대 지원 학교 수
 
 const TYPE_COLOR: Record<string, string> = {
   지원동기: "bg-[#EEF2FF] text-[#3B5BDB] border-[#BAC8FF]",
@@ -79,7 +85,22 @@ export default function MiddlePast() {
 
   // ⭐ DB 훅
   const { data: allSchools = [] } = useAllSchools();
+  const { data: myTargetSchools = [] } = useMyTargetSchools(studentId);
+  const addTargetSchool = useAddTargetSchool();
+  const hideTargetSchool = useHideTargetSchool();
+
+  // 학교 선택 상태
   const [selSchool, setSelSchool] = useState("");
+
+  // ⭐ 첫 진입시 자동으로 첫 학교 선택
+  useEffect(() => {
+    if (!selSchool && myTargetSchools.length > 0) {
+      setSelSchool(myTargetSchools[0].school);
+    }
+  }, [myTargetSchools, selSchool]);
+
+  // 학교 추가 폼
+  const [showAddForm, setShowAddForm] = useState(false);
   const [schoolSearch, setSchoolSearch] = useState("");
   const [schoolDropOpen, setSchoolDropOpen] = useState(false);
 
@@ -132,7 +153,12 @@ export default function MiddlePast() {
   const submitUpgrade = useSubmitPastUpgrade();
   const submitTailAnswer = useSubmitPastTailAnswer();
 
-  const filteredSchools = allSchools.filter((s) => s.includes(schoolSearch));
+  // 등록되지 않은 학교만 검색에 노출 (이미 추가한 거 빼기)
+  const myTargetSchoolNames = myTargetSchools.map((t) => t.school);
+  const filteredSchools = allSchools.filter(
+    (s) =>
+      s.includes(schoolSearch) && !myTargetSchoolNames.includes(s),
+  );
 
   const getStep = (answer: any, fb: any) => {
     if (!answer?.answer) return 0;
@@ -146,6 +172,61 @@ export default function MiddlePast() {
   const answeredCount = questions.filter(
     (q) => answerByQuestionId[q.id]?.answer,
   ).length;
+
+  // ⭐ 학교 추가
+  const handleAddSchool = async (school: string) => {
+    if (!student?.id || !academy?.academyId) {
+      alert("로그인 정보를 불러오지 못했어요.");
+      return;
+    }
+    if (myTargetSchools.length >= MAX_TARGETS) {
+      alert(`지원 학교는 최대 ${MAX_TARGETS}개까지 등록 가능해요.`);
+      return;
+    }
+    try {
+      await addTargetSchool.mutateAsync({
+        student_id: String(student.id),
+        academy_id: String(academy.academyId),
+        school,
+      });
+      setSelSchool(school);
+      setSelQId(null);
+      setShowAddForm(false);
+      setSchoolSearch("");
+      setSchoolDropOpen(false);
+    } catch (e: any) {
+      alert(`추가 실패: ${e.message}`);
+    }
+  };
+
+  // ⭐ 학교 숨김 처리
+  const handleHideSchool = async (school: string) => {
+    if (!student?.id) return;
+    if (
+      !confirm(
+        `"${school}"을(를) 목록에서 숨길까요?\n\n⚠️ 답변/피드백 데이터는 모두 유지돼요.\n원장님이 언제든 다시 복구할 수 있어요.`,
+      )
+    )
+      return;
+    try {
+      await hideTargetSchool.mutateAsync({
+        student_id: String(student.id),
+        school,
+      });
+      // 현재 보고있는 학교를 숨겼으면 다른 학교로
+      if (selSchool === school) {
+        const remaining = myTargetSchools.filter((t) => t.school !== school);
+        if (remaining.length > 0) {
+          setSelSchool(remaining[0].school);
+        } else {
+          setSelSchool("");
+        }
+        setSelQId(null);
+      }
+    } catch (e: any) {
+      alert(`숨김 처리 실패: ${e.message}`);
+    }
+  };
 
   // Step 1 제출
   const handleSubmitAnswer = async () => {
@@ -201,8 +282,7 @@ export default function MiddlePast() {
     }
   };
 
-  const schoolInputValue =
-    selSchool && !schoolDropOpen ? selSchool : schoolSearch;
+  const canAddMore = myTargetSchools.length < MAX_TARGETS;
 
   return (
     <div className="flex flex-col gap-3 h-[calc(100vh-50px)] overflow-hidden px-6 py-5 font-sans text-ink">
@@ -223,94 +303,142 @@ export default function MiddlePast() {
         )}
       </div>
 
-      {/* 학교 선택 */}
-      <div className="flex gap-2 flex-shrink-0 items-center">
-        <div className="relative w-[260px]">
-          <div
-            onClick={() => setSchoolDropOpen(true)}
-            className={`flex items-center gap-2 border rounded-lg px-3 bg-white cursor-text h-10 transition-all ${
-              schoolDropOpen
-                ? "border-brand-middle ring-2 ring-brand-middle/10"
-                : "border-line"
-            }`}
-          >
-            <span className="text-base flex-shrink-0">🏫</span>
-            <input
-              value={schoolInputValue}
-              onChange={(e) => {
-                setSchoolSearch(e.target.value);
-                setSelSchool("");
-                setSelQId(null);
-                setSchoolDropOpen(true);
-              }}
-              onFocus={() => setSchoolDropOpen(true)}
-              placeholder="학교 검색 (예: 인천하늘고, 민사고...)"
-              className="flex-1 border-none outline-none text-[13px] bg-transparent text-ink min-w-0 placeholder:text-ink-muted"
-            />
-            {selSchool ? (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelSchool("");
-                  setSchoolSearch("");
-                  setSelQId(null);
-                }}
-                className="text-[11px] text-ink-muted hover:text-ink transition-colors flex-shrink-0"
-              >
-                ✕
-              </button>
-            ) : (
-              <span
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSchoolDropOpen(!schoolDropOpen);
-                }}
-                className="text-[10px] text-ink-muted cursor-pointer flex-shrink-0 select-none"
-              >
-                ▼
-              </span>
-            )}
-          </div>
+      {/* ⭐ 지원 학교 칩들 + 추가 버튼 */}
+      <div className="flex flex-col gap-2 flex-shrink-0">
+        <div className="flex gap-1.5 items-center flex-wrap">
+          <span className="text-[11px] text-ink-muted font-semibold mr-1">
+            내 지원 학교 ({myTargetSchools.length}/{MAX_TARGETS}):
+          </span>
 
-          {schoolDropOpen && (
-            <>
+          {/* 학교 칩들 */}
+          {myTargetSchools.map((t) => {
+            const isSelected = selSchool === t.school;
+            return (
               <div
-                onClick={() => setSchoolDropOpen(false)}
-                className="fixed inset-0 z-10"
-              />
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-line rounded-lg z-20 max-h-[240px] overflow-y-auto shadow-[0_8px_24px_rgba(15,23,42,0.12)]">
-                {filteredSchools.length === 0 ? (
-                  <div className="px-3 py-2.5 text-[12px] text-ink-muted text-center">
-                    검색 결과 없음
-                  </div>
-                ) : (
-                  filteredSchools.map((s, i) => (
-                    <div
-                      key={i}
-                      onClick={() => {
-                        setSelSchool(s);
-                        setSchoolSearch("");
-                        setSchoolDropOpen(false);
-                        setSelQId(null);
-                      }}
-                      className={`px-3 py-2 text-[13px] text-ink cursor-pointer transition-colors ${
-                        selSchool === s
-                          ? "bg-brand-middle-pale font-semibold text-brand-middle-dark"
-                          : "hover:bg-brand-middle-pale/50"
-                      } ${i < filteredSchools.length - 1 ? "border-b border-line-light" : ""}`}
-                    >
-                      {s}
-                    </div>
-                  ))
-                )}
+                key={t.id}
+                className={`inline-flex items-center gap-1 rounded-full border transition-all ${
+                  isSelected
+                    ? "bg-brand-middle border-brand-middle"
+                    : "bg-white border-line hover:border-brand-middle-light"
+                }`}
+              >
+                <button
+                  onClick={() => {
+                    setSelSchool(t.school);
+                    setSelQId(null);
+                  }}
+                  className={`px-3 py-1.5 text-[11px] ${
+                    isSelected
+                      ? "text-white font-bold"
+                      : "text-brand-middle-dark font-semibold hover:text-brand-middle"
+                  }`}
+                >
+                  🏫 {t.school}
+                </button>
+                <button
+                  onClick={() => handleHideSchool(t.school)}
+                  className={`pr-2.5 text-[11px] leading-none ${
+                    isSelected
+                      ? "text-white/70 hover:text-white"
+                      : "text-red-400 hover:text-red-600"
+                  }`}
+                  title="목록에서 숨김"
+                >
+                  ✕
+                </button>
               </div>
-            </>
+            );
+          })}
+
+          {/* + 학교 추가 버튼 */}
+          {canAddMore && !showAddForm && (
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="px-3 py-1.5 rounded-full text-[11px] font-bold bg-brand-middle-pale text-brand-middle-dark border border-brand-middle-light hover:bg-brand-middle-bg transition-all"
+            >
+              + 학교 추가
+            </button>
+          )}
+
+          {!canAddMore && (
+            <div className="text-[10px] text-amber-600 font-medium px-2">
+              ⚠️ 최대 {MAX_TARGETS}개까지 등록 가능
+            </div>
           )}
         </div>
 
-        {selSchool && (
-          <div className="flex items-center gap-1.5 text-[12px] font-semibold text-brand-middle-dark bg-brand-middle-bg px-3 py-1.5 rounded-full border border-brand-middle-light flex-shrink-0">
-            ✓ {selSchool}
+        {/* 학교 추가 폼 */}
+        {showAddForm && (
+          <div className="flex gap-2 items-center flex-wrap bg-brand-middle-pale border border-brand-middle-light rounded-xl px-3 py-2.5">
+            <span className="text-[11px] font-bold text-brand-middle-dark">
+              새 지원 학교:
+            </span>
+
+            <div className="relative w-[260px]">
+              <div
+                onClick={() => setSchoolDropOpen(true)}
+                className={`flex items-center gap-2 border rounded-lg px-3 bg-white cursor-text h-9 transition-all ${
+                  schoolDropOpen
+                    ? "border-brand-middle ring-2 ring-brand-middle/10"
+                    : "border-line"
+                }`}
+              >
+                <span className="text-[14px] flex-shrink-0">🏫</span>
+                <input
+                  value={schoolSearch}
+                  onChange={(e) => {
+                    setSchoolSearch(e.target.value);
+                    setSchoolDropOpen(true);
+                  }}
+                  onFocus={() => setSchoolDropOpen(true)}
+                  placeholder="학교 검색 (예: 인천하늘고, 민사고...)"
+                  className="flex-1 border-none outline-none text-[12px] bg-transparent text-ink min-w-0 placeholder:text-ink-muted"
+                  autoFocus
+                />
+                <span className="text-[10px] text-ink-muted">▼</span>
+              </div>
+
+              {schoolDropOpen && (
+                <>
+                  <div
+                    onClick={() => setSchoolDropOpen(false)}
+                    className="fixed inset-0 z-10"
+                  />
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-line rounded-lg z-20 max-h-[240px] overflow-y-auto shadow-[0_8px_24px_rgba(15,23,42,0.12)]">
+                    {filteredSchools.length === 0 ? (
+                      <div className="px-3 py-2.5 text-[12px] text-ink-muted text-center">
+                        {schoolSearch ? "검색 결과 없음" : "추가할 학교가 없어요"}
+                      </div>
+                    ) : (
+                      filteredSchools.map((s, i) => (
+                        <div
+                          key={i}
+                          onClick={() => handleAddSchool(s)}
+                          className={`px-3 py-2 text-[13px] text-ink cursor-pointer transition-colors hover:bg-brand-middle-pale/50 ${
+                            i < filteredSchools.length - 1
+                              ? "border-b border-line-light"
+                              : ""
+                          }`}
+                        >
+                          {s}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <button
+              onClick={() => {
+                setShowAddForm(false);
+                setSchoolSearch("");
+                setSchoolDropOpen(false);
+              }}
+              className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-white text-ink-secondary border border-line hover:bg-gray-50 transition-all"
+            >
+              취소
+            </button>
           </div>
         )}
       </div>
@@ -346,7 +474,9 @@ export default function MiddlePast() {
             {!selSchool ? (
               <div className="text-center py-10 text-ink-muted text-[12px]">
                 <div className="text-3xl mb-2">🏫</div>
-                위에서 학교를 선택해주세요
+                {myTargetSchools.length === 0
+                  ? "+ 학교 추가 버튼을 눌러주세요"
+                  : "위에서 학교를 선택해주세요"}
               </div>
             ) : questions.length === 0 ? (
               <div className="text-center py-10 text-ink-muted text-[12px]">

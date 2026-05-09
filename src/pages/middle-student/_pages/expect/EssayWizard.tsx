@@ -242,11 +242,47 @@ const SECTION_QUESTIONS = {
   },
 };
 
+// ⭐⭐⭐ 한국어 조사 리스트 (긴 것부터, 단어 끝에서 제거)
+const KOREAN_PARTICLES = [
+  "으로써", "으로서", "에서는", "에서도", "이라는", "이라고",
+  "에서", "에게", "한테", "께서", "이라", "라고", "으로",
+  "으나", "지만", "라는", "처럼",
+  "을", "를", "이", "가", "은", "는", "와", "과", "에", "의",
+  "도", "만", "로", "야", "여", "랑",
+];
+
+// ⭐ 단어 끝의 조사 제거
+function stripParticles(word: string): string {
+  let cleaned = word.trim();
+  for (const particle of KOREAN_PARTICLES) {
+    if (cleaned.endsWith(particle) && cleaned.length > particle.length) {
+      cleaned = cleaned.slice(0, -particle.length);
+      break;
+    }
+  }
+  return cleaned;
+}
+
+// ⭐ 텍스트에서 의미있는 단어들 추출 (2글자 이상)
+function extractMeaningfulWords(text: string): string[] {
+  return text
+    .replace(/[,.!?·\-\(\)\[\]"'·:;~]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.trim().length >= 2)
+    .map(stripParticles)
+    .filter((w) => w.length >= 2);
+}
+
+// ⭐ 단어 중 하나라도 본문에 등장하면 true
+function checkAppears(targetWords: string[], bodyText: string): boolean {
+  return targetWords.some((w) => bodyText.includes(w));
+}
+
 interface Props {
   schoolName: string;
-  essayId: string;          // ⭐ 새로 추가
-  studentId: string;        // ⭐ 새로 추가
-  academyId: string | null; // ⭐ 새로 추가
+  essayId: string;
+  studentId: string;
+  academyId: string | null;
   onComplete: (finalContent: { selfStudy: string; reason: string; activity: string; career: string; character: string }) => void;
   onCancel: () => void;
 }
@@ -258,17 +294,14 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
   const [checklist, setChecklist] = useState<boolean[]>([false, false, false, false, false]);
   const [expandedExp, setExpandedExp] = useState<string | null>(null);
 
-  // ⭐ DB 훅
   const { data: savedWizard, isLoading: isLoadingWizard } = useEssayWizard(essayId);
   const saveWizard = useSaveEssayWizard();
   const submitToTeacher = useSubmitToTeacher();
 
-  // ⭐ 자동 저장 — debounce ref
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const isInitialLoadRef = useRef(true);
 
-  // ⭐ DB에서 불러온 데이터로 초기화 (한 번만)
   useEffect(() => {
     if (savedWizard && isInitialLoadRef.current) {
       setData({
@@ -280,14 +313,11 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
       setCurrentStep(savedWizard.current_step || 1);
       isInitialLoadRef.current = false;
     } else if (!savedWizard && !isLoadingWizard && isInitialLoadRef.current) {
-      // 처음 들어온 경우 (DB row 없음)
       isInitialLoadRef.current = false;
     }
   }, [savedWizard, isLoadingWizard]);
 
-  // ⭐ 자동 저장 — data 또는 currentStep 변경되면 1.5초 후 저장
   useEffect(() => {
-    // 초기 로드 중에는 저장 안 함
     if (isInitialLoadRef.current) return;
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -315,7 +345,6 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, currentStep]);
 
-  // 1단계
   const toggleSuggestKeyword = (kw: string) => {
     const filled = data.keywords.filter((k) => k.keyword.trim()).length;
     const exists = data.keywords.some((k) => k.keyword === kw);
@@ -429,29 +458,56 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
       .replace(/\s/g, "").length;
   }, [data.sections]);
 
-  const handleSubmit = async () => {
-    // 마지막으로 한번 더 저장
-    try {
-      await saveWizard.mutateAsync({
-        essay_id: essayId,
-        student_id: studentId,
-        academy_id: academyId,
-        data: { ...data, current_step: currentStep },
+  // ⭐⭐⭐ 5단계 자동 검증 로직 ⭐⭐⭐
+  const fullEssayText = useMemo(() => {
+    return (Object.keys(data.sections) as Array<keyof SectionAnswers>)
+      .map(draftFor)
+      .join(" ");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.sections]);
+
+  const keywordCheck = useMemo(() => {
+    return data.keywords
+      .filter((k) => k.keyword.trim())
+      .map((k) => {
+        const keyword = k.keyword.trim();
+        const experience = k.experience.trim();
+
+        if (fullEssayText.includes(keyword)) {
+          return { keyword, appears: true };
+        }
+        const keywordWords = extractMeaningfulWords(keyword);
+        if (checkAppears(keywordWords, fullEssayText)) {
+          return { keyword, appears: true };
+        }
+        if (experience) {
+          const experienceWords = extractMeaningfulWords(experience);
+          if (checkAppears(experienceWords, fullEssayText)) {
+            return { keyword, appears: true };
+          }
+        }
+        return { keyword, appears: false };
       });
-    } catch (e) {
-      console.error("최종 저장 실패:", e);
-    }
+  }, [data.keywords, fullEssayText]);
 
-    onComplete({
-      selfStudy: "",
-      reason: draftFor("지원동기"),
-      activity: draftFor("활동계획"),
-      career: draftFor("진로계획"),
-      character: draftFor("인성"),
-    });
-  };
-
+  const keywordAppearedCount = keywordCheck.filter((k) => k.appears).length;
   const filledKeywords = data.keywords.filter((k) => k.keyword.trim()).length;
+
+  const experienceCheck = useMemo(() => {
+    const allMatched = (Object.keys(data.matching) as Array<keyof ExperienceMatching>)
+      .flatMap((sec) => data.matching[sec].map((text) => ({ section: sec, text })));
+
+    return allMatched.map(({ section, text }) => {
+      const sectionText = draftFor(section);
+      const words = extractMeaningfulWords(text);
+      const appears = checkAppears(words, sectionText);
+      return { section, text, appears };
+    });
+  }, [data.matching, data.sections]);
+
+  const experienceAppearedCount = experienceCheck.filter((e) => e.appears).length;
+  const totalMatchedExp = experienceCheck.length;
+
   const isStep1Done = filledKeywords >= 3;
   const filledMindmap = (Object.values(data.mindmap) as string[][]).flat().filter((s) => s.trim()).length;
   const isStep2Done = filledMindmap >= 4;
@@ -470,7 +526,6 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
     { num: 6, label: "피드백", done: false },
   ];
 
-  // ⭐ 로딩 중이면 스켈레톤
   if (isLoadingWizard) {
     return (
       <div className="flex items-center justify-center h-full bg-gray-50">
@@ -484,7 +539,6 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-gray-50">
-      {/* 통합 헤더 */}
       <div className="flex items-center gap-6 px-6 py-3 bg-white border-b border-line flex-shrink-0">
         <div className="flex items-center gap-3 flex-shrink-0">
           <button onClick={onCancel} className="text-[12px] font-semibold text-ink-secondary hover:text-ink transition-colors">
@@ -497,7 +551,6 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
             </div>
             <div className="text-[10px] text-ink-muted leading-[1.3] flex items-center gap-1">
               <span className="text-brand-middle-dark font-bold">{schoolName}</span>
-              {/* ⭐ 자동 저장 상태 표시 */}
               {saveStatus === "saving" && <span className="text-amber-600">· 저장 중...</span>}
               {saveStatus === "saved" && <span className="text-emerald-600">· ✓ 자동저장됨</span>}
             </div>
@@ -515,16 +568,14 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
               <div key={s.num} className="flex items-center flex-1 last:flex-initial">
                 <div onClick={() => setCurrentStep(s.num)}
                   className="flex items-center gap-2 cursor-pointer flex-shrink-0">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold transition-all ${
-                    isActive ? "bg-brand-middle text-white shadow-[0_4px_12px_rgba(16,185,129,0.3)] scale-110 ring-4 ring-brand-middle-pale"
-                      : isPast ? "bg-brand-middle-dark text-white"
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold transition-all ${isActive ? "bg-brand-middle text-white shadow-[0_4px_12px_rgba(16,185,129,0.3)] scale-110 ring-4 ring-brand-middle-pale"
+                    : isPast ? "bg-brand-middle-dark text-white"
                       : "bg-white text-ink-muted border border-line"
-                  }`}>
+                    }`}>
                     {isPast ? "✓" : s.num}
                   </div>
-                  <div className={`text-[11px] font-semibold whitespace-nowrap ${
-                    isActive ? "text-brand-middle-dark" : isPast ? "text-brand-middle-dark" : "text-ink-muted"
-                  }`}>{s.label}</div>
+                  <div className={`text-[11px] font-semibold whitespace-nowrap ${isActive ? "text-brand-middle-dark" : isPast ? "text-brand-middle-dark" : "text-ink-muted"
+                    }`}>{s.label}</div>
                 </div>
                 {!isLast && (
                   <div className={`flex-1 h-0.5 mx-3 ${isPast ? "bg-brand-middle" : "bg-gray-200"}`} />
@@ -535,7 +586,6 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
         </div>
       </div>
 
-      {/* 본문 */}
       <div className="flex-1 overflow-y-auto px-6 py-6">
         <div className={currentStep === 4 ? "max-w-[1280px] mx-auto" : "max-w-[900px] mx-auto"}>
           {/* 1단계 */}
@@ -547,7 +597,7 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                 이 키워드들이 자소서 곳곳에 자연스럽게 녹아들면 글에 일관성이 생겨요.
               </p>
               <div className="bg-brand-middle-pale border border-brand-middle-light rounded-xl px-4 py-3 mb-5 flex gap-3">
-                <div className="text-2xl flex-shrink-0">🤖</div>
+                <div className="text-2xl flex-shrink-0"></div>
                 <div>
                   <div className="text-[12px] font-bold text-brand-middle-dark mb-1">AI 추천 — {schoolName}에 어울리는 키워드</div>
                   <div className="text-[12px] text-ink-secondary leading-[1.6]">
@@ -562,10 +612,9 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                     const selected = data.keywords.some((k) => k.keyword === kw);
                     return (
                       <button key={kw} type="button" onClick={() => toggleSuggestKeyword(kw)}
-                        className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-all ${
-                          selected ? "bg-brand-middle text-white border border-brand-middle"
-                            : "bg-white border border-line text-ink-secondary hover:border-brand-middle-light hover:bg-brand-middle-pale"
-                        }`}>
+                        className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-all ${selected ? "bg-brand-middle text-white border border-brand-middle"
+                          : "bg-white border border-line text-ink-secondary hover:border-brand-middle-light hover:bg-brand-middle-pale"
+                          }`}>
                         {selected ? "✓ " : "+ "}{kw}
                       </button>
                     );
@@ -601,7 +650,7 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                 <strong>완성된 문장 말고 단어 나열로 충분해요!</strong> 30초 이상 안 떠오르면 다음 칸으로 넘어가요.
               </p>
               <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5 flex gap-3">
-                <div className="text-2xl flex-shrink-0">💡</div>
+                <div className="text-2xl flex-shrink-0"></div>
                 <div>
                   <div className="text-[12px] font-bold text-amber-800 mb-1">AI 힌트 — 경험을 꺼내는 팁</div>
                   <div className="text-[12px] text-amber-900 leading-[1.6]">
@@ -643,7 +692,7 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                 왼쪽 카드를 탭해서 항목을 선택하면 분류돼요.
               </p>
               <div className="bg-brand-middle-pale border border-brand-middle-light rounded-xl px-4 py-3 mb-5 flex gap-3">
-                <div className="text-2xl flex-shrink-0">🎯</div>
+                <div className="text-2xl flex-shrink-0"></div>
                 <div>
                   <div className="text-[12px] font-bold text-brand-middle-dark mb-1">경험 분배 팁</div>
                   <div className="text-[12px] text-ink-secondary leading-[1.6]">
@@ -692,14 +741,12 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                   ] as const).map((sec) => {
                     const matched = data.matching[sec.key];
                     return (
-                      <div key={sec.key} className={`border-2 rounded-xl p-4 transition-all ${
-                        matched.length > 0 ? "border-brand-middle bg-brand-middle-pale/40" : "border-dashed border-line bg-white"
-                      }`}>
+                      <div key={sec.key} className={`border-2 rounded-xl p-4 transition-all ${matched.length > 0 ? "border-brand-middle bg-brand-middle-pale/40" : "border-dashed border-line bg-white"
+                        }`}>
                         <div className="flex items-center justify-between mb-2">
                           <div className="text-[13px] font-bold text-ink">{sec.icon} {sec.label}</div>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            matched.length > 0 ? "bg-brand-middle text-white" : "bg-gray-100 text-ink-muted"
-                          }`}>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${matched.length > 0 ? "bg-brand-middle text-white" : "bg-gray-100 text-ink-muted"
+                            }`}>
                             {matched.length > 0 ? `${matched.length}개 매칭` : "매칭 필요"}
                           </span>
                         </div>
@@ -782,9 +829,8 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                       {matchedCardsForCurrentSection.map((card) => {
                         const isExpanded = expandedExp === card.text;
                         return (
-                          <div key={card.text} className={`bg-white border rounded-lg overflow-hidden transition-all ${
-                            isExpanded ? "border-brand-middle shadow-sm" : "border-line"
-                          }`}>
+                          <div key={card.text} className={`bg-white border rounded-lg overflow-hidden transition-all ${isExpanded ? "border-brand-middle shadow-sm" : "border-line"
+                            }`}>
                             <button type="button" onClick={() => setExpandedExp(isExpanded ? null : card.text)}
                               className="w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors">
                               <div className="flex items-start gap-1.5 mb-1">
@@ -822,9 +868,8 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                   <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">🗂️ 전체 매칭 현황</div>
                   {(["지원동기", "활동계획", "진로계획", "인성"] as const).map((sec) => (
                     <button key={sec} type="button" onClick={() => { setActiveSectionTab(sec); setExpandedExp(null); }}
-                      className={`w-full flex items-center justify-between px-2 py-1.5 mb-1 rounded transition-colors ${
-                        activeSectionTab === sec ? "bg-brand-middle-pale" : "hover:bg-gray-50"
-                      }`}>
+                      className={`w-full flex items-center justify-between px-2 py-1.5 mb-1 rounded transition-colors ${activeSectionTab === sec ? "bg-brand-middle-pale" : "hover:bg-gray-50"
+                        }`}>
                       <span className={`text-[11px] font-semibold ${activeSectionTab === sec ? "text-brand-middle-dark" : "text-ink-secondary"}`}>
                         {SECTION_QUESTIONS[sec].icon} {sec}
                       </span>
@@ -845,9 +890,8 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                     const filled = Object.values(data.sections[sec]).filter((v) => v.trim()).length;
                     return (
                       <button key={sec} type="button" onClick={() => { setActiveSectionTab(sec); setExpandedExp(null); }}
-                        className={`flex-1 h-10 px-2 rounded-md text-[11.5px] font-bold transition-all ${
-                          activeSectionTab === sec ? "bg-white text-brand-middle-dark shadow-sm" : "text-ink-muted hover:text-ink"
-                        }`}>
+                        className={`flex-1 h-10 px-2 rounded-md text-[11.5px] font-bold transition-all ${activeSectionTab === sec ? "bg-white text-brand-middle-dark shadow-sm" : "text-ink-muted hover:text-ink"
+                          }`}>
                         {filled > 0 && <span className="text-brand-middle mr-1">✓</span>}
                         {SECTION_QUESTIONS[sec].icon} {sec}
                       </button>
@@ -912,13 +956,14 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
             </div>
           )}
 
-          {/* 5단계 */}
+          {/* 5단계 — 항목별 키워드 + 경험 모두 표시 */}
           {currentStep === 5 && (
             <div className="bg-white border border-line rounded-2xl p-7 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
               <h2 className="text-[18px] font-extrabold text-ink mb-2 tracking-tight">5단계 · 전체 자소서 점검 후 제출</h2>
               <p className="text-[12.5px] text-ink-secondary leading-[1.7] mb-5">
                 4개 항목을 합친 전체 자소서예요. 셀프 점검 후 선생님께 제출하세요.
               </p>
+
               <div className="grid grid-cols-3 gap-3 mb-5">
                 <div className="bg-gray-50 border border-line rounded-xl p-3 text-center">
                   <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1">전체 글자수</div>
@@ -927,38 +972,203 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                   </div>
                 </div>
                 <div className="bg-gray-50 border border-line rounded-xl p-3 text-center">
-                  <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1">키워드 입력</div>
-                  <div className="text-[18px] font-extrabold text-brand-middle-dark">{filledKeywords}/5</div>
+                  <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1">키워드 등장</div>
+                  <div className={`text-[18px] font-extrabold ${keywordAppearedCount === filledKeywords && filledKeywords > 0
+                    ? "text-emerald-600"
+                    : "text-amber-600"
+                    }`}>
+                    {keywordAppearedCount}/{filledKeywords}
+                  </div>
                 </div>
                 <div className="bg-gray-50 border border-line rounded-xl p-3 text-center">
-                  <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1">완성도</div>
-                  <div className="text-[18px] font-extrabold text-brand-middle-dark">
-                    {Math.round(((isStep1Done ? 25 : 0) + (isStep2Done ? 25 : 0) + (isStep3Done ? 25 : 0) + (isStep4Done ? 25 : 0)))}%
+                  <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1">경험 반영</div>
+                  <div className={`text-[18px] font-extrabold ${experienceAppearedCount === totalMatchedExp && totalMatchedExp > 0
+                    ? "text-emerald-600"
+                    : "text-amber-600"
+                    }`}>
+                    {experienceAppearedCount}/{totalMatchedExp}
                   </div>
                 </div>
               </div>
 
+              {keywordCheck.length > 0 && (
+                <div className="mb-5 bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-brand-middle-light rounded-xl p-4">
+                  <div className="text-[13px] font-extrabold text-brand-middle-dark mb-1 flex items-center gap-1.5">
+                    1단계 키워드가 자소서에 등장하는지 자동 체크
+                  </div>
+                  <div className="text-[11px] text-ink-secondary mb-3">
+                    키워드 자체나 그 키워드의 경험 단어가 자소서 본문에 등장하면 ✅로 표시돼요!
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {keywordCheck.map((k, i) => (
+                      <div
+                        key={i}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${k.appears
+                          ? "bg-emerald-50 border-emerald-200"
+                          : "bg-amber-50 border-amber-200"
+                          }`}
+                      >
+                        <span className="text-[16px] flex-shrink-0">
+                          {k.appears ? "✅" : "⚠️"}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className={`text-[12px] font-bold ${k.appears ? "text-emerald-700" : "text-amber-700"
+                            }`}>
+                            #{k.keyword}
+                          </div>
+                          <div className={`text-[10px] ${k.appears ? "text-emerald-600" : "text-amber-600"
+                            }`}>
+                            {k.appears ? "자소서에 등장!" : "아직 등장 안 함"}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {keywordAppearedCount < filledKeywords && (
+                    <div className="mt-3 bg-white border border-amber-200 rounded-lg px-3 py-2 flex gap-2">
+                      <span className="text-base flex-shrink-0">💡</span>
+                      <div className="text-[11px] text-amber-800 leading-[1.6]">
+                        <strong>등장하지 않은 키워드가 {filledKeywords - keywordAppearedCount}개 있어요!</strong><br />
+                        4단계로 돌아가서 자소서에 자연스럽게 녹여보세요.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {experienceCheck.length > 0 && (
+                <div className="mb-5 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-4">
+                  <div className="text-[13px] font-extrabold text-blue-900 mb-1 flex items-center gap-1.5">
+                    3단계에서 매칭한 경험이 자소서에 반영됐는지 체크
+                  </div>
+                  <div className="text-[11px] text-ink-secondary mb-3">
+                    경험의 핵심 단어가 해당 항목 자소서에 있으면 ✅로 표시돼요!
+                  </div>
+                  <div className="space-y-2">
+                    {(["지원동기", "활동계획", "진로계획", "인성"] as const).map((sec) => {
+                      const sectionExps = experienceCheck.filter((e) => e.section === sec);
+                      if (sectionExps.length === 0) return null;
+                      const sectionInfo = SECTION_QUESTIONS[sec];
+                      return (
+                        <div key={sec} className="bg-white border border-blue-100 rounded-lg p-2.5">
+                          <div className="text-[11px] font-bold text-blue-900 mb-1.5">
+                            {sectionInfo.icon} {sec}
+                          </div>
+                          <div className="space-y-1">
+                            {sectionExps.map((exp, i) => (
+                              <div
+                                key={i}
+                                className={`flex items-start gap-1.5 text-[11px] leading-[1.5] ${exp.appears ? "text-emerald-700" : "text-amber-700"
+                                  }`}
+                              >
+                                <span className="flex-shrink-0">
+                                  {exp.appears ? "✅" : "⚠️"}
+                                </span>
+                                <span className="flex-1">
+                                  {exp.text}
+                                  <span className="text-[10px] ml-1 opacity-70">
+                                    {exp.appears ? "(반영됨)" : "(반영 필요)"}
+                                  </span>
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ⭐⭐⭐ 항목별 자소서 + 키워드/경험 모두 표시 ⭐⭐⭐ */}
               <div className="space-y-4">
                 {([
                   { key: "지원동기", icon: "🏠", label: "지원동기 (건학이념 연계)" },
                   { key: "활동계획", icon: "🎯", label: "꿈과 끼를 살리기 위한 활동계획" },
                   { key: "진로계획", icon: "🚀", label: "진로계획" },
                   { key: "인성", icon: "💛", label: "인성 (배려·나눔·협력·규칙준수)" },
-                ] as const).map((sec) => (
-                  <div key={sec.key} className="border border-line rounded-xl p-4">
-                    <div className="text-[13px] font-bold text-ink mb-2">{sec.icon} {sec.label}</div>
-                    <div className="text-[13px] text-ink leading-[1.8]">
-                      {draftFor(sec.key) || <span className="text-ink-muted italic">아직 작성 안 됨</span>}
+                ] as const).map((sec) => {
+                  const draft = draftFor(sec.key);
+
+                  // 1단계 키워드 전체
+                  const allKeywords = data.keywords.filter((k) => k.keyword.trim());
+
+                  // 2단계 마인드맵 모든 경험
+                  const allExperiences: string[] = [];
+                  (Object.keys(data.mindmap) as Array<keyof MindmapBranch>).forEach((branch) => {
+                    data.mindmap[branch].forEach((exp) => {
+                      if (exp.trim()) allExperiences.push(exp.trim());
+                    });
+                  });
+
+                  return (
+                    <div key={sec.key} className="border border-line rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-[13px] font-bold text-ink">{sec.icon} {sec.label}</div>
+                        <span className="text-[10px] text-ink-muted">{draft.replace(/\s/g, "").length}자</span>
+                      </div>
+                      <div className="text-[13px] text-ink leading-[1.8] mb-2">
+                        {draft || <span className="text-ink-muted italic">아직 작성 안 됨</span>}
+                      </div>
+
+                      {/* 🎯 키워드 (있으면 초록 ✓ 없으면 회색 ✕) */}
+                      {draft && allKeywords.length > 0 && (
+                        <div className="flex flex-wrap gap-1 items-center mt-2 pt-2 border-t border-line-light">
+                          <span className="text-[10px] text-ink-muted mr-1">🎯 키워드:</span>
+                          {allKeywords.map((k, i) => {
+                            const allWords = [
+                              k.keyword,
+                              ...extractMeaningfulWords(k.keyword),
+                              ...(k.experience ? extractMeaningfulWords(k.experience) : []),
+                            ];
+                            const inThisSection = allWords.some((w) => draft.includes(w));
+                            return (
+                              <span
+                                key={i}
+                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${inThisSection
+                                  ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                                  : "bg-gray-100 text-gray-400 border border-gray-200"
+                                  }`}
+                              >
+                                {inThisSection ? "✓" : "✕"} {k.keyword}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* 📌 경험 (있으면 초록 ✓ 없으면 회색 ✕) */}
+                      {draft && allExperiences.length > 0 && (
+                        <div className="flex flex-wrap gap-1 items-center mt-1.5">
+                          <span className="text-[10px] text-ink-muted mr-1">📌 경험:</span>
+                          {allExperiences.map((exp, i) => {
+                            const expWords = extractMeaningfulWords(exp);
+                            const inThisSection = expWords.some((w) => draft.includes(w));
+                            return (
+                              <span
+                                key={i}
+                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${inThisSection
+                                  ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                                  : "bg-gray-100 text-gray-400 border border-gray-200"
+                                  }`}
+                                title={exp}
+                              >
+                                {inThisSection ? "✓" : "✕"} {exp.length > 15 ? exp.slice(0, 15) + "..." : exp}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="mt-5 bg-amber-50 border border-amber-200 rounded-xl p-4">
                 <div className="text-[13px] font-extrabold text-amber-900 mb-3">✅ 제출 전 셀프 점검</div>
                 {[
                   '4개 항목이 "같은 사람의 같은 이야기"로 연결돼요',
-                  '내가 정한 키워드 5개가 자연스럽게 등장해요',
+                  '내가 정한 키워드 5개가 자연스럽게 등장해요 (위에서 자동 체크됨!)',
                   '추상적 표현 대신 구체적인 사건·숫자가 들어갔어요',
                   '학교 건학이념과 내 가치관이 어떻게 만나는지 설명했어요',
                   '띄어쓰기 제외 1,500자 이내예요',
@@ -974,7 +1184,7 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
             </div>
           )}
 
-          {/* ⭐⭐⭐ 6단계 — 선생님 피드백 + 수정 ⭐⭐⭐ */}
+          {/* 6단계 */}
           {currentStep === 6 && (
             <div className="bg-white border border-line rounded-2xl p-7 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
               <div className="flex items-center gap-2 mb-2">
@@ -992,7 +1202,6 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                 수정한 후 <strong>재제출</strong>하면 선생님이 추가 피드백을 드려요.
               </p>
 
-              {/* 4개 항목별 — 자소서 + 피드백 + 수정 */}
               {(["지원동기", "활동계획", "진로계획", "인성"] as const).map((sec) => {
                 const sectionInfo = SECTION_QUESTIONS[sec];
                 const sectionFeedbacks = savedWizard?.feedback?.[sec] || [];
@@ -1000,7 +1209,6 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
 
                 return (
                   <div key={sec} className="mb-6 border border-line rounded-xl p-5 bg-gray-50">
-                    {/* 항목 제목 */}
                     <div className="flex items-center justify-between mb-3">
                       <div className="text-[14px] font-extrabold text-ink">
                         {sectionInfo.icon} {sectionInfo.label}
@@ -1010,7 +1218,6 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                       </span>
                     </div>
 
-                    {/* 현재 자소서 본문 */}
                     <div className="bg-white border border-line rounded-lg px-4 py-3 mb-3">
                       <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">
                         📝 내 자소서
@@ -1020,14 +1227,13 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                       </div>
                     </div>
 
-                    {/* 선생님 피드백 (있을 경우) */}
                     {sectionFeedbacks.length > 0 ? (
                       <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg px-4 py-3 mb-3">
                         <div className="text-[11px] font-bold text-brand-middle-dark mb-2 flex items-center gap-1">
                           💬 선생님 피드백 ({sectionFeedbacks.length}차)
                         </div>
                         <div className="space-y-2">
-                          {sectionFeedbacks.map((fb, i) => (
+                          {sectionFeedbacks.map((fb: any, i: number) => (
                             <div key={i} className="bg-white border border-brand-middle-light rounded-md px-3 py-2">
                               <div className="flex items-center gap-1.5 mb-1">
                                 <span className="text-[9px] font-extrabold text-white bg-brand-middle px-1.5 py-0.5 rounded-full">
@@ -1052,7 +1258,6 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                       </div>
                     )}
 
-                    {/* 수정 영역 — 4개 서브답변 */}
                     {sectionFeedbacks.length > 0 && (
                       <div className="bg-white border-2 border-dashed border-brand-middle rounded-lg p-3">
                         <div className="text-[11px] font-bold text-brand-middle-dark mb-2">
@@ -1079,7 +1284,6 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                 );
               })}
 
-              {/* 안내 메시지 */}
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-5">
                 <div className="text-[12px] text-blue-900 leading-[1.7]">
                   💡 <strong>팁:</strong> 선생님 피드백은 학원 어드민에서 작성됩니다. 피드백이 도착하면 위 항목별로 보여요. 수정한 후 하단 <strong>재제출</strong> 버튼을 눌러주세요.
@@ -1090,7 +1294,6 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
         </div>
       </div>
 
-      {/* 하단 네비게이션 */}
       <div className="bg-white border-t border-line px-6 py-3 flex-shrink-0">
         <div className="max-w-[900px] mx-auto flex items-center justify-between">
           <button type="button" onClick={() => setCurrentStep((p) => Math.max(1, p - 1))} disabled={currentStep === 1}
@@ -1099,7 +1302,6 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
           </button>
           <div className="text-[11px] text-ink-muted font-medium">{currentStep} / 6 단계</div>
 
-          {/* 1~4단계 */}
           {currentStep < 5 && (
             <button type="button" onClick={() => setCurrentStep((p) => Math.min(6, p + 1))}
               className="h-10 px-5 bg-brand-middle hover:bg-brand-middle-hover text-white rounded-lg text-[13px] font-semibold transition-all hover:-translate-y-px hover:shadow-btn-middle">
@@ -1107,15 +1309,13 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
             </button>
           )}
 
-          {/* 5단계: 제출 또는 6단계 진입 */}
           {currentStep === 5 && (
             <button type="button"
               onClick={async () => {
                 try {
                   await submitToTeacher.mutateAsync(essayId);
-                  // ⭐ 자소서 본문도 jaso_essays에 저장
                   await onComplete({
-                    selfStudy: draftFor("지원동기"), // selfStudy 칸엔 지원동기 사본
+                    selfStudy: draftFor("지원동기"),
                     reason: draftFor("지원동기"),
                     activity: draftFor("활동계획"),
                     career: draftFor("진로계획"),
@@ -1128,16 +1328,14 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                 }
               }}
               disabled={!isStep4Done || totalCharCount > 1500 || submitToTeacher.isPending}
-              className={`h-10 px-5 rounded-lg text-[13px] font-bold transition-all ${
-                isStep4Done && totalCharCount <= 1500 && !submitToTeacher.isPending
-                  ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
-                  : "bg-gray-100 text-ink-muted cursor-not-allowed"
-              }`}>
-              {submitToTeacher.isPending ? "제출 중..." : "📤 선생님께 제출하기"}
+              className={`h-10 px-5 rounded-lg text-[13px] font-bold transition-all ${isStep4Done && totalCharCount <= 1500 && !submitToTeacher.isPending
+                ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
+                : "bg-gray-100 text-ink-muted cursor-not-allowed"
+                }`}>
+              {submitToTeacher.isPending ? "제출 중..." : "선생님께 제출하기"}
             </button>
           )}
 
-          {/* 6단계: 재제출 (수정 후) */}
           {currentStep === 6 && (
             <button type="button"
               onClick={async () => {

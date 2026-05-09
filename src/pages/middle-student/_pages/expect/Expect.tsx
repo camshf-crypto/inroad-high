@@ -702,7 +702,7 @@ export default function MiddleExpect() {
                                 onClick={() => setShowWizard(true)}
                                 className="text-[11px] font-bold text-white bg-brand-middle hover:bg-brand-middle-hover rounded-md px-3 py-1.5 transition-all hover:-translate-y-px hover:shadow-btn-middle"
                               >
-                                🎯{" "}
+                                {" "}
                                 {selEssay.content.selfStudy
                                   ? "5단계로 다시 작성"
                                   : "5단계로 작성하기"}
@@ -719,7 +719,7 @@ export default function MiddleExpect() {
                                   }}
                                   className="text-[11px] font-semibold text-brand-middle-dark bg-brand-middle-bg border border-brand-middle-light rounded-md px-3 py-1.5 hover:bg-brand-middle hover:text-white transition-all"
                                 >
-                                  ✏️ 전체 수정
+                                  전체 수정
                                 </button>
                               )}
                               <button
@@ -729,7 +729,7 @@ export default function MiddleExpect() {
                               >
                                 {requestDelete.isPending
                                   ? "요청 중..."
-                                  : "🗑️ 삭제 요청"}
+                                  : "삭제 요청"}
                               </button>
                             </>
                           )}

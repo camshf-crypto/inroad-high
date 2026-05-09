@@ -54,6 +54,18 @@ export interface PastFeedback {
   updated_at: string;
 }
 
+// ⭐ 지원 학교 타입
+export interface TargetSchool {
+  id: string;
+  student_id: string;
+  academy_id: string | null;
+  school: string;
+  hidden: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 // ──────────────────────────────────────────
 // 모든 학교 목록 조회
 // ──────────────────────────────────────────
@@ -280,6 +292,137 @@ export function useSubmitPastTailAnswer() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["past-feedback"] });
       qc.invalidateQueries({ queryKey: ["student-past-feedback"] });
+    },
+  });
+}
+
+// ============================================================
+// ⭐⭐⭐ 학생의 지원 학교 관리 ⭐⭐⭐
+// ============================================================
+
+// ──────────────────────────────────────────
+// 내 지원 학교 목록 (숨김 제외)
+// ──────────────────────────────────────────
+export function useMyTargetSchools(studentId: string | undefined) {
+  return useQuery({
+    queryKey: ["my-target-schools", studentId],
+    enabled: !!studentId,
+    queryFn: async () => {
+      if (!studentId) return [];
+      const { data, error } = await supabase
+        .from("middle_student_target_schools")
+        .select("*")
+        .eq("student_id", studentId)
+        .eq("hidden", false)
+        .order("display_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      return (data ?? []) as TargetSchool[];
+    },
+  });
+}
+
+// ──────────────────────────────────────────
+// 내 지원 학교 (숨김 포함 — 복구용)
+// ──────────────────────────────────────────
+export function useMyTargetSchoolsAll(studentId: string | undefined) {
+  return useQuery({
+    queryKey: ["my-target-schools-all", studentId],
+    enabled: !!studentId,
+    queryFn: async () => {
+      if (!studentId) return [];
+      const { data, error } = await supabase
+        .from("middle_student_target_schools")
+        .select("*")
+        .eq("student_id", studentId)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      return (data ?? []) as TargetSchool[];
+    },
+  });
+}
+
+// ──────────────────────────────────────────
+// 지원 학교 추가
+// ──────────────────────────────────────────
+export function useAddTargetSchool() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      student_id: string;
+      academy_id: string;
+      school: string;
+    }) => {
+      // 이미 있는지 확인 (숨김 포함)
+      const { data: existing } = await supabase
+        .from("middle_student_target_schools")
+        .select("id, hidden")
+        .eq("student_id", input.student_id)
+        .eq("school", input.school)
+        .maybeSingle();
+
+      if (existing) {
+        // 숨김된 거면 복구
+        if (existing.hidden) {
+          const { data, error } = await supabase
+            .from("middle_student_target_schools")
+            .update({ hidden: false, updated_at: new Date().toISOString() })
+            .eq("id", existing.id)
+            .select()
+            .single();
+          if (error) throw error;
+          return data as TargetSchool;
+        }
+        throw new Error("이미 등록된 학교예요!");
+      }
+
+      // 새로 추가
+      const { data, error } = await supabase
+        .from("middle_student_target_schools")
+        .insert({
+          student_id: input.student_id,
+          academy_id: input.academy_id,
+          school: input.school,
+          hidden: false,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as TargetSchool;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["my-target-schools"] });
+      qc.invalidateQueries({ queryKey: ["my-target-schools-all"] });
+    },
+  });
+}
+
+// ──────────────────────────────────────────
+// 지원 학교 숨김 처리 (답변/피드백 데이터는 유지)
+// ──────────────────────────────────────────
+export function useHideTargetSchool() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      student_id: string;
+      school: string;
+    }) => {
+      const { error } = await supabase
+        .from("middle_student_target_schools")
+        .update({ hidden: true, updated_at: new Date().toISOString() })
+        .eq("student_id", input.student_id)
+        .eq("school", input.school);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["my-target-schools"] });
+      qc.invalidateQueries({ queryKey: ["my-target-schools-all"] });
     },
   });
 }
