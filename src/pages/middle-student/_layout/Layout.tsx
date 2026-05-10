@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { academyState, tokenState, studentState } from '@/lib/auth/atoms'
@@ -11,6 +11,7 @@ const MENUS = [
   { path: '/middle-student/homework', label: '숙제', icon: '📝' },
   { path: '/middle-student/suhaeng', label: '수행평가', icon: '🎯' },
   { path: '/middle-student/book', label: '독서리스트', icon: '📚' },
+  { path: '/middle-student/debate', label: 'AI 토론 면접', icon: '💭', isNew: true },
   { path: '/middle-student/expect', label: '자소서 · 예상질문', icon: '💬' },
   { path: '/middle-student/past', label: '기출문제', icon: '🎓' },
   { path: '/middle-student/simulation', label: '면접 시뮬레이션', icon: '🎙️' },
@@ -39,7 +40,6 @@ const MIDDLE_STUDENT_TABLES = [
   'middle_reading',
 
   // 자소서 / 예상질문
-  // 자소서 / 예상질문
   'jaso_essays',
   'jaso_essay_answers',
   'jaso_essay_feedback',
@@ -63,6 +63,11 @@ const MIDDLE_STUDENT_TABLES = [
   'middle_passage_answers',
   'middle_passage_analysis',
   'middle_passage_followups',
+
+  // AI 토론 면접
+  'middle_debate_sessions',
+  'middle_debate_turns',
+  'middle_debate_feedbacks',
 ]
 
 export default function MiddleLayout() {
@@ -104,14 +109,14 @@ export default function MiddleLayout() {
 
       {/* 사이드바 */}
       <aside className="w-[220px] bg-white border-r border-line flex flex-col flex-shrink-0">
-        {/* 로고 + 학원 정보 */}
-        <div className="px-5 pt-5 pb-4 border-b border-line-light">
-          <div className="flex items-center gap-2 mb-3">
+        {/* 로고 + 학원 정보 — padding 약간 줄임 */}
+        <div className="px-5 pt-4 pb-3 border-b border-line-light flex-shrink-0">
+          <div className="flex items-center gap-2 mb-2.5">
             <div className="font-extrabold text-[17px] text-ink tracking-tight">비커스</div>
           </div>
 
           {academy.academyName ? (
-            <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg p-3">
+            <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg p-2.5">
               <div className="text-[13px] font-bold text-brand-middle-dark">{academy.academyCode}</div>
               <div className="text-[11px] text-ink-secondary mt-0.5">{academy.academyName}</div>
             </div>
@@ -125,8 +130,8 @@ export default function MiddleLayout() {
           )}
         </div>
 
-        {/* 메뉴 */}
-        <nav className="flex-1 px-2.5 py-3 overflow-y-auto">
+        {/* 메뉴 — overflow 제거 + padding/간격 좁힘 */}
+        <nav className="flex-1 px-2.5 py-2 overflow-hidden">
           {MENUS.map(m => {
             const isActive = location.pathname === m.path || location.pathname.startsWith(m.path)
             const isLocked = !isAcademyConnected
@@ -140,7 +145,7 @@ export default function MiddleLayout() {
                 }}
                 disabled={isLocked}
                 title={isLocked ? '학원 연결 후 사용 가능해요' : ''}
-                className={`relative w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg mb-0.5 transition-all text-[13px] ${
+                className={`relative w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all text-[13px] ${
                   isLocked
                     ? 'text-ink-muted cursor-not-allowed opacity-50'
                     : isActive
@@ -150,13 +155,18 @@ export default function MiddleLayout() {
               >
                 <span className="text-[15px]">{m.icon}</span>
                 <span className="flex-1 text-left">{m.label}</span>
+                {m.isNew && !isLocked && (
+                  <span className="text-[9px] font-extrabold text-white bg-rose-500 px-1.5 py-0.5 rounded-full leading-none">
+                    NEW
+                  </span>
+                )}
               </button>
             )
           })}
         </nav>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-line-light">
+        <div className="px-5 py-2.5 border-t border-line-light flex-shrink-0">
           <div className="text-[11px] text-ink-muted">© 2026 B-KURS</div>
         </div>
       </aside>

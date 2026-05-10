@@ -564,7 +564,7 @@ export default function MiddleSimulation() {
 
           <div className="bg-gradient-to-br from-brand-middle-dark to-brand-middle rounded-xl px-5 py-4 mb-5 flex items-center gap-3 relative overflow-hidden shadow-[0_8px_24px_rgba(16,185,129,0.2)]">
             <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(255,255,255,0.15), transparent 70%)" }} />
-            <div className="text-4xl relative">🤖</div>
+            <div className="text-4xl relative"></div>
             <div className="relative">
               <div className="text-[11px] bg-white/20 backdrop-blur-sm text-white font-semibold px-2 py-0.5 rounded-full inline-block mb-1">기초부터 차근차근 해보자!</div>
               <div className="text-[15px] font-extrabold text-white tracking-tight">원하는 문제 유형을 골라주세요!</div>
@@ -722,7 +722,7 @@ export default function MiddleSimulation() {
         </div>
 
         <div className="text-[20px] font-extrabold text-ink tracking-tight relative z-10">{selSchool}</div>
-        <div className="text-[80px] relative z-10">🤖</div>
+        <div className="text-[80px] relative z-10"></div>
         <div className="text-[15px] text-ink-secondary text-center leading-[1.8] font-medium relative z-10">
           잠시 후 면접이 시작돼요.<br />
           깊게 숨 한번 쉬고, 천천히 호흡을 가다듬어볼까요?

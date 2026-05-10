@@ -42,6 +42,23 @@ export interface MySimulation {
 }
 
 // ──────────────────────────────────────────
+// 헬퍼: Blob → base64 (CSR Edge Function 입력용)
+// ──────────────────────────────────────────
+async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // "data:audio/webm;base64,XXXX" → "XXXX"만 추출
+      const base64 = result.split(",")[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// ──────────────────────────────────────────
 // 본인 시뮬레이션 목록
 // ──────────────────────────────────────────
 export function useMySimulations(studentId: string | undefined) {
@@ -64,7 +81,7 @@ export function useMySimulations(studentId: string | undefined) {
 }
 
 // ──────────────────────────────────────────
-// 질문별 음성 업로드 + STT + 시뮬레이션 저장
+// 질문별 음성 업로드 + STT (CSR 단문) + 시뮬레이션 저장
 // ──────────────────────────────────────────
 export function useCreateSimulation() {
   const qc = useQueryClient();
@@ -81,7 +98,7 @@ export function useCreateSimulation() {
       answers: SimulationAnswerInput[];
       duration: string;
     }) => {
-      // 1️⃣ 각 질문별 음성 업로드 + STT
+      // 1️⃣ 각 질문별 음성 업로드 + STT (CSR — 단문, 1분 이내)
       const processedQuestions: SimulationQuestion[] = [];
       const transcriptParts: string[] = [];
 
@@ -91,7 +108,28 @@ export function useCreateSimulation() {
         let transcript: string | null = null;
 
         if (ans.audio_blob && ans.audio_blob.size > 0) {
-          // 업로드
+          // 1-1. STT 먼저 호출 (CSR — base64 직접 전송, 즉시 응답)
+          //      Storage 업로드 안 기다려도 됨 → 빠름
+          try {
+            const audioBase64 = await blobToBase64(ans.audio_blob);
+
+            const { data: sttData, error: sttError } =
+              await supabase.functions.invoke("middle-stt-short", {
+                body: { audioBase64 },
+              });
+
+            if (!sttError && sttData?.success && sttData?.text) {
+              transcript = sttData.text;
+              transcriptParts.push(`Q${ans.num}. ${transcript}`);
+              console.log(`✅ Q${ans.num} STT:`, transcript?.slice(0, 50));
+            } else if (sttError) {
+              console.error(`Q${ans.num} STT 에러:`, sttError);
+            }
+          } catch (e) {
+            console.error(`Q${ans.num} STT 오류:`, e);
+          }
+
+          // 1-2. Storage 업로드 (음성 파일 보관)
           const fileName = `${input.student_id}/${Date.now()}-q${ans.num}.webm`;
           const { error: uploadError } = await supabase.storage
             .from("simulation-audio")
@@ -104,22 +142,6 @@ export function useCreateSimulation() {
               .from("simulation-audio")
               .getPublicUrl(fileName);
             audioUrl = urlData.publicUrl;
-
-            // ⭐ STT 호출 (각 질문마다)
-            try {
-              const { data: sttData, error: sttError } =
-                await supabase.functions.invoke("middle-homework-stt-start", {
-                  body: { videoUrl: audioUrl, language: "ko-KR" },
-                });
-
-              if (!sttError && sttData?.success && sttData?.transcript) {
-                transcript = sttData.transcript;
-                transcriptParts.push(`Q${ans.num}. ${transcript}`);
-                console.log(`✅ Q${ans.num} STT:`, transcript?.slice(0, 50));
-              }
-            } catch (e) {
-              console.error(`Q${ans.num} STT 오류:`, e);
-            }
           } else {
             console.error(`Q${ans.num} 업로드 실패:`, uploadError);
           }

@@ -45,6 +45,7 @@ import MiddlePast from './pages/middle-student/_pages/past/Past'
 import MiddleSimulation from './pages/middle-student/_pages/simulation/Simulation'
 import MiddlePresentation from './pages/middle-student/_pages/presentation/Presentation'
 import MiddleSuhaeng from './pages/middle-student/_pages/suhaeng/Suhaeng'
+import MiddleDebate from './pages/middle-student/_pages/debate/MiddleDebate'
 
 // Master
 import MasterLayout from './pages/master/_layout/Layout'
@@ -134,6 +135,7 @@ const router = createBrowserRouter([
           { path: 'past', element: <MiddlePast /> },
           { path: 'simulation', element: <MiddleSimulation /> },
           { path: 'presentation', element: <MiddlePresentation /> },
+          { path: 'debate', element: <MiddleDebate /> },
         ]
       }
     ]

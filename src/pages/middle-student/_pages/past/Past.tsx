@@ -14,6 +14,7 @@ import {
   useAddTargetSchool,
   useHideTargetSchool,
 } from "@/pages/middle-student/_hooks/useMyPast";
+import { useDraftAutoSave, type DraftStatus } from "@/pages/middle-student/_hooks/useDraftAutoSave";
 
 const MAX_TARGETS = 6;
 
@@ -31,7 +32,60 @@ const TYPE_COLOR: Record<string, string> = {
 const STEP_LABELS = ["첫 답변", "1차 피드백", "업그레이드", "최종 피드백", "꼬리질문"];
 
 // ─────────────────────────────────────────────
-// ⭐ STT 마이크 버튼 (재사용)
+// 헬퍼: Blob → base64 (CSR Edge Function 입력용)
+// ─────────────────────────────────────────────
+async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(",")[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// ─────────────────────────────────────────────
+// ⭐ 자동저장 상태 표시 (✓ 저장됨)
+// ─────────────────────────────────────────────
+function DraftStatusIndicator({ status, lastSavedAt }: { status: DraftStatus; lastSavedAt: Date | null }) {
+  if (status === "idle") return null;
+
+  if (status === "saving") {
+    return (
+      <span className="text-[10px] text-ink-muted flex items-center gap-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+        저장 중...
+      </span>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <span className="text-[10px] text-red-500 flex items-center gap-1">
+        <span>⚠️</span>
+        저장 실패
+      </span>
+    );
+  }
+
+  return (
+    <span className="text-[10px] text-emerald-600 flex items-center gap-1">
+      <span>✓</span>
+      자동 저장됨
+      {lastSavedAt && (
+        <span className="text-ink-muted">
+          ({lastSavedAt.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })})
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────
+// ⭐ STT 마이크 버튼 (재사용) - CSR 단문 STT 사용
 // ─────────────────────────────────────────────
 interface MicSTTBtnProps {
   studentId: string | undefined;
@@ -45,7 +99,6 @@ function MicSTTBtn({ studentId, onTranscript }: MicSTTBtnProps) {
   const audioChunksRef = useRef<Blob[]>([]);
   const audioStreamRef = useRef<MediaStream | null>(null);
 
-  // 정리
   useEffect(() => {
     return () => {
       if (audioStreamRef.current) {
@@ -102,26 +155,11 @@ function MicSTTBtn({ studentId, onTranscript }: MicSTTBtnProps) {
         return;
       }
 
-      // Storage 업로드
-      const fileName = `${studentId}/past-${Date.now()}.webm`;
-      const { error: uploadError } = await supabase.storage
-        .from("simulation-audio")
-        .upload(fileName, blob, { contentType: "audio/webm" });
+      const audioBase64 = await blobToBase64(blob);
 
-      if (uploadError) {
-        alert("음성 업로드 실패: " + uploadError.message);
-        setProcessing(false);
-        return;
-      }
-
-      const { data: urlData } = supabase.storage
-        .from("simulation-audio")
-        .getPublicUrl(fileName);
-
-      // STT 호출
       const { data: sttData, error: sttError } =
-        await supabase.functions.invoke("middle-homework-stt-start", {
-          body: { videoUrl: urlData.publicUrl, language: "ko-KR" },
+        await supabase.functions.invoke("middle-stt-short", {
+          body: { audioBase64 },
         });
 
       if (sttError || !sttData?.success) {
@@ -130,7 +168,7 @@ function MicSTTBtn({ studentId, onTranscript }: MicSTTBtnProps) {
         return;
       }
 
-      const transcript = sttData?.transcript || "";
+      const transcript = sttData?.text || "";
       if (transcript) {
         onTranscript(transcript);
       } else {
@@ -156,7 +194,7 @@ function MicSTTBtn({ studentId, onTranscript }: MicSTTBtnProps) {
     <button
       onClick={handleClick}
       disabled={processing}
-      title={recording ? "녹음 종료" : processing ? "변환 중..." : "음성으로 답변"}
+      title={recording ? "녹음 종료 (1분 이내)" : processing ? "변환 중..." : "음성으로 답변 (1분 이내)"}
       className={`w-9 h-9 rounded-lg border flex items-center justify-center flex-shrink-0 text-base transition-all ${
         recording
           ? "bg-red-50 border-red-200 text-red-500 hover:bg-red-100 animate-pulse"
@@ -192,6 +230,198 @@ const SubmitBtn = ({
   </button>
 );
 
+// ─────────────────────────────────────────────
+// ⭐ Step 1 답변 박스 (자동저장 + STT)
+// ─────────────────────────────────────────────
+function Step1AnswerBox({
+  studentId,
+  questionId,
+  existingAnswer,
+  editingMode,
+  onSubmit,
+  onCancel,
+  isPending,
+}: {
+  studentId: string | undefined;
+  questionId: string;
+  existingAnswer: string | null;
+  editingMode: boolean;
+  onSubmit: (text: string, clearDraft: () => Promise<void>) => Promise<void>;
+  onCancel: () => void;
+  isPending: boolean;
+}) {
+  const disabled = !!existingAnswer && !editingMode;
+  const initialValue = editingMode && existingAnswer ? existingAnswer : "";
+
+  const { text, setText, status, lastSavedAt, clearDraft } = useDraftAutoSave(
+    studentId,
+    `past:answer:${questionId}`,
+    initialValue,
+    disabled,
+  );
+
+  return (
+    <>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="답변을 작성하거나 마이크로 녹음해주세요."
+        rows={4}
+        className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] leading-[1.7] resize-y focus:outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-all placeholder:text-ink-muted"
+      />
+      <div className="flex items-center mt-2">
+        <DraftStatusIndicator status={status} lastSavedAt={lastSavedAt} />
+        <div className="flex gap-2 ml-auto">
+          {editingMode && (
+            <button
+              onClick={onCancel}
+              className="h-9 px-3 bg-white text-ink-secondary border border-line rounded-lg text-[12px] font-medium hover:bg-gray-50 transition-colors"
+            >
+              취소
+            </button>
+          )}
+          <MicSTTBtn
+            studentId={studentId}
+            onTranscript={(t) => setText(text ? text + " " + t : t)}
+          />
+          <SubmitBtn
+            label={isPending ? "제출 중..." : editingMode ? "수정 완료" : "답변 제출"}
+            onClick={() => onSubmit(text, clearDraft)}
+            disabled={!text.trim() || isPending}
+          />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────
+// ⭐ Step 3 업그레이드 박스 (자동저장 + STT)
+// ─────────────────────────────────────────────
+function Step3UpgradeBox({
+  studentId,
+  questionId,
+  existingUpgrade,
+  editingMode,
+  onSubmit,
+  onCancel,
+  isPending,
+}: {
+  studentId: string | undefined;
+  questionId: string;
+  existingUpgrade: string | null;
+  editingMode: boolean;
+  onSubmit: (text: string, clearDraft: () => Promise<void>) => Promise<void>;
+  onCancel: () => void;
+  isPending: boolean;
+}) {
+  const disabled = !!existingUpgrade && !editingMode;
+  const initialValue = editingMode && existingUpgrade ? existingUpgrade : "";
+
+  const { text, setText, status, lastSavedAt, clearDraft } = useDraftAutoSave(
+    studentId,
+    `past:upgraded:${questionId}`,
+    initialValue,
+    disabled,
+  );
+
+  return (
+    <>
+      <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[12px] text-amber-700 font-medium mb-2">
+        💡 선생님 피드백을 반영해서 답변을 업그레이드해보세요!
+      </div>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="피드백을 반영한 업그레이드 답변을 작성해주세요... (음성은 1분 이내, 5초마다 자동 저장)"
+        rows={4}
+        className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] leading-[1.7] resize-y focus:outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-all placeholder:text-ink-muted"
+      />
+      <div className="flex items-center mt-2">
+        <DraftStatusIndicator status={status} lastSavedAt={lastSavedAt} />
+        <div className="flex gap-2 ml-auto">
+          {editingMode && (
+            <button
+              onClick={onCancel}
+              className="h-9 px-3 bg-white text-ink-secondary border border-line rounded-lg text-[12px] font-medium hover:bg-gray-50 transition-colors"
+            >
+              취소
+            </button>
+          )}
+          <MicSTTBtn
+            studentId={studentId}
+            onTranscript={(t) => setText(text ? text + " " + t : t)}
+          />
+          <SubmitBtn
+            label={isPending ? "제출 중..." : editingMode ? "수정 완료" : "업그레이드 제출"}
+            onClick={() => onSubmit(text, clearDraft)}
+            disabled={!text.trim() || isPending}
+          />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────
+// ⭐ Step 5 꼬리질문 박스 (자동저장 + STT)
+// ─────────────────────────────────────────────
+function Step5TailBox({
+  studentId,
+  questionId,
+  tailIndex,
+  onSubmit,
+  isPending,
+}: {
+  studentId: string | undefined;
+  questionId: string;
+  tailIndex: number;
+  onSubmit: (text: string, clearDraft: () => Promise<void>) => Promise<void>;
+  isPending: boolean;
+}) {
+  const { text, setText, status, lastSavedAt, clearDraft } = useDraftAutoSave(
+    studentId,
+    `past:tail:${questionId}:${tailIndex}`,
+    "",
+  );
+
+  return (
+    <div className="bg-gray-50 rounded-lg px-3 py-2.5">
+      <div className="text-[10px] text-ink-muted mb-1.5">꼬리질문 답변</div>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="꼬리질문에 대한 답변을 작성해주세요... (음성은 1분 이내, 5초마다 자동 저장)"
+        rows={2}
+        className="w-full border border-line rounded-md px-2.5 py-2 text-[12px] leading-[1.6] resize-none bg-white focus:outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-all placeholder:text-ink-muted"
+      />
+      <div className="flex items-center mt-2">
+        <DraftStatusIndicator status={status} lastSavedAt={lastSavedAt} />
+        <div className="flex gap-2 ml-auto">
+          <MicSTTBtn
+            studentId={studentId}
+            onTranscript={(t) => setText(text ? text + " " + t : t)}
+          />
+          <button
+            onClick={() => onSubmit(text, clearDraft)}
+            disabled={!text.trim() || isPending}
+            className={`w-[102px] h-[34px] rounded-md text-[12px] font-semibold transition-all ${
+              text.trim() && !isPending
+                ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
+                : "bg-gray-100 text-ink-muted cursor-not-allowed"
+            }`}
+          >
+            {isPending ? "제출 중..." : "제출"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// 메인 페이지
+// ─────────────────────────────────────────────
 export default function MiddlePast() {
   const student = useAtomValue(studentState);
   const academy = useAtomValue(academyState);
@@ -228,18 +458,12 @@ export default function MiddlePast() {
 
   const { data: selFeedback } = usePastFeedback(selAnswer?.id);
 
-  const [myAnswer, setMyAnswer] = useState("");
-  const [upgradedAnswer, setUpgradedAnswer] = useState("");
-  const [tailAnswers, setTailAnswers] = useState<Record<number, string>>({});
   const [editingStep1, setEditingStep1] = useState(false);
   const [editingStep3, setEditingStep3] = useState(false);
 
   useEffect(() => {
-    setMyAnswer("");
-    setUpgradedAnswer("");
     setEditingStep1(false);
     setEditingStep3(false);
-    setTailAnswers({});
   }, [selQId]);
 
   const submitAnswer = useSubmitPastAnswer();
@@ -308,8 +532,9 @@ export default function MiddlePast() {
     }
   };
 
-  const handleSubmitAnswer = async () => {
-    if (!myAnswer.trim() || !selQ) return;
+  // ⭐ 답변 제출 + 임시저장 삭제
+  const handleSubmitAnswer = async (text: string, clearDraft: () => Promise<void>) => {
+    if (!text.trim() || !selQ) return;
     if (!student?.id || !academy?.academyId) {
       alert("로그인 정보를 불러오지 못했어요.");
       return;
@@ -319,31 +544,30 @@ export default function MiddlePast() {
         question_id: selQ.id,
         student_id: String(student.id),
         academy_id: String(academy.academyId),
-        answer: myAnswer,
+        answer: text,
       });
-      setMyAnswer("");
+      await clearDraft();
       setEditingStep1(false);
     } catch (e: any) {
       alert(`제출 실패: ${e.message}`);
     }
   };
 
-  const handleSubmitUpgrade = async () => {
-    if (!upgradedAnswer.trim() || !selAnswer) return;
+  const handleSubmitUpgrade = async (text: string, clearDraft: () => Promise<void>) => {
+    if (!text.trim() || !selAnswer) return;
     try {
       await submitUpgrade.mutateAsync({
         answer_id: selAnswer.id,
-        upgraded_answer: upgradedAnswer,
+        upgraded_answer: text,
       });
-      setUpgradedAnswer("");
+      await clearDraft();
       setEditingStep3(false);
     } catch (e: any) {
       alert(`제출 실패: ${e.message}`);
     }
   };
 
-  const handleSubmitTailAnswer = async (idx: number) => {
-    const text = tailAnswers[idx] || "";
+  const handleSubmitTailAnswer = async (idx: number, text: string, clearDraft: () => Promise<void>) => {
     if (!text.trim() || !selAnswer) return;
     try {
       await submitTailAnswer.mutateAsync({
@@ -351,7 +575,7 @@ export default function MiddlePast() {
         tail_index: idx,
         answer: text,
       });
-      setTailAnswers((prev) => ({ ...prev, [idx]: "" }));
+      await clearDraft();
     } catch (e: any) {
       alert(`제출 실패: ${e.message}`);
     }
@@ -629,7 +853,7 @@ export default function MiddlePast() {
                       </div>
                       <div className="flex justify-end">
                         <button
-                          onClick={() => { setEditingStep1(true); setMyAnswer(selAnswer.answer || ""); }}
+                          onClick={() => setEditingStep1(true)}
                           className="text-[11px] font-medium text-ink-secondary bg-white border border-line rounded-md px-2.5 py-1 hover:border-brand-middle-light hover:text-brand-middle-dark transition-all"
                         >
                           ✏️ 수정
@@ -637,35 +861,15 @@ export default function MiddlePast() {
                       </div>
                     </div>
                   ) : (
-                    <>
-                      <textarea
-                        value={myAnswer}
-                        onChange={(e) => setMyAnswer(e.target.value)}
-                        placeholder="답변을 작성하거나 마이크로 녹음해주세요..."
-                        rows={4}
-                        className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] leading-[1.7] resize-y focus:outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-all placeholder:text-ink-muted"
-                      />
-                      <div className="flex gap-2 mt-2 justify-end">
-                        {editingStep1 && (
-                          <button
-                            onClick={() => { setEditingStep1(false); setMyAnswer(""); }}
-                            className="h-9 px-3 bg-white text-ink-secondary border border-line rounded-lg text-[12px] font-medium hover:bg-gray-50 transition-colors"
-                          >
-                            취소
-                          </button>
-                        )}
-                        {/* ⭐ STT 마이크 */}
-                        <MicSTTBtn
-                          studentId={studentId}
-                          onTranscript={(text) => setMyAnswer((prev) => prev ? prev + " " + text : text)}
-                        />
-                        <SubmitBtn
-                          label={submitAnswer.isPending ? "제출 중..." : editingStep1 ? "수정 완료" : "답변 제출"}
-                          onClick={handleSubmitAnswer}
-                          disabled={!myAnswer.trim() || submitAnswer.isPending}
-                        />
-                      </div>
-                    </>
+                    <Step1AnswerBox
+                      studentId={studentId}
+                      questionId={selQ.id}
+                      existingAnswer={selAnswer?.answer ?? null}
+                      editingMode={editingStep1}
+                      onSubmit={handleSubmitAnswer}
+                      onCancel={() => setEditingStep1(false)}
+                      isPending={submitAnswer.isPending}
+                    />
                   )}
                 </div>
 
@@ -702,7 +906,7 @@ export default function MiddlePast() {
                         </div>
                         <div className="flex justify-end">
                           <button
-                            onClick={() => { setEditingStep3(true); setUpgradedAnswer(selAnswer.upgraded_answer || ""); }}
+                            onClick={() => setEditingStep3(true)}
                             className="text-[11px] font-medium text-ink-secondary bg-white border border-line rounded-md px-2.5 py-1 hover:border-brand-middle-light hover:text-brand-middle-dark transition-all"
                           >
                             ✏️ 수정
@@ -710,38 +914,15 @@ export default function MiddlePast() {
                         </div>
                       </div>
                     ) : (
-                      <>
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[12px] text-amber-700 font-medium mb-2">
-                          💡 선생님 피드백을 반영해서 답변을 업그레이드해보세요!
-                        </div>
-                        <textarea
-                          value={upgradedAnswer}
-                          onChange={(e) => setUpgradedAnswer(e.target.value)}
-                          placeholder="피드백을 반영한 업그레이드 답변을 작성해주세요..."
-                          rows={4}
-                          className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] leading-[1.7] resize-y focus:outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-all placeholder:text-ink-muted"
-                        />
-                        <div className="flex gap-2 mt-2 justify-end">
-                          {editingStep3 && (
-                            <button
-                              onClick={() => { setEditingStep3(false); setUpgradedAnswer(""); }}
-                              className="h-9 px-3 bg-white text-ink-secondary border border-line rounded-lg text-[12px] font-medium hover:bg-gray-50 transition-colors"
-                            >
-                              취소
-                            </button>
-                          )}
-                          {/* ⭐ STT 마이크 */}
-                          <MicSTTBtn
-                            studentId={studentId}
-                            onTranscript={(text) => setUpgradedAnswer((prev) => prev ? prev + " " + text : text)}
-                          />
-                          <SubmitBtn
-                            label={submitUpgrade.isPending ? "제출 중..." : editingStep3 ? "수정 완료" : "업그레이드 제출"}
-                            onClick={handleSubmitUpgrade}
-                            disabled={!upgradedAnswer.trim() || submitUpgrade.isPending}
-                          />
-                        </div>
-                      </>
+                      <Step3UpgradeBox
+                        studentId={studentId}
+                        questionId={selQ.id}
+                        existingUpgrade={selAnswer?.upgraded_answer ?? null}
+                        editingMode={editingStep3}
+                        onSubmit={handleSubmitUpgrade}
+                        onCancel={() => setEditingStep3(false)}
+                        isPending={submitUpgrade.isPending}
+                      />
                     )}
                   </div>
                 )}
@@ -785,39 +966,13 @@ export default function MiddlePast() {
                             {t.answer}
                           </div>
                         ) : (
-                          <div className="bg-gray-50 rounded-lg px-3 py-2.5">
-                            <div className="text-[10px] text-ink-muted mb-1.5">꼬리질문 답변</div>
-                            <textarea
-                              value={tailAnswers[i] || ""}
-                              onChange={(e) => setTailAnswers((prev) => ({ ...prev, [i]: e.target.value }))}
-                              placeholder="꼬리질문에 대한 답변을 작성해주세요..."
-                              rows={2}
-                              className="w-full border border-line rounded-md px-2.5 py-2 text-[12px] leading-[1.6] resize-none bg-white focus:outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-all placeholder:text-ink-muted"
-                            />
-                            <div className="flex gap-2 mt-2 justify-end">
-                              {/* ⭐ STT 마이크 */}
-                              <MicSTTBtn
-                                studentId={studentId}
-                                onTranscript={(text) =>
-                                  setTailAnswers((prev) => ({
-                                    ...prev,
-                                    [i]: prev[i] ? prev[i] + " " + text : text,
-                                  }))
-                                }
-                              />
-                              <button
-                                onClick={() => handleSubmitTailAnswer(i)}
-                                disabled={!(tailAnswers[i] || "").trim() || submitTailAnswer.isPending}
-                                className={`w-[102px] h-[34px] rounded-md text-[12px] font-semibold transition-all ${
-                                  (tailAnswers[i] || "").trim() && !submitTailAnswer.isPending
-                                    ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
-                                    : "bg-gray-100 text-ink-muted cursor-not-allowed"
-                                }`}
-                              >
-                                {submitTailAnswer.isPending ? "제출 중..." : "제출"}
-                              </button>
-                            </div>
-                          </div>
+                          <Step5TailBox
+                            studentId={studentId}
+                            questionId={selQ.id}
+                            tailIndex={i}
+                            onSubmit={(text, clearDraft) => handleSubmitTailAnswer(i, text, clearDraft)}
+                            isPending={submitTailAnswer.isPending}
+                          />
                         )}
                       </div>
                     ))}
