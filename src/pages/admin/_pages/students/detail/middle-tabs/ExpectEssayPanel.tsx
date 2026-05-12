@@ -24,12 +24,12 @@ const THEME = {
   accentShadow: "rgba(16, 185, 129, 0.15)",
 };
 
+// 🎯 4영역으로 변경 (활동계획 제거)
 const SECTIONS = [
-  { key: "selfStudy", label: "📚 자기주도학습 과정", aiKey: "자기주도학습 과정" },
+  { key: "selfStudy", label: "🎓 자기주도학습 과정", aiKey: "자기주도학습 과정" },
   { key: "reason", label: "🏫 지원동기 (건학이념 연계)", aiKey: "지원동기" },
-  { key: "activity", label: "🎯 꿈과 끼를 살리기 위한 활동계획", aiKey: "활동계획" },
   { key: "career", label: "🚀 진로계획", aiKey: "진로계획" },
-  { key: "character", label: "🤝 인성", aiKey: "인성" },
+  { key: "character", label: "💛 인성", aiKey: "인성" },
 ];
 
 const MAX_ESSAY_AI_COUNT = 2;
@@ -220,15 +220,16 @@ export default function MiddleExpectEssayPanel({
       return;
     }
     try {
+      // 🎯 4영역 (활동계획 제거, 자기주도학습 추가)
       const generated = await generateQuestionsAi.mutateAsync({
         schoolName: selEssay.school,
         studentName: student?.name,
         sections: {
+          자기주도학습: selEssay.content.selfStudy || "",
           지원동기: selEssay.content.reason || "",
-          활동계획: selEssay.content.activity || "",
           진로계획: selEssay.content.career || "",
           인성: selEssay.content.character || "",
-        },
+        } as any,
         count: 8,
       });
       if (!generated || generated.length === 0) {

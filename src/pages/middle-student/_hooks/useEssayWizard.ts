@@ -2,6 +2,8 @@
 // 5단계 자소서 작성 마법사 DB 연동
 // - 학생이 작성하는 동안 자동 저장 (debounce 1.5초)
 // - 다시 들어오면 이어서 작성 가능
+// - 🎯 4영역: 자기주도학습 / 지원동기 / 진로계획 / 인성
+// - 🎯 마인드맵 5가지: 학교생활 / 동아리 / 독서학습 / 봉사인성 / 학교관심
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
@@ -14,16 +16,19 @@ export interface KeywordRow {
   experience: string
 }
 
+// 🎯 학교관심 가지 추가 (5가지)
 export interface MindmapData {
   학교생활: string[]
   동아리: string[]
   독서학습: string[]
   봉사인성: string[]
+  학교관심: string[]
 }
 
+// 🎯 4영역 (활동계획 제거 → 자기주도학습 추가)
 export interface MatchingData {
+  자기주도학습: string[]
   지원동기: string[]
-  활동계획: string[]
   진로계획: string[]
   인성: string[]
 }
@@ -35,9 +40,10 @@ export interface SubAnswer {
   q4: string
 }
 
+// 🎯 4영역
 export interface SectionsData {
+  자기주도학습: SubAnswer
   지원동기: SubAnswer
-  활동계획: SubAnswer
   진로계획: SubAnswer
   인성: SubAnswer
 }
@@ -65,9 +71,10 @@ export interface FeedbackItem {
   created_at: string
 }
 
+// 🎯 4영역에 맞춰 피드백 키도 변경
 export interface FeedbackData {
+  자기주도학습?: FeedbackItem[]
   지원동기?: FeedbackItem[]
-  활동계획?: FeedbackItem[]
   진로계획?: FeedbackItem[]
   인성?: FeedbackItem[]
 }

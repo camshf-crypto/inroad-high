@@ -28,14 +28,15 @@ const SCHOOLS = [
   "휘문고(자사고)", "중동고(자사고)", "직접입력",
 ];
 
+// 🎯 4영역으로 변경 (활동계획 제거)
 const SECTIONS = [
-  { key: "selfStudy", label: "📚 자기주도학습 과정", placeholder: "스스로 학습계획을 세우고 학습해 온 과정과 그 과정에서 느꼈던 점을 구체적으로 작성해보세요." },
+  { key: "selfStudy", label: "🎓 자기주도학습 과정", placeholder: "스스로 학습계획을 세우고 학습해 온 과정과 그 과정에서 느꼈던 점을 구체적으로 작성해보세요." },
   { key: "reason", label: "🏫 지원동기 (건학이념 연계)", placeholder: "학교 건학이념과 연계하여 이 학교에 관심을 갖게 된 동기를 구체적으로 작성해보세요." },
-  { key: "activity", label: "🎯 꿈과 끼를 살리기 위한 활동계획", placeholder: "고등학교 입학 후 자기주도적으로 꿈과 끼를 살리기 위한 활동계획을 작성해보세요." },
   { key: "career", label: "🚀 진로계획", placeholder: "고등학교 졸업 후 진로계획에 대해 구체적으로 작성해보세요." },
-  { key: "character", label: "🤝 인성 (배려·나눔·협력·타인존중·규칙준수)", placeholder: "본인의 인성을 나타낼 수 있는 개인적 경험과 이를 통해 배우고 느낀 점을 구체적으로 작성해보세요." },
+  { key: "character", label: "💛 인성 (배려·나눔·협력·타인존중·규칙준수)", placeholder: "본인의 인성을 나타낼 수 있는 개인적 경험과 이를 통해 배우고 느낀 점을 구체적으로 작성해보세요." },
 ];
 
+// 🎯 4영역 (activity 제거, 옛날 데이터 호환을 위해 빈 값으로)
 const EMPTY_ESSAY = { selfStudy: "", reason: "", activity: "", career: "", character: "" };
 
 const MIN_CHARS = 100; // ⭐ 각 항목 최소 100자
@@ -61,7 +62,7 @@ function getCharCount(text: string | undefined): number {
   return (text || "").replace(/\s/g, "").length;
 }
 
-// ⭐ 5개 항목 다 100자+ 인지 체크
+// ⭐ 4개 항목 다 100자+ 인지 체크
 function checkAllCompleted(content: any): boolean {
   return SECTIONS.every((s) => getCharCount(content?.[s.key]) >= MIN_CHARS);
 }
@@ -215,10 +216,10 @@ function MicSTTBtn({ studentId, onTranscript }: MicSTTBtnProps) {
       disabled={processing}
       title={recording ? "녹음 종료 (1분 이내)" : processing ? "변환 중..." : "음성으로 답변 (1분 이내)"}
       className={`w-9 h-9 rounded-lg border flex items-center justify-center flex-shrink-0 text-base transition-all ${recording
-          ? "bg-red-50 border-red-200 text-red-500 hover:bg-red-100 animate-pulse"
-          : processing
-            ? "bg-amber-50 border-amber-200 text-amber-600 cursor-wait"
-            : "bg-brand-middle-pale border-brand-middle-light text-brand-middle-dark hover:bg-brand-middle-bg"
+        ? "bg-red-50 border-red-200 text-red-500 hover:bg-red-100 animate-pulse"
+        : processing
+          ? "bg-amber-50 border-amber-200 text-amber-600 cursor-wait"
+          : "bg-brand-middle-pale border-brand-middle-light text-brand-middle-dark hover:bg-brand-middle-bg"
         }`}
     >
       {recording ? "⏹" : processing ? "⏳" : "🎙️"}
@@ -231,8 +232,8 @@ const SubmitBtn = ({ label, onClick, disabled }: { label: string; onClick: () =>
     onClick={onClick}
     disabled={disabled}
     className={`w-[108px] h-9 rounded-lg text-[12px] font-semibold flex-shrink-0 transition-all ${!disabled
-        ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
-        : "bg-gray-100 text-ink-muted cursor-not-allowed"
+      ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
+      : "bg-gray-100 text-ink-muted cursor-not-allowed"
       }`}
   >
     {label}
@@ -415,8 +416,8 @@ function Step5TailBox({
             onClick={() => onSubmit(text, clearDraft)}
             disabled={!text.trim() || isPending}
             className={`w-[102px] h-[34px] rounded-md text-[12px] font-semibold transition-all ${text.trim() && !isPending
-                ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
-                : "bg-gray-100 text-ink-muted cursor-not-allowed"
+              ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
+              : "bg-gray-100 text-ink-muted cursor-not-allowed"
               }`}
           >
             {isPending ? "제출 중..." : "제출"}
@@ -463,6 +464,7 @@ export default function MiddleExpect() {
   }, {});
 
   const [showAddEssay, setShowAddEssay] = useState(false);
+  const [showExclusion, setShowExclusion] = useState(false);
   const [newSchool, setNewSchool] = useState("");
   const [customSchool, setCustomSchool] = useState("");
 
@@ -622,7 +624,7 @@ export default function MiddleExpect() {
         previousContent: selEssay.content,
       });
       setShowWizard(false);
-      alert("✅ 자소서가 저장되었어요!\n5개 항목 모두 100자 이상이면 '자소서 완료' 버튼을 눌러주세요!");
+      alert("✅ 자소서가 저장되었어요!\n 모두 100자 이상이면 '자소서 완료' 버튼을 눌러주세요!");
     } catch (e: any) {
       alert(`저장 실패: ${e.message}`);
     }
@@ -735,8 +737,8 @@ export default function MiddleExpect() {
                 key={t.key}
                 onClick={() => setActiveTab(t.key as any)}
                 className={`flex-1 py-3 text-center text-[13px] transition-all ${activeTab === t.key
-                    ? "text-brand-middle-dark font-bold border-b-2 border-brand-middle"
-                    : "text-ink-muted font-medium border-b-2 border-transparent hover:text-ink"
+                  ? "text-brand-middle-dark font-bold border-b-2 border-brand-middle"
+                  : "text-ink-muted font-medium border-b-2 border-transparent hover:text-ink"
                   }`}
               >
                 {t.label}
@@ -776,8 +778,8 @@ export default function MiddleExpect() {
                         key={e.id}
                         onClick={() => { setSelEssayId(e.id); setEditingEssay(false); setEditingSection(null); }}
                         className={`border rounded-xl px-3.5 py-3 mb-1.5 cursor-pointer transition-all ${isSel
-                            ? "border-brand-middle bg-brand-middle-pale shadow-[0_4px_16px_rgba(16,185,129,0.12)]"
-                            : "border-line bg-white hover:border-brand-middle-light hover:shadow-sm"
+                          ? "border-brand-middle bg-brand-middle-pale shadow-[0_4px_16px_rgba(16,185,129,0.12)]"
+                          : "border-line bg-white hover:border-brand-middle-light hover:shadow-sm"
                           }`}
                       >
                         <div className={`text-[13px] font-bold mb-1.5 ${isSel ? "text-brand-middle-dark" : "text-ink"}`}>
@@ -826,13 +828,12 @@ export default function MiddleExpect() {
                   <button
                     onClick={handleToggleComplete}
                     disabled={(!isAllCompleted && !selEssay.essay_completed) || completeEssay.isPending}
-                    className={`w-full h-11 rounded-lg text-[13px] font-bold transition-all ${
-                      selEssay.essay_completed
+                    className={`w-full h-11 rounded-lg text-[13px] font-bold transition-all ${selEssay.essay_completed
                         ? "bg-emerald-50 border-2 border-emerald-300 text-emerald-700 hover:bg-emerald-100"
                         : isAllCompleted
                           ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
                           : "bg-gray-200 text-ink-muted cursor-not-allowed"
-                    }`}
+                      }`}
                   >
                     {completeEssay.isPending
                       ? "처리 중..."
@@ -887,8 +888,8 @@ export default function MiddleExpect() {
                         key={school}
                         onClick={() => { setSelSchoolFilter(school); setSelQId(null); }}
                         className={`px-3 py-1 rounded-full text-[11px] border-[1.5px] transition-all ${selSchoolFilter === school
-                            ? "border-brand-middle bg-brand-middle-pale text-brand-middle-dark font-bold"
-                            : "border-line bg-white text-ink-secondary font-medium hover:border-brand-middle-light"
+                          ? "border-brand-middle bg-brand-middle-pale text-brand-middle-dark font-bold"
+                          : "border-line bg-white text-ink-secondary font-medium hover:border-brand-middle-light"
                           }`}
                       >
                         {school}
@@ -918,8 +919,8 @@ export default function MiddleExpect() {
                       key={q.id}
                       onClick={() => setSelQId(q.id)}
                       className={`border rounded-xl px-3.5 py-3 mb-1.5 cursor-pointer transition-all ${selQId === q.id
-                          ? "border-brand-middle bg-brand-middle-pale shadow-[0_4px_16px_rgba(16,185,129,0.12)]"
-                          : "border-line bg-white hover:border-brand-middle-light hover:shadow-sm"
+                        ? "border-brand-middle bg-brand-middle-pale shadow-[0_4px_16px_rgba(16,185,129,0.12)]"
+                        : "border-line bg-white hover:border-brand-middle-light hover:shadow-sm"
                         }`}
                     >
                       <div className="flex items-center gap-1.5 mb-1.5">
@@ -1092,8 +1093,8 @@ export default function MiddleExpect() {
                             onClick={saveEssay}
                             disabled={charCount > 1500 || updateEssay.isPending}
                             className={`flex-[2] h-10 rounded-lg text-[13px] font-semibold transition-all ${charCount > 1500 || updateEssay.isPending
-                                ? "bg-gray-100 text-ink-muted cursor-not-allowed"
-                                : "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
+                              ? "bg-gray-100 text-ink-muted cursor-not-allowed"
+                              : "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
                               }`}
                           >
                             {updateEssay.isPending ? "저장 중..." : charCount > 1500 ? `${charCount - 1500}자 초과` : "저장"}
@@ -1299,8 +1300,8 @@ export default function MiddleExpect() {
                         {selQ.tag && (<div className="text-[11px] text-ink-muted mt-0.5">{selQ.tag}</div>)}
                       </div>
                       <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${selQ.answer
-                          ? "bg-brand-middle-bg text-brand-middle-dark border-brand-middle-light"
-                          : "bg-amber-50 text-amber-700 border-amber-200"
+                        ? "bg-brand-middle-bg text-brand-middle-dark border-brand-middle-light"
+                        : "bg-amber-50 text-amber-700 border-amber-200"
                         }`}>
                         {selQ.answer ? "답변완료" : "미답변"}
                       </span>
@@ -1338,9 +1339,8 @@ export default function MiddleExpect() {
                       <div>
                         <button
                           onClick={() => setPurposeOpen(!purposeOpen)}
-                          className={`w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-all ${
-                            purposeOpen ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-line hover:bg-amber-50/50"
-                          }`}
+                          className={`w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-all ${purposeOpen ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-line hover:bg-amber-50/50"
+                            }`}
                         >
                           <span className={`text-[11px] font-semibold ${purposeOpen ? "text-amber-700" : "text-ink-secondary"}`}>
                             💡 질문 의도 파악
@@ -1529,8 +1529,8 @@ export default function MiddleExpect() {
                   key={s}
                   onClick={() => setNewSchool(s)}
                   className={`px-3 py-1 rounded-full text-[12px] border-[1.5px] transition-all ${newSchool === s
-                      ? "border-brand-middle bg-brand-middle-pale text-brand-middle-dark font-bold"
-                      : "border-line bg-white text-ink-secondary font-medium hover:border-brand-middle-light"
+                    ? "border-brand-middle bg-brand-middle-pale text-brand-middle-dark font-bold"
+                    : "border-line bg-white text-ink-secondary font-medium hover:border-brand-middle-light"
                     }`}
                 >
                   {s}
@@ -1550,23 +1550,218 @@ export default function MiddleExpect() {
               </div>
             )}
 
-            <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg px-3 py-2.5 mb-4 flex gap-2">
-              <span className="text-base">💡</span>
-              <div className="text-[11px] text-brand-middle-dark leading-[1.6]">
-                학교를 추가하면 <strong>5단계 자소서 작성 마법사</strong>가 자동으로 시작돼요!
-              </div>
-            </div>
+            {/* 🎯 주의사항 보기 버튼 (옛날 안내박스 자리) */}
+            <button
+              type="button"
+              onClick={() => setShowExclusion(true)}
+              className="w-full h-11 mb-4 bg-red-50 hover:bg-red-100 text-red-700 border-2 border-red-200 rounded-lg text-[13px] font-bold transition-all flex items-center justify-center gap-2"
+            >
+              ⚠️ 자소서 작성 시 주의사항 보기
+            </button>
 
             <button
               onClick={handleAddSchool}
               disabled={!newSchool || (newSchool === "직접입력" && !customSchool) || addEssay.isPending}
               className={`w-full h-11 rounded-lg text-[14px] font-semibold transition-all ${newSchool && (newSchool !== "직접입력" || customSchool) && !addEssay.isPending
-                  ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
-                  : "bg-gray-100 text-ink-muted cursor-not-allowed"
+                ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
+                : "bg-gray-100 text-ink-muted cursor-not-allowed"
                 }`}
             >
               {addEssay.isPending ? "추가 중..." : "추가하고 자소서 작성 시작 🎯"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🎯 자소서 주의사항 안내 모달 */}
+      {showExclusion && (
+        <div
+          onClick={() => setShowExclusion(false)}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl w-[680px] max-h-[90vh] overflow-hidden flex flex-col shadow-[0_24px_64px_rgba(0,0,0,0.2)]"
+          >
+            {/* 헤더 */}
+            <div className="px-6 py-5 border-b border-line flex-shrink-0 bg-gradient-to-br from-red-50 to-orange-50">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-2xl">⚠️</span>
+                    <div className="text-[18px] font-extrabold text-red-700 tracking-tight">
+                      자기소개서 작성 시 주의사항
+                    </div>
+                  </div>
+                  <div className="text-[12px] text-red-800 leading-[1.6] font-medium">
+                    아래 내용을 자소서에 적으면 <strong className="text-red-900">자소서가 무효 처리</strong>될 수 있어요!
+                    <br />
+                    <span className="text-red-700 font-bold">꼭 확인하고 작성하세요.</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowExclusion(false)}
+                  className="w-8 h-8 rounded-lg hover:bg-white/60 flex items-center justify-center text-ink-secondary transition-colors flex-shrink-0"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* 본문 */}
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              <div className="space-y-4">
+                {/* 1. 자격증·인증시험 */}
+                <div className="bg-rose-50 border-2 border-rose-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-9 h-9 rounded-lg bg-rose-100 text-rose-700 border border-rose-200 flex items-center justify-center text-lg">📜</div>
+                    <div className="text-[14px] font-extrabold text-rose-700">자격증·인증시험</div>
+                  </div>
+                  <div className="bg-white rounded-lg px-3 py-2.5 mb-2 border border-white/60">
+                    <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">❌ 작성 금지 항목</div>
+                    <ul className="space-y-1">
+                      <li className="text-[12.5px] text-ink leading-[1.6] flex items-start gap-1.5"><span className="text-red-500 flex-shrink-0">•</span><span>자격증 명칭 및 취득 사실</span></li>
+                      <li className="text-[12.5px] text-ink leading-[1.6] flex items-start gap-1.5"><span className="text-red-500 flex-shrink-0">•</span><span>영재교육원 교육 및 수료 여부</span></li>
+                      <li className="text-[12.5px] text-ink leading-[1.6] flex items-start gap-1.5"><span className="text-red-500 flex-shrink-0">•</span><span>각종 공인어학시험 참여 사실과 성적·수상 실적</span></li>
+                      <li className="text-[12.5px] text-ink leading-[1.6] flex items-start gap-1.5"><span className="text-red-500 flex-shrink-0">•</span><span>교내·외 인증시험 및 각종 대회 참여 사실</span></li>
+                    </ul>
+                  </div>
+                  <div className="bg-white/70 rounded-lg px-3 py-2 border border-white/60">
+                    <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">구체적 예시</div>
+                    <ul className="space-y-0.5">
+                      <li className="text-[11.5px] text-ink-secondary leading-[1.6]">❌ TOEIC, TOEFL, TEPS, JLPT, HSK, DELF, DELE</li>
+                      <li className="text-[11.5px] text-ink-secondary leading-[1.6]">❌ 한자능력검정, 한국어능력시험</li>
+                      <li className="text-[11.5px] text-ink-secondary leading-[1.6]">❌ 컴퓨터활용능력, 워드프로세서</li>
+                      <li className="text-[11.5px] text-ink-secondary leading-[1.6]">❌ 영재교육원 수료, 대학부설 영재원</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* 2. 성적·순위 */}
+                <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 border border-amber-200 flex items-center justify-center text-lg">📊</div>
+                    <div className="text-[14px] font-extrabold text-amber-700">성적·순위</div>
+                  </div>
+                  <div className="bg-white rounded-lg px-3 py-2.5 mb-2 border border-white/60">
+                    <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">❌ 작성 금지 항목</div>
+                    <ul className="space-y-1">
+                      <li className="text-[12.5px] text-ink leading-[1.6] flex items-start gap-1.5"><span className="text-red-500 flex-shrink-0">•</span><span>교과목의 점수나 석차</span></li>
+                    </ul>
+                  </div>
+                  <div className="bg-white/70 rounded-lg px-3 py-2 border border-white/60">
+                    <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">구체적 예시</div>
+                    <ul className="space-y-0.5">
+                      <li className="text-[11.5px] text-ink-secondary leading-[1.6]">❌ "수학 1등급", "영어 90점"</li>
+                      <li className="text-[11.5px] text-ink-secondary leading-[1.6]">❌ "전교 5등", "반에서 1등"</li>
+                      <li className="text-[11.5px] text-ink-secondary leading-[1.6]">❌ "전국 상위 1%"</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* 3. 교외 수상·활동 */}
+                <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-9 h-9 rounded-lg bg-orange-100 text-orange-700 border border-orange-200 flex items-center justify-center text-lg">🏆</div>
+                    <div className="text-[14px] font-extrabold text-orange-700">교외 수상·활동</div>
+                  </div>
+                  <div className="bg-white rounded-lg px-3 py-2.5 mb-2 border border-white/60">
+                    <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">❌ 작성 금지 항목</div>
+                    <ul className="space-y-1">
+                      <li className="text-[12.5px] text-ink leading-[1.6] flex items-start gap-1.5"><span className="text-red-500 flex-shrink-0">•</span><span>교외 기관·단체장 수상 (표창장, 감사장, 공로상 등)</span></li>
+                      <li className="text-[12.5px] text-ink leading-[1.6] flex items-start gap-1.5"><span className="text-red-500 flex-shrink-0">•</span><span>논문 학회 투고·발표 사실</span></li>
+                      <li className="text-[12.5px] text-ink leading-[1.6] flex items-start gap-1.5"><span className="text-red-500 flex-shrink-0">•</span><span>도서 출간 사실</span></li>
+                      <li className="text-[12.5px] text-ink leading-[1.6] flex items-start gap-1.5"><span className="text-red-500 flex-shrink-0">•</span><span>지식재산권(특허, 실용신안 등) 출원·등록</span></li>
+                      <li className="text-[12.5px] text-ink leading-[1.6] flex items-start gap-1.5"><span className="text-red-500 flex-shrink-0">•</span><span>어학연수, 봉사활동 등 해외 활동 실적</span></li>
+                    </ul>
+                  </div>
+                  <div className="bg-white/70 rounded-lg px-3 py-2 border border-white/60">
+                    <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">구체적 예시</div>
+                    <ul className="space-y-0.5">
+                      <li className="text-[11.5px] text-ink-secondary leading-[1.6]">❌ 도지사상, 교육감상, 시장상 (교내 표창은 OK)</li>
+                      <li className="text-[11.5px] text-ink-secondary leading-[1.6]">❌ 학회 발표, 논문 게재</li>
+                      <li className="text-[11.5px] text-ink-secondary leading-[1.6]">❌ 해외 봉사활동, 어학연수 경험</li>
+                      <li className="text-[11.5px] text-emerald-700 leading-[1.6] font-bold">⭐ 단, 교내 대회 수상은 가능!</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* 4. 가족·경제적 배경 */}
+                <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-9 h-9 rounded-lg bg-purple-100 text-purple-700 border border-purple-200 flex items-center justify-center text-lg">👨‍👩‍👧</div>
+                    <div className="text-[14px] font-extrabold text-purple-700">가족·경제적 배경</div>
+                  </div>
+                  <div className="bg-white rounded-lg px-3 py-2.5 mb-2 border border-white/60">
+                    <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">❌ 작성 금지 항목</div>
+                    <ul className="space-y-1">
+                      <li className="text-[12.5px] text-ink leading-[1.6] flex items-start gap-1.5"><span className="text-red-500 flex-shrink-0">•</span><span>부모(친인척 포함)의 사회·경제적 지위 암시</span></li>
+                      <li className="text-[12.5px] text-ink leading-[1.6] flex items-start gap-1.5"><span className="text-red-500 flex-shrink-0">•</span><span>장학생·장학금 관련 내용</span></li>
+                    </ul>
+                  </div>
+                  <div className="bg-white/70 rounded-lg px-3 py-2 border border-white/60">
+                    <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">구체적 예시</div>
+                    <ul className="space-y-0.5">
+                      <li className="text-[11.5px] text-ink-secondary leading-[1.6]">❌ 부모 직장명, 직위, 소득수준</li>
+                      <li className="text-[11.5px] text-ink-secondary leading-[1.6]">❌ 고비용 취미 활동 (골프, 승마 등)</li>
+                      <li className="text-[11.5px] text-ink-secondary leading-[1.6]">❌ 학교 외 사설 학원 활동</li>
+                      <li className="text-[11.5px] text-ink-secondary leading-[1.6]">❌ 장학금 수혜 내역</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* 5. 특정 명칭·인적사항 */}
+                <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-700 border border-blue-200 flex items-center justify-center text-lg">🏫</div>
+                    <div className="text-[14px] font-extrabold text-blue-700">특정 명칭·인적사항</div>
+                  </div>
+                  <div className="bg-white rounded-lg px-3 py-2.5 mb-2 border border-white/60">
+                    <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">❌ 작성 금지 항목</div>
+                    <ul className="space-y-1">
+                      <li className="text-[12.5px] text-ink leading-[1.6] flex items-start gap-1.5"><span className="text-red-500 flex-shrink-0">•</span><span>구체적인 대학명, 기관명, 상호명, 강사명</span></li>
+                      <li className="text-[12.5px] text-ink leading-[1.6] flex items-start gap-1.5"><span className="text-red-500 flex-shrink-0">•</span><span>지원자 이름, 출신중학교 등 인적사항</span></li>
+                    </ul>
+                  </div>
+                  <div className="bg-white/70 rounded-lg px-3 py-2 border border-white/60">
+                    <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">구체적 예시</div>
+                    <ul className="space-y-0.5">
+                      <li className="text-[11.5px] text-ink-secondary leading-[1.6]">❌ 학원 이름 (예: ○○수학학원)</li>
+                      <li className="text-[11.5px] text-ink-secondary leading-[1.6]">❌ 출신 중학교 이름</li>
+                      <li className="text-[11.5px] text-ink-secondary leading-[1.6]">❌ 본인 이름 직접 언급</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* 그러면 뭘 써야? */}
+              <div className="mt-5 bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200 rounded-xl p-4">
+                <div className="flex items-start gap-2 mb-2">
+                  <span className="text-xl flex-shrink-0">💚</span>
+                  <div className="text-[13px] font-extrabold text-emerald-800">그러면 무엇을 써야 하나요?</div>
+                </div>
+                <ul className="space-y-1.5 ml-7">
+                  <li className="text-[12px] text-emerald-900 leading-[1.6] flex items-start gap-1.5"><span className="text-emerald-600 flex-shrink-0">✅</span><span><strong>학교 안에서의 경험</strong> — 교내 수업, 교내 대회, 동아리, 자치회, 봉사</span></li>
+                  <li className="text-[12px] text-emerald-900 leading-[1.6] flex items-start gap-1.5"><span className="text-emerald-600 flex-shrink-0">✅</span><span><strong>스스로 한 활동</strong> — 자기주도학습, 독서, 진로 탐색</span></li>
+                  <li className="text-[12px] text-emerald-900 leading-[1.6] flex items-start gap-1.5"><span className="text-emerald-600 flex-shrink-0">✅</span><span><strong>구체적인 사건과 느낀 점</strong> — 무엇을 했고, 무엇을 배웠는지</span></li>
+                  <li className="text-[12px] text-emerald-900 leading-[1.6] flex items-start gap-1.5"><span className="text-emerald-600 flex-shrink-0">✅</span><span><strong>인성·태도</strong> — 배려, 협력, 책임감, 갈등 해결</span></li>
+                </ul>
+              </div>
+
+              <div className="mt-4 text-center">
+                <div className="text-[10px] text-ink-muted">※ 학교별 모집요강을 꼭 확인하세요.</div>
+              </div>
+            </div>
+
+            {/* 푸터 */}
+            <div className="px-6 py-4 border-t border-line flex-shrink-0 bg-gray-50">
+              <button
+                onClick={() => setShowExclusion(false)}
+                className="w-full h-11 bg-brand-middle hover:bg-brand-middle-hover text-white rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px hover:shadow-btn-middle"
+              >
+                확인했어요! 자소서 작성하기
+              </button>
+            </div>
           </div>
         </div>
       )}
