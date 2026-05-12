@@ -20,6 +20,8 @@ export interface StudentEssay {
   version: number;
   delete_requested: boolean;
   delete_requested_at: string | null;
+  essay_completed: boolean;          // ⭐ 추가
+  completed_at: string | null;       // ⭐ 추가
   created_at: string;
   updated_at: string;
 }
@@ -204,7 +206,6 @@ export function useAddSectionFeedback() {
       section_key: string;
       text: string;
     }) => {
-      // 현재 라운드 계산 (해당 섹션의 마지막 round + 1)
       const { data: existing } = await supabase
         .from("jaso_essay_feedback")
         .select("round")
@@ -216,7 +217,6 @@ export function useAddSectionFeedback() {
       const nextRound =
         existing && existing.length > 0 ? existing[0].round + 1 : 1;
 
-      // teacher_id (Supabase auth)
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -291,7 +291,6 @@ export function useGenerateQuestions() {
 
   return useMutation({
     mutationFn: async (input: { essay_id: string; school: string }) => {
-      // mock 질문 5개 (나중에 Claude API로 교체)
       const mockQuestions = [
         {
           essay_id: input.essay_id,
@@ -330,14 +329,12 @@ export function useGenerateQuestions() {
         },
       ];
 
-      // 질문 INSERT
       const { error: qError } = await supabase
         .from("jaso_questions")
         .insert(mockQuestions);
 
       if (qError) throw qError;
 
-      // 자소서 questions_generated = true
       const { error: eError } = await supabase
         .from("jaso_essays")
         .update({ questions_generated: true })
@@ -413,7 +410,6 @@ export function useSaveFirstFeedback() {
       } = await supabase.auth.getUser();
       const teacherId = user?.id ?? null;
 
-      // 기존 row 있는지
       const { data: existing } = await supabase
         .from("jaso_question_feedback")
         .select("id")
@@ -440,7 +436,6 @@ export function useSaveFirstFeedback() {
         if (error) throw error;
       }
 
-      // status 업데이트
       const { error: statusError } = await supabase
         .from("jaso_questions")
         .update({ status: "feedback1" })
@@ -499,7 +494,6 @@ export function useSaveFinalFeedback() {
         if (error) throw error;
       }
 
-      // status 업데이트
       const { error: statusError } = await supabase
         .from("jaso_questions")
         .update({ status: "feedback2" })

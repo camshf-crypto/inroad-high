@@ -344,7 +344,7 @@ ${answeredQs.map((q, i) => `
         {/* 추가 폼 (학교 + 학과 선택) */}
         {showAddForm && (
           <div className="flex gap-2 items-center flex-wrap bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5">
-            <span className="text-[11px] font-bold text-emerald-700">새 지원 학교:</span>
+            <span className="text-[11px] font-bold text-emerald-700">지원 학교:</span>
 
             {/* 학교 검색 */}
             <div className="relative w-[200px]">

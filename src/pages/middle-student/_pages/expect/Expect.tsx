@@ -15,6 +15,7 @@ import {
   useSubmitTailAnswer,
   useRequestDeleteEssay,
   useCancelDeleteRequest,
+  useCompleteEssay,
 } from "@/pages/middle-student/_hooks/useExpect";
 import { useDraftAutoSave, type DraftStatus } from "@/pages/middle-student/_hooks/useDraftAutoSave";
 import EssayWizard from "./EssayWizard";
@@ -37,6 +38,8 @@ const SECTIONS = [
 
 const EMPTY_ESSAY = { selfStudy: "", reason: "", activity: "", career: "", character: "" };
 
+const MIN_CHARS = 100; // ⭐ 각 항목 최소 100자
+
 // ─────────────────────────────────────────────
 // 헬퍼: Blob → base64 (CSR Edge Function 입력용)
 // ─────────────────────────────────────────────
@@ -51,6 +54,16 @@ async function blobToBase64(blob: Blob): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
+}
+
+// ⭐ 항목별 글자수 (공백 제외)
+function getCharCount(text: string | undefined): number {
+  return (text || "").replace(/\s/g, "").length;
+}
+
+// ⭐ 5개 항목 다 100자+ 인지 체크
+function checkAllCompleted(content: any): boolean {
+  return SECTIONS.every((s) => getCharCount(content?.[s.key]) >= MIN_CHARS);
 }
 
 // ─────────────────────────────────────────────
@@ -77,7 +90,6 @@ function DraftStatusIndicator({ status, lastSavedAt }: { status: DraftStatus; la
     );
   }
 
-  // saved
   return (
     <span className="text-[10px] text-emerald-600 flex items-center gap-1">
       <span>✓</span>
@@ -92,7 +104,7 @@ function DraftStatusIndicator({ status, lastSavedAt }: { status: DraftStatus; la
 }
 
 // ─────────────────────────────────────────────
-// ⭐ STT 마이크 버튼 (재사용) - CSR 단문 STT 사용
+// ⭐ STT 마이크 버튼 (재사용)
 // ─────────────────────────────────────────────
 interface MicSTTBtnProps {
   studentId: string | undefined;
@@ -228,7 +240,7 @@ const SubmitBtn = ({ label, onClick, disabled }: { label: string; onClick: () =>
 );
 
 // ─────────────────────────────────────────────
-// ⭐ Step 1 답변 (자동저장 + STT)
+// ⭐ Step 1 답변
 // ─────────────────────────────────────────────
 function Step1AnswerBox({
   studentId,
@@ -293,7 +305,7 @@ function Step1AnswerBox({
 }
 
 // ─────────────────────────────────────────────
-// ⭐ Step 3 업그레이드 답변 (자동저장 + STT)
+// ⭐ Step 3 업그레이드 답변
 // ─────────────────────────────────────────────
 function Step3UpgradeBox({
   studentId,
@@ -361,7 +373,7 @@ function Step3UpgradeBox({
 }
 
 // ─────────────────────────────────────────────
-// ⭐ Step 5 꼬리질문 답변 (자동저장 + STT)
+// ⭐ Step 5 꼬리질문 답변
 // ─────────────────────────────────────────────
 function Step5TailBox({
   studentId,
@@ -426,6 +438,7 @@ export default function MiddleExpect() {
   const { data: essays = [], isLoading } = useMyEssays(studentId);
   const addEssay = useAddEssay();
   const updateEssay = useUpdateEssay();
+  const completeEssay = useCompleteEssay(); // ⭐ 추가
 
   const [activeTab, setActiveTab] = useState<"essay" | "questions">("essay");
 
@@ -481,13 +494,12 @@ export default function MiddleExpect() {
   const [editingStep1, setEditingStep1] = useState(false);
   const [editingStep3, setEditingStep3] = useState(false);
 
-  // ⭐ 질문 의도 접었다 폈다 (질문 바뀌면 닫힘)
   const [purposeOpen, setPurposeOpen] = useState(false);
 
   useEffect(() => {
     setEditingStep1(false);
     setEditingStep3(false);
-    setPurposeOpen(false); // 새 질문 클릭하면 의도도 닫기
+    setPurposeOpen(false);
   }, [selQId]);
 
   const submitAnswer = useSubmitAnswer();
@@ -516,6 +528,34 @@ export default function MiddleExpect() {
       alert("✅ 삭제 요청을 취소했어요.");
     } catch (e: any) {
       alert(`취소 실패: ${e.message}`);
+    }
+  };
+
+  // ⭐ 자소서 완료 토글
+  const handleToggleComplete = async () => {
+    if (!selEssay) return;
+
+    if (selEssay.essay_completed) {
+      // 완료 → 미완료
+      if (!confirm("자소서 완료를 취소할까요?\n\n수정 후 다시 완료 버튼을 눌러야 해요.")) return;
+      try {
+        await completeEssay.mutateAsync({ essay_id: selEssay.id, complete: false });
+      } catch (e: any) {
+        alert(`완료 취소 실패: ${e.message}`);
+      }
+    } else {
+      // 미완료 → 완료
+      if (!checkAllCompleted(selEssay.content)) {
+        alert(`아직 모든 항목이 ${MIN_CHARS}자 이상 작성되지 않았어요!\n\n각 항목을 충분히 작성하고 다시 시도해주세요.`);
+        return;
+      }
+      if (!confirm("자소서를 완료하시겠어요?\n\n선생님이 예상질문을 생성하기 전까지는 다시 수정할 수 있어요.")) return;
+      try {
+        await completeEssay.mutateAsync({ essay_id: selEssay.id, complete: true });
+        alert("✅ 자소서 완료!\n선생님이 예상질문을 만들어줄 거예요.");
+      } catch (e: any) {
+        alert(`완료 처리 실패: ${e.message}`);
+      }
     }
   };
 
@@ -582,7 +622,7 @@ export default function MiddleExpect() {
         previousContent: selEssay.content,
       });
       setShowWizard(false);
-      alert("✅ 자소서가 저장되었어요!\n선생님이 피드백을 드릴 거예요.");
+      alert("✅ 자소서가 저장되었어요!\n5개 항목 모두 100자 이상이면 '자소서 완료' 버튼을 눌러주세요!");
     } catch (e: any) {
       alert(`저장 실패: ${e.message}`);
     }
@@ -605,15 +645,11 @@ export default function MiddleExpect() {
     }
   };
 
-  // ⭐ 답변 제출 + 임시저장 삭제
   const handleSubmitAnswer = async (text: string, clearDraft: () => Promise<void>) => {
     if (!text.trim() || !selQ) return;
     try {
-      await submitAnswer.mutateAsync({
-        question_id: selQ.id,
-        answer: text,
-      });
-      await clearDraft(); // 본 테이블에 저장 됐으니 임시저장 삭제
+      await submitAnswer.mutateAsync({ question_id: selQ.id, answer: text });
+      await clearDraft();
       setEditingStep1(false);
     } catch (e: any) {
       alert(`제출 실패: ${e.message}`);
@@ -623,10 +659,7 @@ export default function MiddleExpect() {
   const handleSubmitUpgrade = async (text: string, clearDraft: () => Promise<void>) => {
     if (!text.trim() || !selQ) return;
     try {
-      await submitUpgrade.mutateAsync({
-        question_id: selQ.id,
-        upgraded_answer: text,
-      });
+      await submitUpgrade.mutateAsync({ question_id: selQ.id, upgraded_answer: text });
       await clearDraft();
       setEditingStep3(false);
     } catch (e: any) {
@@ -637,11 +670,7 @@ export default function MiddleExpect() {
   const handleSubmitTailAnswer = async (idx: number, text: string, clearDraft: () => Promise<void>) => {
     if (!text.trim() || !selQ) return;
     try {
-      await submitTailAnswer.mutateAsync({
-        question_id: selQ.id,
-        tail_index: idx,
-        answer: text,
-      });
+      await submitTailAnswer.mutateAsync({ question_id: selQ.id, tail_index: idx, answer: text });
       await clearDraft();
     } catch (e: any) {
       alert(`제출 실패: ${e.message}`);
@@ -657,6 +686,13 @@ export default function MiddleExpect() {
     acc[fb.section_key].push(fb);
     return acc;
   }, {});
+
+  // ⭐ 선택된 자소서의 완료 상태 체크
+  const isAllCompleted = selEssay ? checkAllCompleted(selEssay.content) : false;
+  const sectionsBelow100 = selEssay
+    ? SECTIONS.filter((s) => getCharCount((selEssay.content as any)[s.key]) < MIN_CHARS).map((s) => s.label)
+    : [];
+  const isLocked = selEssay?.questions_generated === true; // 선생님이 잠금
 
   if (showWizard && selEssay) {
     return (
@@ -750,11 +786,16 @@ export default function MiddleExpect() {
                         <div className="flex gap-1 flex-wrap">
                           {e.content.selfStudy ? (
                             <span className="text-[10px] font-semibold text-brand-middle-dark bg-brand-middle-bg px-2 py-0.5 rounded-full border border-brand-middle-light">
-                              작성완료 · {countChars(e.content)}자
+                              작성 · {countChars(e.content)}자
                             </span>
                           ) : (
                             <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                               미작성
+                            </span>
+                          )}
+                          {e.essay_completed && !e.questions_generated && (
+                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                              ✓ 완료
                             </span>
                           )}
                           {e.version > 1 && (
@@ -764,7 +805,7 @@ export default function MiddleExpect() {
                           )}
                           {e.questions_generated && (
                             <span className="text-[10px] font-semibold text-[#7C3AED] bg-[#F5F3FF] px-2 py-0.5 rounded-full">
-                              질문생성완료
+                              🔒 질문생성됨
                             </span>
                           )}
                           {e.delete_requested && (
@@ -778,6 +819,59 @@ export default function MiddleExpect() {
                   })
                 )}
               </div>
+
+              {/* ⭐ 자소서 완료 버튼 (사이드바 하단) */}
+              {selEssay && !isLocked && selEssay.content.selfStudy && (
+                <div className="px-3 py-3 border-t border-line flex-shrink-0 bg-gray-50">
+                  <button
+                    onClick={handleToggleComplete}
+                    disabled={(!isAllCompleted && !selEssay.essay_completed) || completeEssay.isPending}
+                    className={`w-full h-11 rounded-lg text-[13px] font-bold transition-all ${
+                      selEssay.essay_completed
+                        ? "bg-emerald-50 border-2 border-emerald-300 text-emerald-700 hover:bg-emerald-100"
+                        : isAllCompleted
+                          ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
+                          : "bg-gray-200 text-ink-muted cursor-not-allowed"
+                    }`}
+                  >
+                    {completeEssay.isPending
+                      ? "처리 중..."
+                      : selEssay.essay_completed
+                        ? "✓ 완료됨 (눌러서 수정 모드로)"
+                        : isAllCompleted
+                          ? "🎯 자소서 완료하기"
+                          : `📝 ${SECTIONS.length - sectionsBelow100.length}/${SECTIONS.length} 항목 완성`}
+                  </button>
+                  {!isAllCompleted && !selEssay.essay_completed && sectionsBelow100.length > 0 && (
+                    <div className="text-[10px] text-ink-muted mt-2 leading-relaxed">
+                      각 항목 <strong className="text-amber-700">{MIN_CHARS}자 이상</strong> 필요해요:
+                      <div className="mt-1 space-y-0.5">
+                        {sectionsBelow100.map((label) => (
+                          <div key={label} className="text-amber-700">• {label}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {selEssay.essay_completed && (
+                    <div className="text-[10px] text-emerald-700 mt-2 leading-relaxed">
+                      💡 선생님이 예상질문을 생성하면 더 이상 수정할 수 없어요.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 잠금 상태 표시 */}
+              {selEssay && isLocked && (
+                <div className="px-3 py-3 border-t border-line flex-shrink-0 bg-purple-50">
+                  <div className="text-[12px] font-bold text-purple-700 mb-1 flex items-center gap-1">
+                    🔒 자소서 잠김
+                  </div>
+                  <div className="text-[10px] text-purple-600 leading-relaxed">
+                    선생님이 예상질문을 생성했어요.<br />
+                    이제 수정할 수 없어요.
+                  </div>
+                </div>
+              )}
             </>
           )}
 
@@ -816,7 +910,7 @@ export default function MiddleExpect() {
                   <div className="text-center py-10 text-ink-muted text-[12px]">
                     <div className="text-3xl mb-2">💬</div>
                     <div>아직 예상질문이 없어요.</div>
-                    <div className="mt-1.5">자소서를 작성하고 저장하면<br />선생님이 예상질문을 만들어드려요!</div>
+                    <div className="mt-1.5">자소서를 완료하면<br />선생님이 예상질문을 만들어드려요!</div>
                   </div>
                 ) : (
                   questions.map((q, i) => (
@@ -875,6 +969,16 @@ export default function MiddleExpect() {
                               🟡 삭제 요청 중
                             </span>
                           )}
+                          {selEssay.essay_completed && !isLocked && (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 rounded-full px-2 py-0.5">
+                              ✓ 완료
+                            </span>
+                          )}
+                          {isLocked && (
+                            <span className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-300 rounded-full px-2 py-0.5">
+                              🔒 잠김
+                            </span>
+                          )}
                         </div>
                         <div className="text-[11px] text-ink-muted mt-0.5">
                           {new Date(selEssay.created_at).toLocaleDateString("ko-KR")} 생성
@@ -882,7 +986,7 @@ export default function MiddleExpect() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        {!editingEssay && !editingSection && !selEssay.delete_requested && (
+                        {!editingEssay && !editingSection && !selEssay.delete_requested && !isLocked && (
                           <>
                             <button
                               onClick={() => setShowWizard(true)}
@@ -916,9 +1020,9 @@ export default function MiddleExpect() {
                             {cancelDelete.isPending ? "취소 중..." : "↩️ 삭제 요청 취소"}
                           </button>
                         )}
-                        {selEssay.questions_generated && !editingEssay && !editingSection && !selEssay.delete_requested && (
+                        {isLocked && !editingEssay && !editingSection && !selEssay.delete_requested && (
                           <span className="text-[11px] font-semibold text-[#7C3AED] bg-[#F5F3FF] border border-[#DDD6FE] rounded-md px-3 py-1.5">
-                            ✓ 질문생성완료
+                            🔒 잠김 (수정 불가)
                           </span>
                         )}
                       </div>
@@ -926,43 +1030,52 @@ export default function MiddleExpect() {
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-4">
-                    {editingEssay && (
+                    {editingEssay && !isLocked && (
                       <div>
-                        {SECTIONS.map((s) => (
-                          <div key={s.key} className="mb-3.5">
-                            <label className="text-[12px] font-bold text-ink-secondary block mb-1.5">{s.label}</label>
+                        {SECTIONS.map((s) => {
+                          const sectionChars = getCharCount((tempContent as any)[s.key]);
+                          const isOK = sectionChars >= MIN_CHARS;
+                          return (
+                            <div key={s.key} className="mb-3.5">
+                              <label className="text-[12px] font-bold text-ink-secondary block mb-1.5 flex items-center justify-between">
+                                <span>{s.label}</span>
+                                <span className={`text-[11px] font-semibold ${isOK ? 'text-emerald-600' : 'text-amber-700'}`}>
+                                  {sectionChars} / {MIN_CHARS}자 {isOK && '✓'}
+                                </span>
+                              </label>
 
-                            {feedbackBySection[s.key] && feedbackBySection[s.key].length > 0 && (
-                              <div className="bg-brand-middle-pale border-2 border-brand-middle-light rounded-lg px-3 py-2 mb-2">
-                                <div className="text-[10px] font-bold text-brand-middle-dark mb-1.5 flex items-center gap-1">
-                                  💬 선생님 피드백 ({feedbackBySection[s.key].length}차까지)
-                                </div>
-                                <div className="space-y-1">
-                                  {feedbackBySection[s.key].map((fb) => (
-                                    <div key={fb.id} className="bg-white rounded-md px-2.5 py-1.5">
-                                      <div className="flex items-center gap-1.5 mb-0.5">
-                                        <span className="text-[9px] font-extrabold text-white bg-brand-middle px-1.5 py-0.5 rounded-full">
-                                          {fb.round}차
-                                        </span>
+                              {feedbackBySection[s.key] && feedbackBySection[s.key].length > 0 && (
+                                <div className="bg-brand-middle-pale border-2 border-brand-middle-light rounded-lg px-3 py-2 mb-2">
+                                  <div className="text-[10px] font-bold text-brand-middle-dark mb-1.5 flex items-center gap-1">
+                                    💬 선생님 피드백 ({feedbackBySection[s.key].length}차까지)
+                                  </div>
+                                  <div className="space-y-1">
+                                    {feedbackBySection[s.key].map((fb) => (
+                                      <div key={fb.id} className="bg-white rounded-md px-2.5 py-1.5">
+                                        <div className="flex items-center gap-1.5 mb-0.5">
+                                          <span className="text-[9px] font-extrabold text-white bg-brand-middle px-1.5 py-0.5 rounded-full">
+                                            {fb.round}차
+                                          </span>
+                                        </div>
+                                        <div className="text-[11px] text-brand-middle-dark leading-[1.5] whitespace-pre-wrap">{fb.text}</div>
                                       </div>
-                                      <div className="text-[11px] text-brand-middle-dark leading-[1.5] whitespace-pre-wrap">{fb.text}</div>
-                                    </div>
-                                  ))}
+                                    ))}
+                                  </div>
                                 </div>
-                              </div>
-                            )}
+                              )}
 
-                            <textarea
-                              value={(tempContent as any)[s.key]}
-                              onChange={(e) => setTempContent((p) => ({ ...p, [s.key]: e.target.value }))}
-                              placeholder={s.placeholder}
-                              rows={4}
-                              className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] leading-[1.7] resize-y focus:outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-all placeholder:text-ink-muted"
-                            />
-                          </div>
-                        ))}
+                              <textarea
+                                value={(tempContent as any)[s.key]}
+                                onChange={(e) => setTempContent((p) => ({ ...p, [s.key]: e.target.value }))}
+                                placeholder={s.placeholder}
+                                rows={4}
+                                className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] leading-[1.7] resize-y focus:outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-all placeholder:text-ink-muted"
+                              />
+                            </div>
+                          );
+                        })}
                         <div className="flex items-center justify-between mb-2.5">
-                          <div className="text-[11px] text-ink-muted">* 띄어쓰기 제외 1,500자 이내</div>
+                          <div className="text-[11px] text-ink-muted">* 항목별 100자 이상 / 전체 1,500자 이내</div>
                           <div className={`text-[13px] font-bold ${charCount > 1500 ? "text-red-500" : charCount > 1200 ? "text-amber-500" : "text-brand-middle-dark"}`}>
                             {charCount} / 1,500자 {charCount > 1500 && <span className="text-[11px]">⚠️ 초과!</span>}
                           </div>
@@ -1019,6 +1132,9 @@ export default function MiddleExpect() {
                           const currentContent = (selEssay.content as any)[s.key];
                           if (!currentContent && !answersBySection[s.key]) return null;
 
+                          const sectionChars = getCharCount(currentContent);
+                          const isOK = sectionChars >= MIN_CHARS;
+
                           const answers = answersBySection[s.key] || [];
                           const feedbacks = feedbackBySection[s.key] || [];
 
@@ -1030,13 +1146,18 @@ export default function MiddleExpect() {
                           const lastAnswerRound = answers.length > 0 ? Math.max(...answers.map((a) => a.round)) : 0;
                           const lastFeedbackRound = feedbacks.length > 0 ? Math.max(...feedbacks.map((f) => f.round)) : 0;
 
-                          const canWriteNextAnswer = lastFeedbackRound >= lastAnswerRound && lastAnswerRound > 0;
+                          const canWriteNextAnswer = lastFeedbackRound >= lastAnswerRound && lastAnswerRound > 0 && !isLocked;
                           const nextRound = lastAnswerRound + 1;
 
                           return (
                             <div key={s.key} className="mb-6">
                               <div className="text-[12px] font-bold text-brand-middle-dark mb-2 flex items-center justify-between">
-                                <span>{s.label}</span>
+                                <span className="flex items-center gap-2">
+                                  {s.label}
+                                  <span className={`text-[10px] font-semibold ${isOK ? 'text-emerald-600' : 'text-amber-700'}`}>
+                                    ({sectionChars}자 {isOK ? '✓' : `· ${MIN_CHARS - sectionChars}자 부족`})
+                                  </span>
+                                </span>
                                 {answers.length > 1 && (
                                   <span className="text-[10px] font-semibold text-ink-muted">총 {answers.length}차</span>
                                 )}
@@ -1213,7 +1334,6 @@ export default function MiddleExpect() {
                       <div className="text-[14px] font-semibold text-ink leading-[1.6]">{selQ.text}</div>
                     </div>
 
-                    {/* ⭐ 질문 의도 (접었다 폈다) */}
                     {selQ.purpose && selQ.purpose.length > 0 && (
                       <div>
                         <button
@@ -1239,7 +1359,6 @@ export default function MiddleExpect() {
                       </div>
                     )}
 
-                    {/* Step 1 */}
                     <div className="bg-white border border-line rounded-xl px-4 py-3">
                       <div className="flex items-center gap-1.5 mb-2">
                         <span className="text-[10px] font-bold text-white bg-ink-muted px-2 py-0.5 rounded-full">Step 1</span>
@@ -1272,7 +1391,6 @@ export default function MiddleExpect() {
                       )}
                     </div>
 
-                    {/* Step 2 */}
                     {selQ.answer && (
                       <div className="bg-white border border-line rounded-xl px-4 py-3">
                         <div className="flex items-center gap-1.5 mb-2">
@@ -1291,7 +1409,6 @@ export default function MiddleExpect() {
                       </div>
                     )}
 
-                    {/* Step 3 */}
                     {selQFeedback?.teacher_first_feedback && (
                       <div className="bg-white border border-line rounded-xl px-4 py-3">
                         <div className="flex items-center gap-1.5 mb-2">
@@ -1326,7 +1443,6 @@ export default function MiddleExpect() {
                       </div>
                     )}
 
-                    {/* Step 4 */}
                     {selQ.upgraded_answer && (
                       <div className="bg-white border border-line rounded-xl px-4 py-3">
                         <div className="flex items-center gap-1.5 mb-2">
@@ -1345,7 +1461,6 @@ export default function MiddleExpect() {
                       </div>
                     )}
 
-                    {/* Step 5 꼬리질문 */}
                     {selQFeedback?.tail_questions && selQFeedback.tail_questions.length > 0 && (
                       <div className="bg-white border border-line rounded-xl px-4 py-3">
                         <div className="flex items-center gap-1.5 mb-2">

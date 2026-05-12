@@ -23,9 +23,10 @@ interface SubAnswer {
   q4: string;
 }
 
+// 🎯 4영역 (학교 요구사항에 맞게 재구성)
 interface SectionAnswers {
+  자기주도학습: SubAnswer;
   지원동기: SubAnswer;
-  활동계획: SubAnswer;
   진로계획: SubAnswer;
   인성: SubAnswer;
 }
@@ -38,8 +39,8 @@ interface ExperienceCard {
 }
 
 interface ExperienceMatching {
+  자기주도학습: string[];
   지원동기: string[];
-  활동계획: string[];
   진로계획: string[];
   인성: string[];
 }
@@ -66,14 +67,14 @@ const EMPTY_DATA: WizardData = {
     봉사인성: ["", "", "", ""],
   },
   matching: {
+    자기주도학습: [],
     지원동기: [],
-    활동계획: [],
     진로계획: [],
     인성: [],
   },
   sections: {
+    자기주도학습: { q1: "", q2: "", q3: "", q4: "" },
     지원동기: { q1: "", q2: "", q3: "", q4: "" },
-    활동계획: { q1: "", q2: "", q3: "", q4: "" },
     진로계획: { q1: "", q2: "", q3: "", q4: "" },
     인성: { q1: "", q2: "", q3: "", q4: "" },
   },
@@ -135,56 +136,103 @@ const CATEGORY_COLORS: Record<keyof MindmapBranch, string> = {
   봉사인성: "bg-rose-100 text-rose-700 border-rose-200",
 };
 
-const SECTION_QUESTIONS = {
+// 🎯 3단계: 각 영역별 "이런 경험을 매칭하세요" 가이드 예시
+const MATCHING_GUIDE: Record<keyof ExperienceMatching, { icon: string; label: string; examples: string[] }> = {
+  자기주도학습: {
+    icon: "🎓",
+    label: "자기주도학습 과정 (20점)",
+    examples: [
+      "- 스스로 세운 학습 목표 · 달성 경험",
+      "- 동아리 프로젝트 · 교내 대회 참가",
+      "- 진로 체험 · 꿈을 키운 활동",
+      "- 어려움을 극복한 학습 경험",
+      "- 기억에 남는 책 · 스스로 찾아 한 학습",
+    ],
+  },
   지원동기: {
     icon: "🏠",
-    label: "지원동기 (건학이념 연계)",
+    label: "지원동기 (학교특성 연계)",
+    examples: [
+      "- 학교 건학이념과 맞는 가치관 형성 경험",
+      "- 학교 특성(과학·외국어·자율 등)에 관심 갖게 된 사건",
+      "- 학교가 추구하는 인재상과 닮은 내 모습",
+      "- 학교 프로그램 · 동아리에 끌린 이유",
+    ],
+  },
+  진로계획: {
+    icon: "🚀",
+    label: "진로계획",
+    examples: [
+      "-진로에 영향 준 결정적 경험",
+      "-진로 관련 독서 · 강의 · 다큐",
+      "-관심 분야 탐구 활동",
+      "-진로 박람회 · 직업 체험",
+    ],
+  },
+  인성: {
+    icon: "💛",
+    label: "인성 (10점)",
+    examples: [
+      "- 친구 · 후배를 도운 봉사 경험",
+      "- 갈등 해결 · 협력 경험",
+      "- 규칙 · 약속 지킨 사례",
+      "- 배려 · 나눔 실천 경험",
+      "- 학급 · 자치회 활동",
+    ],
+  },
+};
+
+// 🎯 4단계: 각 영역별 4개 소질문 (학교 요구사항 정확히 반영)
+const SECTION_QUESTIONS = {
+  자기주도학습: {
+    icon: "🎓",
+    label: "자기주도학습 과정 (20점)",
     questions: [
       {
-        title: "이 학교를 처음 알게 된 계기가 뭐였어?",
-        guide: '단순히 "유명해서"가 아니라, 어떤 사건/계기로 이 학교에 관심이 생겼는지 떠올려봐요.',
-        example: '"5학년 때 인천공항 견학을 갔다가 항공 분야에 흥미가 생겼고, 그때 처음 인천하늘고를 알게 됐다"',
+        title: "어떤 학습 목표를 세우고 어떻게 계획했어?",
+        guide: "공부할 때 무작정 한 게 아니라 \"목표 → 계획\"의 과정이 있었는지 떠올려요.",
+        example: '"2학년 때 영어 회화 약점을 느끼고, 6개월간 매주 영자신문 1편 읽기를 목표로 세웠다"',
       },
       {
-        title: "이 학교 건학이념 중 가장 와닿은 게 뭐야?",
-        guide: "학교 홈페이지에서 건학이념을 확인해보고, 그 중 내 가치관과 맞는 한 가지를 골라요.",
-        example: '"인천하늘고 건학이념 중 \'글로벌 항공인재 양성\'이 가장 와닿았다."',
+        title: "실제로 어떻게 학습했고 어려움은 어떻게 극복했어?",
+        guide: '계획대로 다 안 됐을 수 있어요. 막힌 부분을 어떻게 해결했는지 솔직하게 적어요.',
+        example: '"처음엔 한 기사 읽는데 1시간 걸려 좌절했지만, 단어 노트를 만들어 매주 30개씩 외웠다"',
       },
       {
-        title: "그 이념과 연결되는 내 경험이 있어?",
-        guide: '3단계에서 "지원동기"에 매칭한 경험을 활용해요. 구체적인 사건과 숫자를 넣으면 좋아요.',
-        example: '"5년간 비행기 모형 30개를 조립하면서 항공역학 유튜브 강의를 50편 이상 봤다"',
+        title: "진로체험·동아리·꿈끼 활동 중 가장 의미 있었던 건?",
+        guide: "교과 외 활동 중 본인의 진로나 꿈과 연결된 활동을 골라요.",
+        example: '"과학동아리 부장으로 1년간 매월 실험 프로젝트를 기획·진행했다"',
+      },
+      {
+        title: "결과를 평가하고 무엇을 느꼈어?",
+        guide: '"재미있었다" 말고, 구체적으로 뭘 배웠고 어떻게 성장했는지 적어요.',
+        example: '"꾸준함의 힘을 알게 됐고, 영어 외에 다른 분야도 6개월 단위로 도전하는 습관이 생겼다"',
+      },
+    ],
+  },
+  지원동기: {
+    icon: "🏠",
+    label: "지원동기 (학교특성 연계)",
+    questions: [
+      {
+        title: "이 학교 건학이념·특성 중 가장 와닿은 게 뭐야?",
+        guide: "학교 홈페이지에서 건학이념·인재상을 확인하고, 내 가치관과 맞는 한 가지를 골라요.",
+        example: '"인천하늘고의 \'글로벌 항공인재 양성\' 이념이 가장 와닿았다."',
+      },
+      {
+        title: "그 이념·특성과 연결되는 내 경험은?",
+        guide: '3단계에서 매칭한 경험을 활용해요. 구체적인 사건과 숫자를 넣으면 좋아요.',
+        example: '"5년간 비행기 모형 30개를 조립하며 항공역학 유튜브 강의를 50편 이상 봤다"',
+      },
+      {
+        title: "왜 다른 학교가 아니라 이 학교여야 해?",
+        guide: '이 학교만의 특별한 점(프로그램, 동아리, 환경 등)을 구체적으로 적어요.',
+        example: '"인천공항과 가까워 항공산업 현장 학습이 가능하고, 항공물리 동아리가 있는 학교는 여기뿐이다"',
       },
       {
         title: "입학하면 어떤 학생이 되고 싶어?",
         guide: '단순한 다짐("열심히 하겠다") 말고, 구체적으로 뭘 하고 싶은지 적어요.',
         example: '"항공물리 동아리에 들어가 드론 자작 프로젝트에 참여하고 싶다"',
-      },
-    ],
-  },
-  활동계획: {
-    icon: "🎯",
-    label: "꿈과 끼를 살리기 위한 활동계획",
-    questions: [
-      {
-        title: "지금까지 가장 몰입했던 활동이 뭐야?",
-        guide: "동아리, 교내대회, 독서 등 시간을 많이 쏟은 활동을 떠올려요.",
-        example: '"과학탐구동아리에서 1년간 부장으로 활동했다"',
-      },
-      {
-        title: "그 활동을 고등학교에서 어떻게 발전시킬래?",
-        guide: "고등학교에 어떤 동아리·프로그램이 있는지 미리 찾아보면 좋아요.",
-        example: '"항공물리 동아리에 들어가 드론 자작 프로젝트를 해보고 싶다"',
-      },
-      {
-        title: "새롭게 도전해보고 싶은 활동은?",
-        guide: "지금까진 못 했지만 고등학교 가서 꼭 해보고 싶은 걸 적어요.",
-        example: '"교내 영어토론대회에 참가해 항공산업 영어 발표를 해보고 싶다"',
-      },
-      {
-        title: "그 활동들이 내 진로에 어떻게 도움될까?",
-        guide: "활동 → 진로의 연결 고리를 구체적으로 설명해요.",
-        example: '"드론 프로젝트를 통해 항공공학 전공 진학에 필요한 기초를 다지고 싶다"',
       },
     ],
   },
@@ -198,14 +246,14 @@ const SECTION_QUESTIONS = {
         example: '"항공우주공학과 진학 후 무인기 개발 분야로 가고 싶다"',
       },
       {
-        title: "그 분야에 관심이 생긴 계기는?",
+        title: "그 분야에 관심이 생긴 결정적 계기는?",
         guide: "단순히 멋있어서가 아니라, 어떤 경험이 그 분야로 이끌었는지 적어요.",
-        example: '"5학년 때 본 인천공항 항공기 정비사 다큐멘터리"',
+        example: '"5학년 때 본 인천공항 항공기 정비사 다큐멘터리가 결정적이었다"',
       },
       {
         title: "그 진로를 위해 지금까지 한 노력은?",
         guide: "독서, 강의 시청, 동아리, 대회 참가 등 구체적으로.",
-        example: '"항공역학 유튜브 강의 50편 시청, 비행기 모형 30개 조립"',
+        example: '"항공역학 유튜브 강의 50편 시청, 비행기 모형 30개 조립, 과학동아리 부장 1년"',
       },
       {
         title: "5년 후, 10년 후 모습은 어떨까?",
@@ -219,23 +267,23 @@ const SECTION_QUESTIONS = {
     label: "인성 (배려·나눔·협력·타인존중·규칙준수)",
     questions: [
       {
-        title: "친구를 도왔던 가장 기억에 남는 일은?",
-        guide: "거창한 봉사 말고 일상 속 작은 배려도 좋아요.",
-        example: '"수학을 어려워하던 짝꿍에게 1학기 동안 매일 점심시간 멘토링"',
+        title: "친구·이웃을 도왔던 가장 기억에 남는 일은?",
+        guide: "거창한 봉사 말고 일상 속 작은 배려도 좋아요. 봉사체험활동도 포함.",
+        example: '"수학을 어려워하던 짝꿍에게 1학기 동안 매일 점심시간 멘토링했다"',
       },
       {
         title: "그 과정에서 어려웠던 점과 배운 점은?",
         guide: "도와주는 게 무조건 쉽진 않았을 거예요. 솔직하게 적어요.",
-        example: '"내 방식대로만 설명해서 처음엔 이해 못했지만, 짝꿍 입장에서 다시 풀어 설명하며 배려를 배웠다"',
+        example: '"내 방식대로만 설명해 처음엔 이해 못했지만, 짝꿍 입장에서 다시 풀어 설명하며 배려를 배웠다"',
       },
       {
         title: "팀에서 갈등이 있었을 때 어떻게 해결했어?",
-        guide: "팀 활동에서 의견이 안 맞을 때 어떻게 풀었는지 떠올려요.",
-        example: '"동아리 발표 주제로 의견이 갈렸을 때 투표보다 각자 이유를 듣고 절충안 도출"',
+        guide: "팀 활동에서 의견이 안 맞을 때 어떻게 풀었는지 떠올려요. (협력·타인존중)",
+        example: '"동아리 발표 주제로 의견이 갈렸을 때 투표 대신 각자 이유를 듣고 절충안을 도출했다"',
       },
       {
-        title: "규칙을 지키며 책임감을 보였던 경험은?",
-        guide: "약속·규칙을 지킨 사례를 적어요.",
+        title: "규칙·약속을 지키며 책임감을 보였던 경험은?",
+        guide: "약속·규칙을 지킨 사례를 적어요. (규칙준수)",
         example: '"학급 환경부장으로 1년간 매일 분리수거 점검을 빠짐없이 했다"',
       },
     ],
@@ -290,7 +338,7 @@ interface Props {
 export default function EssayWizard({ schoolName, essayId, studentId, academyId, onComplete, onCancel }: Props) {
   const [currentStep, setCurrentStep] = useState(1);
   const [data, setData] = useState<WizardData>(EMPTY_DATA);
-  const [activeSectionTab, setActiveSectionTab] = useState<keyof SectionAnswers>("지원동기");
+  const [activeSectionTab, setActiveSectionTab] = useState<keyof SectionAnswers>("자기주도학습");
   const [checklist, setChecklist] = useState<boolean[]>([false, false, false, false, false]);
   const [expandedExp, setExpandedExp] = useState<string | null>(null);
 
@@ -406,8 +454,8 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
   const moveExpToSection = (text: string, section: keyof ExperienceMatching) => {
     setData((prev) => {
       const newMatching: ExperienceMatching = {
+        자기주도학습: prev.matching.자기주도학습.filter((e) => e !== text),
         지원동기: prev.matching.지원동기.filter((e) => e !== text),
-        활동계획: prev.matching.활동계획.filter((e) => e !== text),
         진로계획: prev.matching.진로계획.filter((e) => e !== text),
         인성: prev.matching.인성.filter((e) => e !== text),
       };
@@ -683,20 +731,20 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
             </div>
           )}
 
-          {/* 3단계 */}
+          {/* 🎯 3단계: 가이드 박스 추가 */}
           {currentStep === 3 && (
             <div className="bg-white border border-line rounded-2xl p-7 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
               <h2 className="text-[18px] font-extrabold text-ink mb-2 tracking-tight">3단계 · 경험을 자소서 항목에 연결하기</h2>
               <p className="text-[12.5px] text-ink-secondary leading-[1.7] mb-5">
                 2단계에서 꺼낸 경험들을 어느 자소서 항목에 쓸지 매칭해요.<br />
-                왼쪽 카드를 탭해서 항목을 선택하면 분류돼요.
+                각 항목 박스 안에 <strong>"어떤 경험을 매칭하면 좋은지 예시"</strong>를 보여줄게요!
               </p>
               <div className="bg-brand-middle-pale border border-brand-middle-light rounded-xl px-4 py-3 mb-5 flex gap-3">
                 <div className="text-2xl flex-shrink-0"></div>
                 <div>
                   <div className="text-[12px] font-bold text-brand-middle-dark mb-1">경험 분배 팁</div>
                   <div className="text-[12px] text-ink-secondary leading-[1.6]">
-                    동아리 활동은 활동계획·진로계획에, 봉사 경험은 인성에, 독서·취미는 지원동기에 잘 어울려요.
+                    학습 경험은 자기주도학습에, 동아리는 자기주도학습·진로계획에, 봉사는 인성에, 학교 관심 계기는 지원동기에 잘 어울려요.
                   </div>
                 </div>
               </div>
@@ -719,7 +767,7 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                           <div className="text-[12px] text-ink leading-[1.5] mb-1.5">{card.text}</div>
                           {!used && (
                             <div className="grid grid-cols-2 gap-1">
-                              {(["지원동기", "활동계획", "진로계획", "인성"] as const).map((sec) => (
+                              {(["자기주도학습", "지원동기", "진로계획", "인성"] as const).map((sec) => (
                                 <button key={sec} type="button" onClick={() => moveExpToSection(card.text, sec)}
                                   className="text-[10px] font-semibold py-1 rounded bg-brand-middle-pale text-brand-middle-dark hover:bg-brand-middle hover:text-white transition-colors">
                                   {sec}
@@ -733,15 +781,11 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                   )}
                 </div>
                 <div className="space-y-3">
-                  {([
-                    { key: "지원동기", icon: "🏠", label: "지원동기 (건학이념 연계)" },
-                    { key: "활동계획", icon: "🎯", label: "꿈과 끼를 살리기 위한 활동계획" },
-                    { key: "진로계획", icon: "🚀", label: "진로계획" },
-                    { key: "인성", icon: "💛", label: "인성 (배려·나눔·협력·규칙준수)" },
-                  ] as const).map((sec) => {
-                    const matched = data.matching[sec.key];
+                  {(Object.keys(MATCHING_GUIDE) as Array<keyof ExperienceMatching>).map((secKey) => {
+                    const sec = MATCHING_GUIDE[secKey];
+                    const matched = data.matching[secKey];
                     return (
-                      <div key={sec.key} className={`border-2 rounded-xl p-4 transition-all ${matched.length > 0 ? "border-brand-middle bg-brand-middle-pale/40" : "border-dashed border-line bg-white"
+                      <div key={secKey} className={`border-2 rounded-xl p-4 transition-all ${matched.length > 0 ? "border-brand-middle bg-brand-middle-pale/40" : "border-dashed border-line bg-white"
                         }`}>
                         <div className="flex items-center justify-between mb-2">
                           <div className="text-[13px] font-bold text-ink">{sec.icon} {sec.label}</div>
@@ -750,16 +794,30 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                             {matched.length > 0 ? `${matched.length}개 매칭` : "매칭 필요"}
                           </span>
                         </div>
-                        {matched.length === 0 ? (
-                          <div className="text-[11px] text-ink-muted py-2 text-center">
-                            왼쪽 경험 카드의 "{sec.key}" 버튼을 눌러 추가하세요
+
+                        {/* 🎯 매칭 예시 가이드 박스 (매칭된 경험이 없을 때만 표시) */}
+                        {matched.length === 0 && (
+                          <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-lg px-3 py-2.5 mb-2">
+                            <div className="text-[10.5px] font-bold text-amber-800 mb-1.5">💡 이런 경험이 잘 어울려요</div>
+                            <div className="space-y-1">
+                              {sec.examples.map((example, i) => (
+                                <div key={i} className="text-[11px] text-amber-900 leading-[1.5]">
+                                  {example}
+                                </div>
+                              ))}
+                            </div>
+                            <div className="text-[10.5px] text-amber-700 mt-2 pt-1.5 border-t border-amber-200/60">
+                              👈 왼쪽 경험 카드에서 "<strong>{secKey}</strong>" 버튼을 눌러 추가하세요
+                            </div>
                           </div>
-                        ) : (
+                        )}
+
+                        {matched.length > 0 && (
                           <div className="flex flex-wrap gap-1.5">
                             {matched.map((text) => (
                               <span key={text} className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-brand-middle-light rounded-full text-[11px] font-semibold text-brand-middle-dark">
                                 {text}
-                                <button type="button" onClick={() => removeExpFromSection(text, sec.key)} className="text-ink-muted hover:text-red-500 ml-1">✕</button>
+                                <button type="button" onClick={() => removeExpFromSection(text, secKey)} className="text-ink-muted hover:text-red-500 ml-1">✕</button>
                               </span>
                             ))}
                           </div>
@@ -866,7 +924,7 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
 
                 <div className="mt-4 pt-3 border-t border-line">
                   <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">🗂️ 전체 매칭 현황</div>
-                  {(["지원동기", "활동계획", "진로계획", "인성"] as const).map((sec) => (
+                  {(["자기주도학습", "지원동기", "진로계획", "인성"] as const).map((sec) => (
                     <button key={sec} type="button" onClick={() => { setActiveSectionTab(sec); setExpandedExp(null); }}
                       className={`w-full flex items-center justify-between px-2 py-1.5 mb-1 rounded transition-colors ${activeSectionTab === sec ? "bg-brand-middle-pale" : "hover:bg-gray-50"
                         }`}>
@@ -956,7 +1014,7 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
             </div>
           )}
 
-          {/* 5단계 — 항목별 키워드 + 경험 모두 표시 */}
+          {/* 5단계 */}
           {currentStep === 5 && (
             <div className="bg-white border border-line rounded-2xl p-7 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
               <h2 className="text-[18px] font-extrabold text-ink mb-2 tracking-tight">5단계 · 전체 자소서 점검 후 제출</h2>
@@ -1045,7 +1103,7 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                     경험의 핵심 단어가 해당 항목 자소서에 있으면 ✅로 표시돼요!
                   </div>
                   <div className="space-y-2">
-                    {(["지원동기", "활동계획", "진로계획", "인성"] as const).map((sec) => {
+                    {(["자기주도학습", "지원동기", "진로계획", "인성"] as const).map((sec) => {
                       const sectionExps = experienceCheck.filter((e) => e.section === sec);
                       if (sectionExps.length === 0) return null;
                       const sectionInfo = SECTION_QUESTIONS[sec];
@@ -1080,20 +1138,14 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                 </div>
               )}
 
-              {/* ⭐⭐⭐ 항목별 자소서 + 키워드/경험 모두 표시 ⭐⭐⭐ */}
+              {/* 항목별 자소서 + 키워드/경험 표시 */}
               <div className="space-y-4">
-                {([
-                  { key: "지원동기", icon: "🏠", label: "지원동기 (건학이념 연계)" },
-                  { key: "활동계획", icon: "🎯", label: "꿈과 끼를 살리기 위한 활동계획" },
-                  { key: "진로계획", icon: "🚀", label: "진로계획" },
-                  { key: "인성", icon: "💛", label: "인성 (배려·나눔·협력·규칙준수)" },
-                ] as const).map((sec) => {
-                  const draft = draftFor(sec.key);
+                {(["자기주도학습", "지원동기", "진로계획", "인성"] as const).map((secKey) => {
+                  const secInfo = SECTION_QUESTIONS[secKey];
+                  const draft = draftFor(secKey);
 
-                  // 1단계 키워드 전체
                   const allKeywords = data.keywords.filter((k) => k.keyword.trim());
 
-                  // 2단계 마인드맵 모든 경험
                   const allExperiences: string[] = [];
                   (Object.keys(data.mindmap) as Array<keyof MindmapBranch>).forEach((branch) => {
                     data.mindmap[branch].forEach((exp) => {
@@ -1102,16 +1154,15 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                   });
 
                   return (
-                    <div key={sec.key} className="border border-line rounded-xl p-4">
+                    <div key={secKey} className="border border-line rounded-xl p-4">
                       <div className="flex items-center justify-between mb-2">
-                        <div className="text-[13px] font-bold text-ink">{sec.icon} {sec.label}</div>
+                        <div className="text-[13px] font-bold text-ink">{secInfo.icon} {secInfo.label}</div>
                         <span className="text-[10px] text-ink-muted">{draft.replace(/\s/g, "").length}자</span>
                       </div>
                       <div className="text-[13px] text-ink leading-[1.8] mb-2">
                         {draft || <span className="text-ink-muted italic">아직 작성 안 됨</span>}
                       </div>
 
-                      {/* 🎯 키워드 (있으면 초록 ✓ 없으면 회색 ✕) */}
                       {draft && allKeywords.length > 0 && (
                         <div className="flex flex-wrap gap-1 items-center mt-2 pt-2 border-t border-line-light">
                           <span className="text-[10px] text-ink-muted mr-1">🎯 키워드:</span>
@@ -1137,7 +1188,6 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                         </div>
                       )}
 
-                      {/* 📌 경험 (있으면 초록 ✓ 없으면 회색 ✕) */}
                       {draft && allExperiences.length > 0 && (
                         <div className="flex flex-wrap gap-1 items-center mt-1.5">
                           <span className="text-[10px] text-ink-muted mr-1">📌 경험:</span>
@@ -1202,7 +1252,7 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                 수정한 후 <strong>재제출</strong>하면 선생님이 추가 피드백을 드려요.
               </p>
 
-              {(["지원동기", "활동계획", "진로계획", "인성"] as const).map((sec) => {
+              {(["자기주도학습", "지원동기", "진로계획", "인성"] as const).map((sec) => {
                 const sectionInfo = SECTION_QUESTIONS[sec];
                 const sectionFeedbacks = savedWizard?.feedback?.[sec] || [];
                 const draft = draftFor(sec);
@@ -1314,10 +1364,11 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
               onClick={async () => {
                 try {
                   await submitToTeacher.mutateAsync(essayId);
+                  // 🎯 새 4영역을 DB 5필드에 매핑 (activity는 빈 문자열)
                   await onComplete({
-                    selfStudy: draftFor("지원동기"),
+                    selfStudy: draftFor("자기주도학습"),
                     reason: draftFor("지원동기"),
-                    activity: draftFor("활동계획"),
+                    activity: "",
                     career: draftFor("진로계획"),
                     character: draftFor("인성"),
                   });
@@ -1341,9 +1392,9 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
               onClick={async () => {
                 try {
                   await onComplete({
-                    selfStudy: draftFor("지원동기"),
+                    selfStudy: draftFor("자기주도학습"),
                     reason: draftFor("지원동기"),
-                    activity: draftFor("활동계획"),
+                    activity: "",
                     career: draftFor("진로계획"),
                     character: draftFor("인성"),
                   });

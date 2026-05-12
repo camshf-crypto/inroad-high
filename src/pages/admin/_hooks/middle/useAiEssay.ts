@@ -15,13 +15,14 @@ export interface SectionAnalysisResult {
   summary: string
   strengths: string[]
   improvements: string[]
+  reflectiveQuestions?: string[]
   keywordReflection: string
   teacherDraft: string
 }
 
 export interface AnalyzeSectionInput {
   schoolName: string
-  sectionKey: '지원동기' | '활동계획' | '진로계획' | '인성'
+  sectionKey: '자기주도학습 과정' | '지원동기' | '활동계획' | '진로계획' | '인성'
   sectionLabel: string
   answerText: string
   keywords?: string[]
@@ -99,14 +100,15 @@ export interface AnalyzeAnswerInput {
 export function useAnalyzeAnswer() {
   return useMutation({
     mutationFn: async (input: AnalyzeAnswerInput): Promise<SectionAnalysisResult> => {
-      // 자소서 분석 함수 재활용 — 답변을 "지원동기"로 매핑
-      const { data, error } = await supabase.functions.invoke('middle-essay-analyze', {
+      const { data, error } = await supabase.functions.invoke('middle-essay-analyze-answer', {
         body: {
           schoolName: input.schoolName,
-          sectionKey: '지원동기', // 임시 매핑
-          sectionLabel: `예상질문 답변: ${input.questionText}`,
-          answerText: input.studentAnswer,
+          questionText: input.questionText,
+          studentAnswer: input.studentAnswer,
+          questionPurpose: input.questionPurpose,
           studentName: input.studentName,
+          isUpgrade: input.isUpgrade,
+          previousFeedback: input.previousFeedback,
         },
       })
 

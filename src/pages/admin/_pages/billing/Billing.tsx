@@ -454,7 +454,7 @@ export default function Billing() {
                 • 수업이 있는 달 1일에 자동 결제됩니다.<br />
                 • 수업 없는 달 (4월·6월·9월·11월)은 결제되지 않아요.<br />
                 • 60명 이상은 별도 문의가 필요합니다.<br />
-                • 문의: <span className="font-semibold" style={{ color: THEME.accent }}>contact@inanswer.co.kr</span>
+                • 문의: <span className="font-semibold" style={{ color: THEME.accent }}>company@seumlearning.com</span>
               </div>
             </div>
           </div>

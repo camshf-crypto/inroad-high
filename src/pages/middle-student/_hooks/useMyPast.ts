@@ -76,7 +76,8 @@ export function useAllSchools() {
       const { data, error } = await supabase
         .from("middle_past_questions")
         .select("school")
-        .order("school", { ascending: true });
+        .order("school", { ascending: true })
+        .limit(100000);  
 
       if (error) throw error;
       // 중복 제거

@@ -22,6 +22,8 @@ export interface JasoEssay {
   version: number;
   delete_requested: boolean;
   delete_requested_at: string | null;
+  essay_completed: boolean;          // ⭐ 추가
+  completed_at: string | null;       // ⭐ 추가
   created_at: string;
   updated_at: string;
 }
@@ -133,6 +135,7 @@ export function useAddEssay() {
 
 // ──────────────────────────────────────────
 // 자소서 본문 저장 (전체 또는 섹션) + 답변 이력 자동 저장
+// ⭐ 수정하면 essay_completed = false 자동 (잠긴 상태 아니면)
 // ──────────────────────────────────────────
 export function useUpdateEssay() {
   const qc = useQueryClient();
@@ -142,14 +145,32 @@ export function useUpdateEssay() {
       essay_id: string;
       content: EssayContent;
       version?: number;
-      previousContent?: EssayContent; // 이전 답변 (변경된 섹션 비교용)
+      previousContent?: EssayContent;
     }) => {
-      const updates: any = { content: input.content };
+      // ⭐ 잠금 체크: questions_generated=true 면 수정 차단
+      const { data: existing, error: fetchError } = await supabase
+        .from("jaso_essays")
+        .select("questions_generated")
+        .eq("id", input.essay_id)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (existing.questions_generated) {
+        throw new Error(
+          "이미 선생님이 예상질문을 생성했어요. 자소서는 더 이상 수정할 수 없어요.",
+        );
+      }
+
+      const updates: any = {
+        content: input.content,
+        essay_completed: false,    // ⭐ 수정하면 미완료로 자동 변경
+        completed_at: null,        // ⭐ 완료 시각 초기화
+      };
       if (input.version !== undefined) {
         updates.version = input.version;
       }
 
-      // 1. essays 테이블 업데이트 (최신 content)
+      // 1. essays 테이블 업데이트
       const { data, error } = await supabase
         .from("jaso_essays")
         .update(updates)
@@ -420,7 +441,6 @@ export function useSubmitTailAnswer() {
       tail_index: number;
       answer: string;
     }) => {
-      // 기존 피드백 가져오기
       const { data: fb, error: fbError } = await supabase
         .from("jaso_question_feedback")
         .select("id, tail_questions")
@@ -446,6 +466,50 @@ export function useSubmitTailAnswer() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["question-feedback"] });
+    },
+  });
+}
+
+// ──────────────────────────────────────────
+// ⭐ 자소서 완료 토글 (학생)
+// - true: 완료, false: 완료 취소
+// - questions_generated=true 면 차단 (선생님이 잠금)
+// ──────────────────────────────────────────
+export function useCompleteEssay() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      essay_id: string;
+      complete: boolean;
+    }) => {
+      // 잠금 체크: questions_generated=true면 토글 차단
+      const { data: existing, error: fetchError } = await supabase
+        .from("jaso_essays")
+        .select("questions_generated")
+        .eq("id", input.essay_id)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (existing.questions_generated) {
+        throw new Error(
+          "이미 선생님이 예상질문을 생성했어요. 자소서는 더 이상 수정할 수 없어요.",
+        );
+      }
+
+      const { error } = await supabase
+        .from("jaso_essays")
+        .update({
+          essay_completed: input.complete,
+          completed_at: input.complete ? new Date().toISOString() : null,
+        })
+        .eq("id", input.essay_id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["my-essays"] });
+      qc.invalidateQueries({ queryKey: ["student-essays"] });
     },
   });
 }

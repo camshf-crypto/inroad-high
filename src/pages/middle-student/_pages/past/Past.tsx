@@ -655,7 +655,7 @@ export default function MiddlePast() {
 
         {showAddForm && (
           <div className="flex gap-2 items-center flex-wrap bg-brand-middle-pale border border-brand-middle-light rounded-xl px-3 py-2.5">
-            <span className="text-[11px] font-bold text-brand-middle-dark">새 지원 학교:</span>
+            <span className="text-[11px] font-bold text-brand-middle-dark">지원 학교:</span>
             <div className="relative w-[260px]">
               <div
                 onClick={() => setSchoolDropOpen(true)}
@@ -668,7 +668,7 @@ export default function MiddlePast() {
                   value={schoolSearch}
                   onChange={(e) => { setSchoolSearch(e.target.value); setSchoolDropOpen(true); }}
                   onFocus={() => setSchoolDropOpen(true)}
-                  placeholder="학교 검색 (예: 인천하늘고, 민사고...)"
+                  placeholder="고등 학교 검색"
                   className="flex-1 border-none outline-none text-[12px] bg-transparent text-ink min-w-0 placeholder:text-ink-muted"
                   autoFocus
                 />

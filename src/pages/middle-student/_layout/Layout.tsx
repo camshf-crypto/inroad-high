@@ -11,7 +11,7 @@ const MENUS = [
   { path: '/middle-student/homework', label: '숙제', icon: '📝' },
   { path: '/middle-student/suhaeng', label: '수행평가', icon: '🎯' },
   { path: '/middle-student/book', label: '독서리스트', icon: '📚' },
-  { path: '/middle-student/debate', label: 'AI 토론 면접', icon: '💭', isNew: true },
+  { path: '/middle-student/debate', label: 'AI 토론', icon: '🎤', isNew: true },
   { path: '/middle-student/expect', label: '자소서 · 예상질문', icon: '💬' },
   { path: '/middle-student/past', label: '기출문제', icon: '🎓' },
   { path: '/middle-student/simulation', label: '면접 시뮬레이션', icon: '🎙️' },

@@ -7,6 +7,16 @@ import {
   useDeleteSimulation,
   type SimulationAnswerInput,
 } from "@/pages/middle-student/_hooks/useMySimulation";
+// 🎯 기출문제 DB 훅
+import {
+  useAllSchools,
+  useSchoolQuestions,
+} from "@/pages/middle-student/_hooks/useMyPast";
+// 🎯 자소서 DB 훅
+import {
+  useMyEssays,
+  useEssayQuestions,
+} from "@/pages/middle-student/_hooks/useExpect";
 
 const QUESTION_TYPES = [
   { id: "past", label: "기출문제", desc: "자사고·특목고 기출 면접 질문" },
@@ -20,36 +30,39 @@ const QUESTION_MODES = [
   { id: "both", label: "텍스트 + 음성", icon: "📢", desc: "텍스트와 음성 동시에" },
 ];
 
-const PAST_SCHOOLS = [
-  "인천하늘고", "한국과학영재학교", "경기과학고", "서울과학고", "한성과학고",
-  "세종과학고", "대전과학고", "광주과학고", "대구과학고", "부산과학고",
-  "대원외고", "대일외고", "명덕외고", "서울외고", "이화외고", "한영외고",
-  "민족사관고", "하나고", "외대부고", "북일고", "상산고", "현대청운고",
-  "포항제철고", "김천고", "휘문고", "중동고", "세화고", "양정고", "배재고", "이대부고",
-];
-
-const ESSAY_SCHOOLS = [
-  { school: "인천하늘고", date: "2024.03.15" },
-  { school: "대원외고", date: "2024.03.20" },
-];
-
+// 🎯 생기부는 아직 미구현 → 더미 유지
 const RECORD_SCHOOLS = [{ school: "인천하늘고", date: "2024.04.01" }];
 
-const MOCK_QUESTIONS = [
-  { num: 1, text: "이 학교에 지원한 구체적인 이유를 말해보세요." },
-  { num: 2, text: "자기주도학습 경험을 구체적으로 말해보세요." },
-  { num: 3, text: "입학 후 어떤 활동을 통해 꿈을 키워나갈 계획인가요?" },
-  { num: 4, text: "배려나 나눔을 실천한 경험을 말해보세요." },
-  { num: 5, text: "졸업 후 진로 계획을 구체적으로 말해보세요." },
+const RECORD_DUMMY_QUESTIONS = [
+  { num: 1, text: "생기부에 기록된 독서 활동 중 가장 인상 깊었던 책을 말해보세요." },
+  { num: 2, text: "생기부의 봉사활동에서 어떤 점을 배웠나요?" },
+  { num: 3, text: "생기부에 나온 동아리 활동을 구체적으로 설명해주세요." },
+  { num: 4, text: "생기부에서 가장 자랑스러운 성취는 무엇인가요?" },
+  { num: 5, text: "생기부 활동들이 본인의 진로와 어떻게 연결되나요?" },
 ];
 
+// 🎬 면접관 영상 3개
 const INTERVIEWERS = [
-  { id: 1, emoji: "👨‍💼", name: "면접관 1" },
-  { id: 2, emoji: "👨‍🏫", name: "면접관 2" },
-  { id: 3, emoji: "👩‍💼", name: "면접관 3" },
+  {
+    id: 1,
+    name: "면접관 1",
+    videoUrl: "https://yrunxizfvssiwyieevgw.supabase.co/storage/v1/object/public/simulation-videos/interviewer_left.mp4",
+    loop: true,
+  },
+  {
+    id: 2,
+    name: "면접관 2",
+    videoUrl: "https://yrunxizfvssiwyieevgw.supabase.co/storage/v1/object/public/simulation-videos/interviewer_center.mp4",
+    loop: true,
+  },
+  {
+    id: 3,
+    name: "면접관 3",
+    videoUrl: "https://yrunxizfvssiwyieevgw.supabase.co/storage/v1/object/public/simulation-videos/interviewer_right.mp4",
+    loop: true,
+  },
 ];
 
-// ⭐ 날짜+시간 포맷 (목록용)
 const formatDateTime = (dateStr: string) =>
   new Date(dateStr).toLocaleString("ko-KR", {
     month: "2-digit",
@@ -58,7 +71,6 @@ const formatDateTime = (dateStr: string) =>
     minute: "2-digit",
   });
 
-// ⭐ 날짜+시간 포맷 (상세보기용 - 년도 포함)
 const formatDateTimeFull = (dateStr: string) =>
   new Date(dateStr).toLocaleString("ko-KR", {
     year: "numeric",
@@ -67,6 +79,12 @@ const formatDateTimeFull = (dateStr: string) =>
     hour: "2-digit",
     minute: "2-digit",
   });
+
+// 🎯 배열에서 랜덤 N개 뽑기
+const pickRandom = <T,>(arr: T[], n: number): T[] => {
+  const shuffled = [...arr].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, n);
+};
 
 export default function MiddleSimulation() {
   const student = useAtomValue(studentState);
@@ -77,15 +95,25 @@ export default function MiddleSimulation() {
   const createSim = useCreateSimulation();
   const deleteSim = useDeleteSimulation();
 
+  // 🎯 DB에서 학교/질문 가져오기
+  const { data: allPastSchools = [] } = useAllSchools();
+  const { data: myEssays = [] } = useMyEssays(studentId);
+  // 예상질문 생성된 자소서만
+  const availableEssays = myEssays.filter((e) => e.questions_generated);
+
   const [step, setStep] = useState<"list" | "setup" | "countdown" | "interview" | "result">("list");
   const [questionType, setQuestionType] = useState("");
   const [tailQ, setTailQ] = useState<boolean | null>(null);
   const [questionMode, setQuestionMode] = useState("");
   const [selSchool, setSelSchool] = useState("");
+  const [selEssayId, setSelEssayId] = useState<string>("");  // 🎯 자소서 essay_id
   const [pastSchoolSearch, setPastSchoolSearch] = useState("");
   const [countdown, setCountdown] = useState(10);
   const [curQIdx, setCurQIdx] = useState(0);
-  const [questions] = useState(MOCK_QUESTIONS);
+
+  // 🎯 시뮬레이션용 질문 (DB에서 가져와서 랜덤 5개)
+  const [questions, setQuestions] = useState<{ num: number; text: string }[]>([]);
+
   const [timer, setTimer] = useState(80);
   const [timerRunning, setTimerRunning] = useState(false);
   const [showQuestion, setShowQuestion] = useState(true);
@@ -108,7 +136,16 @@ export default function MiddleSimulation() {
   const timerRef = useRef<any>(null);
   const interviewerRef = useRef<any>(null);
 
-  // 카운트다운
+  // 🎯 선택된 학교에 따라 DB에서 질문 가져오기
+  // 기출문제: useSchoolQuestions(selSchool)
+  // 자소서: useEssayQuestions(selEssayId)
+  const { data: pastDbQuestions = [] } = useSchoolQuestions(
+    questionType === "past" ? selSchool : undefined,
+  );
+  const { data: essayDbQuestions = [] } = useEssayQuestions(
+    questionType === "essay" ? selEssayId : undefined,
+  );
+
   useEffect(() => {
     if (step !== "countdown") return;
     if (countdown <= 0) {
@@ -121,7 +158,6 @@ export default function MiddleSimulation() {
     return () => clearTimeout(t);
   }, [step, countdown]);
 
-  // 타이머
   useEffect(() => {
     if (!timerRunning) return;
     if (timer <= 0) {
@@ -132,7 +168,6 @@ export default function MiddleSimulation() {
     return () => clearTimeout(timerRef.current);
   }, [timerRunning, timer]);
 
-  // 면접관 랜덤
   useEffect(() => {
     if (step !== "interview") return;
     interviewerRef.current = setInterval(
@@ -275,7 +310,6 @@ export default function MiddleSimulation() {
         answers: allAnswers,
         duration,
       });
-      // ⭐ 방금 만든 시뮬레이션 저장 (상세보기용)
       setSelSim(newSim);
       setStep("result");
     } catch (e: any) {
@@ -287,8 +321,30 @@ export default function MiddleSimulation() {
 
   const canStart = questionType && tailQ !== null && questionMode && selSchool;
 
+  // 🎯 시뮬레이션 시작 — DB 질문 중 랜덤 5개 뽑기
   const startSimulation = () => {
     if (!canStart) return;
+
+    // 질문 소스 결정
+    let sourceQuestions: { text: string }[] = [];
+    if (questionType === "past") {
+      sourceQuestions = pastDbQuestions;
+    } else if (questionType === "essay") {
+      sourceQuestions = essayDbQuestions;
+    } else if (questionType === "record") {
+      sourceQuestions = RECORD_DUMMY_QUESTIONS;  // 생기부는 아직 더미
+    }
+
+    if (sourceQuestions.length === 0) {
+      alert("이 학교에 등록된 질문이 없어요. 다른 학교를 선택해주세요.");
+      return;
+    }
+
+    // 랜덤 5개 (또는 그보다 적으면 다 사용)
+    const picked = pickRandom(sourceQuestions, Math.min(5, sourceQuestions.length));
+    const numbered = picked.map((q, i) => ({ num: i + 1, text: q.text }));
+    setQuestions(numbered);
+
     setCountdown(10);
     setStep("countdown");
     setCurQIdx(0);
@@ -313,6 +369,7 @@ export default function MiddleSimulation() {
     setTailQ(null);
     setQuestionMode("");
     setSelSchool("");
+    setSelEssayId("");
     setPastSchoolSearch("");
   };
 
@@ -320,25 +377,55 @@ export default function MiddleSimulation() {
     if (questionType === id) {
       setQuestionType("");
       setSelSchool("");
+      setSelEssayId("");
       setPastSchoolSearch("");
     } else {
       setQuestionType(id);
       setSelSchool("");
+      setSelEssayId("");
       setPastSchoolSearch("");
     }
   };
 
-  const filteredPastSchools = PAST_SCHOOLS.filter((s) => s.includes(pastSchoolSearch));
+  // 🎯 학교 검색 필터링 (DB에서 가져온 95개)
+  const filteredPastSchools = allPastSchools.filter((s: string) =>
+    s.includes(pastSchoolSearch),
+  );
 
-  const playQuestionAudio = (qNum: number, audioUrl: string) => {
+  // 음성 재생 함수 (안정성 강화)
+  const playQuestionAudio = async (qNum: number, audioUrl: string) => {
     if (!audioRef.current) return;
+    const audio = audioRef.current;
+
     if (playingQNum === qNum) {
-      audioRef.current.pause();
+      audio.pause();
       setPlayingQNum(null);
-    } else {
-      audioRef.current.src = audioUrl;
-      audioRef.current.play();
+      return;
+    }
+
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.src = audioUrl;
+      audio.muted = false;
+      audio.volume = 1.0;
+      audio.load();
+
+      await new Promise<void>((resolve) => {
+        const onReady = () => {
+          audio.removeEventListener("loadedmetadata", onReady);
+          resolve();
+        };
+        audio.addEventListener("loadedmetadata", onReady);
+        setTimeout(resolve, 1000);
+      });
+
+      await audio.play();
       setPlayingQNum(qNum);
+    } catch (err: any) {
+      console.error("재생 실패:", err);
+      alert(`음성 재생 실패: ${err.message}`);
+      setPlayingQNum(null);
     }
   };
 
@@ -347,7 +434,6 @@ export default function MiddleSimulation() {
     return (
       <div className="flex flex-col gap-3 h-full overflow-hidden px-6 py-5 font-sans text-ink">
         <div className="flex gap-4 flex-1 overflow-hidden">
-          {/* 왼쪽 */}
           <div className="w-[340px] flex-shrink-0 bg-white border border-line rounded-xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
             <div className="px-3.5 py-3 border-b border-line flex-shrink-0">
               <div className="text-[14px] font-bold text-ink tracking-tight">
@@ -387,7 +473,6 @@ export default function MiddleSimulation() {
                       >
                         ✕
                       </button>
-                      {/* ⭐ 날짜 + 시간 */}
                       <div className="text-[10px] text-ink-muted font-medium mb-1">
                         {formatDateTime(s.created_at)}
                       </div>
@@ -421,7 +506,6 @@ export default function MiddleSimulation() {
             </div>
           </div>
 
-          {/* 오른쪽 */}
           <div className="flex-1 bg-white border border-line rounded-xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
             {!selSim ? (
               <div className="flex-1 flex flex-col items-center justify-center text-ink-muted gap-2">
@@ -438,7 +522,6 @@ export default function MiddleSimulation() {
                 <audio
                   ref={audioRef}
                   onEnded={() => setPlayingQNum(null)}
-                  onPause={() => setPlayingQNum(null)}
                   className="hidden"
                 />
 
@@ -446,14 +529,12 @@ export default function MiddleSimulation() {
                   <div className="text-[14px] font-extrabold text-ink tracking-tight mb-1">
                     {selSim.school} · {selSim.question_type_label}
                   </div>
-                  {/* ⭐ 날짜 + 시간 */}
                   <div className="text-[11px] text-ink-muted font-medium">
                     {formatDateTimeFull(selSim.created_at)} · {selSim.duration || "-"}
                   </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-                  {/* 선생님 피드백 */}
                   <div className="bg-white border border-line rounded-xl px-4 py-3.5">
                     <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">
                       선생님 피드백
@@ -527,7 +608,6 @@ export default function MiddleSimulation() {
           </div>
         </div>
 
-        {/* 삭제 모달 */}
         {deleteTarget !== null && (
           <div onClick={() => setDeleteTarget(null)} className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center">
             <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl p-7 w-[380px] text-center shadow-[0_24px_64px_rgba(0,0,0,0.2)]">
@@ -575,11 +655,12 @@ export default function MiddleSimulation() {
           <div className="mb-5">
             <div className="text-[13px] font-bold text-ink mb-2.5">문제 유형 (1개 선택)</div>
             <div className="flex flex-col gap-2">
+              {/* 🎓 기출문제 */}
               <div>
                 <button onClick={() => toggleType("past")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all text-left ${questionType === "past" ? "border-brand-middle bg-brand-middle-pale" : "border-line bg-white hover:border-brand-middle-light"}`}>
                   <div>
                     <div className="text-[13px] font-bold text-ink">🎓 기출문제</div>
-                    <div className="text-[11px] text-ink-secondary font-medium">자사고·특목고 기출 면접 질문</div>
+                    <div className="text-[11px] text-ink-secondary font-medium">자사고·특목고 기출 면접 질문 ({allPastSchools.length}개교)</div>
                   </div>
                   {questionType === "past" && (
                     <div className="w-5 h-5 rounded-full bg-brand-middle flex items-center justify-center text-white text-[11px] font-bold">✓</div>
@@ -599,7 +680,7 @@ export default function MiddleSimulation() {
                       {filteredPastSchools.length === 0 ? (
                         <div className="text-[12px] text-ink-muted text-center py-3">검색 결과가 없어요</div>
                       ) : (
-                        filteredPastSchools.map((s, i) => (
+                        filteredPastSchools.map((s: string, i: number) => (
                           <button key={i} onClick={() => setSelSchool(selSchool === s ? "" : s)} className={`flex items-center justify-between px-2.5 py-1.5 border rounded-md text-[12px] transition-all text-left ${selSchool === s ? "border-brand-middle bg-brand-middle-bg text-brand-middle-dark font-semibold" : "border-line bg-white text-ink hover:border-brand-middle-light hover:bg-brand-middle-pale/30"}`}>
                             {s}
                             {selSchool === s && <span className="text-[11px] text-brand-middle-dark">✓</span>}
@@ -611,11 +692,14 @@ export default function MiddleSimulation() {
                 )}
               </div>
 
+              {/* 📝 자소서 예상질문 */}
               <div>
                 <button onClick={() => toggleType("essay")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all text-left ${questionType === "essay" ? "border-brand-middle bg-brand-middle-pale" : "border-line bg-white hover:border-brand-middle-light"}`}>
                   <div>
                     <div className="text-[13px] font-bold text-ink">📝 자소서 예상질문</div>
-                    <div className="text-[11px] text-ink-secondary font-medium">내 자소서 기반 예상 질문</div>
+                    <div className="text-[11px] text-ink-secondary font-medium">
+                      내 자소서 기반 예상 질문 ({availableEssays.length}개 자소서)
+                    </div>
                   </div>
                   {questionType === "essay" && (
                     <div className="w-5 h-5 rounded-full bg-brand-middle flex items-center justify-center text-white text-[11px] font-bold">✓</div>
@@ -624,26 +708,48 @@ export default function MiddleSimulation() {
                 {questionType === "essay" && (
                   <div className="bg-brand-middle-pale/60 border border-brand-middle-light rounded-lg px-3.5 py-3 mt-1.5">
                     <div className="text-[11px] font-bold text-brand-middle-dark mb-2">📋 자소서 작성한 학교 선택</div>
-                    <div className="flex flex-col gap-1.5">
-                      {ESSAY_SCHOOLS.map((s, i) => (
-                        <button key={i} onClick={() => setSelSchool(selSchool === s.school ? "" : s.school)} className={`flex items-center justify-between px-3 py-2 border rounded-md transition-all text-left ${selSchool === s.school ? "border-brand-middle bg-brand-middle-bg" : "border-line bg-white hover:border-brand-middle-light"}`}>
-                          <div>
-                            <span className="text-[12px] text-ink font-semibold">{s.school}</span>
-                            <span className="text-[10px] text-ink-muted ml-1.5 font-medium">{s.date} 작성</span>
-                          </div>
-                          {selSchool === s.school && <span className="text-[11px] text-brand-middle-dark font-bold">✓</span>}
-                        </button>
-                      ))}
-                    </div>
+                    {availableEssays.length === 0 ? (
+                      <div className="bg-white border border-line rounded-md px-3 py-3 text-[12px] text-ink-muted text-center">
+                        예상질문이 생성된 자소서가 없어요.<br />
+                        <span className="text-[11px]">선생님이 예상질문을 만들 때까지 기다려주세요!</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-1.5">
+                        {availableEssays.map((essay) => (
+                          <button
+                            key={essay.id}
+                            onClick={() => {
+                              if (selEssayId === essay.id) {
+                                setSelEssayId("");
+                                setSelSchool("");
+                              } else {
+                                setSelEssayId(essay.id);
+                                setSelSchool(essay.school);
+                              }
+                            }}
+                            className={`flex items-center justify-between px-3 py-2 border rounded-md transition-all text-left ${selEssayId === essay.id ? "border-brand-middle bg-brand-middle-bg" : "border-line bg-white hover:border-brand-middle-light"}`}
+                          >
+                            <div>
+                              <span className="text-[12px] text-ink font-semibold">{essay.school}</span>
+                              <span className="text-[10px] text-ink-muted ml-1.5 font-medium">
+                                {new Date(essay.created_at).toLocaleDateString("ko-KR")} 작성
+                              </span>
+                            </div>
+                            {selEssayId === essay.id && <span className="text-[11px] text-brand-middle-dark font-bold">✓</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
+              {/* 📋 생기부 예상질문 (아직 더미) */}
               <div>
                 <button onClick={() => toggleType("record")} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all text-left ${questionType === "record" ? "border-brand-middle bg-brand-middle-pale" : "border-line bg-white hover:border-brand-middle-light"}`}>
                   <div>
                     <div className="text-[13px] font-bold text-ink">📋 생기부 예상질문</div>
-                    <div className="text-[11px] text-ink-secondary font-medium">생활기록부 기반 예상 질문</div>
+                    <div className="text-[11px] text-ink-secondary font-medium">생활기록부 기반 예상 질문 (준비 중)</div>
                   </div>
                   {questionType === "record" && (
                     <div className="w-5 h-5 rounded-full bg-brand-middle flex items-center justify-center text-white text-[11px] font-bold">✓</div>
@@ -733,9 +839,11 @@ export default function MiddleSimulation() {
       </div>
     );
 
-  // ── 면접 화면 ──
+  // ── 면접 화면 (영상 면접관 3명) ──
   if (step === "interview") {
     const curQ = questions[curQIdx];
+    if (!curQ) return null;
+
     return (
       <div className="h-full bg-[#0a0a0a] flex flex-col overflow-hidden relative font-sans">
         <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-5 py-3">
@@ -771,21 +879,43 @@ export default function MiddleSimulation() {
           )}
         </div>
 
+        {/* 🎬 면접관 영상 3명 자동 재생 */}
         <div className="flex-1 flex items-center justify-center pt-20 pb-[120px]">
           <div className="flex gap-1 w-full h-full">
             {INTERVIEWERS.map((iv, i) => (
-              <div key={iv.id} className={`flex-1 flex flex-col items-center justify-center rounded transition-all ${activeInterviewer === i ? "bg-[#1a1a2e] border border-brand-middle/50 shadow-[inset_0_0_32px_rgba(16,185,129,0.1)]" : "bg-[#0a0a0a] border border-transparent"}`}>
-                <div className="text-7xl mb-2">{iv.emoji}</div>
-                <div className={`text-[12px] font-medium transition-colors ${activeInterviewer === i ? "text-brand-middle-light" : "text-white/40"}`}>
-                  {iv.name}
-                </div>
-                {activeInterviewer === i && (
-                  <div className="flex gap-1 mt-2">
-                    <div className="w-1 h-1 rounded-full bg-brand-middle-light animate-pulse" />
-                    <div className="w-1 h-1 rounded-full bg-brand-middle-light animate-pulse" style={{ animationDelay: "0.2s" }} />
-                    <div className="w-1 h-1 rounded-full bg-brand-middle-light animate-pulse" style={{ animationDelay: "0.4s" }} />
+              <div
+                key={iv.id}
+                className={`flex-1 flex flex-col items-center justify-center rounded transition-all relative overflow-hidden ${
+                  activeInterviewer === i
+                    ? "bg-[#1a1a2e] border border-brand-middle/50 shadow-[inset_0_0_32px_rgba(16,185,129,0.1)]"
+                    : "bg-[#0a0a0a] border border-transparent"
+                }`}
+              >
+                <video
+                  src={iv.videoUrl}
+                  autoPlay
+                  loop={iv.loop}
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
+                  <div
+                    className={`text-[12px] font-medium transition-colors px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm ${
+                      activeInterviewer === i ? "text-brand-middle-light" : "text-white/60"
+                    }`}
+                  >
+                    {iv.name}
                   </div>
-                )}
+                  {activeInterviewer === i && (
+                    <div className="flex gap-1 mt-1.5">
+                      <div className="w-1 h-1 rounded-full bg-brand-middle-light animate-pulse" />
+                      <div className="w-1 h-1 rounded-full bg-brand-middle-light animate-pulse" style={{ animationDelay: "0.2s" }} />
+                      <div className="w-1 h-1 rounded-full bg-brand-middle-light animate-pulse" style={{ animationDelay: "0.4s" }} />
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
