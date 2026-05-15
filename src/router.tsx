@@ -15,12 +15,11 @@ import Billing from '@/pages/admin/_pages/billing/Billing'
 import Settings from '@/pages/admin/_pages/settings/Settings'
 import Teachers from '@/pages/admin/_pages/teachers/Teachers'
 import StudentApproval from '@/pages/admin/_pages/student-approval/StudentApproval'
+import SuhaengManage from '@/pages/admin/_pages/middle-suhaeng/SuhaengManage'
 
 // High Student
 import StudentLayout from '@/pages/high-student/_layout/Layout'
 import StudentLogin from '@/pages/high-student/_pages/login/Login'
-// ⚠️ 기존 사인업은 더 이상 사용 안 함 (라우터에서 리다이렉트 처리)
-// import StudentSignup from '@/pages/high-student/_pages/signup/index'
 import Roadmap from '@/pages/high-student/_pages/roadmap/Roadmap'
 import TopicList from '@/pages/high-student/_pages/topic/TopicList'
 import BookList from '@/pages/high-student/_pages/book/BookList'
@@ -37,8 +36,6 @@ import MockExam from '@/pages/high-student/_pages/mockexam/mockexam'
 // Middle Student
 import MiddleLayout from '@/pages/middle-student/_layout/Layout'
 import MiddleLogin from '@/pages/middle-student/_pages/login/Login'
-// ⚠️ 기존 사인업은 더 이상 사용 안 함 (라우터에서 리다이렉트 처리)
-// import MiddleSignup from '@/pages/middle-student/_pages/signup/index'
 import MiddleConnect from '@/pages/middle-student/_pages/connect/Connect'
 import MiddlePending from '@/pages/middle-student/_pages/pending/Pending'
 import MiddleRoadmap from '@/pages/middle-student/_pages/roadmap/Roadmap'
@@ -92,6 +89,7 @@ const router = createBrowserRouter([
           { path: 'students/:id', element: <StudentDetail /> },
           { path: 'middle-students', element: <Students /> },
           { path: 'middle-students/:id', element: <StudentDetail /> },
+          { path: 'middle-suhaeng', element: <SuhaengManage /> },
           { path: 'student-approval', element: <StudentApproval /> },
           { path: 'teachers', element: <Teachers /> },
           { path: 'academy', element: <Academy /> },
@@ -105,7 +103,6 @@ const router = createBrowserRouter([
     path: 'high-student',
     children: [
       { path: 'login', element: <StudentLogin /> },
-      // ⭐ 기존 사인업 경로 → 통합 사인업으로 리다이렉트
       { path: 'signup', element: <Navigate to="/signup" replace /> },
       { path: 'pending', element: <HighPending /> },
       {
@@ -133,7 +130,6 @@ const router = createBrowserRouter([
     path: 'middle-student',
     children: [
       { path: 'login', element: <MiddleLogin /> },
-      // ⭐ 기존 사인업 경로 → 통합 사인업으로 리다이렉트
       { path: 'signup', element: <Navigate to="/signup" replace /> },
       { path: 'pending', element: <MiddlePending /> },
       {

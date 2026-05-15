@@ -166,6 +166,7 @@ export function useStudentSubmissions(
       // 학기 필터 (DB에 semester 컬럼 없어서 클라이언트에서)
       return (data as SuhaengSubmission[]).filter(
         s => getSubmissionSemester(s) === semester
+          && s.question_category === 'school'
       )
     },
     enabled: !!studentId,
@@ -455,12 +456,12 @@ export function useAccumulateSaenggibu() {
         setting_name: 'app.saenggibu_trigger_type',
         new_value: 'submission_added',
         is_local: true,
-      }).then(() => {}, () => {}) // 실패해도 무시 (트리거 안전망이 처리)
+      }).then(() => { }, () => { }) // 실패해도 무시 (트리거 안전망이 처리)
       await supabase.rpc('set_config', {
         setting_name: 'app.saenggibu_related_submission',
         new_value: input.submission_id,
         is_local: true,
-      }).then(() => {}, () => {})
+      }).then(() => { }, () => { })
 
       const sources = [...(existing?.source_submission_ids || [])]
       if (!sources.includes(input.submission_id)) sources.push(input.submission_id)
@@ -609,7 +610,7 @@ export function useFinalizeMiddleSaenggibu() {
         setting_name: 'app.saenggibu_trigger_type',
         new_value: 'finalized',
         is_local: true,
-      }).then(() => {}, () => {})
+      }).then(() => { }, () => { })
 
       // 5. 세특 압축본으로 교체 (트리거가 누적본을 히스토리에 백업)
       if (existing) {

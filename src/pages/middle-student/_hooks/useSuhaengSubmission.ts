@@ -8,7 +8,6 @@ export interface SuhaengSubmission {
   id: string
   student_id: string
   academy_id: string
-
   question_key: string
   question_type: string
   question_title: string
@@ -19,44 +18,54 @@ export interface SuhaengSubmission {
   question_ratio: number | null
   question_min_chars: number | null
   question_max_chars: number | null
-
   answer_text: string | null
   answer_sections: any | null
   answer_audio_url: string | null
   answer_video_url: string | null
   answer_photo_urls: string[] | null
-
   status: 'pending' | 'analyzed' | 'first_done' | 'resubmitted' | 'completed'
-
   submitted_at: string
   resubmitted_text: string | null
   resubmitted_at: string | null
-
   created_at: string
   updated_at: string
 }
 
-// 답안 제출용 입력 타입
 export interface SubmitAnswerInput {
   student_id: string
   academy_id: string
-
   question_key: string
   question_type: string
   question_title: string
   question_content?: string
-  question_category?: 'school' | 'practice'
+  question_category?: 'school' | 'practice' | 'academy'
   question_school_name?: string
   question_subject?: string
   question_ratio?: number
   question_min_chars?: number
   question_max_chars?: number
-
   answer_text?: string
   answer_sections?: any
   answer_audio_url?: string
   answer_video_url?: string
   answer_photo_urls?: string[]
+}
+
+// ⭐ 학원 수행평가 문제 타입
+export interface AcademySuhaengQuestion {
+  id: string
+  academy_id: string
+  teacher_id: string | null
+  level: 'middle' | 'high'
+  subject: string
+  type: string
+  title: string
+  content: string
+  min_chars: number | null
+  max_chars: number | null
+  grade: string
+  is_active: boolean
+  created_at: string
 }
 
 // ──────────────────────────────────────────
@@ -73,17 +82,15 @@ export function useMySuhaengSubmissions(studentId: string | undefined) {
         .select('*')
         .eq('student_id', studentId)
         .order('submitted_at', { ascending: false })
-
       if (error) throw error
       return (data ?? []) as SuhaengSubmission[]
     },
-    refetchInterval: 5000, // 5초마다 자동 갱신 (피드백 받았는지 확인)
+    refetchInterval: 5000,
   })
 }
 
 // ──────────────────────────────────────────
 // 특정 question_key에 대한 본인 답안 조회
-// (이미 제출했는지 확인용)
 // ──────────────────────────────────────────
 export function useMySubmissionByKey(
   studentId: string | undefined,
@@ -100,9 +107,70 @@ export function useMySubmissionByKey(
         .eq('student_id', studentId)
         .eq('question_key', questionKey)
         .maybeSingle()
-
       if (error) throw error
       return data as SuhaengSubmission | null
+    },
+  })
+}
+
+// ──────────────────────────────────────────
+// ⭐ 학원 수행평가 문제 조회 (학생용)
+// 공통배포(학년 전체) + 개별배정 둘 다
+// ──────────────────────────────────────────
+export function useMyAcademyQuestions(
+  studentId: string | undefined,
+  academyId: string | undefined,
+  grade: string | undefined,
+) {
+  return useQuery({
+    queryKey: ['my-academy-questions', studentId, academyId, grade],
+    enabled: !!studentId && !!academyId,
+    queryFn: async () => {
+      if (!studentId || !academyId) return []
+
+      // 1. 학년 전체 공개 문제 (내 학년 or 전체)
+      const { data: gradeQuestions, error: e1 } = await supabase
+        .from('suhaeng_questions')
+        .select('*')
+        .eq('academy_id', academyId)
+        .eq('is_active', true)
+        .eq('is_draft', false)
+        .in('grade', [grade ?? '', '전체'])
+
+      if (e1) throw e1
+
+      // 2. 나에게 개별 배정된 문제
+      const { data: assignments, error: e2 } = await supabase
+        .from('suhaeng_question_assignments')
+        .select('question_id')
+        .eq('student_id', studentId)
+        .eq('academy_id', academyId)
+
+      if (e2) throw e2
+
+      let assignedQuestions: AcademySuhaengQuestion[] = []
+      if (assignments && assignments.length > 0) {
+        const assignedIds = assignments.map((a: any) => a.question_id)
+        const { data: aq, error: e3 } = await supabase
+          .from('suhaeng_questions')
+          .select('*')
+          .in('id', assignedIds)
+          .eq('is_active', true)
+          .eq('is_draft', false)
+
+        if (e3) throw e3
+        assignedQuestions = (aq ?? []) as AcademySuhaengQuestion[]
+      }
+
+      // 3. 중복 제거 후 합치기
+      const allMap = new Map<string, AcademySuhaengQuestion>()
+      ;[...(gradeQuestions ?? []), ...assignedQuestions].forEach((q: AcademySuhaengQuestion) => {
+        allMap.set(q.id, q)
+      })
+
+      return Array.from(allMap.values()).sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
     },
   })
 }
@@ -115,7 +183,6 @@ export function useSubmitAnswer() {
 
   return useMutation({
     mutationFn: async (input: SubmitAnswerInput) => {
-      // 같은 question_key로 이미 제출했는지 체크
       const { data: existing } = await supabase
         .from('suhaeng_submissions')
         .select('id')
@@ -158,6 +225,7 @@ export function useSubmitAnswer() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['my-suhaeng-submissions'] })
       qc.invalidateQueries({ queryKey: ['my-submission'] })
+      qc.invalidateQueries({ queryKey: ['my-academy-questions'] })
     },
   })
 }
@@ -180,7 +248,6 @@ export function useResubmitAnswer() {
         .eq('id', input.submission_id)
         .select()
         .single()
-
       if (error) throw error
       return data as SuhaengSubmission
     },
@@ -222,7 +289,6 @@ export function useMyFeedback(submissionId: string | undefined) {
         .select('*')
         .eq('submission_id', submissionId)
         .maybeSingle()
-
       if (error) throw error
       return data as SuhaengFeedback | null
     },

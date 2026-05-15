@@ -196,6 +196,7 @@ export function useMySuhaengSubmissions(semester: number) {
       // 학기 필터 (DB에 semester 컬럼 없어서 클라이언트에서)
       return (data as MySuhaengSubmission[]).filter(
         s => getSubmissionSemester(s) === semester
+          && s.question_category === 'school'
       )
     },
   })
