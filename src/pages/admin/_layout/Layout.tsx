@@ -26,6 +26,11 @@ export default function Layout() {
 
   const isOwner = academy.role === 'OWNER'
 
+  // ⭐ 학원의 활성 메뉴
+  const enabledMenus = academy.enabledMenus || []
+  const hasHighMenu = enabledMenus.some(m => m.startsWith('high.'))
+  const hasMiddleMenu = enabledMenus.some(m => m.startsWith('middle.'))
+
   // 로고 관련
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -77,20 +82,29 @@ export default function Layout() {
     }
   }
 
+  // ⭐ 메뉴 배열 - enabled_menus 기반 필터링
   const menus = [
-    { path: '/admin', label: '대시보드', icon: '⊞', type: 'default' as const },
-    { path: '/admin/students', label: '고등 관리', icon: '🌊', type: 'default' as const },
-    { path: '/admin/middle-students', label: '중등 관리', icon: '🌱', type: 'middle' as const },
-    { path: '/admin/student-approval', label: '학생 승인', icon: '✋', type: 'default' as const },
+    { path: '/admin', label: '대시보드', icon: '⊞', type: 'default' as const, show: true },
+    
+    // 고등 메뉴가 하나라도 활성이면 표시
+    hasHighMenu && { path: '/admin/students', label: '고등 관리', icon: '🌊', type: 'default' as const, show: true },
+    
+    // 중등 메뉴가 하나라도 활성이면 표시
+    hasMiddleMenu && { path: '/admin/middle-students', label: '중등 관리', icon: '🌱', type: 'middle' as const, show: true },
+    
+    { path: '/admin/student-approval', label: '학생 승인', icon: '✋', type: 'default' as const, show: true },
+    
     ...(isOwner ? [
-      { path: '/admin/teachers', label: '선생님 관리', icon: '👨‍🏫', type: 'default' as const },
+      { path: '/admin/teachers', label: '선생님 관리', icon: '👨‍🏫', type: 'default' as const, show: true },
     ] : []),
-    { path: '/admin/academy', label: '학원 코드', icon: '🔑', type: 'default' as const },
+    
+    { path: '/admin/academy', label: '학원 코드', icon: '🔑', type: 'default' as const, show: true },
+    
     ...(isOwner ? [
-      { path: '/admin/billing', label: '결제 관리', icon: '💳', type: 'default' as const },
-      { path: '/admin/settings', label: '학원 설정', icon: '⚙️', type: 'default' as const },
+      { path: '/admin/billing', label: '결제 관리', icon: '💳', type: 'default' as const, show: true },
+      { path: '/admin/settings', label: '학원 설정', icon: '⚙️', type: 'default' as const, show: true },
     ] : []),
-  ]
+  ].filter(Boolean) as Array<{ path: string; label: string; icon: string; type: 'default' | 'middle'; show: boolean }>
 
   const handleLogout = () => {
     setToken({ accessToken: undefined, expiresIn: undefined })
@@ -102,6 +116,7 @@ export default function Layout() {
       role: 'OWNER',
       teacherId: undefined,
       plans: ['high', 'middle'],
+      enabledMenus: [],
     })
     navigate('/admin/login')
   }
@@ -124,7 +139,6 @@ export default function Layout() {
             style={{ justifyContent: collapsed ? 'center' : 'space-between' }}
           >
             {collapsed ? (
-              // 접혔을 때: 토글 버튼만
               <button
                 onClick={() => setCollapsed(false)}
                 className="w-10 h-10 rounded-lg hover:bg-blue-50 flex items-center justify-center text-ink-secondary hover:text-blue-700 transition-all"
@@ -133,7 +147,6 @@ export default function Layout() {
                 <SidebarIcon size={22} />
               </button>
             ) : (
-              // 펼쳤을 때: 비커스 로고 + 접기 버튼
               <>
                 <span
                   className="text-[15px] font-extrabold tracking-tight cursor-pointer whitespace-nowrap"
@@ -279,7 +292,7 @@ export default function Layout() {
           </button>
         </div>
 
-        {/* Footer - 접혔을 땐 숨김 */}
+        {/* Footer */}
         {!collapsed && (
           <div className="px-3 pb-3 pt-1 text-[9px] text-ink-muted text-center font-medium">
             © 2026 B-KURS

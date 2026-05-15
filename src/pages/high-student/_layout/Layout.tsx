@@ -1,20 +1,27 @@
+// src/pages/high-student/_layout/Layout.tsx
+// 고등학생 레이아웃 + 학원 연결 폼
+// ⭐ 변경: ConnectForm에서 pending_approvals에 신청 등록 (role 즉시 변경 X)
+//          선생님 승인 시 트리거가 자동으로 role 변경!
+// ⭐ 추가: 학원별 사용 가능 메뉴 필터링 (enabledMenus)
+
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { academyState, tokenState, studentState } from '@/lib/auth/atoms'
 import { supabase } from '@/lib/supabase'
 
+// ⭐ menuKey 추가 - 학원별 권한 확인용
 const MENUS = [
-  { path: '/high-student/roadmap', label: '내 로드맵', icon: '⊞' },
-  { path: '/high-student/topic', label: '탐구주제', icon: '🔬' },
-  { path: '/high-student/book', label: '독서리스트', icon: '📚' },
-  { path: '/high-student/record', label: '나의 생기부', icon: '📋' },
-  { path: '/high-student/expect', label: '생기부 예상질문', icon: '💬' },
-  { path: '/high-student/past', label: '기출문제', icon: '🎓' },
-  { path: '/high-student/simulation', label: '면접 시뮬레이션', icon: '🎙️' },
-  { path: '/high-student/presentation', label: '제시문 면접', icon: '📄' },
-  { path: '/high-student/major', label: '전공특화문제', icon: '🧠' },
-  { path: '/high-student/mockexam', label: '면접 모의고사', icon: '📝' },
+  { path: '/high-student/roadmap', label: '내 로드맵', icon: '⊞', menuKey: 'high.roadmap' },
+  { path: '/high-student/topic', label: '탐구주제', icon: '🔬', menuKey: 'high.topic' },
+  { path: '/high-student/book', label: '독서리스트', icon: '📚', menuKey: 'high.book' },
+  { path: '/high-student/record', label: '나의 생기부', icon: '📋', menuKey: 'high.record' },
+  { path: '/high-student/expect', label: '생기부 예상질문', icon: '💬', menuKey: 'high.expect' },
+  { path: '/high-student/past', label: '기출문제', icon: '🎓', menuKey: 'high.past' },
+  { path: '/high-student/simulation', label: '면접 시뮬레이션', icon: '🎙️', menuKey: 'high.simulation' },
+  { path: '/high-student/presentation', label: '제시문 면접', icon: '📄', menuKey: 'high.presentation' },
+  { path: '/high-student/major', label: '전공특화문제', icon: '🧠', menuKey: 'high.major' },
+  { path: '/high-student/mockexam', label: '면접 모의고사', icon: '📝', menuKey: 'high.mockexam' },
 ]
 
 const HIGH_GRADES = ['고1', '고2', '고3'] as const
@@ -32,6 +39,10 @@ export default function Layout() {
 
   // 학원 연결 여부
   const isAcademyConnected = !!academy.academyId
+
+  // ⭐ 학원이 사용 가능한 메뉴만 필터링
+  const enabledMenus = academy.enabledMenus || []
+  const visibleMenus = MENUS.filter(m => enabledMenus.includes(m.menuKey))
 
   // 학원 로고 가져오기
   useEffect(() => {
@@ -51,7 +62,7 @@ export default function Layout() {
     await supabase.auth.signOut()
     setToken({ accessToken: undefined, expiresIn: undefined })
     setStudent(null)
-    setAcademy({ academyCode: undefined, academyName: undefined, teacherName: undefined, teacherId: undefined, academyId: undefined, })
+    setAcademy({ academyCode: undefined, academyName: undefined, teacherName: undefined, teacherId: undefined, academyId: undefined, enabledMenus: [] })
     navigate('/high-student/login')
   }
 
@@ -83,7 +94,6 @@ export default function Layout() {
               </div>
             )
           ) : (
-            // 학원 미연결 - 깔끔한 박스 (자물쇠 X)
             <div className="flex items-center justify-center">
               <div className="w-20 h-20 rounded-lg flex flex-col items-center justify-center border-2 border-dashed border-line bg-gray-50">
                 <span className="text-[20px] mb-0.5 opacity-40">🏫</span>
@@ -93,34 +103,44 @@ export default function Layout() {
           )}
         </div>
 
-        {/* 메뉴 */}
+        {/* 메뉴 - ⭐ visibleMenus 사용 (학원별 권한 있는 메뉴만!) */}
         <nav className="flex-1 px-2.5 py-2.5 flex flex-col overflow-y-auto">
-          {MENUS.map(m => {
-            const isActive = location.pathname === m.path || location.pathname.startsWith(m.path)
-            const isLocked = !isAcademyConnected
+          {visibleMenus.length === 0 && isAcademyConnected ? (
+            // ⭐ 학원 연결됐는데 사용 가능 메뉴가 하나도 없는 경우
+            <div className="px-3 py-6 text-center">
+              <div className="text-[12px] text-ink-muted font-medium">
+                사용 가능한 메뉴가 없어요.<br />
+                학원에 문의해주세요.
+              </div>
+            </div>
+          ) : (
+            visibleMenus.map(m => {
+              const isActive = location.pathname === m.path || location.pathname.startsWith(m.path)
+              const isLocked = !isAcademyConnected
 
-            return (
-              <button
-                key={m.path}
-                onClick={() => {
-                  if (isLocked) return
-                  navigate(m.path)
-                }}
-                disabled={isLocked}
-                title={isLocked ? '학원 연결 후 사용 가능해요' : ''}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg mb-0.5 transition-all text-[13px] ${
-                  isLocked
-                    ? 'text-ink-muted cursor-not-allowed opacity-50'
-                    : isActive
-                      ? 'bg-brand-high-pale text-brand-high-dark font-semibold'
-                      : 'text-ink-secondary hover:bg-gray-50 hover:text-ink font-medium'
-                }`}
-              >
-                <span className="text-[15px]">{m.icon}</span>
-                <span className="flex-1 text-left">{m.label}</span>
-              </button>
-            )
-          })}
+              return (
+                <button
+                  key={m.path}
+                  onClick={() => {
+                    if (isLocked) return
+                    navigate(m.path)
+                  }}
+                  disabled={isLocked}
+                  title={isLocked ? '학원 연결 후 사용 가능해요' : ''}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg mb-0.5 transition-all text-[13px] ${
+                    isLocked
+                      ? 'text-ink-muted cursor-not-allowed opacity-50'
+                      : isActive
+                        ? 'bg-brand-high-pale text-brand-high-dark font-semibold'
+                        : 'text-ink-secondary hover:bg-gray-50 hover:text-ink font-medium'
+                  }`}
+                >
+                  <span className="text-[15px]">{m.icon}</span>
+                  <span className="flex-1 text-left">{m.label}</span>
+                </button>
+              )
+            })
+          )}
         </nav>
 
         {/* Footer */}
@@ -171,17 +191,36 @@ export default function Layout() {
 }
 
 // ───────────────────────────────────────────────
-// 학원 연결 폼
+// 학원 연결 폼 (고등용 - 파란 테마)
 // ───────────────────────────────────────────────
 function ConnectForm() {
-  const setAcademy = useSetAtom(academyState)
-  const setStudent = useSetAtom(studentState)
-
+  const navigate = useNavigate()
   const [code, setCode] = useState('')
   const [school, setSchool] = useState('')
   const [grade, setGrade] = useState<typeof HIGH_GRADES[number] | ''>('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [alreadyRequested, setAlreadyRequested] = useState(false)
+
+  // 이미 신청한 적 있는지 확인
+  useEffect(() => {
+    const checkExistingRequest = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data } = await supabase
+        .from('pending_approvals')
+        .select('id, status')
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .maybeSingle()
+
+      if (data) {
+        setAlreadyRequested(true)
+      }
+    }
+    checkExistingRequest()
+  }, [])
 
   const handleConnect = async () => {
     if (!code.trim()) {
@@ -216,32 +255,42 @@ function ConnectForm() {
       }
 
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({
-            academy_id: data.id,
-            school: school.trim(),
-            grade: grade,
-            status: 'pending',
-          })
-          .eq('id', user.id)
-
-        if (updateError) throw updateError
-
-        setStudent(prev => prev ? {
-          ...prev,
-          grade: grade,
-        } : prev)
+      if (!user) {
+        setError('로그인 정보를 확인할 수 없어요.')
+        setLoading(false)
+        return
       }
 
-      setAcademy({
-        academyId: data.id,
-        academyCode: data.academy_code,
-        academyName: data.name,
-        teacherName: undefined,
-        teacherId: undefined,
-      })
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          school: school.trim(),
+        })
+        .eq('id', user.id)
+
+      if (profileError) throw profileError
+
+      const { error: approvalError } = await supabase
+        .from('pending_approvals')
+        .insert({
+          user_id: user.id,
+          request_type: 'student',
+          requested_role: 'high_student',
+          academy_code: code,
+          academy_id: data.id,
+          grade: grade,
+          status: 'pending',
+        })
+
+      if (approvalError) {
+        if (approvalError.message.includes('duplicate')) {
+          setError('이미 신청한 내역이 있어요. 선생님 승인을 기다려주세요.')
+        } else {
+          throw approvalError
+        }
+        setLoading(false)
+        return
+      }
 
       window.location.href = '/high-student/pending'
     } catch (e: any) {
@@ -250,11 +299,58 @@ function ConnectForm() {
     }
   }
 
+  // 이미 신청한 경우 안내 메시지
+  if (alreadyRequested) {
+    return (
+      <div className="h-full overflow-y-auto flex items-center justify-center p-6 bg-gradient-to-br from-[#F8FAFC] via-white to-brand-high-pale/30">
+        <div className="max-w-[480px] w-full">
+          <div className="text-center mb-6">
+            <div
+              className="w-20 h-20 mx-auto bg-gradient-to-br from-brand-high-dark to-brand-high rounded-3xl flex items-center justify-center text-4xl mb-4"
+              style={{ boxShadow: '0 12px 32px rgba(37, 99, 235, 0.25)' }}
+            >
+              ⏳
+            </div>
+            <div className="text-[24px] font-extrabold text-ink tracking-tight mb-1.5">승인 대기 중</div>
+            <div className="text-[13px] text-ink-secondary leading-relaxed">
+              학원 연결 신청이 완료되었어요.<br />
+              선생님 승인 후 사용할 수 있어요.
+            </div>
+          </div>
+
+          <div className="bg-white border-2 border-brand-high-light rounded-3xl p-7"
+            style={{ boxShadow: '0 12px 40px rgba(37, 99, 235, 0.1)' }}
+          >
+            <div className="bg-brand-high-pale border border-brand-high-light rounded-xl p-4 mb-4">
+              <div className="text-[14px] font-bold text-brand-high-dark mb-1">📌 안내</div>
+              <div className="text-[12px] text-ink-secondary leading-relaxed">
+                선생님이 신청을 확인하고 승인하면<br />
+                자동으로 정상 사용이 가능해요.<br />
+                <br />
+                <strong>학원에 직접 연락하면 더 빨라요!</strong>
+              </div>
+            </div>
+
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut()
+                navigate('/high-student/login')
+              }}
+              className="w-full py-3 bg-gray-100 text-ink-secondary rounded-xl text-[13px] font-semibold hover:bg-gray-200 transition-all"
+            >
+              로그아웃
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 신청 폼
   return (
     <div className="h-full overflow-y-auto flex items-center justify-center p-6 bg-gradient-to-br from-[#F8FAFC] via-white to-brand-high-pale/30">
       <div className="max-w-[480px] w-full">
 
-        {/* 헤더 */}
         <div className="text-center mb-6">
           <div
             className="w-20 h-20 mx-auto bg-gradient-to-br from-brand-high-dark to-brand-high rounded-3xl flex items-center justify-center text-4xl mb-4"
@@ -262,19 +358,18 @@ function ConnectForm() {
           >
             🏫
           </div>
-          <div className="text-[24px] font-extrabold text-ink tracking-tight mb-1.5">학원 연결하기</div>
+          <div className="text-[24px] font-extrabold text-ink tracking-tight mb-1.5">고등 학생 등록 신청</div>
           <div className="text-[13px] text-ink-secondary leading-relaxed">
-            선생님께 받은 학원 코드와 본인 정보를 입력해주세요
+            선생님께 받은 학원 코드와 본인 정보를 입력해주세요<br />
+            <span className="text-[11px] text-brand-high-dark font-semibold">선생님 승인 후 사용할 수 있어요</span>
           </div>
         </div>
 
-        {/* 폼 카드 */}
         <div
           className="bg-white border-2 border-brand-high-light rounded-3xl p-7"
           style={{ boxShadow: '0 12px 40px rgba(37, 99, 235, 0.1)' }}
         >
 
-          {/* 학원 코드 */}
           <div className="mb-4">
             <label className="text-[11px] font-bold text-ink-secondary block mb-1.5 uppercase tracking-wider">학원 코드</label>
             <input
@@ -292,7 +387,6 @@ function ConnectForm() {
             />
           </div>
 
-          {/* 학교 */}
           <div className="mb-4">
             <label className="text-[11px] font-bold text-ink-secondary block mb-1.5 uppercase tracking-wider">학교</label>
             <input
@@ -309,7 +403,6 @@ function ConnectForm() {
             />
           </div>
 
-          {/* 학년 */}
           <div className="mb-4">
             <label className="text-[11px] font-bold text-ink-secondary block mb-1.5 uppercase tracking-wider">학년</label>
             <div className="grid grid-cols-3 gap-2">
@@ -333,24 +426,21 @@ function ConnectForm() {
             </div>
           </div>
 
-          {/* 에러 */}
           {error && (
             <div className="text-[11px] text-red-500 font-semibold mb-3 flex items-center gap-1">
               <span>⚠️</span> {error}
             </div>
           )}
 
-          {/* 버튼 */}
           <button
             onClick={handleConnect}
             disabled={loading}
             className="w-full py-3.5 bg-brand-high text-white rounded-xl text-[14px] font-bold hover:bg-brand-high-dark transition-all shadow-[0_4px_12px_rgba(37,99,235,0.25)] hover:shadow-[0_6px_16px_rgba(37,99,235,0.35)] disabled:opacity-60"
           >
-            {loading ? '연결 중...' : '학원 연결 신청'}
+            {loading ? '신청 중...' : '학원 연결 신청'}
           </button>
         </div>
 
-        {/* 안내 */}
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mt-4">
           <div className="flex items-start gap-2">
             <span className="text-[14px] flex-shrink-0">💡</span>

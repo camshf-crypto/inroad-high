@@ -1,5 +1,15 @@
-import { useState } from 'react'
+// src/pages/master/_pages/academies/Academies.tsx
+// 마스터 어드민 - 학원 관리 (실제 Supabase 연동)
+//
+// ⭐ 변경:
+//   - INIT_ACADEMIES (Mock) → Supabase academies 테이블에서 로드
+//   - 학원 클릭 시 UUID로 상세 페이지 이동
+//   - 통계는 실제 데이터로 집계
+//   - 학원 추가는 일단 Mock 유지 (다음 단계)
+
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { supabase } from '@/lib/supabase'
 
 const THEME = {
   accent: '#7C3AED',
@@ -9,21 +19,6 @@ const THEME = {
   accentShadow: 'rgba(124, 58, 237, 0.15)',
   gradient: 'linear-gradient(135deg, #5B21B6, #8B5CF6)',
 }
-
-const INIT_ACADEMIES = [
-  { id: 1, name: '강남 에스엠 학원', code: 'B-KURS-SM01-0001', owner: '강원장', ownerEmail: 'sm@academy.com', ownerPhone: '010-1111-2222', region: '서울 강남', plan: '고등+중등', teachers: 8, students: 87, joined: '2025.04.14', status: 'active', monthlyFee: 870000, unpaidMonths: 0 },
-  { id: 2, name: '목동 프리미엄 아카데미', code: 'B-KURS-MD02-0002', owner: '이원장', ownerEmail: 'md@academy.com', ownerPhone: '010-2222-3333', region: '서울 양천', plan: '고등', teachers: 5, students: 52, joined: '2025.04.12', status: 'active', monthlyFee: 520000, unpaidMonths: 0 },
-  { id: 3, name: '분당 에듀케어', code: 'B-KURS-BD03-0003', owner: '박원장', ownerEmail: 'bd@academy.com', ownerPhone: '010-3333-4444', region: '경기 성남', plan: '중등', teachers: 4, students: 34, joined: '2025.04.10', status: 'trial', monthlyFee: 0, unpaidMonths: 0 },
-  { id: 4, name: '일산 스마트학원', code: 'B-KURS-IL04-0004', owner: '최원장', ownerEmail: 'il@academy.com', ownerPhone: '010-4444-5555', region: '경기 고양', plan: '고등+중등', teachers: 7, students: 76, joined: '2025.04.08', status: 'active', monthlyFee: 760000, unpaidMonths: 0 },
-  { id: 5, name: '판교 리버스쿨', code: 'B-KURS-PG05-0005', owner: '정원장', ownerEmail: 'pg@academy.com', ownerPhone: '010-5555-6666', region: '경기 성남', plan: '고등', teachers: 3, students: 45, joined: '2025.04.05', status: 'unpaid', monthlyFee: 450000, unpaidMonths: 2 },
-  { id: 6, name: '대치 토스트교육', code: 'B-KURS-DC06-0006', owner: '윤원장', ownerEmail: 'dc@academy.com', ownerPhone: '010-6666-7777', region: '서울 강남', plan: '고등+중등', teachers: 12, students: 125, joined: '2025.03.28', status: 'active', monthlyFee: 1250000, unpaidMonths: 0 },
-  { id: 7, name: '서초 아카데미', code: 'B-KURS-SC07-0007', owner: '한원장', ownerEmail: 'sc@academy.com', ownerPhone: '010-7777-8888', region: '서울 서초', plan: '고등', teachers: 6, students: 68, joined: '2025.03.20', status: 'active', monthlyFee: 680000, unpaidMonths: 0 },
-  { id: 8, name: '송파 브레인스쿨', code: 'B-KURS-SP08-0008', owner: '임원장', ownerEmail: 'sp@academy.com', ownerPhone: '010-8888-9999', region: '서울 송파', plan: '중등', teachers: 3, students: 28, joined: '2025.03.15', status: 'trial', monthlyFee: 0, unpaidMonths: 0 },
-  { id: 9, name: '광교 엘리트학원', code: 'B-KURS-GK09-0009', owner: '오원장', ownerEmail: 'gk@academy.com', ownerPhone: '010-9999-0000', region: '경기 수원', plan: '고등+중등', teachers: 9, students: 92, joined: '2025.03.10', status: 'active', monthlyFee: 920000, unpaidMonths: 0 },
-  { id: 10, name: '수원 학습코칭', code: 'B-KURS-SW10-0010', owner: '서원장', ownerEmail: 'sw@academy.com', ownerPhone: '010-1010-2020', region: '경기 수원', plan: '고등', teachers: 4, students: 38, joined: '2025.03.05', status: 'unpaid', monthlyFee: 380000, unpaidMonths: 1 },
-  { id: 11, name: '인천 미래교육', code: 'B-KURS-IC11-0011', owner: '권원장', ownerEmail: 'ic@academy.com', ownerPhone: '010-1111-3030', region: '인천', plan: '중등', teachers: 5, students: 47, joined: '2025.02.28', status: 'active', monthlyFee: 470000, unpaidMonths: 0 },
-  { id: 12, name: '대전 지식의문', code: 'B-KURS-DJ12-0012', owner: '조원장', ownerEmail: 'dj@academy.com', ownerPhone: '010-1212-4040', region: '대전', plan: '고등+중등', teachers: 6, students: 58, joined: '2025.02.20', status: 'active', monthlyFee: 580000, unpaidMonths: 0 },
-]
 
 const STATUS_STYLE: Record<string, any> = {
   active: { color: '#059669', bg: '#ECFDF5', border: '#6EE7B7', label: '✓ 활성' },
@@ -55,7 +50,6 @@ const generateCode = () => {
   return code
 }
 
-// 🔐 임시 비밀번호 자동 생성
 const generatePassword = () => {
   const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
   const lower = 'abcdefghjkmnpqrstuvwxyz'
@@ -69,13 +63,23 @@ const generatePassword = () => {
   return pw
 }
 
+// ⭐ 메뉴 권한 기반으로 플랜 자동 판단
+const getPlanFromMenus = (enabledMenus: string[] = []): string => {
+  const hasHigh = enabledMenus.some(m => m.startsWith('high.'))
+  const hasMiddle = enabledMenus.some(m => m.startsWith('middle.'))
+  if (hasHigh && hasMiddle) return '고등+중등'
+  if (hasHigh) return '고등'
+  if (hasMiddle) return '중등'
+  return '미설정'
+}
+
 export default function MasterAcademies() {
   const navigate = useNavigate()
 
-  const [academies, setAcademies] = useState<any[]>(() => {
-    const saved = localStorage.getItem('master_academies')
-    return saved ? JSON.parse(saved) : INIT_ACADEMIES
-  })
+  // ⭐ 학원 목록 (Supabase에서 로드)
+  const [academies, setAcademies] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -98,10 +102,66 @@ export default function MasterAcademies() {
     sendEmail: true,
   })
 
-  const saveToStorage = (list: any[]) => {
-    localStorage.setItem('master_academies', JSON.stringify(list))
-    setAcademies(list)
+  // ⭐ Supabase에서 학원 + 학생 수 + 선생님 수 로드
+  const fetchAcademies = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      // 1. 학원 목록 가져오기
+      const { data: academiesData, error: academiesError } = await supabase
+        .from('academies')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (academiesError) throw academiesError
+
+      // 2. 각 학원의 학생/선생님 수 가져오기
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('academy_id, role')
+
+      if (profilesError) throw profilesError
+
+      // 3. 데이터 매핑
+      const mapped = (academiesData || []).map(a => {
+        const profiles = (profilesData || []).filter(p => p.academy_id === a.id)
+        const students = profiles.filter(p => p.role === 'high_student' || p.role === 'middle_student').length
+        const teachers = profiles.filter(p => p.role === 'teacher' || p.role === 'admin').length
+        const plan = getPlanFromMenus(a.enabled_menus)
+        const menuCount = (a.enabled_menus || []).length
+
+        return {
+          id: a.id, // UUID
+          name: a.name,
+          code: a.academy_code || '코드 없음',
+          owner: a.owner_name || '미설정',
+          ownerEmail: a.owner_email || '',
+          ownerPhone: a.owner_phone || '-',
+          region: a.region || '-',
+          address: a.address || '-',
+          plan,
+          menuCount,
+          teachers,
+          students,
+          joined: a.created_at ? new Date(a.created_at).toISOString().slice(0, 10).replace(/-/g, '.') : '-',
+          status: a.status || 'active',
+          monthlyFee: PLAN_FEES[plan] || 0,
+          unpaidMonths: 0,
+        }
+      })
+
+      setAcademies(mapped)
+    } catch (e: any) {
+      console.error('[fetchAcademies]', e)
+      setError(e.message || '학원 목록을 불러오지 못했어요.')
+    } finally {
+      setLoading(false)
+    }
   }
+
+  useEffect(() => {
+    fetchAcademies()
+  }, [])
 
   const filtered = academies
     .filter(a => {
@@ -128,44 +188,15 @@ export default function MasterAcademies() {
     setShowAddModal(true)
   }
 
+  // ⭐ 학원 추가 (일단 Mock - 다음 단계에서 Supabase 연동)
   const handleAddAcademy = () => {
     if (!newAcademy.name.trim() || !newAcademy.owner.trim() || !newAcademy.ownerEmail.trim()) {
       alert('학원명, 원장명, 이메일은 필수입니다!')
       return
     }
 
-    const newId = Math.max(...academies.map(a => a.id), 0) + 1
-    const code = generateCode()
-    const tempPassword = generatePassword()  // 🔐 자동 생성
-    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '.')
-    const monthlyFee = newAcademy.trial ? 0 : PLAN_FEES[newAcademy.plan]
-
-    const academy = {
-      id: newId,
-      name: newAcademy.name,
-      code,
-      owner: newAcademy.owner,
-      ownerEmail: newAcademy.ownerEmail,
-      ownerPhone: newAcademy.ownerPhone || '-',
-      region: newAcademy.region || '-',
-      address: newAcademy.address || '-',
-      plan: newAcademy.plan,
-      teachers: 0,
-      students: 0,
-      joined: today,
-      status: newAcademy.trial ? 'trial' : 'active',
-      monthlyFee,
-      unpaidMonths: 0,
-      tempPassword,  // 🔐 임시 비밀번호 저장
-      passwordChanged: false,  // 원장이 아직 안 바꿨음
-    }
-
-    saveToStorage([academy, ...academies])
+    alert('📌 학원 추가 기능은 곧 Supabase 연동으로 업데이트 예정이에요!\n\n현재는 Supabase에서 직접 학원을 추가해주세요.')
     setShowAddModal(false)
-
-    // 🎉 성공 모달 표시 (비밀번호 정보)
-    setCreatedAcademy(academy)
-    setShowSuccessModal(true)
   }
 
   const copyToClipboard = (text: string, label: string) => {
@@ -188,14 +219,31 @@ export default function MasterAcademies() {
           </div>
         </div>
 
-        <button
-          onClick={openAddModal}
-          className="h-10 px-5 text-white rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px"
-          style={{ background: THEME.gradient, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
-        >
-          ➕ 학원 추가
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={fetchAcademies}
+            disabled={loading}
+            className="h-10 px-4 bg-white border border-line text-ink-secondary rounded-lg text-[13px] font-bold transition-all hover:bg-gray-50 disabled:opacity-60"
+          >
+            {loading ? '🔄 로딩중...' : '🔄 새로고침'}
+          </button>
+          <button
+            onClick={openAddModal}
+            className="h-10 px-5 text-white rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px"
+            style={{ background: THEME.gradient, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
+          >
+            ➕ 학원 추가
+          </button>
+        </div>
       </div>
+
+      {/* 에러 */}
+      {error && (
+        <div className="rounded-xl px-5 py-3.5 mb-4 bg-red-50 border border-red-200">
+          <div className="text-[13px] font-bold text-red-700">⚠️ 학원 목록을 불러오지 못했어요</div>
+          <div className="text-[11px] text-red-600 mt-1">{error}</div>
+        </div>
+      )}
 
       {/* 통계 카드 */}
       <div className="grid grid-cols-4 max-md:grid-cols-2 gap-3 mb-5">
@@ -293,16 +341,23 @@ export default function MasterAcademies() {
 
       {/* 테이블 */}
       <div className="bg-white border border-line rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-20 text-ink-muted">
+            <div className="inline-block w-8 h-8 border-2 border-gray-200 rounded-full animate-spin mb-3" style={{ borderTopColor: THEME.accent }} />
+            <div className="text-[14px] font-bold text-ink-secondary">학원 목록 불러오는 중...</div>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="text-center py-20 text-ink-muted">
             <div className="text-4xl mb-3">🔍</div>
-            <div className="text-[14px] font-bold text-ink-secondary mb-1">검색 결과가 없어요</div>
+            <div className="text-[14px] font-bold text-ink-secondary mb-1">
+              {academies.length === 0 ? '등록된 학원이 없어요' : '검색 결과가 없어요'}
+            </div>
           </div>
         ) : (
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-[#F8FAFC]">
-                {['학원명', '코드', '원장', '플랜', '선생님', '학생 수', '월 매출', '가입일', '상태'].map((h, i) => (
+                {['학원명', '코드', '원장', '플랜', '메뉴', '선생님', '학생 수', '월 매출', '가입일', '상태'].map((h, i) => (
                   <th key={i} className="px-4 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line">{h}</th>
                 ))}
               </tr>
@@ -310,7 +365,7 @@ export default function MasterAcademies() {
             <tbody>
               {filtered.map((a, i) => {
                 const st = STATUS_STYLE[a.status] || STATUS_STYLE.active
-                const pl = PLAN_STYLE[a.plan] || PLAN_STYLE['고등']
+                const pl = PLAN_STYLE[a.plan] || { color: '#6B7280', bg: '#F3F4F6' }
                 return (
                   <tr key={a.id} onClick={() => navigate(`/master/academies/${a.id}`)} className="cursor-pointer transition-colors hover:bg-gray-50" style={{
                     borderBottom: i < filtered.length - 1 ? '1px solid #F1F5F9' : 'none',
@@ -337,6 +392,9 @@ export default function MasterAcademies() {
                     <td className="px-4 py-3">
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: pl.color, background: pl.bg }}>{a.plan}</span>
                     </td>
+                    <td className="px-4 py-3">
+                      <span className="text-[11px] font-bold" style={{ color: a.menuCount >= 15 ? '#7C3AED' : '#6B7280' }}>{a.menuCount}/20</span>
+                    </td>
                     <td className="px-4 py-3 text-[12px] font-bold text-ink">{a.teachers}명</td>
                     <td className="px-4 py-3 text-[13px] font-extrabold" style={{ color: THEME.accent }}>{a.students}명</td>
                     <td className="px-4 py-3">
@@ -361,245 +419,37 @@ export default function MasterAcademies() {
         )}
       </div>
 
-      {/* ============ 학원 추가 모달 ============ */}
+      {/* 학원 추가 모달 (Mock - 다음 단계에서 Supabase 연동) */}
       {showAddModal && (
         <div onClick={() => setShowAddModal(false)} className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(15, 23, 42, 0.55)', backdropFilter: 'blur(4px)' }}>
           <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl w-[560px] max-h-[90vh] overflow-y-auto shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
             <div className="px-6 py-5 relative overflow-hidden" style={{ background: THEME.gradient }}>
-              <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.15), transparent 70%)' }} />
               <div className="relative flex items-center justify-between">
                 <div>
                   <div className="text-[18px] font-extrabold text-white tracking-tight">➕ 신규 학원 추가</div>
-                  <div className="text-[12px] font-medium text-white/80 mt-0.5">학원 코드와 원장 계정이 자동 생성돼요</div>
+                  <div className="text-[12px] font-medium text-white/80 mt-0.5">곧 Supabase 연동 예정</div>
                 </div>
                 <button onClick={() => setShowAddModal(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-white hover:bg-white/20">✕</button>
               </div>
             </div>
 
             <div className="px-6 py-5">
-
-              {/* 🔐 자동 생성 안내 */}
-              <div className="bg-purple-50 border border-purple-200 rounded-xl px-4 py-3 mb-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
                 <div className="flex items-start gap-2">
-                  <span className="text-lg flex-shrink-0">🔐</span>
+                  <span className="text-lg flex-shrink-0">🚧</span>
                   <div>
-                    <div className="text-[12px] font-bold text-purple-900 mb-1">자동 생성되는 항목</div>
-                    <ul className="text-[11px] font-medium text-purple-700 leading-[1.6] list-disc pl-4">
-                      <li><strong>학원 코드</strong> (학생 가입용)</li>
-                      <li><strong>임시 비밀번호</strong> (원장 첫 로그인용)</li>
-                      <li>원장님 이메일로 자동 발송</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-4">
-
-                <div>
-                  <div className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-2">🏫 학원 정보</div>
-                  <div className="flex flex-col gap-3">
-                    {[
-                      { key: 'name', label: '학원명 *', placeholder: '예: 강남 에스엠 학원' },
-                      { key: 'region', label: '지역', placeholder: '예: 서울 강남' },
-                      { key: 'address', label: '주소', placeholder: '상세 주소' },
-                    ].map(f => (
-                      <div key={f.key}>
-                        <label className="text-[11px] font-bold text-ink-secondary mb-1 block">{f.label}</label>
-                        <input
-                          value={(newAcademy as any)[f.key]}
-                          onChange={e => setNewAcademy(prev => ({ ...prev, [f.key]: e.target.value }))}
-                          placeholder={f.placeholder}
-                          className="w-full h-10 px-3 border border-line rounded-lg text-[13px] font-medium outline-none transition-all placeholder:text-ink-muted"
-                          onFocus={e => { e.target.style.borderColor = THEME.accent; e.target.style.boxShadow = `0 0 0 3px ${THEME.accentShadow}` }}
-                          onBlur={e => { e.target.style.borderColor = '#E5E7EB'; e.target.style.boxShadow = 'none' }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-2">👑 원장 정보</div>
-                  <div className="flex flex-col gap-3">
-                    {[
-                      { key: 'owner', label: '원장 이름 *', placeholder: '예: 강원장' },
-                      { key: 'ownerEmail', label: '이메일 * (로그인 아이디)', placeholder: 'example@academy.com' },
-                      { key: 'ownerPhone', label: '전화번호', placeholder: '010-0000-0000' },
-                    ].map(f => (
-                      <div key={f.key}>
-                        <label className="text-[11px] font-bold text-ink-secondary mb-1 block">{f.label}</label>
-                        <input
-                          value={(newAcademy as any)[f.key]}
-                          onChange={e => setNewAcademy(prev => ({ ...prev, [f.key]: e.target.value }))}
-                          placeholder={f.placeholder}
-                          className="w-full h-10 px-3 border border-line rounded-lg text-[13px] font-medium outline-none transition-all placeholder:text-ink-muted"
-                          onFocus={e => { e.target.style.borderColor = THEME.accent; e.target.style.boxShadow = `0 0 0 3px ${THEME.accentShadow}` }}
-                          onBlur={e => { e.target.style.borderColor = '#E5E7EB'; e.target.style.boxShadow = 'none' }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-2">💎 플랜 선택</div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {['고등', '중등', '고등+중등'].map(plan => {
-                      const isActive = newAcademy.plan === plan
-                      const fee = PLAN_FEES[plan]
-                      return (
-                        <button key={plan} onClick={() => setNewAcademy(prev => ({ ...prev, plan }))} className="px-3 py-3 rounded-xl border-2 transition-all text-center" style={{
-                          borderColor: isActive ? THEME.accent : '#E5E7EB',
-                          background: isActive ? THEME.accentBg : '#fff',
-                        }}>
-                          <div className="text-[13px] font-extrabold mb-0.5" style={{ color: isActive ? THEME.accentDark : '#1a1a1a' }}>{plan}</div>
-                          <div className="text-[10px] font-bold" style={{ color: isActive ? THEME.accent : '#6B7280' }}>₩{fee.toLocaleString()}/월</div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 rounded-xl px-4 py-3 flex flex-col gap-2">
-                  <label className="flex items-center gap-2.5 cursor-pointer">
-                    <input type="checkbox" checked={newAcademy.trial} onChange={e => setNewAcademy(prev => ({ ...prev, trial: e.target.checked }))} className="w-4 h-4 cursor-pointer" />
-                    <div>
-                      <div className="text-[13px] font-bold text-ink">🎁 14일 무료 체험으로 시작</div>
-                      <div className="text-[11px] font-medium text-ink-secondary mt-0.5">체험 기간 동안 결제 없이 사용 가능해요</div>
-                    </div>
-                  </label>
-                  <label className="flex items-center gap-2.5 cursor-pointer">
-                    <input type="checkbox" checked={newAcademy.sendEmail} onChange={e => setNewAcademy(prev => ({ ...prev, sendEmail: e.target.checked }))} className="w-4 h-4 cursor-pointer" />
-                    <div>
-                      <div className="text-[13px] font-bold text-ink">✉️ 원장님에게 환영 이메일 발송</div>
-                      <div className="text-[11px] font-medium text-ink-secondary mt-0.5">학원 코드 + 임시 비밀번호가 포함돼요</div>
-                    </div>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-6 py-4 border-t border-line flex gap-2">
-              <button onClick={() => setShowAddModal(false)} className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors">취소</button>
-              <button onClick={handleAddAcademy} className="flex-1 h-11 text-white rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px" style={{ background: THEME.gradient, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}>
-                ✅ 학원 추가
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ============ 🎉 성공 모달 (계정 정보 표시) ============ */}
-      {showSuccessModal && createdAcademy && (
-        <div className="fixed inset-0 z-[210] flex items-center justify-center p-4" style={{ background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(6px)' }}>
-          <div className="bg-white rounded-2xl w-[540px] max-h-[90vh] overflow-y-auto shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
-            <div className="px-6 py-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #059669, #10B981)' }}>
-              <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.15), transparent 70%)' }} />
-              <div className="relative">
-                <div className="text-[22px] font-extrabold text-white tracking-tight mb-1">🎉 학원이 추가되었어요!</div>
-                <div className="text-[12px] font-medium text-white/90">아래 정보를 원장님에게 전달하세요</div>
-              </div>
-            </div>
-
-            <div className="px-6 py-5">
-
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl px-4 py-3 mb-4">
-                <div className="text-[11px] font-bold text-green-800 uppercase tracking-wider mb-1">학원명</div>
-                <div className="text-[16px] font-extrabold text-green-900">{createdAcademy.name}</div>
-                <div className="text-[11px] font-medium text-green-700 mt-0.5">📍 {createdAcademy.region}</div>
-              </div>
-
-              {/* 학원 코드 */}
-              <div className="mb-3">
-                <div className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">🔑 학원 코드 (학생 가입용)</div>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="flex-1 px-4 py-3 rounded-xl font-mono text-[16px] font-extrabold tracking-wider"
-                    style={{ background: THEME.accentBg, color: THEME.accentDark, border: `1px solid ${THEME.accentBorder}60` }}
-                  >
-                    {createdAcademy.code}
-                  </div>
-                  <button
-                    onClick={() => copyToClipboard(createdAcademy.code, '학원 코드')}
-                    className="h-12 px-3 bg-white border rounded-lg text-[11px] font-bold transition-all hover:-translate-y-px"
-                    style={{ color: THEME.accent, borderColor: THEME.accent }}
-                  >
-                    📋 복사
-                  </button>
-                </div>
-              </div>
-
-              {/* 원장 이메일 */}
-              <div className="mb-3">
-                <div className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">✉️ 원장 이메일 (로그인 아이디)</div>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 px-4 py-3 bg-gray-50 rounded-xl text-[14px] font-bold text-ink">
-                    {createdAcademy.ownerEmail}
-                  </div>
-                  <button
-                    onClick={() => copyToClipboard(createdAcademy.ownerEmail, '이메일')}
-                    className="h-12 px-3 bg-white border border-line rounded-lg text-[11px] font-bold text-ink-secondary hover:bg-gray-50 transition-colors"
-                  >
-                    📋 복사
-                  </button>
-                </div>
-              </div>
-
-              {/* 🔐 임시 비밀번호 */}
-              <div className="mb-4">
-                <div className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">🔐 임시 비밀번호 (첫 로그인용)</div>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="flex-1 px-4 py-3 rounded-xl font-mono text-[16px] font-extrabold tracking-wider border-2"
-                    style={{ background: '#FEF3C7', color: '#92400E', borderColor: '#FCD34D' }}
-                  >
-                    {createdAcademy.tempPassword}
-                  </div>
-                  <button
-                    onClick={() => copyToClipboard(createdAcademy.tempPassword, '임시 비밀번호')}
-                    className="h-12 px-3 bg-amber-500 text-white rounded-lg text-[11px] font-bold hover:bg-amber-600 transition-colors"
-                  >
-                    📋 복사
-                  </button>
-                </div>
-                <div className="text-[10px] font-bold text-amber-700 mt-1.5 flex items-center gap-1">
-                  <span>⚠️</span>
-                  <span>원장님이 첫 로그인 시 비밀번호 변경이 강제됩니다</span>
-                </div>
-              </div>
-
-              {/* 이메일 발송 상태 */}
-              {newAcademy.sendEmail && (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-4 flex items-start gap-2">
-                  <span className="text-lg">✉️</span>
-                  <div>
-                    <div className="text-[12px] font-bold text-blue-900">환영 이메일이 발송됐어요!</div>
-                    <div className="text-[11px] font-medium text-blue-700 mt-0.5">
-                      <strong>{createdAcademy.ownerEmail}</strong>에 계정 정보가 전송되었어요.<br />
-                      원장님이 10분 이내에 받지 못하면 다시 발송할 수 있어요.
+                    <div className="text-[13px] font-bold text-amber-800 mb-1">개발 중인 기능이에요</div>
+                    <div className="text-[11px] font-medium text-amber-700 leading-[1.6]">
+                      학원 추가는 곧 Supabase 연동으로 업데이트돼요.<br />
+                      현재는 <strong>Supabase 대시보드</strong>에서 직접 추가해주세요.
                     </div>
                   </div>
                 </div>
-              )}
-
-              {/* 모든 정보 복사 */}
-              <button
-                onClick={() => {
-                  const text = `[비커스 계정 정보]\n\n학원명: ${createdAcademy.name}\n학원 코드: ${createdAcademy.code}\n\n원장 로그인:\n이메일: ${createdAcademy.ownerEmail}\n임시 비밀번호: ${createdAcademy.tempPassword}\n\n첫 로그인 시 비밀번호를 반드시 변경해주세요.`
-                  copyToClipboard(text, '전체 계정 정보')
-                }}
-                className="w-full h-11 text-white rounded-xl text-[13px] font-bold transition-all hover:-translate-y-px"
-                style={{ background: THEME.gradient, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
-              >
-                📋 전체 정보 한번에 복사
-              </button>
+              </div>
             </div>
 
             <div className="px-6 py-4 border-t border-line">
-              <button
-                onClick={() => { setShowSuccessModal(false); setCreatedAcademy(null) }}
-                className="w-full h-11 bg-gray-100 text-ink rounded-lg text-[13px] font-bold hover:bg-gray-200 transition-colors"
-              >
+              <button onClick={() => setShowAddModal(false)} className="w-full h-11 bg-gray-100 text-ink rounded-lg text-[13px] font-bold hover:bg-gray-200 transition-colors">
                 확인
               </button>
             </div>

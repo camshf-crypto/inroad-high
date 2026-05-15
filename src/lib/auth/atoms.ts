@@ -1,12 +1,7 @@
 // src/lib/auth/atoms.ts
 // 공통 인증 atom - admin/고등학생/중학생 모두 사용
 //
-// 마이그레이션 전략:
-// - 기존 localStorage key: 'adminToken', 'studentToken', 'middleStudentToken'
-// - 통합 후: 'authToken' (한 번에 하나의 사용자만 로그인)
-// - 학원 정보, 학생 정보도 마찬가지로 통일
-//
-// IAcademy의 필드는 admin/student 양쪽 필드를 모두 optional로 포함
+// ⭐ 변경: IAcademy에 enabledMenus 추가 (학원별 사용 가능 메뉴)
 
 import { atomWithStorage } from 'jotai/utils'
 
@@ -40,17 +35,18 @@ export interface ITeacher {
 
 /**
  * 통합 IAcademy
- * - 공통 필드: academyId, academyCode, academyName
+ * - 공통 필드: academyId, academyCode, academyName, enabledMenus
  * - admin 전용: ownerName, role, plans
  * - student 전용: teacherName, teacherId
- *
- * 사용 시 자기 역할에 맞는 필드만 사용. 다른 필드는 undefined.
  */
 export interface IAcademy {
   // 공통
   academyId: string | undefined
   academyCode: string | undefined
   academyName: string | undefined
+
+  // ⭐ 사용 가능한 메뉴 (예: ['high.roadmap', 'middle.lesson'])
+  enabledMenus?: string[]
 
   // admin 전용 (학생일 땐 undefined)
   ownerName?: string
@@ -67,26 +63,20 @@ export interface IAcademy {
 // ─────────────────────────────────────────────
 
 if (typeof window !== 'undefined') {
-  // 기존 key들이 있으면 통합 key로 옮기기
-  // (한 번만 실행되도록 플래그 체크)
   const migrated = localStorage.getItem('_authMigrated_v1')
   if (!migrated) {
     try {
-      // 기존 admin 토큰
       const adminToken = localStorage.getItem('adminToken')
       const academyInfo = localStorage.getItem('academyInfo')
       
-      // 기존 학생 토큰
       const studentToken = localStorage.getItem('studentToken')
       const studentInfo = localStorage.getItem('studentInfo')
       const studentAcademyInfo = localStorage.getItem('studentAcademyInfo')
       
-      // 기존 중학생 토큰
       const middleToken = localStorage.getItem('middleStudentToken')
       const middleStudentInfo = localStorage.getItem('middleStudentInfo')
       const middleAcademyInfo = localStorage.getItem('middleStudentAcademyInfo')
 
-      // 우선순위: admin > 고등 > 중등 (둘 이상 있을 시 admin 우선)
       if (adminToken) {
         localStorage.setItem('authToken', adminToken)
         if (academyInfo) localStorage.setItem('authAcademy', academyInfo)
@@ -100,7 +90,6 @@ if (typeof window !== 'undefined') {
         if (middleAcademyInfo) localStorage.setItem('authAcademy', middleAcademyInfo)
       }
 
-      // 기존 키 정리
       localStorage.removeItem('adminToken')
       localStorage.removeItem('academyInfo')
       localStorage.removeItem('studentToken')
@@ -118,7 +107,7 @@ if (typeof window !== 'undefined') {
 }
 
 // ─────────────────────────────────────────────
-// Atom 정의 (통합 - 모든 곳에서 같은 atom 사용)
+// Atom 정의
 // ─────────────────────────────────────────────
 
 export const tokenState = atomWithStorage<IToken>('authToken', {
@@ -132,6 +121,7 @@ export const academyState = atomWithStorage<IAcademy>('authAcademy', {
   academyId: undefined,
   academyCode: undefined,
   academyName: undefined,
+  enabledMenus: [],  // ⭐ 기본값 빈 배열
 })
 
 // admin에서만 사용 (선생님 목록)

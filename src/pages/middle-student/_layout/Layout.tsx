@@ -1,45 +1,40 @@
-import { useState } from 'react'
+// src/pages/middle-student/_layout/Layout.tsx
+// 중등학생 레이아웃 + 학원 연결 폼
+// ⭐ 변경: ConnectForm에서 pending_approvals에 신청 등록 (role 즉시 변경 X)
+//          선생님 승인 시 트리거가 자동으로 role 변경!
+// ⭐ 추가: 학원별 사용 가능 메뉴 필터링 (enabledMenus)
+
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { academyState, tokenState, studentState } from '@/lib/auth/atoms'
 import { supabase } from '@/lib/supabase'
 import { useStudentRealtime } from '@/lib/realtime/useStudentRealtime'
 
+// ⭐ menuKey 추가 - 학원별 권한 확인용
 const MENUS = [
-  { path: '/middle-student/roadmap', label: '내 커리큘럼', icon: '⊞' },
-  { path: '/middle-student/lesson', label: '수업 영상', icon: '🎬' },
-  { path: '/middle-student/homework', label: '숙제', icon: '📝' },
-  { path: '/middle-student/suhaeng', label: '수행평가', icon: '🎯' },
-  { path: '/middle-student/book', label: '독서리스트', icon: '📚' },
-  { path: '/middle-student/debate', label: 'AI 토론', icon: '🎤', isNew: true },
-  { path: '/middle-student/expect', label: '자소서 · 예상질문', icon: '💬' },
-  { path: '/middle-student/past', label: '기출문제', icon: '🎓' },
-  { path: '/middle-student/simulation', label: '면접 시뮬레이션', icon: '🎙️' },
-  { path: '/middle-student/presentation', label: '제시문 면접', icon: '📄' },
+  { path: '/middle-student/roadmap', label: '내 커리큘럼', icon: '⊞', menuKey: 'middle.roadmap' },
+  { path: '/middle-student/lesson', label: '수업 영상', icon: '🎬', menuKey: 'middle.lesson' },
+  { path: '/middle-student/homework', label: '숙제', icon: '📝', menuKey: 'middle.homework' },
+  { path: '/middle-student/suhaeng', label: '수행평가', icon: '🎯', menuKey: 'middle.suhaeng' },
+  { path: '/middle-student/record', label: '내 생기부', icon: '📋', menuKey: 'middle.record', isNew: true },
+  { path: '/middle-student/book', label: '독서리스트', icon: '📚', menuKey: 'middle.book' },
+  { path: '/middle-student/debate', label: 'AI 토론', icon: '🎤', menuKey: 'middle.debate', isNew: true },
+  { path: '/middle-student/expect', label: '자소서 · 예상질문', icon: '💬', menuKey: 'middle.expect' },
+  { path: '/middle-student/past', label: '기출문제', icon: '🎓', menuKey: 'middle.past' },
+  { path: '/middle-student/simulation', label: '면접 시뮬레이션', icon: '🎙️', menuKey: 'middle.simulation' },
+  { path: '/middle-student/presentation', label: '제시문 면접', icon: '📄', menuKey: 'middle.presentation' },
 ]
 
 const MIDDLE_GRADES = ['중1', '중2', '중3'] as const
 
-// ============================================================
-// 🆕 중등 학생이 실시간 갱신을 받을 테이블 목록
-// (student_id 컬럼이 있는 테이블만 — 자기 row만 푸시 받음)
-// ============================================================
 const MIDDLE_STUDENT_TABLES = [
-  // 로드맵 / 커리큘럼
   'middle_roadmap',
   'middle_homework_progress',
   'middle_lessons_progress',
-
-  // 숙제
   'middle_homework_submissions',
-
-  // 수행평가
   'suhaeng_submissions',
-
-  // 독서
   'middle_reading',
-
-  // 자소서 / 예상질문
   'jaso_essays',
   'jaso_essay_answers',
   'jaso_essay_feedback',
@@ -48,26 +43,20 @@ const MIDDLE_STUDENT_TABLES = [
   'jaso_question_feedback',
   'middle_essay_wizard',
   'middle_student_target_schools',
-
-  // 기출
   'middle_past_answers',
-
-  // 면접 시뮬레이션
   'middle_simulations',
   'middle_interview',
   'middle_interview_analysis',
   'middle_interview_followups',
-
-  // 제시문 면접
   'middle_passage',
   'middle_passage_answers',
   'middle_passage_analysis',
   'middle_passage_followups',
-
-  // AI 토론 면접
   'middle_debate_sessions',
   'middle_debate_turns',
   'middle_debate_feedbacks',
+  'middle_saenggibu_item',
+  'middle_semester_lock',
 ]
 
 export default function MiddleLayout() {
@@ -79,15 +68,12 @@ export default function MiddleLayout() {
   const setStudent = useSetAtom(studentState)
   const setAcademy = useSetAtom(academyState)
 
-  // 학원 연결 여부
   const isAcademyConnected = !!academy.academyId
 
-  // ============================================================
-  // 🆕 실시간 갱신
-  // 선생님이 무언가 송출(피드백 발행, AI 분석 생성, 재제출 허용 등)
-  // 하면 'teacher-action' 이벤트가 발행됨.
-  // 각 페이지(MiddleHomework.tsx 등)에서 이 이벤트를 듣고 자기 데이터 다시 fetch.
-  // ============================================================
+  // ⭐ 학원이 사용 가능한 메뉴만 필터링
+  const enabledMenus = academy.enabledMenus || []
+  const visibleMenus = MENUS.filter(m => enabledMenus.includes(m.menuKey))
+
   useStudentRealtime({
     studentId: student?.id,
     tables: MIDDLE_STUDENT_TABLES,
@@ -100,7 +86,7 @@ export default function MiddleLayout() {
     await supabase.auth.signOut()
     setToken({ accessToken: undefined, expiresIn: undefined })
     setStudent(null)
-    setAcademy({ academyCode: undefined, academyName: undefined, teacherName: undefined, teacherId: undefined, academyId: undefined, })
+    setAcademy({ academyCode: undefined, academyName: undefined, teacherName: undefined, teacherId: undefined, academyId: undefined, enabledMenus: [] })
     navigate('/middle-student/login')
   }
 
@@ -109,7 +95,6 @@ export default function MiddleLayout() {
 
       {/* 사이드바 */}
       <aside className="w-[220px] bg-white border-r border-line flex flex-col flex-shrink-0">
-        {/* 로고 + 학원 정보 — padding 약간 줄임 */}
         <div className="px-5 pt-4 pb-3 border-b border-line-light flex-shrink-0">
           <div className="flex items-center gap-2 mb-2.5">
             <div className="font-extrabold text-[17px] text-ink tracking-tight">비커스</div>
@@ -130,51 +115,58 @@ export default function MiddleLayout() {
           )}
         </div>
 
-        {/* 메뉴 — overflow 제거 + padding/간격 좁힘 */}
+        {/* 메뉴 - ⭐ visibleMenus 사용 (학원별 권한 있는 메뉴만!) */}
         <nav className="flex-1 px-2.5 py-2 overflow-hidden">
-          {MENUS.map(m => {
-            const isActive = location.pathname === m.path || location.pathname.startsWith(m.path)
-            const isLocked = !isAcademyConnected
+          {visibleMenus.length === 0 && isAcademyConnected ? (
+            // ⭐ 학원 연결됐는데 사용 가능 메뉴가 하나도 없는 경우
+            <div className="px-3 py-6 text-center">
+              <div className="text-[12px] text-ink-muted font-medium">
+                사용 가능한 메뉴가 없어요.<br />
+                학원에 문의해주세요.
+              </div>
+            </div>
+          ) : (
+            visibleMenus.map(m => {
+              const isActive = location.pathname === m.path || location.pathname.startsWith(m.path)
+              const isLocked = !isAcademyConnected
 
-            return (
-              <button
-                key={m.path}
-                onClick={() => {
-                  if (isLocked) return
-                  navigate(m.path)
-                }}
-                disabled={isLocked}
-                title={isLocked ? '학원 연결 후 사용 가능해요' : ''}
-                className={`relative w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all text-[13px] ${
-                  isLocked
-                    ? 'text-ink-muted cursor-not-allowed opacity-50'
-                    : isActive
-                      ? 'bg-brand-middle-pale text-brand-middle-dark font-semibold'
-                      : 'text-ink-secondary hover:bg-gray-50 hover:text-ink font-medium'
-                }`}
-              >
-                <span className="text-[15px]">{m.icon}</span>
-                <span className="flex-1 text-left">{m.label}</span>
-                {m.isNew && !isLocked && (
-                  <span className="text-[9px] font-extrabold text-white bg-rose-500 px-1.5 py-0.5 rounded-full leading-none">
-                    NEW
-                  </span>
-                )}
-              </button>
-            )
-          })}
+              return (
+                <button
+                  key={m.path}
+                  onClick={() => {
+                    if (isLocked) return
+                    navigate(m.path)
+                  }}
+                  disabled={isLocked}
+                  title={isLocked ? '학원 연결 후 사용 가능해요' : ''}
+                  className={`relative w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all text-[13px] ${
+                    isLocked
+                      ? 'text-ink-muted cursor-not-allowed opacity-50'
+                      : isActive
+                        ? 'bg-brand-middle-pale text-brand-middle-dark font-semibold'
+                        : 'text-ink-secondary hover:bg-gray-50 hover:text-ink font-medium'
+                  }`}
+                >
+                  <span className="text-[15px]">{m.icon}</span>
+                  <span className="flex-1 text-left">{m.label}</span>
+                  {m.isNew && !isLocked && (
+                    <span className="text-[9px] font-extrabold text-white bg-rose-500 px-1.5 py-0.5 rounded-full leading-none">
+                      NEW
+                    </span>
+                  )}
+                </button>
+              )
+            })
+          )}
         </nav>
 
-        {/* Footer */}
         <div className="px-5 py-2.5 border-t border-line-light flex-shrink-0">
           <div className="text-[11px] text-ink-muted">© 2026 B-KURS</div>
         </div>
       </aside>
 
-      {/* 메인 영역 */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
-        {/* GNB */}
         <header className="h-12 bg-white border-b border-line flex items-center justify-between px-6 flex-shrink-0">
           <div className="flex items-center gap-2">
             {!isAcademyConnected && (
@@ -199,7 +191,6 @@ export default function MiddleLayout() {
           </div>
         </header>
 
-        {/* 콘텐츠 */}
         <main className="flex-1 overflow-hidden bg-white relative">
           {!isAcademyConnected ? (
             <ConnectForm />
@@ -216,14 +207,33 @@ export default function MiddleLayout() {
 // 학원 연결 폼 (중등용 - 초록 테마)
 // ───────────────────────────────────────────────
 function ConnectForm() {
-  const setAcademy = useSetAtom(academyState)
-  const setStudent = useSetAtom(studentState)
-
+  const navigate = useNavigate()
   const [code, setCode] = useState('')
   const [school, setSchool] = useState('')
   const [grade, setGrade] = useState<typeof MIDDLE_GRADES[number] | ''>('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [alreadyRequested, setAlreadyRequested] = useState(false)
+
+  // 이미 신청한 적 있는지 확인
+  useEffect(() => {
+    const checkExistingRequest = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data } = await supabase
+        .from('pending_approvals')
+        .select('id, status')
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .maybeSingle()
+
+      if (data) {
+        setAlreadyRequested(true)
+      }
+    }
+    checkExistingRequest()
+  }, [])
 
   const handleConnect = async () => {
     if (!code.trim()) {
@@ -258,32 +268,42 @@ function ConnectForm() {
       }
 
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({
-            academy_id: data.id,
-            school: school.trim(),
-            grade: grade,
-            status: 'pending',
-          })
-          .eq('id', user.id)
-
-        if (updateError) throw updateError
-
-        setStudent(prev => prev ? {
-          ...prev,
-          grade: grade,
-        } : prev)
+      if (!user) {
+        setError('로그인 정보를 확인할 수 없어요.')
+        setLoading(false)
+        return
       }
 
-      setAcademy({
-        academyId: data.id,
-        academyCode: data.academy_code,
-        academyName: data.name,
-        teacherName: undefined,
-        teacherId: undefined,
-      })
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          school: school.trim(),
+        })
+        .eq('id', user.id)
+
+      if (profileError) throw profileError
+
+      const { error: approvalError } = await supabase
+        .from('pending_approvals')
+        .insert({
+          user_id: user.id,
+          request_type: 'student',
+          requested_role: 'middle_student',
+          academy_code: code,
+          academy_id: data.id,
+          grade: grade,
+          status: 'pending',
+        })
+
+      if (approvalError) {
+        if (approvalError.message.includes('duplicate')) {
+          setError('이미 신청한 내역이 있어요. 선생님 승인을 기다려주세요.')
+        } else {
+          throw approvalError
+        }
+        setLoading(false)
+        return
+      }
 
       window.location.href = '/middle-student/pending'
     } catch (e: any) {
@@ -292,11 +312,58 @@ function ConnectForm() {
     }
   }
 
+  // 이미 신청한 경우
+  if (alreadyRequested) {
+    return (
+      <div className="h-full overflow-y-auto flex items-center justify-center p-6 bg-gradient-to-br from-[#F8FAFC] via-white to-brand-middle-pale/30">
+        <div className="max-w-[480px] w-full">
+          <div className="text-center mb-6">
+            <div
+              className="w-20 h-20 mx-auto bg-gradient-to-br from-brand-middle-dark to-brand-middle rounded-3xl flex items-center justify-center text-4xl mb-4"
+              style={{ boxShadow: '0 12px 32px rgba(16, 185, 129, 0.25)' }}
+            >
+              ⏳
+            </div>
+            <div className="text-[24px] font-extrabold text-ink tracking-tight mb-1.5">승인 대기 중</div>
+            <div className="text-[13px] text-ink-secondary leading-relaxed">
+              학원 연결 신청이 완료되었어요.<br />
+              선생님 승인 후 사용할 수 있어요.
+            </div>
+          </div>
+
+          <div className="bg-white border-2 border-brand-middle-light rounded-3xl p-7"
+            style={{ boxShadow: '0 12px 40px rgba(16, 185, 129, 0.1)' }}
+          >
+            <div className="bg-brand-middle-pale border border-brand-middle-light rounded-xl p-4 mb-4">
+              <div className="text-[14px] font-bold text-brand-middle-dark mb-1">📌 안내</div>
+              <div className="text-[12px] text-ink-secondary leading-relaxed">
+                선생님이 신청을 확인하고 승인하면<br />
+                자동으로 정상 사용이 가능해요.<br />
+                <br />
+                <strong>학원에 직접 연락하면 더 빨라요!</strong>
+              </div>
+            </div>
+
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut()
+                navigate('/middle-student/login')
+              }}
+              className="w-full py-3 bg-gray-100 text-ink-secondary rounded-xl text-[13px] font-semibold hover:bg-gray-200 transition-all"
+            >
+              로그아웃
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 신청 폼
   return (
     <div className="h-full overflow-y-auto flex items-center justify-center p-6 bg-gradient-to-br from-[#F8FAFC] via-white to-brand-middle-pale/30">
       <div className="max-w-[480px] w-full">
 
-        {/* 헤더 */}
         <div className="text-center mb-6">
           <div
             className="w-20 h-20 mx-auto bg-gradient-to-br from-brand-middle-dark to-brand-middle rounded-3xl flex items-center justify-center text-4xl mb-4"
@@ -304,19 +371,18 @@ function ConnectForm() {
           >
             🏫
           </div>
-          <div className="text-[24px] font-extrabold text-ink tracking-tight mb-1.5">학원 연결하기</div>
+          <div className="text-[24px] font-extrabold text-ink tracking-tight mb-1.5">중등 학생 등록 신청</div>
           <div className="text-[13px] text-ink-secondary leading-relaxed">
-            선생님께 받은 학원 코드와 본인 정보를 입력해주세요
+            선생님께 받은 학원 코드와 본인 정보를 입력해주세요<br />
+            <span className="text-[11px] text-brand-middle-dark font-semibold">선생님 승인 후 사용할 수 있어요</span>
           </div>
         </div>
 
-        {/* 폼 카드 */}
         <div
           className="bg-white border-2 border-brand-middle-light rounded-3xl p-7"
           style={{ boxShadow: '0 12px 40px rgba(16, 185, 129, 0.1)' }}
         >
 
-          {/* 학원 코드 */}
           <div className="mb-4">
             <label className="text-[11px] font-bold text-ink-secondary block mb-1.5 uppercase tracking-wider">학원 코드</label>
             <input
@@ -334,7 +400,6 @@ function ConnectForm() {
             />
           </div>
 
-          {/* 학교 */}
           <div className="mb-4">
             <label className="text-[11px] font-bold text-ink-secondary block mb-1.5 uppercase tracking-wider">학교</label>
             <input
@@ -351,7 +416,6 @@ function ConnectForm() {
             />
           </div>
 
-          {/* 학년 */}
           <div className="mb-4">
             <label className="text-[11px] font-bold text-ink-secondary block mb-1.5 uppercase tracking-wider">학년</label>
             <div className="grid grid-cols-3 gap-2">
@@ -375,24 +439,21 @@ function ConnectForm() {
             </div>
           </div>
 
-          {/* 에러 */}
           {error && (
             <div className="text-[11px] text-red-500 font-semibold mb-3 flex items-center gap-1">
               <span>⚠️</span> {error}
             </div>
           )}
 
-          {/* 버튼 */}
           <button
             onClick={handleConnect}
             disabled={loading}
             className="w-full py-3.5 bg-brand-middle text-white rounded-xl text-[14px] font-bold hover:bg-brand-middle-dark transition-all shadow-[0_4px_12px_rgba(16,185,129,0.25)] hover:shadow-[0_6px_16px_rgba(16,185,129,0.35)] disabled:opacity-60"
           >
-            {loading ? '연결 중...' : '학원 연결 신청'}
+            {loading ? '신청 중...' : '학원 연결 신청'}
           </button>
         </div>
 
-        {/* 안내 */}
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mt-4">
           <div className="flex items-start gap-2">
             <span className="text-[14px] flex-shrink-0">💡</span>

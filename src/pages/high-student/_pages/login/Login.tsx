@@ -11,7 +11,7 @@ export default function StudentLogin() {
   const [showPw, setShowPw] = useState(false)
 
   const { handleLogin, loading, error, setError } = useLogin({
-    allowedRoles: ['high_student'],
+    allowedRoles: ['high_student', 'pending'],
     redirectTo: '/high-student/roadmap',
     loginType: 'student',
     defaultGrade: '고1',

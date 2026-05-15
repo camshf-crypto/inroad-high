@@ -1,28 +1,36 @@
 // src/lib/auth/useSignup.ts
-// 통합 회원가입 훅 - 고등/중등 학생 모두 사용 (Supabase 연동)
+// 통합 회원가입 훅 - 학생/선생님/원장 모두 사용
+// 가입 시 role: 'pending' → 마스터가 권한 부여
+//
+// ⭐ 백워드 호환: 기존 중등/고등 사인업 페이지에서 level 파라미터를 넘겨도 OK
+//    (level은 받기만 하고 사용 안 함, 모두 'pending'으로 가입)
+// ⭐ 가입 완료 시 https://www.b-kurs.com/login 으로 이동
 
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 
-type Level = 'high' | 'middle'
-
 interface UseSignupOptions {
   /**
-   * 학생 레벨 ('high' | 'middle')
-   * → profiles.role = 'high_student' 또는 'middle_student'
+   * 가입 성공 후 이동할 경로 (기본값: 비커스 메인 로그인 페이지)
+   * 외부 URL도 가능 (예: 'https://www.b-kurs.com/login')
    */
-  level: Level
+  redirectTo?: string
 
   /**
-   * 가입 성공 후 이동할 경로
-   * 예: '/high-student/login', '/middle-student/login'
+   * ⚠️ 백워드 호환용 (사용 안 함, role은 항상 'pending')
+   * 기존 중등/고등 사인업 페이지에서 넘기던 파라미터.
+   * 새 통합 사인업에서는 받기만 하고 무시함.
    */
-  redirectTo: string
+  level?: 'high' | 'middle'
 }
 
-export function useSignup(options: UseSignupOptions) {
+// ⭐ 가입 완료 후 이동할 기본 URL (비커스 메인 사이트 로그인)
+const DEFAULT_LOGIN_URL = 'https://www.b-kurs.com/login'
+
+export function useSignup(options: UseSignupOptions = {}) {
   const navigate = useNavigate()
+  const redirectTo = options.redirectTo || DEFAULT_LOGIN_URL
 
   // 스텝
   const [step, setStep] = useState<1 | 2>(1)
@@ -169,9 +177,16 @@ export function useSignup(options: UseSignupOptions) {
 
     try {
       // 2. Supabase Auth 가입
+      // ⭐ raw_user_meta_data에 name 저장 → DB 트리거가 profiles에 자동 생성
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            name: name.trim(),
+            phone: phone,
+          },
+        },
       })
 
       if (authError) {
@@ -192,35 +207,34 @@ export function useSignup(options: UseSignupOptions) {
         return
       }
 
-      // 3. profiles 테이블에 정보 저장
-      // role은 level에 따라 결정
-      const role = options.level === 'high' ? 'high_student' : 'middle_student'
-
+      // 3. profiles 추가 정보 업데이트 (트리거가 만든 행에 phone 추가)
+      // ⭐ DB 트리거가 자동으로 'pending' role로 profile 생성함
+      // ⭐ 여기선 phone만 업데이트 (트리거는 phone을 못 가져옴)
       const { error: profileError } = await supabase
         .from('profiles')
-        .upsert({
-          id: authData.user.id,
-          email,
-          name: name.trim(),
+        .update({
           phone: phone,
-          role: role,
-          status: 'active', // 학원 연결 전엔 active (학원 연결하면 pending으로 바뀜)
+          name: name.trim(),  // 트리거가 못 가져왔을 경우 대비
         })
+        .eq('id', authData.user.id)
 
       if (profileError) {
-        // profiles 저장 실패 시 — auth 계정은 만들어졌지만 프로필이 없음
-        console.error('[Signup] profile save failed:', profileError)
-        setError('프로필 저장에 실패했어요: ' + profileError.message)
-        setLoading(false)
-        return
+        // 트리거가 만든 profile에 phone 추가 실패 — 가입은 됨
+        console.warn('[Signup] phone update failed:', profileError)
+        // 가입은 됐으니까 계속 진행
       }
 
-      // 4. 가입 완료 — 로그인 페이지로 이동
-      // (자동 로그인된 상태라면 일단 로그아웃 후 로그인 페이지로)
+      // 4. 가입 완료 — 로그아웃 후 비커스 메인 로그인 페이지로 이동
       await supabase.auth.signOut()
 
-      alert('가입이 완료됐어요! 로그인해주세요.')
-      navigate(options.redirectTo)
+      alert('가입이 완료됐어요!\n 모든 사용자는 승인 후 서비스를 이용할 수 있어요.\n\n비커스 메인 로그인 페이지로 이동합니다.')
+
+      // ⭐ 외부 URL이면 window.location.href, 내부 경로면 navigate
+      if (redirectTo.startsWith('http://') || redirectTo.startsWith('https://')) {
+        window.location.href = redirectTo
+      } else {
+        navigate(redirectTo)
+      }
     } catch (err: any) {
       console.error('[Signup] error:', err)
       setError('가입 중 오류가 발생했어요: ' + (err.message || '알 수 없는 오류'))
@@ -280,8 +294,5 @@ export function useSignup(options: UseSignupOptions) {
     // 핸들러
     handleStep1Next,
     handleSignup,
-
-    // 옵션
-    level: options.level,
   }
 }

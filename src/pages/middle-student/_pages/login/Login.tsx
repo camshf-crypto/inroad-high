@@ -11,7 +11,7 @@ export default function MiddleLogin() {
   const [showPw, setShowPw] = useState(false)
 
   const { handleLogin, loading, error, setError } = useLogin({
-    allowedRoles: ['middle_student'],
+    allowedRoles: ['middle_student', 'pending'],
     redirectTo: '/middle-student/roadmap',
     loginType: 'student',
     defaultGrade: '중1',

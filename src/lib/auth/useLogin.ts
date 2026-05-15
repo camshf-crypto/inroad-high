@@ -1,5 +1,17 @@
 // src/lib/auth/useLogin.ts
-// 통합 로그인 훅 - 선생님/고등학생/중학생 모두 사용
+// 통합 로그인 훅
+//
+// ⭐ 핵심 로직:
+//   - pending → 어디든 통과 (ConnectForm으로)
+//   - middle_student → 중등 페이지만 (redirectTo로 판단!)
+//   - high_student → 고등 페이지만
+//   - 잘못된 페이지 → 친절한 안내
+//
+// ⭐ 페이지 판단:
+//   redirectTo가 '/high-student/...' → 고등 페이지
+//   redirectTo가 '/middle-student/...' → 중등 페이지
+//
+// ⭐ 변경: setAcademy 시 enabledMenus도 함께 저장!
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -7,40 +19,13 @@ import { useSetAtom } from 'jotai'
 import { supabase } from '../supabase'
 import { tokenState, studentState, academyState } from './atoms'
 
-type Role = 'admin' | 'teacher' | 'high_student' | 'middle_student'
+type Role = 'admin' | 'teacher' | 'high_student' | 'middle_student' | 'pending'
 
 interface UseLoginOptions {
-  /**
-   * 허용되는 role 배열
-   * admin/teacher 페이지: ['admin', 'teacher']
-   * 고등학생 페이지: ['high_student']
-   * 중학생 페이지: ['middle_student']
-   */
   allowedRoles: Role[]
-
-  /**
-   * 로그인 성공 후 이동할 경로
-   * 예: '/admin', '/high-student/roadmap', '/middle-student/roadmap'
-   */
   redirectTo: string
-
-  /**
-   * 로그인 타입 (state 저장 방식 다름)
-   * 'admin': academyState만
-   * 'student': studentState + academyState
-   */
   loginType: 'admin' | 'student'
-
-  /**
-   * 학생일 때 기본 학년 (profile.grade 없을 때 fallback)
-   * 고등학생: '고1', 중학생: '중1'
-   */
   defaultGrade?: string
-
-  /**
-   * role이 안 맞을 때 표시할 에러 메시지
-   * 예: '학원 관리자 계정만 접근 가능합니다.'
-   */
   roleErrorMessage: string
 }
 
@@ -52,6 +37,10 @@ export function useLogin(options: UseLoginOptions) {
 
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // ⭐ redirectTo로 페이지 종류 판단
+  const isHighPage = options.redirectTo.includes('/high-student/')
+  const isMiddlePage = options.redirectTo.includes('/middle-student/')
 
   const handleLogin = async (email: string, password: string) => {
     if (!email || !password) {
@@ -87,7 +76,7 @@ export function useLogin(options: UseLoginOptions) {
         return
       }
 
-      // 2️⃣ profiles 테이블에서 role 확인 (status 포함)
+      // 2️⃣ profiles에서 role 확인
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('role, name, academy_id, grade, school, email, status')
@@ -101,16 +90,78 @@ export function useLogin(options: UseLoginOptions) {
         return
       }
 
-      // 3️⃣ role 검증
-      if (!options.allowedRoles.includes(profile.role as Role)) {
-        setError(options.roleErrorMessage)
-        await supabase.auth.signOut()
-        setLoading(false)
-        return
-      }
+      // ⭐⭐⭐ 디버그 로그 ⭐⭐⭐
+      console.log('=== 로그인 디버그 ===')
+      console.log('profile.role:', JSON.stringify(profile.role))
+      console.log('options.loginType:', options.loginType)
+      console.log('isHighPage:', isHighPage)
+      console.log('isMiddlePage:', isMiddlePage)
 
-      // 3️⃣-1. 학생 status 체크 — rejected는 차단하지 않고 통과시킴
-      // (rejected라도 로그인 후 재신청 가능하게)
+      // 3️⃣ role 검증
+      const isStudentLogin = options.loginType === 'student'
+      const role = profile.role
+
+      if (isStudentLogin) {
+        // ⭐ 학생 로그인 처리
+
+        // pending 사용자 → 어디든 통과 (ConnectForm으로)
+        if (role === 'pending') {
+          console.log('✅ pending 통과')
+          console.log('=====================')
+          // 통과 → 아래로
+        }
+        // middle_student → 중등 페이지만!
+        else if (role === 'middle_student') {
+          if (isHighPage) {
+            // ❌ 중등인데 고등 페이지 → 차단!
+            console.log('❌ 중등 계정인데 고등 페이지 → 차단')
+            console.log('=====================')
+            setError('이 계정은 중등 학생 계정이에요.\n중등 학생 로그인을 이용해주세요.')
+            await supabase.auth.signOut()
+            setLoading(false)
+            return
+          }
+          console.log('✅ 중등 통과')
+          console.log('=====================')
+          // 중등 페이지 → 통과
+        }
+        // high_student → 고등 페이지만!
+        else if (role === 'high_student') {
+          if (isMiddlePage) {
+            // ❌ 고등인데 중등 페이지 → 차단!
+            console.log('❌ 고등 계정인데 중등 페이지 → 차단')
+            console.log('=====================')
+            setError('이 계정은 고등 학생 계정이에요.\n고등 학생 로그인을 이용해주세요.')
+            await supabase.auth.signOut()
+            setLoading(false)
+            return
+          }
+          console.log('✅ 고등 통과')
+          console.log('=====================')
+          // 고등 페이지 → 통과
+        }
+        // 그 외 (admin, teacher 등) → 학생 페이지 접근 X
+        else {
+          console.log('❌ 학생이 아님')
+          console.log('=====================')
+          setError(options.roleErrorMessage)
+          await supabase.auth.signOut()
+          setLoading(false)
+          return
+        }
+      } else {
+        // ⭐ 관리자 로그인 처리
+        if (!options.allowedRoles.includes(role as Role)) {
+          console.log('❌ 관리자 권한 없음')
+          console.log('=====================')
+          setError(options.roleErrorMessage)
+          await supabase.auth.signOut()
+          setLoading(false)
+          return
+        }
+        console.log('✅ 관리자 통과')
+        console.log('=====================')
+      }
 
       // 4️⃣ 학원 정보 가져오기
       let academyInfo: any = null
@@ -141,21 +192,22 @@ export function useLogin(options: UseLoginOptions) {
       })
 
       if (options.loginType === 'admin') {
-        // 선생님/원장
         setAcademy({
           academyId: academyInfo!.id,
           academyCode: academyInfo!.academy_code || '',
           academyName: academyInfo!.name,
+          enabledMenus: academyInfo!.enabled_menus || [],  // ⭐ 추가!
           ownerName: profile.name || '',
           role: profile.role === 'admin' ? 'OWNER' : 'TEACHER',
           plans: ['high', 'middle'],
         })
       } else {
-        // 학생 (고등/중등)
+        const fallbackGrade = profile.role === 'high_student' ? '고1' : '중1'
+
         setStudent({
           id: authData.user.id as any,
           name: profile.name || '',
-          grade: (profile.grade || options.defaultGrade || '고1') as any,
+          grade: (profile.grade || options.defaultGrade || fallbackGrade) as any,
           email: profile.email || email,
           role: 'STUDENT',
         })
@@ -165,15 +217,16 @@ export function useLogin(options: UseLoginOptions) {
             academyId: academyInfo.id,
             academyCode: academyInfo.academy_code || '',
             academyName: academyInfo.name,
+            enabledMenus: academyInfo.enabled_menus || [],  // ⭐ 추가!
             teacherName: '',
             teacherId: undefined,
           })
         } else {
-          // 학원 정보 없으면 명시적으로 비우기 (이전 세션 잔여 데이터 방지)
           setAcademy({
             academyId: undefined,
             academyCode: undefined,
             academyName: undefined,
+            enabledMenus: [],  // ⭐ 추가!
             teacherName: undefined,
             teacherId: undefined,
           })
@@ -181,13 +234,27 @@ export function useLogin(options: UseLoginOptions) {
       }
 
       // 6️⃣ 페이지 이동
-      // 학생이 pending 상태면 승인 대기 페이지로
-      if (options.loginType === 'student' && profile.status === 'pending') {
-        const isHigh = options.allowedRoles.includes('high_student' as Role)
-        navigate(isHigh ? '/high-student/pending' : '/middle-student/pending')
+      if (options.loginType === 'student') {
+        const actualRole = profile.role
+
+        // pending → redirectTo로 (ConnectForm)
+        if (actualRole === 'pending') {
+          navigate(options.redirectTo)
+          return
+        }
+
+        // status가 pending이면 (학원 연결은 했는데 승인 대기)
+        if (profile.status === 'pending') {
+          navigate(actualRole === 'high_student'
+            ? '/high-student/pending'
+            : '/middle-student/pending')
+        } else {
+          // 정상 학생 → 본인 페이지로
+          navigate(actualRole === 'high_student'
+            ? '/high-student/roadmap'
+            : '/middle-student/roadmap')
+        }
       } else {
-        // 그 외 (active, rejected) 모두 로드맵으로
-        // → Layout에서 academy_id 없으면 자동으로 학원 연결 폼 표시함
         navigate(options.redirectTo)
       }
 
@@ -206,9 +273,6 @@ export function useLogin(options: UseLoginOptions) {
   }
 }
 
-/**
- * 비밀번호 재설정 훅 (학생 로그인에서 사용)
- */
 export function usePasswordReset(redirectPath: string) {
   const [findResult, setFindResult] = useState('')
   const [findLoading, setFindLoading] = useState(false)

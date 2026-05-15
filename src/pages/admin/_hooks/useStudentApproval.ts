@@ -1,9 +1,14 @@
 // src/pages/admin/_hooks/useStudentApproval.ts
 // 학생 승인 관리 Hook
+//
+// ⭐ pending_approvals 테이블 기반!
+//   - 학생 신청 → pending_approvals.status = 'pending'
+//   - 승인 → pending_approvals.status = 'approved' → 🪄 트리거가 자동으로 profiles 업데이트
+//   - 거부 → pending_approvals.status = 'rejected'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAtomValue } from 'jotai'
-import { supabase, type Profile } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { academyState } from '@/lib/auth/atoms'
 
 /**
@@ -16,19 +21,52 @@ export function usePendingStudents() {
   return useQuery({
     queryKey: ['pending-students', academyId],
     enabled: !!academyId,
-    queryFn: async (): Promise<Profile[]> => {
+    queryFn: async (): Promise<any[]> => {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('academy_id', academyId!)
+        .from('pending_approvals')
+        .select(`
+          id,
+          requested_role,
+          academy_code,
+          academy_id,
+          grade,
+          created_at,
+          user_id,
+          profiles!user_id (
+            id,
+            name,
+            email,
+            phone,
+            school,
+            role,
+            created_at,
+            status
+          )
+        `)
         .eq('status', 'pending')
-        .in('role', ['high_student', 'middle_student'])
+        .eq('request_type', 'student')
+        .eq('academy_id', academyId!)
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      return (data ?? []) as Profile[]
+      if (!data) return []
+
+      // StudentApproval.tsx 호환 형식으로 매핑
+      return data.map((row: any) => ({
+        id: row.user_id,
+        name: row.profiles?.name || null,
+        email: row.profiles?.email || null,
+        phone: row.profiles?.phone || null,
+        school: row.profiles?.school || null,
+        grade: row.grade,
+        role: row.requested_role,  // ⭐ requested_role로 매핑
+        status: row.profiles?.status || 'pending',
+        academy_id: row.academy_id,
+        created_at: row.profiles?.created_at || row.created_at,
+        updated_at: row.created_at,
+      }))
     },
-    refetchInterval: 5000, // 5초마다 자동 새로고침 (새 신청 보이게)
+    refetchInterval: 5000,
   })
 }
 
@@ -41,9 +79,11 @@ export function useApproveStudent() {
   return useMutation({
     mutationFn: async (studentId: string) => {
       const { error } = await supabase
-        .from('profiles')
-        .update({ status: 'active' })
-        .eq('id', studentId)
+        .from('pending_approvals')
+        .update({ status: 'approved' })
+        .eq('user_id', studentId)
+        .eq('status', 'pending')
+        .eq('request_type', 'student')
 
       if (error) throw error
     },
@@ -56,7 +96,6 @@ export function useApproveStudent() {
 
 /**
  * 학생 거절
- * status를 rejected로 + academy_id를 null로
  */
 export function useRejectStudent() {
   const queryClient = useQueryClient()
@@ -64,12 +103,14 @@ export function useRejectStudent() {
   return useMutation({
     mutationFn: async (studentId: string) => {
       const { error } = await supabase
-        .from('profiles')
+        .from('pending_approvals')
         .update({
           status: 'rejected',
-          academy_id: null,
+          rejection_reason: '선생님이 거절했습니다.',
         })
-        .eq('id', studentId)
+        .eq('user_id', studentId)
+        .eq('status', 'pending')
+        .eq('request_type', 'student')
 
       if (error) throw error
     },
@@ -91,10 +132,11 @@ export function useApproveAll() {
       if (!academy.academyId) throw new Error('학원 정보가 없습니다.')
 
       const { error } = await supabase
-        .from('profiles')
-        .update({ status: 'active' })
+        .from('pending_approvals')
+        .update({ status: 'approved' })
         .eq('academy_id', academy.academyId)
         .eq('status', 'pending')
+        .eq('request_type', 'student')
 
       if (error) throw error
     },
