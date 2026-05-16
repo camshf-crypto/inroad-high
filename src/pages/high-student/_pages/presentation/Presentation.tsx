@@ -1,5 +1,7 @@
 import { useState, useRef, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useAtomValue } from 'jotai'
+import { studentState } from '@/lib/auth/atoms'
 import { supabase } from '@/lib/supabase'
 import {
   useAvailablePresentations,
@@ -17,6 +19,7 @@ import {
   PRESENTATION_CATEGORIES,
   type PresentationSeed,
 } from '../../_hooks/useMyHighPresentation'
+import { useDraftAutoSave, type DraftStatus } from '../../_hooks/useDraftAutoSave'
 
 function useMyProfile() {
   return useQuery({
@@ -42,10 +45,110 @@ const THEME = {
 const ALL_UNIVS = ['서울대학교', '연세대학교', '고려대학교', '한양대학교', '성균관대학교', '중앙대학교', '경희대학교']
 
 type Phase = 'list' | 'select' | 'exam' | 'done'
-type ActiveTab = 'intent' | string  // 'intent' or questionId
+type ActiveTab = 'intent' | string
 type QPhase = 'first' | 'firstFeedback' | 'second' | 'finalFeedback' | 'tail' | 'tailFeedback'
 
+// ─────────────────────────────────────────────
+// Blob → base64
+// ─────────────────────────────────────────────
+async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve((reader.result as string).split(',')[1])
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+}
+
+// ─────────────────────────────────────────────
+// 자동저장 상태 표시
+// ─────────────────────────────────────────────
+function DraftStatusIndicator({ status, lastSavedAt }: { status: DraftStatus; lastSavedAt: Date | null }) {
+  if (status === 'idle') return null
+  if (status === 'saving') return (
+    <span className="text-[10px] text-ink-muted flex items-center gap-1">
+      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />저장 중...
+    </span>
+  )
+  if (status === 'error') return <span className="text-[10px] text-red-500 flex items-center gap-1">⚠️ 저장 실패</span>
+  return (
+    <span className="text-[10px] text-emerald-600 flex items-center gap-1">
+      ✓ 자동 저장됨
+      {lastSavedAt && <span className="text-ink-muted">({lastSavedAt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })})</span>}
+    </span>
+  )
+}
+
+// ─────────────────────────────────────────────
+// STT 마이크 버튼
+// ─────────────────────────────────────────────
+function MicSTTBtn({ onTranscript }: { onTranscript: (text: string) => void }) {
+  const [recording, setRecording] = useState(false)
+  const [processing, setProcessing] = useState(false)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const audioStreamRef = useRef<MediaStream | null>(null)
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      audioStreamRef.current = stream
+      const recorder = new MediaRecorder(stream)
+      audioChunksRef.current = []
+      recorder.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
+      recorder.start()
+      mediaRecorderRef.current = recorder
+      setRecording(true)
+    } catch {
+      alert('마이크 권한이 필요해요. 브라우저 설정에서 허용해주세요.')
+    }
+  }
+
+  const stopRecording = async () => {
+    const recorder = mediaRecorderRef.current
+    if (!recorder || recorder.state === 'inactive') return
+    setRecording(false)
+    setProcessing(true)
+    const blobPromise = new Promise<Blob>(resolve => {
+      recorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        if (audioStreamRef.current) { audioStreamRef.current.getTracks().forEach(t => t.stop()); audioStreamRef.current = null }
+        resolve(blob)
+      }
+      recorder.stop()
+    })
+    try {
+      const blob = await blobPromise
+      const audioBase64 = await blobToBase64(blob)
+      const { data, error } = await supabase.functions.invoke('middle-stt-short', { body: { audioBase64 } })
+      if (error || !data?.success) { alert('음성 변환 실패: ' + (error?.message || data?.error || 'unknown')); return }
+      const transcript = data?.text || ''
+      if (transcript) onTranscript(transcript)
+      else alert('음성을 인식하지 못했어요. 다시 시도해주세요!')
+    } catch (e: any) {
+      alert('STT 처리 중 오류: ' + e.message)
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  return (
+    <button onClick={recording ? stopRecording : startRecording} disabled={processing}
+      title={recording ? '녹음 종료' : processing ? '변환 중...' : '음성으로 답변 (1분 이내)'}
+      className={`w-9 h-9 rounded-lg border flex items-center justify-center flex-shrink-0 text-base transition-all ${
+        recording ? 'bg-red-50 border-red-200 text-red-500 animate-pulse'
+          : processing ? 'bg-amber-50 border-amber-200 text-amber-600 cursor-wait'
+          : 'bg-brand-high-pale border-brand-high-light text-brand-high-dark'
+      }`}>
+      {recording ? '⏹' : processing ? '⏳' : '🎙️'}
+    </button>
+  )
+}
+
 export default function Presentation() {
+  const student = useAtomValue(studentState)
+  const studentId = student?.id ? String(student.id) : undefined
+
   const { data: myProfile } = useMyProfile()
 
   const [phase, setPhase] = useState<Phase>('list')
@@ -55,8 +158,6 @@ export default function Presentation() {
   const [selExamId, setSelExamId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<ActiveTab>('intent')
   const [qPhase, setQPhase] = useState<QPhase>('first')
-  const [answerInput, setAnswerInput] = useState('')
-  const [isRecording, setIsRecording] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -85,17 +186,13 @@ export default function Presentation() {
   const completeExam = useCompletePresentationExam()
   const deleteExam = useDeletePresentationExam()
 
-  // 현재 활성 질문
   const activeQuestion = activeTab !== 'intent' ? examQuestions.find(q => q.id === activeTab) : null
 
-  // 탭 변경 시 답변 입력 비우고 phase 초기화
   const switchTab = (tab: ActiveTab) => {
     setActiveTab(tab)
-    setAnswerInput('')
     if (tab !== 'intent') {
       const q = examQuestions.find(qq => qq.id === tab)
       if (q) {
-        // 질문 진행 단계 추론
         if (q.tail_feedback) setQPhase('tailFeedback')
         else if (q.tail_answer) setQPhase('tailFeedback')
         else if (q.final_feedback && q.tail_question) setQPhase('tail')
@@ -108,23 +205,7 @@ export default function Presentation() {
     }
   }
 
-  // 녹음
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mr = new MediaRecorder(stream)
-      mediaRecorderRef.current = mr
-      audioChunksRef.current = []
-      mr.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
-      mr.start()
-      answerStartRef.current = Date.now()
-      setIsRecording(true)
-    } catch (e: any) {
-      alert('마이크 권한 필요: ' + e.message)
-    }
-  }
-
-  const stopRecording = async (label: string): Promise<{ url: string | null; duration: number }> => {
+  const stopRecordingForUpload = async (label: string): Promise<{ url: string | null; duration: number }> => {
     return new Promise((resolve) => {
       const mr = mediaRecorderRef.current
       if (!mr || !selExamId) { resolve({ url: null, duration: 0 }); return }
@@ -141,7 +222,6 @@ export default function Presentation() {
         }
       }
       mr.stop()
-      setIsRecording(false)
     })
   }
 
@@ -157,52 +237,30 @@ export default function Presentation() {
     }
   }
 
-  // 의도파악 답변 제출
-  const handleSubmitMainIntent = async () => {
-    if (!selExamId || !answerInput.trim()) return
-    let url: string | null = null, duration = 0
-    if (isRecording) {
-      const r = await stopRecording('intent')
-      url = r.url; duration = r.duration
-    }
+  const handleSubmitMainIntent = async (text: string, clearDraft: () => Promise<void>) => {
+    if (!selExamId || !text.trim()) return
     try {
-      await submitMainIntent.mutateAsync({
-        examId: selExamId, answer: answerInput,
-        recordingUrl: url || undefined, durationSec: duration,
-      })
-      setAnswerInput('')
-      // 첫 질문 탭으로 자동 이동
-      if (examQuestions.length > 0) {
-        switchTab(examQuestions[0].id)
-      }
+      await submitMainIntent.mutateAsync({ examId: selExamId, answer: text, recordingUrl: undefined, durationSec: 0 })
+      await clearDraft()
+      if (examQuestions.length > 0) switchTab(examQuestions[0].id)
     } catch (e: any) {
       alert('저장 실패: ' + e.message)
     }
   }
 
-  // 1차/2차/꼬리 답변 제출
-  const handleSubmitAnswer = async () => {
-    if (!activeQuestion || !selExamId || !answerInput.trim()) return
-    let url: string | null = null, duration = 0
-    if (isRecording) {
-      const r = await stopRecording(qPhase)
-      url = r.url; duration = r.duration
-    }
+  const handleSubmitAnswer = async (text: string, clearDraft: () => Promise<void>) => {
+    if (!activeQuestion || !selExamId || !text.trim()) return
     try {
-      const args = {
-        questionId: activeQuestion.id, examId: selExamId,
-        answer: answerInput, recordingUrl: url || undefined, durationSec: duration,
-      }
+      const args = { questionId: activeQuestion.id, examId: selExamId, answer: text, recordingUrl: undefined, durationSec: 0 }
       if (qPhase === 'first') { await submitFirst.mutateAsync(args); setQPhase('firstFeedback') }
       else if (qPhase === 'second') { await submitSecond.mutateAsync(args); setQPhase('finalFeedback') }
       else if (qPhase === 'tail') { await submitTail.mutateAsync(args); setQPhase('tailFeedback') }
-      setAnswerInput('')
+      await clearDraft()
     } catch (e: any) {
       alert('저장 실패: ' + e.message)
     }
   }
 
-  // 다음 단계
   const goNext = () => {
     if (qPhase === 'firstFeedback') { setQPhase('second'); return }
     if (qPhase === 'finalFeedback') {
@@ -216,7 +274,6 @@ export default function Presentation() {
   const nextQuestion = async () => {
     const curIdx = examQuestions.findIndex(q => q.id === activeTab)
     if (curIdx + 1 >= examQuestions.length) {
-      // 마지막 → 완료
       if (selExamId) await completeExam.mutateAsync(selExamId)
       setPhase('done')
       return
@@ -247,15 +304,12 @@ export default function Presentation() {
               {myProfile?.name && `${myProfile.name} 학생 · `}총 {myExams.length}회 진행
             </div>
           </div>
-          <button
-            onClick={() => setPhase('select')}
+          <button onClick={() => setPhase('select')}
             className="px-5 py-2.5 text-white rounded-lg text-[13px] font-bold"
-            style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
-          >
+            style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}>
             + 새 회차 시작
           </button>
         </div>
-
         <div className="flex-1 overflow-y-auto">
           {myExams.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-ink-muted gap-3">
@@ -268,44 +322,26 @@ export default function Presentation() {
               {myExams.map(exam => {
                 const sl = getPresentationStatusLabel(exam.status)
                 return (
-                  <div
-                    key={exam.id}
-                    onClick={() => {
-                      setSelExamId(exam.id)
-                      setActiveTab('intent')
-                      setPhase('exam')
-                    }}
-                    className="bg-white border border-line rounded-2xl p-5 cursor-pointer hover:shadow-md transition-all hover:border-blue-300 relative"
-                  >
-                    <button
-                      onClick={e => { e.stopPropagation(); setDeleteTarget(exam.id) }}
-                      className="absolute top-3 right-3 w-7 h-7 rounded-full bg-gray-100 hover:bg-red-100 hover:text-red-600 text-[12px] text-ink-secondary flex items-center justify-center transition-colors"
-                    >
+                  <div key={exam.id}
+                    onClick={() => { setSelExamId(exam.id); setActiveTab('intent'); setPhase('exam') }}
+                    className="bg-white border border-line rounded-2xl p-5 cursor-pointer hover:shadow-md transition-all hover:border-blue-300 relative">
+                    <button onClick={e => { e.stopPropagation(); setDeleteTarget(exam.id) }}
+                      className="absolute top-3 right-3 w-7 h-7 rounded-full bg-gray-100 hover:bg-red-100 hover:text-red-600 text-[12px] text-ink-secondary flex items-center justify-center transition-colors">
                       ✕
                     </button>
                     <div className="flex items-center gap-3 mb-2">
                       <div className="text-[16px] font-extrabold text-ink">📜 {exam.passage_title}</div>
-                      <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
-                        style={{ background: sl.bg, color: sl.color }}>
-                        {sl.label}
-                      </span>
+                      <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full" style={{ background: sl.bg, color: sl.color }}>{sl.label}</span>
                     </div>
-                    <div className="text-[12px] text-ink-secondary">
-                      🎓 {exam.university} · {exam.category} · 📅 {new Date(exam.created_at).toLocaleDateString('ko-KR')}
-                    </div>
+                    <div className="text-[12px] text-ink-secondary">🎓 {exam.university} · {exam.category} · 📅 {new Date(exam.created_at).toLocaleDateString('ko-KR')}</div>
                   </div>
                 )
               })}
             </div>
           )}
         </div>
-
         {deleteTarget !== null && (
-          <DeleteModal
-            onCancel={() => setDeleteTarget(null)}
-            onConfirm={() => handleDelete(deleteTarget)}
-            isLoading={deleteExam.isPending}
-          />
+          <DeleteModal onCancel={() => setDeleteTarget(null)} onConfirm={() => handleDelete(deleteTarget)} isLoading={deleteExam.isPending} />
         )}
       </div>
     )
@@ -318,80 +354,51 @@ export default function Presentation() {
     return (
       <div className="flex flex-col h-full overflow-hidden px-6 py-5">
         <div className="flex items-center gap-2 mb-4">
-          <button onClick={() => setPhase('list')} className="text-[12px] font-semibold text-ink-secondary hover:text-ink">
-            ← 뒤로
-          </button>
+          <button onClick={() => setPhase('list')} className="text-[12px] font-semibold text-ink-secondary hover:text-ink">← 뒤로</button>
           <div className="text-[15px] font-extrabold text-ink">학교 · 계열 선택</div>
         </div>
-
         <div className="bg-white border border-line rounded-2xl p-6 mb-4">
           <div className="grid grid-cols-2 gap-4 mb-5">
             <div>
               <div className="text-[12px] font-bold text-ink mb-2">🎓 학교</div>
-              <select
-                value={selUniv}
-                onChange={e => { setSelUniv(e.target.value); setSelSeed(null) }}
-                className="w-full h-11 border border-line rounded-lg px-3 text-[13px] outline-none bg-white focus:border-blue-500"
-              >
+              <select value={selUniv} onChange={e => { setSelUniv(e.target.value); setSelSeed(null) }}
+                className="w-full h-11 border border-line rounded-lg px-3 text-[13px] outline-none bg-white focus:border-blue-500">
                 <option value="">전체 학교</option>
                 {ALL_UNIVS.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
             <div>
               <div className="text-[12px] font-bold text-ink mb-2">📚 계열</div>
-              <select
-                value={selCategory}
-                onChange={e => { setSelCategory(e.target.value); setSelSeed(null) }}
-                className="w-full h-11 border border-line rounded-lg px-3 text-[13px] outline-none bg-white focus:border-blue-500"
-              >
+              <select value={selCategory} onChange={e => { setSelCategory(e.target.value); setSelSeed(null) }}
+                className="w-full h-11 border border-line rounded-lg px-3 text-[13px] outline-none bg-white focus:border-blue-500">
                 <option value="">전체 계열</option>
                 {PRESENTATION_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
           </div>
-
-          <div className="text-[12px] font-bold text-ink mb-2">
-            📜 제시문 선택 ({availableSeeds.length}개)
-          </div>
+          <div className="text-[12px] font-bold text-ink mb-2">📜 제시문 선택 ({availableSeeds.length}개)</div>
           <div className="flex flex-col gap-2 max-h-[400px] overflow-y-auto">
             {availableSeeds.length === 0 ? (
-              <div className="text-center py-8 text-ink-muted text-[12px]">
-                해당 조건의 제시문이 없어요. 다른 학교/계열을 선택해보세요.
-              </div>
+              <div className="text-center py-8 text-ink-muted text-[12px]">해당 조건의 제시문이 없어요.</div>
             ) : availableSeeds.map(seedItem => {
               const isSelected = selSeed?.id === seedItem.id
               return (
-                <button
-                  key={seedItem.id}
-                  onClick={() => setSelSeed(seedItem)}
+                <button key={seedItem.id} onClick={() => setSelSeed(seedItem)}
                   className="text-left rounded-xl px-4 py-3 transition-all"
-                  style={{
-                    border: `2px solid ${isSelected ? THEME.accent : '#E5E7EB'}`,
-                    background: isSelected ? THEME.accentBg : '#fff',
-                  }}
-                >
+                  style={{ border: `2px solid ${isSelected ? THEME.accent : '#E5E7EB'}`, background: isSelected ? THEME.accentBg : '#fff' }}>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[13px] font-extrabold text-ink">{seedItem.passage_title}</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                      style={{ background: '#FEF3C7', color: '#92400E' }}>
-                      {seedItem.difficulty}
-                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#FEF3C7', color: '#92400E' }}>{seedItem.difficulty}</span>
                   </div>
-                  <div className="text-[11px] text-ink-secondary">
-                    🎓 {seedItem.university} · {seedItem.category}
-                  </div>
+                  <div className="text-[11px] text-ink-secondary">🎓 {seedItem.university} · {seedItem.category}</div>
                 </button>
               )
             })}
           </div>
         </div>
-
-        <button
-          onClick={handleStartExam}
-          disabled={!selSeed || createExam.isPending}
+        <button onClick={handleStartExam} disabled={!selSeed || createExam.isPending}
           className="w-full h-12 text-white rounded-xl text-[14px] font-bold disabled:opacity-50"
-          style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
-        >
+          style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}>
           {createExam.isPending ? '준비 중...' : '🚀 회차 시작'}
         </button>
       </div>
@@ -399,112 +406,74 @@ export default function Presentation() {
   }
 
   // ═══════════════════════════════════════════
-  // 3. 응시 화면 (왼쪽 제시문 고정 + 오른쪽 탭)
+  // 3. 응시 화면
   // ═══════════════════════════════════════════
   if (phase === 'exam' && selExam) {
     return (
       <div className="flex flex-col h-full overflow-hidden px-6 py-5">
-        {/* 헤더 */}
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => { setSelExamId(null); setPhase('list') }}
-              className="text-[12px] font-semibold text-ink-secondary hover:text-ink"
-            >
-              ← 목록
-            </button>
+            <button onClick={() => { setSelExamId(null); setPhase('list') }} className="text-[12px] font-semibold text-ink-secondary hover:text-ink">← 목록</button>
             <div className="text-[15px] font-extrabold text-ink">📜 {selExam.passage_title}</div>
-            {seed && (
-              <span className="text-[11px] font-medium text-ink-secondary">
-                🎓 {seed.university} · {seed.category}
-              </span>
-            )}
+            {seed && <span className="text-[11px] font-medium text-ink-secondary">🎓 {seed.university} · {seed.category}</span>}
           </div>
         </div>
-
-        {/* 좌우 반반 */}
         <div className="flex-1 grid grid-cols-2 gap-4 overflow-hidden">
-
-          {/* ━━━ 왼쪽: 제시문 (스크롤 없이 한 화면에) ━━━ */}
+          {/* 왼쪽: 제시문 */}
           <div className="bg-white border border-line rounded-2xl p-6 flex flex-col overflow-hidden">
             <div className="flex items-center gap-2 mb-3 flex-shrink-0">
               <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider">📜 제시문</span>
-              {seed?.difficulty && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#FEF3C7', color: '#92400E' }}>
-                  난이도 {seed.difficulty}
-                </span>
-              )}
+              {seed?.difficulty && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#FEF3C7', color: '#92400E' }}>난이도 {seed.difficulty}</span>}
             </div>
             {!seed ? (
               <div className="flex-1 flex items-center justify-center text-ink-muted">불러오는 중...</div>
             ) : seed.passage_pdf_url ? (
               <iframe src={seed.passage_pdf_url} className="flex-1 w-full border border-line rounded-lg" />
             ) : seed.passage_text ? (
-              <div className="bg-gray-50 border border-line rounded-xl p-5 text-[14px] leading-[2] text-ink whitespace-pre-wrap flex-1">
-                {seed.passage_text}
-              </div>
+              <div className="bg-gray-50 border border-line rounded-xl p-5 text-[14px] leading-[2] text-ink whitespace-pre-wrap flex-1">{seed.passage_text}</div>
             ) : (
               <div className="text-ink-muted">제시문이 등록되지 않았어요.</div>
             )}
           </div>
-
-          {/* ━━━ 오른쪽: 탭 + 동적 화면 (전체 스크롤) ━━━ */}
+          {/* 오른쪽: 탭 */}
           <div className="bg-white border border-line rounded-2xl flex flex-col overflow-hidden">
-            {/* 탭 (고정) */}
             <div className="px-5 py-3 border-b border-line flex-shrink-0 flex gap-1.5 overflow-x-auto">
-              {/* 의도파악 탭 */}
-              <button
-                onClick={() => switchTab('intent')}
+              <button onClick={() => switchTab('intent')}
                 className="px-3 py-1.5 rounded-lg text-[12px] font-bold transition-all flex-shrink-0"
-                style={{
-                  background: activeTab === 'intent' ? THEME.accent : '#F3F4F6',
-                  color: activeTab === 'intent' ? '#fff' : '#6B7280',
-                }}
-              >
+                style={{ background: activeTab === 'intent' ? THEME.accent : '#F3F4F6', color: activeTab === 'intent' ? '#fff' : '#6B7280' }}>
                 🌟 의도파악
               </button>
-              {/* 질문 탭 (동적) */}
               {examQuestions.map((q, i) => {
                 const isActive = activeTab === q.id
                 const isCompleted = !!q.final_feedback && (!q.tail_question || !!q.tail_feedback)
                 return (
-                  <button
-                    key={q.id}
-                    onClick={() => switchTab(q.id)}
+                  <button key={q.id} onClick={() => switchTab(q.id)}
                     className="px-3 py-1.5 rounded-lg text-[12px] font-bold transition-all flex-shrink-0"
-                    style={{
-                      background: isActive ? THEME.accent : isCompleted ? '#D1FAE5' : '#F3F4F6',
-                      color: isActive ? '#fff' : isCompleted ? '#065F46' : '#6B7280',
-                    }}
-                  >
+                    style={{ background: isActive ? THEME.accent : isCompleted ? '#D1FAE5' : '#F3F4F6', color: isActive ? '#fff' : isCompleted ? '#065F46' : '#6B7280' }}>
                     Q{i + 1}{isCompleted && ' ✓'}
                   </button>
                 )
               })}
             </div>
-
-            {/* 탭 내용 (전체 스크롤) */}
             <div className="flex-1 overflow-y-auto p-5">
               {activeTab === 'intent' ? (
                 <IntentTab
+                  key={selExamId}
+                  studentId={studentId}
+                  examId={selExamId}
                   exam={selExam}
                   seed={seed}
-                  answerInput={answerInput}
-                  setAnswerInput={setAnswerInput}
-                  isRecording={isRecording}
-                  startRecording={startRecording}
                   onSubmit={handleSubmitMainIntent}
                   isPending={submitMainIntent.isPending}
                 />
               ) : activeQuestion ? (
                 <QuestionTab
+                  key={activeTab}
+                  studentId={studentId}
+                  examId={selExamId}
                   question={activeQuestion}
                   qIdx={examQuestions.findIndex(q => q.id === activeTab)}
                   qPhase={qPhase}
-                  answerInput={answerInput}
-                  setAnswerInput={setAnswerInput}
-                  isRecording={isRecording}
-                  startRecording={startRecording}
                   onSubmit={handleSubmitAnswer}
                   onNext={goNext}
                   isPending={submitFirst.isPending || submitSecond.isPending || submitTail.isPending}
@@ -526,14 +495,11 @@ export default function Presentation() {
         <div className="text-6xl mb-3">🎉</div>
         <div className="text-[22px] font-extrabold text-ink mb-2">제시문 면접 완료!</div>
         <div className="text-[14px] text-ink-secondary mb-6 text-center max-w-md">
-          모든 답변이 저장되었어요.<br />
-          선생님이 피드백을 작성하면 알려드릴게요.
+          모든 답변이 저장되었어요.<br />선생님이 피드백을 작성하면 알려드릴게요.
         </div>
-        <button
-          onClick={() => { setSelExamId(null); setPhase('list') }}
+        <button onClick={() => { setSelExamId(null); setPhase('list') }}
           className="px-6 py-3 text-white rounded-xl text-[14px] font-bold"
-          style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
-        >
+          style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}>
           목록으로
         </button>
       </div>
@@ -544,18 +510,18 @@ export default function Presentation() {
 }
 
 // ═══════════════════════════════════════════
-// 🌟 의도파악 탭
+// 🌟 의도파악 탭 (자동저장 + STT)
 // ═══════════════════════════════════════════
-function IntentTab({ exam, seed, answerInput, setAnswerInput, isRecording, startRecording, onSubmit, isPending }: any) {
+function IntentTab({ studentId, examId, exam, seed, onSubmit, isPending }: any) {
+  const draftKey = `presentation:intent:${examId}`
+  const { text, setText, status, lastSavedAt, clearDraft } = useDraftAutoSave(studentId, draftKey, '', !!exam.main_intent_answer)
+
   return (
     <div className="flex flex-col gap-3">
-      {/* 질문 */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
         <div className="text-[10px] font-bold text-blue-700 mb-2">🌟 원질문 의도파악</div>
         <div className="text-[14px] font-bold text-blue-900 leading-[1.7]">{seed?.main_intent_question}</div>
       </div>
-
-      {/* 학생이 이미 답변했으면 결과 */}
       {exam.main_intent_answer ? (
         <div className="flex flex-col gap-3">
           <div className="bg-gray-50 border border-line rounded-xl p-4">
@@ -568,40 +534,25 @@ function IntentTab({ exam, seed, answerInput, setAnswerInput, isRecording, start
               <div className="text-[13px] text-ink leading-[1.8] whitespace-pre-wrap">{exam.main_intent_feedback}</div>
             </div>
           ) : (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 text-center text-[12px] text-blue-700 font-semibold">
-              ⏳ 선생님 피드백을 기다리는 중이에요
-            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 text-center text-[12px] text-blue-700 font-semibold">⏳ 선생님 피드백을 기다리는 중이에요</div>
           )}
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          <textarea
-            value={answerInput}
-            onChange={e => setAnswerInput(e.target.value)}
+          <textarea value={text} onChange={e => setText(e.target.value)}
             placeholder="제시문을 읽고 저자의 의도를 본인의 말로 설명해보세요..."
             rows={12}
-            className="border border-line rounded-xl px-4 py-3 text-[13px] font-medium outline-none resize-none leading-[1.8]"
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={startRecording}
-              disabled={isRecording}
-              className="px-4 py-3 rounded-lg text-[13px] font-bold border-2 disabled:opacity-50"
-              style={isRecording 
-                ? { borderColor: '#EF4444', background: '#FEE2E2', color: '#DC2626' }
-                : { borderColor: THEME.accent, background: '#fff', color: THEME.accent }
-              }
-            >
-              {isRecording ? '🔴' : '🎙️'}
-            </button>
-            <button
-              onClick={onSubmit}
-              disabled={!answerInput.trim() || isPending}
-              className="flex-1 h-12 text-white rounded-lg text-[13px] font-bold disabled:opacity-50"
-              style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
-            >
-              {isPending ? '저장 중...' : '✅ 의도파악 답변 제출'}
-            </button>
+            className="border border-line rounded-xl px-4 py-3 text-[13px] font-medium outline-none resize-none leading-[1.8]" />
+          <div className="flex items-center justify-between">
+            <DraftStatusIndicator status={status} lastSavedAt={lastSavedAt} />
+            <div className="flex gap-2">
+              <MicSTTBtn onTranscript={t => setText(text ? text + ' ' + t : t)} />
+              <button onClick={() => onSubmit(text, clearDraft)} disabled={!text.trim() || isPending}
+                className="flex-1 h-10 px-4 text-white rounded-lg text-[13px] font-bold disabled:opacity-50"
+                style={{ background: '#2563EB', boxShadow: '0 4px 12px rgba(37,99,235,0.15)' }}>
+                {isPending ? '저장 중...' : '✅ 의도파악 답변 제출'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -610,9 +561,9 @@ function IntentTab({ exam, seed, answerInput, setAnswerInput, isRecording, start
 }
 
 // ═══════════════════════════════════════════
-// 질문 탭 (1차/2차/꼬리)
+// 질문 탭 (자동저장 + STT)
 // ═══════════════════════════════════════════
-function QuestionTab({ question, qIdx, qPhase, answerInput, setAnswerInput, isRecording, startRecording, onSubmit, onNext, isPending }: any) {
+function QuestionTab({ studentId, examId, question, qIdx, qPhase, onSubmit, onNext, isPending }: any) {
   const phaseLabel: Record<QPhase, { title: string; bg: string; color: string }> = {
     first: { title: '1차 답변', bg: '#DBEAFE', color: '#1E40AF' },
     firstFeedback: { title: '1차 피드백', bg: '#FEF3C7', color: '#92400E' },
@@ -624,24 +575,21 @@ function QuestionTab({ question, qIdx, qPhase, answerInput, setAnswerInput, isRe
   const cur = phaseLabel[qPhase as QPhase]
   const isTailPhase = qPhase === 'tail' || qPhase === 'tailFeedback'
 
+  const isAnswerPhase = qPhase === 'first' || qPhase === 'second' || qPhase === 'tail'
+  const draftKey = `presentation:q:${examId}:${question.id}`
+  const { text, setText, status, lastSavedAt, clearDraft } = useDraftAutoSave(
+    studentId, draftKey, '', !isAnswerPhase
+  )
+
   return (
     <div className="flex flex-col gap-3">
-      {/* 헤더 */}
       <div className="flex items-center gap-2">
         <div className="text-[13px] font-extrabold text-ink">질문 {qIdx + 1}</div>
-        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: cur.bg, color: cur.color }}>
-          {cur.title}
-        </span>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: cur.bg, color: cur.color }}>{cur.title}</span>
       </div>
-
-      {/* 질문 + 의도 */}
       <div className="bg-white border border-line rounded-xl p-4">
-        <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">
-          {isTailPhase ? '🔗 꼬리질문' : '📌 질문'}
-        </div>
-        <div className="text-[14px] font-bold text-ink leading-[1.7] mb-3">
-          {isTailPhase ? question.tail_question : question.question}
-        </div>
+        <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">{isTailPhase ? '🔗 꼬리질문' : '📌 질문'}</div>
+        <div className="text-[14px] font-bold text-ink leading-[1.7] mb-3">{isTailPhase ? question.tail_question : question.question}</div>
         {!isTailPhase && question.author_intent && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5">
             <div className="text-[10px] font-bold text-blue-700 mb-1">💡 질문 의도 (참고)</div>
@@ -650,108 +598,41 @@ function QuestionTab({ question, qIdx, qPhase, answerInput, setAnswerInput, isRe
         )}
       </div>
 
-      {/* 단계별 화면 */}
-      <div>
-        {qPhase === 'first' && (
-          <AnswerInput
-            answerInput={answerInput} setAnswerInput={setAnswerInput}
-            isRecording={isRecording} startRecording={startRecording}
-            onSubmit={onSubmit} isPending={isPending}
-            placeholder="1차 답변을 작성해주세요..."
-            submitLabel="✅ 1차 답변 제출"
-          />
-        )}
-
-        {qPhase === 'firstFeedback' && (
-          <FeedbackView
-            answer={question.first_answer}
-            feedback={question.first_feedback}
-            isWaiting={!question.first_feedback}
-            onNext={onNext}
-            nextLabel="📝 2차 답변하러 가기"
-          />
-        )}
-
-        {qPhase === 'second' && (
-          <>
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-3 text-[12px] text-blue-800">
+      {/* 답변 입력 단계 */}
+      {isAnswerPhase && (
+        <div className="flex flex-col gap-3">
+          {qPhase === 'second' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-[12px] text-blue-800">
               <strong>1차 피드백:</strong> {question.first_feedback}
             </div>
-            <AnswerInput
-              answerInput={answerInput} setAnswerInput={setAnswerInput}
-              isRecording={isRecording} startRecording={startRecording}
-              onSubmit={onSubmit} isPending={isPending}
-              placeholder="피드백을 참고해 답변을 보완해주세요..."
-              submitLabel="✅ 2차 답변 제출"
-            />
-          </>
-        )}
+          )}
+          <textarea value={text} onChange={e => setText(e.target.value)}
+            placeholder={qPhase === 'first' ? '1차 답변을 작성해주세요...' : qPhase === 'second' ? '피드백을 참고해 답변을 보완해주세요...' : '꼬리질문에 답변해주세요...'}
+            rows={12} autoFocus
+            className="border border-line rounded-xl px-4 py-3 text-[13px] font-medium outline-none resize-none leading-[1.8]" />
+          <div className="flex items-center justify-between">
+            <DraftStatusIndicator status={status} lastSavedAt={lastSavedAt} />
+            <div className="flex gap-2">
+              <MicSTTBtn onTranscript={t => setText(text ? text + ' ' + t : t)} />
+              <button onClick={() => onSubmit(text, clearDraft)} disabled={!text.trim() || isPending}
+                className="h-10 px-4 bg-blue-600 text-white rounded-lg text-[13px] font-bold disabled:opacity-50 hover:bg-blue-700">
+                {isPending ? '저장 중...' : qPhase === 'first' ? '✅ 1차 답변 제출' : qPhase === 'second' ? '✅ 2차 답변 제출' : '✅ 꼬리 답변 제출'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-        {qPhase === 'finalFeedback' && (
-          <FeedbackView
-            answer={question.second_answer}
-            feedback={question.final_feedback}
-            isWaiting={!question.final_feedback}
-            onNext={onNext}
-            nextLabel={question.tail_question ? '🔗 꼬리질문 답변하기' : '➡️ 다음 질문'}
-          />
-        )}
-
-        {qPhase === 'tail' && (
-          <AnswerInput
-            answerInput={answerInput} setAnswerInput={setAnswerInput}
-            isRecording={isRecording} startRecording={startRecording}
-            onSubmit={onSubmit} isPending={isPending}
-            placeholder="꼬리질문에 답변해주세요..."
-            submitLabel="✅ 꼬리 답변 제출"
-          />
-        )}
-
-        {qPhase === 'tailFeedback' && (
-          <FeedbackView
-            answer={question.tail_answer}
-            feedback={question.tail_feedback}
-            isWaiting={!question.tail_feedback}
-            onNext={onNext}
-            nextLabel="➡️ 다음 질문"
-          />
-        )}
-      </div>
-    </div>
-  )
-}
-
-function AnswerInput({ answerInput, setAnswerInput, isRecording, startRecording, onSubmit, isPending, placeholder, submitLabel }: any) {
-  return (
-    <div className="flex flex-col gap-3">
-      <textarea
-        value={answerInput}
-        onChange={e => setAnswerInput(e.target.value)}
-        placeholder={placeholder}
-        rows={12}
-        autoFocus
-        className="border border-line rounded-xl px-4 py-3 text-[13px] font-medium outline-none resize-none leading-[1.8]"
-      />
-      <div className="flex gap-2">
-        <button
-          onClick={startRecording}
-          disabled={isRecording}
-          className="px-4 py-3 rounded-lg text-[13px] font-bold border-2 disabled:opacity-50"
-          style={isRecording 
-            ? { borderColor: '#EF4444', background: '#FEE2E2', color: '#DC2626' }
-            : { borderColor: '#2563EB', background: '#fff', color: '#2563EB' }
-          }
-        >
-          {isRecording ? '🔴' : '🎙️'}
-        </button>
-        <button
-          onClick={onSubmit}
-          disabled={!answerInput.trim() || isPending}
-          className="flex-1 h-12 bg-blue-600 text-white rounded-lg text-[13px] font-bold disabled:opacity-50 hover:bg-blue-700"
-        >
-          {isPending ? '저장 중...' : submitLabel}
-        </button>
-      </div>
+      {/* 피드백 대기/표시 단계 */}
+      {!isAnswerPhase && (
+        <FeedbackView
+          answer={qPhase === 'firstFeedback' ? question.first_answer : qPhase === 'finalFeedback' ? question.second_answer : question.tail_answer}
+          feedback={qPhase === 'firstFeedback' ? question.first_feedback : qPhase === 'finalFeedback' ? question.final_feedback : question.tail_feedback}
+          isWaiting={!(qPhase === 'firstFeedback' ? question.first_feedback : qPhase === 'finalFeedback' ? question.final_feedback : question.tail_feedback)}
+          onNext={onNext}
+          nextLabel={qPhase === 'firstFeedback' ? '📝 2차 답변하러 가기' : qPhase === 'finalFeedback' ? (question.tail_question ? '🔗 꼬리질문 답변하기' : '➡️ 다음 질문') : '➡️ 다음 질문'}
+        />
+      )}
     </div>
   )
 }
@@ -763,7 +644,6 @@ function FeedbackView({ answer, feedback, isWaiting, onNext, nextLabel }: any) {
         <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">📝 내 답변</div>
         <div className="text-[13px] text-ink leading-[1.8] whitespace-pre-wrap">{answer || '답변 없음'}</div>
       </div>
-      
       {isWaiting ? (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
           <div className="text-3xl mb-2">⏳</div>
@@ -776,12 +656,7 @@ function FeedbackView({ answer, feedback, isWaiting, onNext, nextLabel }: any) {
             <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">💬 선생님 피드백</div>
             <div className="text-[13px] text-ink leading-[1.8] whitespace-pre-wrap">{feedback}</div>
           </div>
-          <button
-            onClick={onNext}
-            className="w-full h-12 bg-blue-600 text-white rounded-xl text-[14px] font-bold hover:bg-blue-700"
-          >
-            {nextLabel}
-          </button>
+          <button onClick={onNext} className="w-full h-12 bg-blue-600 text-white rounded-xl text-[14px] font-bold hover:bg-blue-700">{nextLabel}</button>
         </>
       )}
     </div>

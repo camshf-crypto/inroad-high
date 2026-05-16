@@ -99,7 +99,6 @@ function getDefaultSections(type: string) {
   return null
 }
 
-// ── blobToBase64 ──
 async function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -109,7 +108,6 @@ async function blobToBase64(blob: Blob): Promise<string> {
   })
 }
 
-// ── 파일 업로드 ──
 const uploadFile = async (file: File | Blob, studentId: string, questionId: string, fileType: string, fileName?: string): Promise<string | null> => {
   try {
     const ext = fileName?.split('.').pop() || (fileType === 'audio' ? 'webm' : fileType === 'video' ? 'mp4' : 'jpg')
@@ -121,7 +119,6 @@ const uploadFile = async (file: File | Blob, studentId: string, questionId: stri
   } catch (e) { console.error('파일 업로드 실패:', e); return null }
 }
 
-// ── STT 마이크 버튼 ──
 function MicSTTBtn({ onTranscript }: { onTranscript: (text: string) => void }) {
   const [recording, setRecording] = useState(false)
   const [processing, setProcessing] = useState(false)
@@ -143,7 +140,7 @@ function MicSTTBtn({ onTranscript }: { onTranscript: (text: string) => void }) {
       recorder.start()
       mediaRecorderRef.current = recorder
       setRecording(true)
-    } catch { alert('마이크 권한이 필요해요. 브라우저 설정에서 허용해주세요.') }
+    } catch { alert('마이크 권한이 필요해요.') }
   }
 
   const stopRecording = async () => {
@@ -183,7 +180,6 @@ function MicSTTBtn({ onTranscript }: { onTranscript: (text: string) => void }) {
   )
 }
 
-// ── 검색박스 ──
 function SearchBox({ keywords }: { keywords?: string[] }) {
   const [query, setQuery] = useState('')
   const [engine, setEngine] = useState<'naver' | 'google'>('naver')
@@ -206,16 +202,6 @@ function SearchBox({ keywords }: { keywords?: string[] }) {
         <input type="text" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()} placeholder="검색어를 입력하세요..." className="w-full h-9 px-3 pr-9 text-[11px] border border-line rounded-md focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted" />
         <button onClick={handleSearch} className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 bg-brand-high text-white rounded-md hover:bg-brand-high-dark transition-all text-xs flex items-center justify-center">🔍</button>
       </div>
-      {keywords && keywords.length > 0 && (
-        <div className="mt-3">
-          <div className="text-[10px] font-bold text-ink-muted mb-1.5">추천 키워드</div>
-          <div className="flex flex-wrap gap-1">
-            {keywords.map(tag => (
-              <button key={tag} onClick={() => window.open(`https://search.naver.com/search.naver?query=${encodeURIComponent(tag)}`, '_blank')} className="text-[10px] px-2 py-0.5 bg-brand-high-pale text-brand-high-dark rounded-full border border-brand-high-light hover:bg-brand-high hover:text-white transition-all">#{tag}</button>
-            ))}
-          </div>
-        </div>
-      )}
       <div className="mt-3 pt-3 border-t border-line">
         <div className="text-[10px] font-bold text-ink-muted mb-1.5">빠른 링크</div>
         <div className="space-y-1">
@@ -238,7 +224,6 @@ function SearchBox({ keywords }: { keywords?: string[] }) {
   )
 }
 
-// ── 연습 헤더 ──
 function PracticeHeader({ q, onBack, onSubmit, onSaveDraft, canSubmit, submitting, secondsLeft }: any) {
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const timeUrgent = secondsLeft < 300
@@ -277,7 +262,6 @@ function PracticeHeader({ q, onBack, onSubmit, onSaveDraft, canSubmit, submittin
   )
 }
 
-// ── 문제 카드 ──
 function QuestionCard({ q }: { q: HighAcademySuhaengQuestion }) {
   return (
     <div className="bg-white border border-line rounded-xl px-4 py-3.5 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
@@ -300,7 +284,6 @@ function QuestionCard({ q }: { q: HighAcademySuhaengQuestion }) {
   )
 }
 
-// ── 글쓰기·논술 ──
 function EssayPractice({ q, onBack, onSubmit, submitting }: any) {
   const [answer, setAnswer] = useState(() => {
     try { const d = localStorage.getItem(`high-suhaeng-draft:${q.id}`); return d ? JSON.parse(d).answer_text || '' : '' } catch { return '' }
@@ -346,7 +329,6 @@ function EssayPractice({ q, onBack, onSubmit, submitting }: any) {
   )
 }
 
-// ── 섹션 기반 (탐구보고서/독서기록/프로젝트·산출물) ──
 function SectionPractice({ q, onBack, onSubmit, submitting, icon, label }: any) {
   const sections = getDefaultSections(q.type) || []
   const [values, setValues] = useState<Record<string, string>>(() => {
@@ -405,7 +387,6 @@ function SectionPractice({ q, onBack, onSubmit, submitting, icon, label }: any) 
   )
 }
 
-// ── 실험·실습 ──
 function ExperimentPractice({ q, onBack, onSubmit, submitting, studentId }: any) {
   const sections = getDefaultSections('실험·실습') || []
   const [values, setValues] = useState<Record<string, string>>(sections.reduce((acc: any, s: any) => ({ ...acc, [s.key]: '' }), {}))
@@ -498,7 +479,6 @@ function ExperimentPractice({ q, onBack, onSubmit, submitting, studentId }: any)
   )
 }
 
-// ── 발표·토론 (STT 포함) ──
 function PresentationPractice({ q, onBack, onSubmit, submitting, studentId }: any) {
   const sections = getDefaultSections('발표·토론') || []
   const [values, setValues] = useState<Record<string, string>>(sections.reduce((acc: any, s: any) => ({ ...acc, [s.key]: '' }), {}))
@@ -509,7 +489,12 @@ function PresentationPractice({ q, onBack, onSubmit, submitting, studentId }: an
   const [uploading, setUploading] = useState(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
+  const audioStreamRef = useRef<MediaStream | null>(null)
   const allValid = sections.every((s: any) => (values[s.key]?.length || 0) >= s.minChars)
+
+  useEffect(() => {
+    return () => { if (audioStreamRef.current) audioStreamRef.current.getTracks().forEach(t => t.stop()) }
+  }, [])
 
   useEffect(() => {
     if (!isRecording) return
@@ -519,16 +504,42 @@ function PresentationPractice({ q, onBack, onSubmit, submitting, studentId }: an
 
   const formatRecTime = (sec: number) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`
 
-  const toggleRecording = async () => {
-    if (isRecording) { mediaRecorderRef.current?.stop(); setIsRecording(false); return }
+  const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      audioStreamRef.current = stream
       const recorder = new MediaRecorder(stream)
       audioChunksRef.current = []
       recorder.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
-      recorder.onstop = () => { const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); setAudioBlob(blob); setAudioUrl(URL.createObjectURL(blob)); stream.getTracks().forEach(t => t.stop()) }
-      mediaRecorderRef.current = recorder; recorder.start(); setIsRecording(true); setRecordTime(0)
+      recorder.start()
+      mediaRecorderRef.current = recorder
+      setIsRecording(true)
+      setRecordTime(0)
     } catch { alert('마이크 권한을 허용해주세요.') }
+  }
+
+  const stopRecording = (): Promise<Blob | null> => {
+    return new Promise(resolve => {
+      const recorder = mediaRecorderRef.current
+      if (!recorder || recorder.state === 'inactive') { resolve(null); return }
+      recorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        if (audioStreamRef.current) { audioStreamRef.current.getTracks().forEach(t => t.stop()); audioStreamRef.current = null }
+        resolve(blob)
+      }
+      recorder.stop()
+    })
+  }
+
+  const handleStopRecording = async () => {
+    setIsRecording(false)
+    const blob = await stopRecording()
+    if (blob && blob.size > 0) {
+      setAudioBlob(blob)
+      setAudioUrl(URL.createObjectURL(blob))
+    } else {
+      alert('녹음된 내용이 없어요. 다시 시도해주세요.')
+    }
   }
 
   const handleSubmit = async () => {
@@ -577,7 +588,6 @@ function PresentationPractice({ q, onBack, onSubmit, submitting, studentId }: an
                     <textarea value={value} onChange={e => setValues({ ...values, [s.key]: e.target.value })}
                       placeholder={s.placeholder} rows={s.key === 'script' ? 8 : 4}
                       className="w-full px-3 py-2.5 text-[12px] border border-line rounded-lg focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted resize-y leading-[1.7]" />
-                    {/* STT 버튼 */}
                     <div className="flex justify-end mt-1">
                       <MicSTTBtn onTranscript={t => setValues(prev => ({ ...prev, [s.key]: prev[s.key] ? prev[s.key] + ' ' + t : t }))} />
                     </div>
@@ -591,11 +601,25 @@ function PresentationPractice({ q, onBack, onSubmit, submitting, studentId }: an
               <div className="flex items-center gap-1.5"><span>🎙️</span><span className="text-[12px] font-extrabold text-ink">발표 녹음 제출</span></div>
               {audioUrl && <span className="text-[10px] font-bold text-brand-high-dark bg-brand-high-pale border border-brand-high-light px-1.5 py-0.5 rounded-full">✓ 녹음됨</span>}
             </div>
-            <button onClick={toggleRecording} className={`w-full h-14 rounded-lg font-bold text-white transition-all flex items-center justify-center gap-2 ${isRecording ? 'bg-red-500 hover:bg-red-600 animate-pulse' : 'bg-brand-high hover:bg-brand-high-dark'}`}>
-              <span>{isRecording ? '⏹' : '🎙️'}</span>
-              <span className="text-[12px]">{isRecording ? `녹음 중 ${formatRecTime(recordTime)}` : audioUrl ? '다시 녹음' : '녹음 시작'}</span>
-            </button>
-            {audioUrl && <div className="mt-2"><audio controls src={audioUrl} className="w-full h-8" /><button onClick={() => { setAudioBlob(null); setAudioUrl(null) }} className="text-[10px] text-red-500 hover:text-red-700 mt-1">삭제</button></div>}
+            <div className="flex gap-2">
+              {!isRecording ? (
+                <button onClick={startRecording} className="flex-1 h-14 rounded-lg font-bold text-white bg-brand-high hover:bg-brand-high-dark transition-all flex items-center justify-center gap-2">
+                  <span>🎙️</span>
+                  <span className="text-[12px]">{audioUrl ? '다시 녹음' : '녹음 시작'}</span>
+                </button>
+              ) : (
+                <button onClick={handleStopRecording} className="flex-1 h-14 rounded-lg font-bold text-white bg-red-500 hover:bg-red-600 animate-pulse transition-all flex items-center justify-center gap-2">
+                  <span>⏹</span>
+                  <span className="text-[12px]">녹음 중 {formatRecTime(recordTime)} · 클릭하면 종료</span>
+                </button>
+              )}
+            </div>
+            {audioUrl && (
+              <div className="mt-2">
+                <audio controls src={audioUrl} className="w-full h-8" />
+                <button onClick={() => { setAudioBlob(null); setAudioUrl(null) }} className="text-[10px] text-red-500 hover:text-red-700 mt-1">삭제</button>
+              </div>
+            )}
           </div>
         </div>
         <div className="w-[280px] flex-shrink-0"><SearchBox /></div>
@@ -604,7 +628,6 @@ function PresentationPractice({ q, onBack, onSubmit, submitting, studentId }: an
   )
 }
 
-// ── 피드백 화면 ──
 function FeedbackView({ submission, question, onBack }: { submission: HighSuhaengSubmission; question: HighAcademySuhaengQuestion; onBack: () => void }) {
   const { data: feedback, isLoading } = useMyHighFeedback(submission.id)
   const resubmit = useResubmitHighAnswer()
@@ -737,7 +760,6 @@ function FeedbackView({ submission, question, onBack }: { submission: HighSuhaen
   )
 }
 
-// ── 메인 ──
 export default function HighSuhaeng() {
   const student = useAtomValue(studentState)
   const academy = useAtomValue(academyState)
@@ -823,21 +845,30 @@ export default function HighSuhaeng() {
             <button onClick={() => setShowAllModal(true)} className="text-[11px] font-semibold text-amber-700 hover:text-amber-900 transition-colors">전체 보기 ›</button>
           </div>
           <div className="grid grid-cols-3 gap-2.5 p-3">
-            {myGradeSuhaeng.map((t: any) => (
-              <div key={t.id} onClick={() => { setSelectedQuestion({ ...t, _isSchool: true, id: t.id, academy_id: '', teacher_id: null, is_active: true, is_draft: false, eval_criteria: null, min_chars: t.minChars || null, max_chars: t.maxChars || null, created_at: '', updated_at: '' }); setMode('practice') }}
-                className={`relative rounded-lg border px-3 py-2.5 cursor-pointer transition-all hover:-translate-y-px ${t.urgent ? 'bg-red-50 border-red-200 hover:shadow-[0_4px_16px_rgba(239,68,68,0.15)]' : 'bg-white border-amber-200 hover:border-amber-400 hover:shadow-sm'}`}>
-                {t.urgent && <div className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full">D-{t.dueIn}</div>}
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded">{t.subject}</span>
-                  <span className="text-[10px] font-semibold text-amber-700">{t.type}</span>
+            {myGradeSuhaeng.map((t: any) => {
+              const schoolSubmitted = mySubmissions.find(s => (s as any).question_key === `school-${t.id}`)
+              return (
+                <div key={t.id}
+                  onClick={() => { setSelectedQuestion({ ...t, _isSchool: true, id: t.id, academy_id: '', teacher_id: null, is_active: true, is_draft: false, eval_criteria: null, min_chars: t.minChars || null, max_chars: t.maxChars || null, created_at: '', updated_at: '' }); setMode('practice') }}
+                  className={`relative rounded-lg border px-3 py-2.5 cursor-pointer transition-all hover:-translate-y-px ${
+                    schoolSubmitted ? 'bg-blue-50 border-blue-200 hover:shadow-sm' :
+                    t.urgent ? 'bg-red-50 border-red-200 hover:shadow-[0_4px_16px_rgba(239,68,68,0.15)]' :
+                    'bg-white border-amber-200 hover:border-amber-400 hover:shadow-sm'
+                  }`}>
+                  {schoolSubmitted && <div className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-blue-500 text-white text-[9px] font-bold rounded-full">✓ 제출됨</div>}
+                  {!schoolSubmitted && t.urgent && <div className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full">D-{t.dueIn}</div>}
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded">{t.subject}</span>
+                    <span className="text-[10px] font-semibold text-amber-700">{t.type}</span>
+                  </div>
+                  <div className="text-[12px] font-bold text-amber-900 leading-tight mb-2 line-clamp-2 min-h-[30px]">{t.title}</div>
+                  <div className="flex items-center justify-between text-[10px] pt-2 border-t border-amber-200">
+                    <span className="text-amber-600">D-{t.dueIn} · {t.ratio}%</span>
+                    <span className="font-bold text-amber-700">{schoolSubmitted ? '제출 완료 ✓' : '바로 시작 →'}</span>
+                  </div>
                 </div>
-                <div className="text-[12px] font-bold text-amber-900 leading-tight mb-2 line-clamp-2 min-h-[30px]">{t.title}</div>
-                <div className="flex items-center justify-between text-[10px] pt-2 border-t border-amber-200">
-                  <span className="text-amber-600">D-{t.dueIn} · {t.ratio}%</span>
-                  <span className="font-bold text-amber-700">바로 시작 →</span>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 

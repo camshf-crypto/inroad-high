@@ -11,6 +11,7 @@ import RoadmapTab from './high-tabs/RoadmapTab'
 import TopicTab from './high-tabs/TopicTab'
 import BookTab from './high-tabs/BookTab'
 import RecordTab from './high-tabs/Record'
+import SuhaengTab from './high-tabs/SuhaengTab'
 import ExpectTab from './high-tabs/ExpectTab'
 import PastTab from './high-tabs/PastTab'
 import SimulationTab from './high-tabs/SimulationTab'
@@ -36,6 +37,7 @@ const HIGH_TABS = [
   { key: 'topic', label: '탐구주제', menuKey: 'high.topic' },
   { key: 'book', label: '독서리스트', menuKey: 'high.book' },
   { key: 'record', label: '생기부', menuKey: 'high.record' },
+  { key: 'suhaeng', label: '수행평가', menuKey: 'high.suhaeng' },
   { key: 'expect', label: '생기부 예상질문', menuKey: 'high.expect' },
   { key: 'past', label: '기출문제', menuKey: 'high.past' },
   { key: 'mockexam', label: '면접 모의고사', menuKey: 'high.mockexam' },
@@ -59,7 +61,7 @@ const MIDDLE_TABS = [
 
 const ALL_GRADES: GradeKey[] = ['고1', '고2', '고3']
 
-type HighTabType = 'roadmap' | 'topic' | 'book' | 'record' | 'expect' | 'past' | 'mockexam' | 'simulation' | 'presentation' | 'major'
+type HighTabType = 'roadmap' | 'topic' | 'book' | 'record' | 'suhaeng' | 'expect' | 'past' | 'mockexam' | 'simulation' | 'presentation' | 'major'
 type MiddleTabType = 'roadmap' | 'lesson' | 'homework' | 'suhaeng' | 'record' | 'book' | 'expect' | 'past' | 'simulation' | 'presentation'
 
 const THEME = {
@@ -368,6 +370,7 @@ export default function StudentDetail() {
               {highTab === 'topic' && visibleHighTabs.find(t => t.key === 'topic') && <TopicTab student={student} onOpenChat={openChat} openId={openTopicId} onClearOpenId={() => setOpenTopicId(null)} />}
               {highTab === 'book' && visibleHighTabs.find(t => t.key === 'book') && <BookTab student={student} onOpenChat={openChat} openId={openBookId} onClearOpenId={() => setOpenBookId(null)} />}
               {highTab === 'record' && visibleHighTabs.find(t => t.key === 'record') && <RecordTab student={student} onEditTopic={goEditTopic} onEditBook={goEditBook} />}
+              {highTab === 'suhaeng' && visibleHighTabs.find(t => t.key === 'suhaeng') && <SuhaengTab student={student} />}
               {highTab === 'expect' && visibleHighTabs.find(t => t.key === 'expect') && <ExpectTab student={student} />}
               {highTab === 'past' && visibleHighTabs.find(t => t.key === 'past') && <PastTab student={student} />}
               {highTab === 'mockexam' && visibleHighTabs.find(t => t.key === 'mockexam') && <MockExam student={student} />}

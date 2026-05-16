@@ -8,9 +8,9 @@ import { supabase } from '@/lib/supabase'
 export interface Simulation {
   id: string
   student_id: string
-  question_type: string                // 'past' | 'expect' | 'ai'
+  question_type: string
   tail_question_enabled: boolean
-  question_mode: string                // 'text' | 'voice' | 'both'
+  question_mode: string
   university: string | null
   department: string | null
   grade: string | null
@@ -52,7 +52,7 @@ export function useMySimulations() {
       if (error) throw error
       return (data ?? []) as Simulation[]
     },
-    refetchInterval: 2000,  // 2초 폴링 (선생님 피드백 즉시 확인)
+    refetchInterval: 2000,
   })
 }
 
@@ -158,7 +158,7 @@ export function useAddSimulationQuestion() {
 }
 
 // ─────────────────────────────────────────────
-// 5. 질문별 답변 저장 (녹음 + 트랜스크립트)
+// 5. 질문별 답변 저장
 // ─────────────────────────────────────────────
 
 export function useSubmitSimulationAnswer() {
@@ -189,7 +189,7 @@ export function useSubmitSimulationAnswer() {
 }
 
 // ─────────────────────────────────────────────
-// 6. 시뮬레이션 완료 (전체 녹음, 트랜스크립트, 시간)
+// 6. 시뮬레이션 완료
 // ─────────────────────────────────────────────
 
 export function useCompleteSimulation() {
@@ -229,22 +229,21 @@ export function useDeleteSimulation() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (simulationId: string) => {
-      // 1. Storage의 녹음 파일 먼저 삭제
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
+        // high/ prefix 경로에서 파일 목록 가져오기
         const { data: files } = await supabase.storage
-          .from('simulation-recordings')
-          .list(`${user.id}/${simulationId}`)
+          .from('simulation-audio')
+          .list(`high/${user.id}/${simulationId}`)
 
         if (files && files.length > 0) {
-          const filePaths = files.map(f => `${user.id}/${simulationId}/${f.name}`)
+          const filePaths = files.map(f => `high/${user.id}/${simulationId}/${f.name}`)
           await supabase.storage
-            .from('simulation-recordings')
+            .from('simulation-audio')
             .remove(filePaths)
         }
       }
 
-      // 2. DB 행 삭제 (cascade로 questions도 자동 삭제)
       const { error } = await supabase
         .from('high_simulation')
         .delete()
@@ -259,7 +258,7 @@ export function useDeleteSimulation() {
 }
 
 // ─────────────────────────────────────────────
-// 8. 녹음 파일 업로드
+// 8. 녹음 파일 업로드 (simulation-audio PUBLIC 버킷)
 // ─────────────────────────────────────────────
 
 export async function uploadRecording(
@@ -270,10 +269,11 @@ export async function uploadRecording(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('로그인 필요')
 
-  const filePath = `${user.id}/${simulationId}/${fileName}`
+  // high/ prefix로 중등과 구분
+  const filePath = `high/${user.id}/${simulationId}/${fileName}`
 
   const { error } = await supabase.storage
-    .from('simulation-recordings')
+    .from('simulation-audio')
     .upload(filePath, file, {
       cacheControl: '3600',
       upsert: false,
@@ -282,32 +282,16 @@ export async function uploadRecording(
 
   if (error) throw error
 
-  // Public URL 받기 (RLS로 본인만 접근 가능)
+  // Public URL (simulation-audio는 PUBLIC 버킷)
   const { data } = supabase.storage
-    .from('simulation-recordings')
+    .from('simulation-audio')
     .getPublicUrl(filePath)
 
   return data.publicUrl
 }
 
 // ─────────────────────────────────────────────
-// 9. 녹음 파일 다운로드 URL (Signed URL - 1시간 유효)
-// ─────────────────────────────────────────────
-
-export async function getRecordingUrl(filePath: string): Promise<string> {
-  // filePath가 full URL이면 그대로 반환
-  if (filePath.startsWith('http')) return filePath
-
-  const { data, error } = await supabase.storage
-    .from('simulation-recordings')
-    .createSignedUrl(filePath, 3600) // 1시간 유효
-
-  if (error) throw error
-  return data.signedUrl
-}
-
-// ─────────────────────────────────────────────
-// 10. 선생님 피드백 저장 (원장용 - 추후 사용)
+// 9. 선생님 피드백 저장
 // ─────────────────────────────────────────────
 
 export function useUpdateTeacherFeedback() {
@@ -334,19 +318,17 @@ export function useUpdateTeacherFeedback() {
 }
 
 // ─────────────────────────────────────────────
-// 헬퍼: 질문 유형 라벨
+// 헬퍼
 // ─────────────────────────────────────────────
 
 export function getQuestionTypeLabel(type: string): string {
   const labels: Record<string, string> = {
-    past: '5개년 핵심 기출문제',
-    expect: '생기부 예상문제',
-    ai: 'AI 문제 생성',
+    past: '기출문제',
+    expect: '생기부 예상질문',
   }
   return labels[type] || type
 }
 
-// 시간 포맷
 export function formatSimDuration(sec: number): string {
   const m = Math.floor(sec / 60)
   const s = sec % 60

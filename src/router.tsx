@@ -15,7 +15,7 @@ import Billing from '@/pages/admin/_pages/billing/Billing'
 import Settings from '@/pages/admin/_pages/settings/Settings'
 import Teachers from '@/pages/admin/_pages/teachers/Teachers'
 import StudentApproval from '@/pages/admin/_pages/student-approval/StudentApproval'
-import SuhaengManage from '@/pages/admin/_pages/middle-suhaeng/SuhaengManage'
+import SuhaengManage from '@/pages/admin/_pages/suhaeng/SuhaengManage'
 
 // High Student
 import StudentLayout from '@/pages/high-student/_layout/Layout'
@@ -24,6 +24,7 @@ import Roadmap from '@/pages/high-student/_pages/roadmap/Roadmap'
 import TopicList from '@/pages/high-student/_pages/topic/TopicList'
 import BookList from '@/pages/high-student/_pages/book/BookList'
 import Connect from '@/pages/high-student/_pages/connect/Connect'
+import HighSuhaeng from '@/pages/high-student/_pages/suhaeng/Suhaeng'
 import HighPending from '@/pages/high-student/_pages/pending/Pending'
 import Expect from '@/pages/high-student/_pages/expect/Expect'
 import Past from '@/pages/high-student/_pages/past/Past'
@@ -122,6 +123,7 @@ const router = createBrowserRouter([
           { path: 'major', element: <Major /> },
           { path: 'major/grade', element: <Major /> },
           { path: 'major/chapter', element: <Major /> },
+          { path: 'suhaeng', element: <HighSuhaeng /> },
         ]
       }
     ]
