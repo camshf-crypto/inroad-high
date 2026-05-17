@@ -269,6 +269,12 @@ function QuestionCard({ q }: { q: HighAcademySuhaengQuestion }) {
         <span className="text-[10px] font-bold text-white bg-brand-high px-2 py-0.5 rounded">문제</span>
         <span className="text-[10px] text-ink-muted font-semibold">학원 수행평가 · {q.subject} · {q.grade}</span>
       </div>
+      {((q as any).semester || (q as any).topic) && (
+        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+          {(q as any).semester && <span className="text-[10px] font-bold px-2 py-0.5 bg-brand-high-pale text-brand-high-dark rounded-full border border-brand-high-light">{(q as any).semester}</span>}
+          {(q as any).topic && <span className="text-[10px] font-semibold text-ink-secondary">#{(q as any).topic}</span>}
+        </div>
+      )}
       <p className="text-[13px] text-ink leading-[1.8]">{q.content}</p>
       {q.eval_criteria && q.eval_criteria.length > 0 && (
         <div className="mt-3 pt-3 border-t border-line">
@@ -903,7 +909,7 @@ export default function HighSuhaeng() {
                     <div className="text-[13px] font-bold text-ink leading-tight mb-2 line-clamp-2">{q.title}</div>
                     <div className="text-[11px] text-ink-muted line-clamp-2 leading-relaxed mb-2">{q.content}</div>
                     <div className="flex items-center justify-between text-[10px] pt-2 border-t border-line">
-                      <span className="text-ink-muted">{q.grade}</span>
+                      <span className="text-ink-muted">{q.grade}{(q as any).semester ? ` · ${(q as any).semester}` : ''}</span>
                       <span className="font-bold text-brand-high-dark">{submitted ? '제출 완료 ✓' : '시작하기 →'}</span>
                     </div>
                   </div>

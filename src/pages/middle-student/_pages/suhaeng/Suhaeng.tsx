@@ -11,10 +11,6 @@ import {
 } from "@/pages/middle-student/_hooks/useSuhaengSubmission";
 import { supabase } from "@/lib/supabase";
 
-// ──────────────────────────────────────────
-// Mock 데이터 — 우리 학교 수행평가
-// (나중에 마스터 계정에서 입력한 데이터로 교체 예정)
-// ──────────────────────────────────────────
 const MY_SCHOOL_SUHAENG = [
   {
     id: "m1", grade: "중2", subject: "국어", type: "논술형",
@@ -113,9 +109,6 @@ const loadDraft = (question: any) => { try { const raw = localStorage.getItem(ge
 const saveDraft = (question: any, data: any) => { try { localStorage.setItem(getDraftKey(question), JSON.stringify({ ...data, savedAt: new Date().toISOString() })); return true } catch { return false } }
 const clearDraft = (question: any) => { try { localStorage.removeItem(getDraftKey(question)) } catch { } }
 
-// ──────────────────────────────────────────
-// 검색박스
-// ──────────────────────────────────────────
 function SearchBox() {
   const [query, setQuery] = useState("")
   const [engine, setEngine] = useState<"naver" | "google">("naver")
@@ -207,6 +200,7 @@ function PracticeSidebar({ q }: { q: any }) {
   )
 }
 
+// ★ 학기/주제 표시 추가됨
 function QuestionCard({ q }: { q: any }) {
   return (
     <div className="bg-white border border-line rounded-xl px-4 py-3.5 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
@@ -217,6 +211,13 @@ function QuestionCard({ q }: { q: any }) {
         </span>
         {q.ratio && <span className="text-[10px] text-ink-muted">· 배점 {q.ratio}%</span>}
       </div>
+      {/* ★ 학기/주제 뱃지 */}
+      {(q.semester || q.topic) && (
+        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+          {q.semester && <span className="text-[10px] font-bold px-2 py-0.5 bg-brand-middle-pale text-brand-middle-dark rounded-full border border-brand-middle-light">{q.semester}</span>}
+          {q.topic && <span className="text-[10px] font-semibold text-ink-secondary">#{q.topic}</span>}
+        </div>
+      )}
       <p className="text-[13px] text-ink leading-[1.8]">{q.content}</p>
     </div>
   )
@@ -515,9 +516,6 @@ function ExperimentPractice({ q, onBack, onSubmit, submitting, studentId }: any)
   )
 }
 
-// ──────────────────────────────────────────
-// 피드백 화면
-// ──────────────────────────────────────────
 function FeedbackView({ submission, onBack }: any) {
   const { data: feedback, isLoading } = useMyFeedback(submission.id)
   const resubmit = useResubmitAnswer()
@@ -620,9 +618,6 @@ function FeedbackView({ submission, onBack }: any) {
   )
 }
 
-// ──────────────────────────────────────────
-// 메인 컴포넌트
-// ──────────────────────────────────────────
 export default function MiddleSuhaeng() {
   const student = useAtomValue(studentState)
   const academy = useAtomValue(academyState)
@@ -635,7 +630,6 @@ export default function MiddleSuhaeng() {
   const submitAnswer = useSubmitAnswer()
   const { data: mySubmissions } = useMySuhaengSubmissions(student?.id ? String(student.id) : undefined) as { data: any[] | undefined }
 
-  // ⭐ 학원 수행평가 문제 조회
   const { data: academyQuestions = [], isLoading: loadingAcademy } = useMyAcademyQuestions(
     student?.id ? String(student.id) : undefined,
     academy?.academyId ? String(academy.academyId) : undefined,
@@ -680,14 +674,15 @@ export default function MiddleSuhaeng() {
     } catch (error: any) { alert(`제출 실패: ${error.message || "알 수 없는 오류"}`) }
   }
 
-  // 학원 수행평가 문제를 화면용으로 변환
+  // ★ semester, topic 추가됨
   const academyQuestionsForUI = academyQuestions.map((q: AcademySuhaengQuestion) => ({
     ...q,
     _isAcademy: true,
     timeLimit: 30,
     minChars: q.min_chars,
     maxChars: q.max_chars,
-    // 섹션 기반 유형은 기본 섹션 추가
+    semester: (q as any).semester || null,
+    topic: (q as any).topic || null,
     sections: ["주제탐구", "구술발표", "탐구수행"].includes(q.type) ? getDefaultSections(q.type) : undefined,
     presentTimeMin: q.type === "구술발표" ? 3 : undefined,
     presentTimeMax: q.type === "구술발표" ? 5 : undefined,
@@ -721,8 +716,6 @@ export default function MiddleSuhaeng() {
       </div>
 
       <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4 min-h-0">
-
-        {/* ==================== 우리 학교 수행평가 ==================== */}
         <div className="bg-white border border-line rounded-xl shadow-[0_4px_16px_rgba(15,23,42,0.04)] flex-shrink-0">
           <div className="px-4 py-3 border-b border-line flex items-center justify-between">
             <div>
@@ -752,17 +745,13 @@ export default function MiddleSuhaeng() {
           </div>
         </div>
 
-        {/* ==================== 학원 수행평가 ==================== */}
         <div className="bg-white border border-line rounded-xl shadow-[0_4px_16px_rgba(15,23,42,0.04)] flex-shrink-0">
           <div className="px-4 py-3 border-b border-line">
             <div className="text-[14px] font-extrabold text-ink tracking-tight">📋 학원 수행평가</div>
             <div className="text-[11px] text-ink-muted mt-0.5">선생님이 출제한 문제 · AI 피드백 제공</div>
           </div>
-
           {loadingAcademy ? (
-            <div className="px-4 py-10 text-center text-ink-muted text-[12px]">
-              <div className="text-2xl mb-2">⏳</div>불러오는 중...
-            </div>
+            <div className="px-4 py-10 text-center text-ink-muted text-[12px]"><div className="text-2xl mb-2">⏳</div>불러오는 중...</div>
           ) : academyQuestionsForUI.length === 0 ? (
             <div className="px-4 py-10 text-center text-ink-muted text-[12px]">
               <div className="text-3xl mb-2">📋</div>
@@ -785,9 +774,12 @@ export default function MiddleSuhaeng() {
                       </div>
                     </div>
                     <div className="text-[12px] font-bold text-ink leading-tight mb-2 line-clamp-2">{q.title}</div>
+                    {/* ★ 주제 표시 */}
+                    {q.topic && <div className="text-[10px] text-ink-muted mb-1">#{q.topic}</div>}
                     <div className="text-[10px] text-ink-muted line-clamp-2 leading-relaxed mb-2">{q.content}</div>
+                    {/* ★ 학년 + 학기 표시 */}
                     <div className="flex items-center justify-between text-[10px] pt-2 border-t border-line">
-                      <span className="text-ink-muted">{q.grade}</span>
+                      <span className="text-ink-muted">{q.grade}{q.semester ? ` · ${q.semester}` : ''}</span>
                       <span className="font-bold text-brand-middle-dark">{submitted ? "제출 완료 ✓" : "시작하기 →"}</span>
                     </div>
                   </div>
@@ -798,7 +790,6 @@ export default function MiddleSuhaeng() {
         </div>
       </div>
 
-      {/* 전체 보기 모달 */}
       {showAllModal && (
         <div onClick={() => setShowAllModal(false)} className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center backdrop-blur-sm">
           <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl w-[720px] max-h-[80vh] flex flex-col shadow-[0_20px_60px_rgba(15,23,42,0.25)]">
@@ -840,9 +831,6 @@ export default function MiddleSuhaeng() {
   )
 }
 
-// ──────────────────────────────────────────
-// 학원 수행평가 유형별 기본 섹션
-// ──────────────────────────────────────────
 function getDefaultSections(type: string) {
   if (type === "주제탐구") return [
     { key: "background", label: "1. 탐구 배경", placeholder: "왜 이 주제를 탐구하게 되었는지 작성하세요.", minChars: 50 },

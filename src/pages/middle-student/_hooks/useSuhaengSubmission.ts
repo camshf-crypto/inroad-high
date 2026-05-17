@@ -1,9 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 
-// ──────────────────────────────────────────
-// 타입 정의
-// ──────────────────────────────────────────
 export interface SuhaengSubmission {
   id: string
   student_id: string
@@ -51,7 +48,6 @@ export interface SubmitAnswerInput {
   answer_photo_urls?: string[]
 }
 
-// ⭐ 학원 수행평가 문제 타입
 export interface AcademySuhaengQuestion {
   id: string
   academy_id: string
@@ -68,9 +64,6 @@ export interface AcademySuhaengQuestion {
   created_at: string
 }
 
-// ──────────────────────────────────────────
-// 본인 답안 전체 조회 (학생용)
-// ──────────────────────────────────────────
 export function useMySuhaengSubmissions(studentId: string | undefined) {
   return useQuery({
     queryKey: ['my-suhaeng-submissions', studentId],
@@ -89,9 +82,6 @@ export function useMySuhaengSubmissions(studentId: string | undefined) {
   })
 }
 
-// ──────────────────────────────────────────
-// 특정 question_key에 대한 본인 답안 조회
-// ──────────────────────────────────────────
 export function useMySubmissionByKey(
   studentId: string | undefined,
   questionKey: string | undefined,
@@ -113,10 +103,8 @@ export function useMySubmissionByKey(
   })
 }
 
-// ──────────────────────────────────────────
 // ⭐ 학원 수행평가 문제 조회 (학생용)
-// 공통배포(학년 전체) + 개별배정 둘 다
-// ──────────────────────────────────────────
+// 배정된 문제만 보이도록 수정 — 학년 전체 공개 제거
 export function useMyAcademyQuestions(
   studentId: string | undefined,
   academyId: string | undefined,
@@ -128,56 +116,33 @@ export function useMyAcademyQuestions(
     queryFn: async () => {
       if (!studentId || !academyId) return []
 
-      // 1. 학년 전체 공개 문제 (내 학년 or 전체)
-      const { data: gradeQuestions, error: e1 } = await supabase
-        .from('suhaeng_questions')
-        .select('*')
-        .eq('academy_id', academyId)
-        .eq('is_active', true)
-        .eq('is_draft', false)
-        .in('grade', [grade ?? '', '전체'])
-
-      if (e1) throw e1
-
-      // 2. 나에게 개별 배정된 문제
-      const { data: assignments, error: e2 } = await supabase
+      // 나에게 개별 배정된 문제 ID 조회
+      const { data: assignments, error: e1 } = await supabase
         .from('suhaeng_question_assignments')
         .select('question_id')
         .eq('student_id', studentId)
         .eq('academy_id', academyId)
 
+      if (e1) throw e1
+      if (!assignments || assignments.length === 0) return []
+
+      const assignedIds = assignments.map((a: any) => a.question_id)
+
+      // 배정된 문제만 조회
+      const { data, error: e2 } = await supabase
+        .from('suhaeng_questions')
+        .select('*')
+        .in('id', assignedIds)
+        .eq('is_active', true)
+        .eq('is_draft', false)
+        .order('created_at', { ascending: false })
+
       if (e2) throw e2
-
-      let assignedQuestions: AcademySuhaengQuestion[] = []
-      if (assignments && assignments.length > 0) {
-        const assignedIds = assignments.map((a: any) => a.question_id)
-        const { data: aq, error: e3 } = await supabase
-          .from('suhaeng_questions')
-          .select('*')
-          .in('id', assignedIds)
-          .eq('is_active', true)
-          .eq('is_draft', false)
-
-        if (e3) throw e3
-        assignedQuestions = (aq ?? []) as AcademySuhaengQuestion[]
-      }
-
-      // 3. 중복 제거 후 합치기
-      const allMap = new Map<string, AcademySuhaengQuestion>()
-      ;[...(gradeQuestions ?? []), ...assignedQuestions].forEach((q: AcademySuhaengQuestion) => {
-        allMap.set(q.id, q)
-      })
-
-      return Array.from(allMap.values()).sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      )
+      return (data ?? []) as AcademySuhaengQuestion[]
     },
   })
 }
 
-// ──────────────────────────────────────────
-// 답안 제출 (학생용)
-// ──────────────────────────────────────────
 export function useSubmitAnswer() {
   const qc = useQueryClient()
 
@@ -230,9 +195,6 @@ export function useSubmitAnswer() {
   })
 }
 
-// ──────────────────────────────────────────
-// 재제출 (학생용)
-// ──────────────────────────────────────────
 export function useResubmitAnswer() {
   const qc = useQueryClient()
 
@@ -258,9 +220,6 @@ export function useResubmitAnswer() {
   })
 }
 
-// ──────────────────────────────────────────
-// 본인 답안의 피드백 조회
-// ──────────────────────────────────────────
 export interface SuhaengFeedback {
   id: string
   submission_id: string
