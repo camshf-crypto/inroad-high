@@ -40,11 +40,9 @@ export interface Message {
   date: string
 }
 
-// 폴링 주기 (ms)
 const POLL_INTERVAL = 2000
 
-// 학년 변환 헬퍼 ('고1' → 1)
-const gradeToNum = (grade: string | undefined | null): number | null => {
+export const gradeToNum = (grade: string | undefined | null): number | null => {
   if (!grade) return null
   if (grade === '고1' || grade === '1') return 1
   if (grade === '고2' || grade === '2') return 2
@@ -52,25 +50,38 @@ const gradeToNum = (grade: string | undefined | null): number | null => {
   return null
 }
 
+export const gradeNumToStr = (n: number | null): string => {
+  if (n === 1) return '고1'
+  if (n === 2) return '고2'
+  if (n === 3) return '고3'
+  return '전체'
+}
+
 // ─────────────────────────────────────────────
-// 조회 (폴링)
+// 조회 - gradeNum 파라미터 추가 (null이면 전체)
 // ─────────────────────────────────────────────
 
-export function useMyResearches() {
+export function useMyResearches(gradeNum?: number | null) {
   const student = useAtomValue(studentState)
   const studentId = student?.id as string | undefined
 
   return useQuery({
-    queryKey: ['my-researches', studentId],
+    queryKey: ['my-researches', studentId, gradeNum],
     enabled: !!studentId,
     refetchInterval: POLL_INTERVAL,
     refetchIntervalInBackground: false,
     queryFn: async (): Promise<Research[]> => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('high_research')
         .select('*')
         .eq('student_id', studentId!)
         .order('created_at', { ascending: false })
+
+      if (gradeNum != null) {
+        query = query.eq('grade', gradeNum)
+      }
+
+      const { data, error } = await query
       if (error) throw error
       return data ?? []
     },
@@ -142,7 +153,7 @@ function formatDate(iso: string): string {
 }
 
 // ─────────────────────────────────────────────
-// Mutation (학생 전용)
+// Mutation
 // ─────────────────────────────────────────────
 
 export function useCreateResearch() {
@@ -155,12 +166,11 @@ export function useCreateResearch() {
       topic: string
       subject?: string
       content: string
+      grade?: number
     }) => {
       if (!studentId) throw new Error('로그인이 필요해요')
-      const { topic, subject, content } = params
-
-      // 🎯 학생 학년 자동 저장
-      const grade = gradeToNum(student?.grade as any)
+      const { topic, subject, content, grade: paramGrade } = params
+      const grade = paramGrade ?? gradeToNum(student?.grade as any)
 
       const { data, error } = await supabase
         .from('high_research')
@@ -183,15 +193,6 @@ export function useCreateResearch() {
   })
 }
 
-/**
- * 학생 메시지 전송 (409 Conflict 해결)
- *
- * 규칙:
- * - analysis가 없음 → round 1 새로 만들고 revised_content 채움
- * - 마지막 row에 teacher_feedback 있음 → 다음 round 새로 만들고 revised_content 채움
- * - 마지막 row에 teacher_feedback 없음 → 같은 row에 revised_content 업데이트 or append
- *   (unique constraint (research_id, round) 위반 방지)
- */
 export function useSendStudentMessage(researchId: string) {
   const student = useAtomValue(studentState)
   const studentId = student?.id as string | undefined

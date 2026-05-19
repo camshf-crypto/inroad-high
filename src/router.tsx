@@ -33,6 +33,7 @@ import Presentation from '@/pages/high-student/_pages/presentation/Presentation'
 import Major from '@/pages/high-student/_pages/major/Major'
 import Record from '@/pages/high-student/_pages/record/record'
 import MockExam from '@/pages/high-student/_pages/mockexam/mockexam'
+import CareerConcept from '@/pages/high-student/_pages/concept/CareerConcept'
 
 // Middle Student
 import MiddleLayout from '@/pages/middle-student/_layout/Layout'
@@ -100,6 +101,7 @@ const router = createBrowserRouter([
       }
     ]
   },
+
   {
     path: 'high-student',
     children: [
@@ -111,6 +113,7 @@ const router = createBrowserRouter([
         element: <StudentLayout />,
         children: [
           { path: 'roadmap', element: <Roadmap /> },
+          { path: 'concept', element: <CareerConcept /> },
           { path: 'topic', element: <TopicList /> },
           { path: 'book', element: <BookList /> },
           { path: 'record', element: <Record /> },
@@ -128,6 +131,7 @@ const router = createBrowserRouter([
       }
     ]
   },
+
   {
     path: 'middle-student',
     children: [
@@ -154,6 +158,7 @@ const router = createBrowserRouter([
       }
     ]
   },
+
   {
     path: 'master',
     children: [

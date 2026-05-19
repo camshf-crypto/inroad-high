@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 
 const MENUS = [
   { path: '/high-student/roadmap', label: '내 로드맵', icon: '⊞', menuKey: 'high.roadmap' },
+  { path: '/high-student/concept', label: '진로 컨셉', icon: '🎯', menuKey: 'high.concept' },
   { path: '/high-student/topic', label: '탐구주제', icon: '🔬', menuKey: 'high.topic' },
   { path: '/high-student/book', label: '독서리스트', icon: '📚', menuKey: 'high.book' },
   { path: '/high-student/suhaeng', label: '수행평가', icon: '✏️', menuKey: 'high.suhaeng' },
@@ -35,7 +36,7 @@ export default function Layout() {
 
   const isAcademyConnected = !!academy.academyId
   const enabledMenus = academy.enabledMenus || []
-  const visibleMenus = MENUS.filter(m => enabledMenus.includes(m.menuKey))
+  const visibleMenus = MENUS.filter(m => enabledMenus.includes(m.menuKey) || m.menuKey === 'high.concept')
 
   useEffect(() => {
     const fetchLogo = async () => {
@@ -61,7 +62,7 @@ export default function Layout() {
   return (
     <div className="flex h-screen bg-[#F8FAFC] font-sans">
 
-      {/* 사이드바 - 너비 줄임 */}
+      {/* 사이드바 */}
       <aside className="w-[180px] bg-white border-r border-line flex flex-col flex-shrink-0">
         {/* 로고 + 학원 로고 */}
         <div className="px-3 pt-3 pb-2 border-b border-line-light flex-shrink-0">
@@ -94,7 +95,7 @@ export default function Layout() {
           )}
         </div>
 
-        {/* 메뉴 - py, gap 줄임 */}
+        {/* 메뉴 */}
         <nav className="flex-1 px-2 py-1.5 flex flex-col overflow-y-auto">
           {visibleMenus.length === 0 && isAcademyConnected ? (
             <div className="px-3 py-6 text-center">

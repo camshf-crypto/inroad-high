@@ -18,6 +18,7 @@ import SimulationTab from './high-tabs/SimulationTab'
 import PresentationTab from './high-tabs/PresentationTab'
 import MajorTab from './high-tabs/MajorTab'
 import MockExam from './high-tabs/MockExam'
+import ConceptTab from './high-tabs/ConceptTab'
 
 // 중등 (middle-tabs)
 import MiddleRoadmapTab from './middle-tabs/roadmap'
@@ -34,6 +35,7 @@ import MiddlePresentationTab from './middle-tabs/presentation'
 // ⭐ 탭에 menuKey 매핑 추가 (학원의 enabled_menus와 매치)
 const HIGH_TABS = [
   { key: 'roadmap', label: '로드맵', menuKey: 'high.roadmap' },
+  { key: 'concept', label: '진로 컨셉', menuKey: 'high.concept' },
   { key: 'topic', label: '탐구주제', menuKey: 'high.topic' },
   { key: 'book', label: '독서리스트', menuKey: 'high.book' },
   { key: 'record', label: '생기부', menuKey: 'high.record' },
@@ -59,9 +61,13 @@ const MIDDLE_TABS = [
   { key: 'presentation', label: '제시문 면접', menuKey: 'middle.presentation' },
 ]
 
+// ⭐ 항상 표시되는 핵심 메뉴 (학원 설정과 무관하게 노출)
+const ALWAYS_VISIBLE_HIGH = ['high.concept', 'high.suhaeng']
+const ALWAYS_VISIBLE_MIDDLE = ['middle.suhaeng']
+
 const ALL_GRADES: GradeKey[] = ['고1', '고2', '고3']
 
-type HighTabType = 'roadmap' | 'topic' | 'book' | 'record' | 'suhaeng' | 'expect' | 'past' | 'mockexam' | 'simulation' | 'presentation' | 'major'
+type HighTabType = 'roadmap' | 'concept' | 'topic' | 'book' | 'record' | 'suhaeng' | 'expect' | 'past' | 'mockexam' | 'simulation' | 'presentation' | 'major'
 type MiddleTabType = 'roadmap' | 'lesson' | 'homework' | 'suhaeng' | 'record' | 'book' | 'expect' | 'past' | 'simulation' | 'presentation'
 
 const THEME = {
@@ -76,7 +82,7 @@ const THEME = {
 export default function StudentDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const academy = useAtomValue(academyState)  // ⭐ 학원 정보 + enabledMenus
+  const academy = useAtomValue(academyState)
 
   const [highTab, setHighTab] = useState<HighTabType>('roadmap')
   const [middleTab, setMiddleTab] = useState<MiddleTabType>('roadmap')
@@ -99,22 +105,24 @@ export default function StudentDetail() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages])
 
-  // ⭐ 학원의 활성 메뉴 (학원이 결제한 메뉴만 표시)
   const enabledMenus = academy.enabledMenus || []
 
-  // ⭐ 활성 메뉴에 맞는 탭만 필터링
   const visibleHighTabs = useMemo(() => {
-    // enabled_menus가 비어있으면 모든 탭 표시 (안전장치)
     if (enabledMenus.length === 0) return HIGH_TABS
-    return HIGH_TABS.filter(t => enabledMenus.includes(t.menuKey))
+    // concept, suhaeng은 항상 포함 (핵심 메뉴)
+    return HIGH_TABS.filter(t =>
+      enabledMenus.includes(t.menuKey) || ALWAYS_VISIBLE_HIGH.includes(t.menuKey)
+    )
   }, [enabledMenus])
 
   const visibleMiddleTabs = useMemo(() => {
     if (enabledMenus.length === 0) return MIDDLE_TABS
-    return MIDDLE_TABS.filter(t => enabledMenus.includes(t.menuKey))
+    // 수행평가는 항상 포함 (핵심 메뉴)
+    return MIDDLE_TABS.filter(t =>
+      enabledMenus.includes(t.menuKey) || ALWAYS_VISIBLE_MIDDLE.includes(t.menuKey)
+    )
   }, [enabledMenus])
 
-  // ⭐ 현재 선택된 탭이 비활성화되면 첫 번째 활성 탭으로 자동 이동
   useEffect(() => {
     if (visibleHighTabs.length > 0 && !visibleHighTabs.find(t => t.key === highTab)) {
       setHighTab(visibleHighTabs[0].key as HighTabType)
@@ -143,13 +151,8 @@ export default function StudentDetail() {
       <div className="p-8 text-center">
         <div className="text-3xl mb-3">😢</div>
         <div className="text-[15px] font-bold text-ink mb-1">학생을 찾을 수 없어요.</div>
-        {error && (
-          <div className="text-[12px] text-red-600 mb-4">{(error as Error).message}</div>
-        )}
-        <button
-          onClick={() => navigate('/admin/students')}
-          className="mt-4 px-4 py-2 text-[12px] font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-        >
+        {error && <div className="text-[12px] text-red-600 mb-4">{(error as Error).message}</div>}
+        <button onClick={() => navigate('/admin/students')} className="mt-4 px-4 py-2 text-[12px] font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700">
           학생 목록으로
         </button>
       </div>
@@ -187,15 +190,8 @@ export default function StudentDetail() {
   const overallPct = totalMissions > 0 ? Math.round((doneMissions / totalMissions) * 100) : 0
   const curMonth = new Date().getMonth() + 1 + '월'
 
-  const goEditTopic = (id: number) => {
-    setOpenTopicId(id)
-    setHighTab('topic')
-  }
-
-  const goEditBook = (id: number) => {
-    setOpenBookId(id)
-    setHighTab('book')
-  }
+  const goEditTopic = (id: number) => { setOpenTopicId(id); setHighTab('topic') }
+  const goEditBook = (id: number) => { setOpenBookId(id); setHighTab('book') }
 
   const openChat = (type: 'topic' | 'book', context: string) => {
     setChatType(type)
@@ -224,27 +220,24 @@ export default function StudentDetail() {
     }, 1000)
   }
 
-  // ⭐ 표시할 탭들 (필터링된 것만)
   const currentTabs = isMiddle ? visibleMiddleTabs : visibleHighTabs
   const currentTab = isMiddle ? middleTab : highTab
   const setCurrentTab = isMiddle
     ? (t: string) => setMiddleTab(t as MiddleTabType)
     : (t: string) => {
-      setHighTab(t as HighTabType)
-      if (t !== 'topic') setOpenTopicId(null)
-      if (t !== 'book') setOpenBookId(null)
-    }
+        setHighTab(t as HighTabType)
+        if (t !== 'topic') setOpenTopicId(null)
+        if (t !== 'book') setOpenBookId(null)
+      }
 
   return (
     <div className="flex" style={{ minHeight: 'calc(100vh - 50px)' }}>
 
-      {/* ==================== 메인 영역 ==================== */}
+      {/* 메인 영역 */}
       <div className="flex-1 flex flex-col min-w-0">
 
-        {/* 헤더 영역 (헤더 + 탭) */}
+        {/* 헤더 */}
         <div className="px-8 pt-7 pb-0 flex-shrink-0">
-
-          {/* 헤더 */}
           <div className="flex items-center gap-3 mb-5">
             <button
               onClick={() => navigate(isMiddle ? '/admin/middle-students' : '/admin/students')}
@@ -261,7 +254,6 @@ export default function StudentDetail() {
 
             {!isMiddle && (
               <div className="ml-auto flex items-center gap-2">
-                {/* 학년 탭 */}
                 <div className="flex gap-1">
                   {ALL_GRADES.map(g => {
                     const isActive = currentViewGrade === g
@@ -279,13 +271,11 @@ export default function StudentDetail() {
                       >
                         {g}
                         {isStudentGrade && (
-                          <span
-                            className="text-[8px] font-bold px-1 py-0.5 rounded-full"
+                          <span className="text-[8px] font-bold px-1 py-0.5 rounded-full"
                             style={{
                               background: isActive ? 'rgba(255,255,255,0.25)' : '#FEF3C7',
                               color: isActive ? '#fff' : '#92400E',
-                            }}
-                          >
+                            }}>
                             현재
                           </span>
                         )}
@@ -293,16 +283,8 @@ export default function StudentDetail() {
                     )
                   })}
                 </div>
-
-                {/* 스탯 카드 */}
                 <div className="flex items-center gap-2">
-                  <div
-                    className="rounded-xl px-4 py-2"
-                    style={{
-                      background: THEME.gradient,
-                      boxShadow: `0 4px 12px ${THEME.accentShadow}`,
-                    }}
-                  >
+                  <div className="rounded-xl px-4 py-2" style={{ background: THEME.gradient, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}>
                     <div className="text-[10px] text-white/80 mb-0.5 font-medium">{currentViewGrade} 진행률</div>
                     <div className="text-[15px] font-extrabold text-white">{overallPct}%</div>
                   </div>
@@ -322,19 +304,15 @@ export default function StudentDetail() {
 
             {isMiddle && (
               <div className="ml-auto flex items-center gap-3">
-                <span className="text-[12px] font-semibold text-ink-secondary bg-gray-100 px-3 py-1 rounded-full">
-                  {student.grade}
-                </span>
+                <span className="text-[12px] font-semibold text-ink-secondary bg-gray-100 px-3 py-1 rounded-full">{student.grade}</span>
               </div>
             )}
           </div>
 
-          {/* ⭐ 탭 - 필터링된 것만 표시 */}
+          {/* 탭 */}
           {currentTabs.length === 0 ? (
             <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-3">
-              <div className="text-[12px] font-bold text-amber-800">
-                ⚠️ 현재 학원에서 활성화된 메뉴가 없어요. 본사에 문의해주세요.
-              </div>
+              <div className="text-[12px] font-bold text-amber-800">⚠️ 현재 학원에서 활성화된 메뉴가 없어요. 본사에 문의해주세요.</div>
             </div>
           ) : (
             <div className="flex gap-1.5 overflow-x-auto pb-3 -mb-px">
@@ -363,78 +341,58 @@ export default function StudentDetail() {
 
         {/* 탭 콘텐츠 */}
         <div className="flex-1 px-8 pb-7 pt-1">
-
           {!isMiddle && (
             <>
-              {highTab === 'roadmap' && visibleHighTabs.find(t => t.key === 'roadmap') && <RoadmapTab student={student} viewGrade={currentViewGrade} />}
-              {highTab === 'topic' && visibleHighTabs.find(t => t.key === 'topic') && <TopicTab student={student} onOpenChat={openChat} openId={openTopicId} onClearOpenId={() => setOpenTopicId(null)} />}
-              {highTab === 'book' && visibleHighTabs.find(t => t.key === 'book') && <BookTab student={student} onOpenChat={openChat} openId={openBookId} onClearOpenId={() => setOpenBookId(null)} />}
-              {highTab === 'record' && visibleHighTabs.find(t => t.key === 'record') && <RecordTab student={student} onEditTopic={goEditTopic} onEditBook={goEditBook} />}
-              {highTab === 'suhaeng' && visibleHighTabs.find(t => t.key === 'suhaeng') && <SuhaengTab student={student} />}
-              {highTab === 'expect' && visibleHighTabs.find(t => t.key === 'expect') && <ExpectTab student={student} />}
-              {highTab === 'past' && visibleHighTabs.find(t => t.key === 'past') && <PastTab student={student} />}
-              {highTab === 'mockexam' && visibleHighTabs.find(t => t.key === 'mockexam') && <MockExam student={student} />}
-              {highTab === 'simulation' && visibleHighTabs.find(t => t.key === 'simulation') && <SimulationTab student={student} />}
+              {highTab === 'roadmap'      && visibleHighTabs.find(t => t.key === 'roadmap')      && <RoadmapTab student={student} viewGrade={currentViewGrade} />}
+              {highTab === 'concept'      && visibleHighTabs.find(t => t.key === 'concept')      && <ConceptTab student={student} />}
+              {highTab === 'topic'        && visibleHighTabs.find(t => t.key === 'topic')        && <TopicTab student={student} onOpenChat={openChat} openId={openTopicId} onClearOpenId={() => setOpenTopicId(null)} />}
+              {highTab === 'book'         && visibleHighTabs.find(t => t.key === 'book')         && <BookTab student={student} onOpenChat={openChat} openId={openBookId} onClearOpenId={() => setOpenBookId(null)} />}
+              {highTab === 'record'       && visibleHighTabs.find(t => t.key === 'record')       && <RecordTab student={student} onEditTopic={goEditTopic} onEditBook={goEditBook} />}
+              {highTab === 'suhaeng'      && visibleHighTabs.find(t => t.key === 'suhaeng')      && <SuhaengTab student={student} />}
+              {highTab === 'expect'       && visibleHighTabs.find(t => t.key === 'expect')       && <ExpectTab student={student} />}
+              {highTab === 'past'         && visibleHighTabs.find(t => t.key === 'past')         && <PastTab student={student} />}
+              {highTab === 'mockexam'     && visibleHighTabs.find(t => t.key === 'mockexam')     && <MockExam student={student} />}
+              {highTab === 'simulation'   && visibleHighTabs.find(t => t.key === 'simulation')   && <SimulationTab student={student} />}
               {highTab === 'presentation' && visibleHighTabs.find(t => t.key === 'presentation') && <PresentationTab student={student} />}
-              {highTab === 'major' && visibleHighTabs.find(t => t.key === 'major') && <MajorTab student={student} />}
+              {highTab === 'major'        && visibleHighTabs.find(t => t.key === 'major')        && <MajorTab student={student} />}
             </>
           )}
 
           {isMiddle && (
             <>
-              {middleTab === 'roadmap' && visibleMiddleTabs.find(t => t.key === 'roadmap') && <MiddleRoadmapTab student={student} />}
-              {middleTab === 'lesson' && visibleMiddleTabs.find(t => t.key === 'lesson') && <MiddleLessonTab student={student} />}
-              {middleTab === 'homework' && visibleMiddleTabs.find(t => t.key === 'homework') && <MiddleHomeworkTab student={student} />}
-              {middleTab === 'suhaeng' && visibleMiddleTabs.find(t => t.key === 'suhaeng') && <MiddleSuhaengTab student={student} />}
-              {middleTab === 'record' && visibleMiddleTabs.find(t => t.key === 'record') && <MiddleRecordTab student={student} />}
-              {middleTab === 'book' && visibleMiddleTabs.find(t => t.key === 'book') && <MiddleBookTab student={student} />}
-              {middleTab === 'expect' && visibleMiddleTabs.find(t => t.key === 'expect') && <MiddleExpectTab student={student} />}
-              {middleTab === 'past' && visibleMiddleTabs.find(t => t.key === 'past') && <MiddlePastTab student={student} />}
-              {middleTab === 'simulation' && visibleMiddleTabs.find(t => t.key === 'simulation') && <MiddleSimulationTab student={student} />}
+              {middleTab === 'roadmap'      && visibleMiddleTabs.find(t => t.key === 'roadmap')      && <MiddleRoadmapTab student={student} />}
+              {middleTab === 'lesson'       && visibleMiddleTabs.find(t => t.key === 'lesson')       && <MiddleLessonTab student={student} />}
+              {middleTab === 'homework'     && visibleMiddleTabs.find(t => t.key === 'homework')     && <MiddleHomeworkTab student={student} />}
+              {middleTab === 'suhaeng'      && visibleMiddleTabs.find(t => t.key === 'suhaeng')      && <MiddleSuhaengTab student={student} />}
+              {middleTab === 'record'       && visibleMiddleTabs.find(t => t.key === 'record')       && <MiddleRecordTab student={student} />}
+              {middleTab === 'book'         && visibleMiddleTabs.find(t => t.key === 'book')         && <MiddleBookTab student={student} />}
+              {middleTab === 'expect'       && visibleMiddleTabs.find(t => t.key === 'expect')       && <MiddleExpectTab student={student} />}
+              {middleTab === 'past'         && visibleMiddleTabs.find(t => t.key === 'past')         && <MiddlePastTab student={student} />}
+              {middleTab === 'simulation'   && visibleMiddleTabs.find(t => t.key === 'simulation')   && <MiddleSimulationTab student={student} />}
               {middleTab === 'presentation' && visibleMiddleTabs.find(t => t.key === 'presentation') && <MiddlePresentationTab student={student} />}
             </>
           )}
         </div>
       </div>
 
-      {/* ==================== 챗봇 사이드 패널 ==================== */}
+      {/* 챗봇 사이드 패널 */}
       {chatOpen && (
-        <div
-          className="w-[380px] border-l border-line bg-white flex flex-col flex-shrink-0 sticky top-0"
-          style={{ height: 'calc(100vh - 50px)' }}
-        >
-          <div
-            className="px-5 py-4 border-b border-line flex items-center justify-between flex-shrink-0"
-            style={{ background: accentBg }}
-          >
+        <div className="w-[380px] border-l border-line bg-white flex flex-col flex-shrink-0 sticky top-0" style={{ height: 'calc(100vh - 50px)' }}>
+          <div className="px-5 py-4 border-b border-line flex items-center justify-between flex-shrink-0" style={{ background: accentBg }}>
             <div>
               <div className="text-[14px] font-extrabold" style={{ color: accentDark }}>
                 ✨ {chatType === 'topic' ? '탐구주제 고도화' : '도서 추천'} 챗봇
               </div>
-              <div className="text-[11px] font-medium text-ink-secondary mt-0.5">
-                {student.name} 학생 · {chatContext}
-              </div>
+              <div className="text-[11px] font-medium text-ink-secondary mt-0.5">{student.name} 학생 · {chatContext}</div>
             </div>
-            <button
-              onClick={() => setChatOpen(false)}
-              className="cursor-pointer text-sm text-ink-secondary w-8 h-8 flex items-center justify-center rounded-md bg-white hover:bg-gray-50 transition-colors"
-            >
-              ✕
-            </button>
+            <button onClick={() => setChatOpen(false)} className="cursor-pointer text-sm text-ink-secondary w-8 h-8 flex items-center justify-center rounded-md bg-white hover:bg-gray-50 transition-colors">✕</button>
           </div>
 
           <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
             {chatMessages.map((msg, i) => (
-              <div
-                key={i}
-                className="flex flex-col"
-                style={{ alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start' }}
-              >
-                <div className="text-[10px] font-semibold text-ink-muted mb-1">
-                  {msg.role === 'user' ? '👨‍🏫 선생님' : '✨ AI 챗봇'}
-                </div>
-                <div
-                  className="max-w-[85%] px-3.5 py-2.5 text-[13px] font-medium leading-[1.7] whitespace-pre-wrap"
+              <div key={i} className="flex flex-col" style={{ alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                <div className="text-[10px] font-semibold text-ink-muted mb-1">{msg.role === 'user' ? '👨‍🏫 선생님' : '✨ AI 챗봇'}</div>
+                <div className="max-w-[85%] px-3.5 py-2.5 text-[13px] font-medium leading-[1.7] whitespace-pre-wrap"
                   style={{
                     borderRadius: msg.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
                     background: msg.role === 'user' ? accentColor : '#F8FAFC',
@@ -464,30 +422,17 @@ export default function StudentDetail() {
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendChat()}
                 placeholder="메시지를 입력하세요..."
                 className="flex-1 h-10 border border-line rounded-lg px-3 text-[13px] font-medium outline-none transition-all placeholder:text-ink-muted"
-                onFocus={e => {
-                  e.target.style.borderColor = accentColor
-                  e.target.style.boxShadow = `0 0 0 3px ${accentShadow}`
-                }}
-                onBlur={e => {
-                  e.target.style.borderColor = '#E5E7EB'
-                  e.target.style.boxShadow = 'none'
-                }}
+                onFocus={e => { e.target.style.borderColor = accentColor; e.target.style.boxShadow = `0 0 0 3px ${accentShadow}` }}
+                onBlur={e => { e.target.style.borderColor = '#E5E7EB'; e.target.style.boxShadow = 'none' }}
               />
-              <button
-                onClick={sendChat}
-                disabled={chatLoading || !chatInput.trim()}
+              <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()}
                 className="w-10 h-10 text-white rounded-lg transition-all text-base disabled:cursor-not-allowed"
-                style={{
-                  background: chatInput.trim() ? accentColor : '#E5E7EB',
-                  boxShadow: chatInput.trim() ? `0 2px 6px ${accentShadow}` : 'none',
-                }}
+                style={{ background: chatInput.trim() ? accentColor : '#E5E7EB', boxShadow: chatInput.trim() ? `0 2px 6px ${accentShadow}` : 'none' }}
               >
                 →
               </button>
             </div>
-            <div className="text-[10px] font-medium text-ink-muted mt-1.5">
-              Enter로 전송 · 챗봇 답변을 피드백에 붙여넣기 가능
-            </div>
+            <div className="text-[10px] font-medium text-ink-muted mt-1.5">Enter로 전송 · 챗봇 답변을 피드백에 붙여넣기 가능</div>
           </div>
         </div>
       )}
