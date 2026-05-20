@@ -19,6 +19,7 @@ const PAGE_SIZE = 10
 export default function BookList() {
   const student = useAtomValue(studentState)
   const studentGrade = student?.grade as string ?? '고1'
+  const studentGradeNum = gradeToNum(studentGrade) ?? 1
   const [activeGrade, setActiveGrade] = useState<string>(studentGrade)
   const [selReadingId, setSelReadingId] = useState<string | null>(null)
   const [messageInput, setMessageInput] = useState('')
@@ -35,7 +36,7 @@ export default function BookList() {
   const [pageableCount, setPageableCount] = useState(0)
   const [isEnd, setIsEnd] = useState(false)
   const [selSearchBook, setSelSearchBook] = useState<BookSearchResult | null>(null)
-  const [newBook, setNewBook] = useState({ title: '', author: '', subject: '', reason: '', activity: '', grade: gradeToNum(studentGrade) ?? 1 })
+  const [newBook, setNewBook] = useState({ title: '', author: '', subject: '', reason: '', activity: '', grade: studentGradeNum })
 
   const chatEndRef = useRef<HTMLDivElement>(null)
   const searchListRef = useRef<HTMLDivElement>(null)
@@ -46,7 +47,7 @@ export default function BookList() {
   const sendMessage = useSendReadingStudentMessage(selReadingId ?? '')
   const deleteReading = useDeleteReading()
 
-  // ⭐ 모달에서 선택한 학년의 진로 컨셉 조회
+  // ⭐ 모달에서 선택한 학년의 진로 계열 검사 조회
   const { data: concept } = useStudentConcept(newBook.grade)
 
   const selected = readings.find(r => r.id === selReadingId)
@@ -62,6 +63,14 @@ export default function BookList() {
   useEffect(() => {
     if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: 'smooth' })
   }, [messages.length])
+
+  // ⭐ 모달 열 때마다 activeGrade(좌측 탭) 학년으로 자동 설정
+  useEffect(() => {
+    if (showAddModal) {
+      const activeGradeNum = gradeToNum(activeGrade) ?? studentGradeNum
+      setNewBook(p => ({ ...p, grade: activeGradeNum }))
+    }
+  }, [showAddModal, activeGrade])
 
   const runSearch = async (query: string, pageNum: number) => {
     setSearching(true); setSearchError('')
@@ -117,10 +126,10 @@ export default function BookList() {
     setShowAddModal(false); setModalStep(1); setSearchQuery(''); setSearchInput('')
     setSearchResults([]); setSearchError(''); setPage(1); setTotalCount(0)
     setPageableCount(0); setIsEnd(false); setSelSearchBook(null)
-    setNewBook({ title: '', author: '', subject: '', reason: '', activity: '', grade: gradeToNum(studentGrade) ?? 1 })
+    const activeGradeNum = gradeToNum(activeGrade) ?? studentGradeNum
+    setNewBook({ title: '', author: '', subject: '', reason: '', activity: '', grade: activeGradeNum })
   }
 
-  // 학년 변경 시 subject 초기화 (다른 학년에 없는 과목이 남아있는 것 방지)
   const handleGradeChange = (newGrade: number) => {
     setNewBook(p => ({ ...p, grade: newGrade, subject: '' }))
   }
@@ -132,7 +141,7 @@ export default function BookList() {
   const stripHtml = (str: string) => str.replace(/<[^>]*>/g, '')
   const formatDate = (iso: string) => {
     if (!iso) return ''
-    try { const d = new Date(iso); return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}` }
+    try { const d = new Date(iso); return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}` }
     catch { return '' }
   }
 
@@ -151,47 +160,39 @@ export default function BookList() {
   const modalDesc = modalStep === 1 ? '읽고 싶은 책을 검색해보세요 (카카오 도서 검색)'
     : modalStep === 2 ? '책 정보를 확인하고 등록할지 결정해주세요' : '추가 정보를 입력해주세요'
 
-  // ⭐ 진로 컨셉 가이드 배너 컴포넌트
+  // ⭐ 진로 계열 검사 가이드 배너 - 한 줄로 압축!
   const ConceptGuideBanner = () => {
     if (!concept?.major) {
       return (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 mb-3 flex items-start gap-2">
-          <span className="text-base flex-shrink-0">💡</span>
-          <div className="flex-1">
-            <div className="text-[11.5px] font-bold text-amber-800 mb-0.5">
-              고{newBook.grade} 진로 컨셉이 설정되지 않았어요
-            </div>
-            <div className="text-[10.5px] text-amber-700 leading-relaxed">
-              <span className="font-semibold">진로 컨셉</span> 메뉴에서 먼저 설정하면, 방향에 맞는 도서를 추천받을 수 있어요!
-            </div>
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 mb-2.5 flex items-center gap-2">
+          <span className="text-[12px] flex-shrink-0">💡</span>
+          <div className="text-[11px] text-amber-800 flex-1 min-w-0 truncate">
+            <span className="font-bold">고{newBook.grade} 진로 계열 검사 미설정</span>
+            <span className="text-amber-700"> · 진로 계열 검사 메뉴에서 먼저 설정해보세요</span>
           </div>
         </div>
       )
     }
 
+    const keywordText = (concept.keywords?.length ?? 0) > 0
+      ? concept.keywords!.slice(0, 3).map(k => `#${k}`).join(' ') + (concept.keywords!.length > 3 ? ` +${concept.keywords!.length - 3}` : '')
+      : ''
+
     return (
-      <div className="bg-gradient-to-br from-brand-high-pale to-blue-50 border border-brand-high-light rounded-lg px-3 py-2.5 mb-3">
-        <div className="flex items-start gap-2">
-          <span className="text-base flex-shrink-0">🎯</span>
-          <div className="flex-1 min-w-0">
-            <div className="text-[10px] font-bold text-brand-high-dark uppercase tracking-wider mb-1">
-              고{newBook.grade} 진로 컨셉 · 이 방향에 맞는 도서를 등록해보세요
-            </div>
-            <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
-              <span className="text-[11.5px] font-semibold text-ink">{concept.major}</span>
-              <span className="text-ink-muted text-[10px]">›</span>
-              <span className="text-[11.5px] font-bold text-brand-high-dark">{concept.career || concept.custom_goal}</span>
-            </div>
-            {(concept.keywords?.length ?? 0) > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {concept.keywords?.map(kw => (
-                  <span key={kw} className="text-[10px] font-semibold px-1.5 py-0.5 bg-white text-brand-high-dark rounded-full border border-brand-high-light">
-                    #{kw}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+      <div className="bg-gradient-to-r from-brand-high-pale to-blue-50 border border-brand-high-light rounded-lg px-3 py-1.5 mb-2.5 flex items-center gap-2">
+        <span className="text-[12px] flex-shrink-0">🎯</span>
+        <div className="text-[11px] flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
+          <span className="font-bold text-brand-high-dark">고{newBook.grade} 진로</span>
+          <span className="text-ink">·</span>
+          <span className="font-semibold text-ink">{concept.major}</span>
+          <span className="text-ink-muted">›</span>
+          <span className="font-bold text-brand-high-dark">{concept.career || concept.custom_goal}</span>
+          {keywordText && (
+            <>
+              <span className="text-ink-muted">·</span>
+              <span className="text-brand-high-dark font-semibold">{keywordText}</span>
+            </>
+          )}
         </div>
       </div>
     )
@@ -226,9 +227,8 @@ export default function BookList() {
             <div className="flex gap-1">
               {['고1', '고2', '고3'].map(g => (
                 <button key={g} onClick={() => setActiveGrade(g)}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-all flex-1 justify-center ${
-                    activeGrade === g ? 'border-brand-high bg-brand-high text-white' : 'border-line bg-gray-50 text-ink-secondary hover:border-brand-high-light'
-                  }`}>
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-all flex-1 justify-center ${activeGrade === g ? 'border-brand-high bg-brand-high text-white' : 'border-line bg-gray-50 text-ink-secondary hover:border-brand-high-light'
+                    }`}>
                   {g}
                   {g === studentGrade && (
                     <span className={`text-[8px] font-bold px-1 py-0.5 rounded-full ${activeGrade === g ? 'bg-white/25 text-white' : 'bg-brand-high text-white'}`}>현재</span>
@@ -251,9 +251,8 @@ export default function BookList() {
               </div>
             ) : readings.map(book => (
               <div key={book.id} onClick={() => setSelReadingId(book.id)}
-                className={`relative border rounded-xl px-3 py-2.5 mb-1.5 cursor-pointer transition-all ${
-                  selReadingId === book.id ? 'border-brand-high bg-brand-high-pale shadow-[0_2px_8px_rgba(37,99,235,0.1)]' : 'border-line bg-white hover:border-brand-high-light hover:shadow-sm'
-                }`}>
+                className={`relative border rounded-xl px-3 py-2.5 mb-1.5 cursor-pointer transition-all ${selReadingId === book.id ? 'border-brand-high bg-brand-high-pale shadow-[0_2px_8px_rgba(37,99,235,0.1)]' : 'border-line bg-white hover:border-brand-high-light hover:shadow-sm'
+                  }`}>
                 <div className="flex gap-1 mb-1.5 flex-wrap">
                   {book.status === 'completed' ? (
                     <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">✓ 완료됨</span>
@@ -346,9 +345,8 @@ export default function BookList() {
       {showAddModal && (
         <div onClick={closeModal} className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
           <div onClick={e => e.stopPropagation()}
-            className={`bg-white rounded-2xl max-h-[88vh] flex flex-col overflow-hidden shadow-2xl ${
-              modalStep === 1 ? 'w-[620px]' : modalStep === 2 ? 'w-[600px]' : 'w-[480px]'
-            } max-w-full`}>
+            className={`bg-white rounded-2xl max-h-[88vh] flex flex-col overflow-hidden shadow-2xl ${modalStep === 1 ? 'w-[620px]' : modalStep === 2 ? 'w-[600px]' : 'w-[480px]'
+              } max-w-full`}>
             <div className="px-6 py-4 border-b border-line-light flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
                 {modalStep === 2 && <button onClick={backToSearch} className="text-ink-secondary hover:text-ink text-[14px] transition-colors">←</button>}
@@ -369,8 +367,20 @@ export default function BookList() {
             {/* Step 1 */}
             {modalStep === 1 && (
               <div className="flex-1 flex flex-col overflow-hidden">
-                {/* ⭐ 진로 컨셉 가이드 배너 */}
-                <div className="px-6 pt-4">
+                {/* ⭐ 학년 선택 + 진로 컨셉 배너 (컴팩트!) */}
+                <div className="px-6 pt-3 pb-2 flex-shrink-0">
+                  <div className="flex gap-1 mb-2">
+                    {[{ label: '고1', val: 1 }, { label: '고2', val: 2 }, { label: '고3', val: 3 }].map(g => (
+                      <button key={g.val} type="button" onClick={() => handleGradeChange(g.val)}
+                        className={`flex-1 py-1.5 rounded-lg border text-[11.5px] font-semibold transition-all ${newBook.grade === g.val ? 'bg-brand-high text-white border-brand-high' : 'bg-white text-ink-secondary border-line hover:border-brand-high-light'
+                          }`}>
+                        {g.label}
+                        {g.val === studentGradeNum && (
+                          <span className={`ml-1 text-[8px] font-bold px-1 py-0.5 rounded-full ${newBook.grade === g.val ? 'bg-white/25 text-white' : 'bg-brand-high text-white'}`}>현재</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                   <ConceptGuideBanner />
                 </div>
                 <div className="px-6 pb-3 flex-shrink-0">
@@ -432,7 +442,7 @@ export default function BookList() {
                   </div>
                 )}
                 <div className="px-6 py-3 border-t border-line-light flex-shrink-0">
-                  <button onClick={() => { setSelSearchBook(null); setNewBook({ title: '', author: '', subject: '', reason: '', activity: '', grade: gradeToNum(studentGrade) ?? 1 }); setModalStep(3) }}
+                  <button onClick={() => { setSelSearchBook(null); setNewBook(p => ({ ...p, title: '', author: '', subject: '', reason: '', activity: '' })); setModalStep(3) }}
                     className="w-full h-10 bg-white text-ink-secondary border border-line rounded-lg text-[12px] font-medium hover:bg-gray-50 hover:border-ink-muted transition-all">
                     검색 없이 직접 입력
                   </button>
@@ -482,7 +492,6 @@ export default function BookList() {
             {/* Step 3 */}
             {modalStep === 3 && (
               <div className="flex-1 overflow-y-auto px-6 py-5">
-                {/* ⭐ 진로 컨셉 가이드 배너 */}
                 <ConceptGuideBanner />
 
                 {selSearchBook && (
@@ -496,16 +505,17 @@ export default function BookList() {
                   </div>
                 )}
                 <div className="flex flex-col gap-3">
-                  {/* 학년 선택 */}
                   <div>
                     <label className="text-[11px] font-semibold text-ink-secondary mb-1.5 block">학년 *</label>
                     <div className="flex gap-1">
-                      {[{label: '고1', val: 1}, {label: '고2', val: 2}, {label: '고3', val: 3}].map(g => (
+                      {[{ label: '고1', val: 1 }, { label: '고2', val: 2 }, { label: '고3', val: 3 }].map(g => (
                         <button key={g.val} type="button" onClick={() => handleGradeChange(g.val)}
-                          className={`flex-1 py-2 rounded-lg border text-[12px] font-semibold transition-all ${
-                            newBook.grade === g.val ? 'bg-brand-high text-white border-brand-high' : 'bg-white text-ink-secondary border-line hover:border-brand-high-light'
-                          }`}>
+                          className={`flex-1 py-2 rounded-lg border text-[12px] font-semibold transition-all ${newBook.grade === g.val ? 'bg-brand-high text-white border-brand-high' : 'bg-white text-ink-secondary border-line hover:border-brand-high-light'
+                            }`}>
                           {g.label}
+                          {g.val === studentGradeNum && (
+                            <span className={`ml-1 text-[8px] font-bold px-1 py-0.5 rounded-full ${newBook.grade === g.val ? 'bg-white/25 text-white' : 'bg-brand-high text-white'}`}>현재</span>
+                          )}
                         </button>
                       ))}
                     </div>

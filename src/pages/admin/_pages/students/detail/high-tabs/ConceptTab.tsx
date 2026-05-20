@@ -1,14 +1,17 @@
 // src/pages/admin/_pages/students/detail/high-tabs/ConceptTab.tsx
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { TYPE_NAMES, TYPE_DESC, TYPE_MAJORS } from '@/pages/high-student/_pages/concept/questions'
+import TypeDetailCard from './TypeDetailCard'
+import TypeDetailModal from './TypeDetailModal'
 
 interface Props {
   student: {
     id: string
     name: string
     academy_id: string
+    grade?: string
   }
 }
 
@@ -28,10 +31,17 @@ interface ConceptData {
   approved_by: string | null
   created_at: string
   updated_at: string
+  grade?: string | null  // 진단 시점의 학년
+}
+
+// 학년 추출 (created_at 기준 또는 grade 필드)
+function getGradeLabel(item: ConceptData): string {
+  return item.grade || '미분류'
 }
 
 export default function ConceptTab({ student }: Props) {
-  const [conceptData, setConceptData] = useState<ConceptData | null>(null)
+  const [conceptList, setConceptList] = useState<ConceptData[]>([])
+  const [selectedGrade, setSelectedGrade] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [approving, setApproving] = useState(false)
 
@@ -47,15 +57,33 @@ export default function ConceptTab({ student }: Props) {
         .select('*')
         .eq('student_id', student.id)
         .eq('academy_id', student.academy_id)
-        .maybeSingle()
+        .order('created_at', { ascending: false })  // 최신순
       if (error) throw error
-      setConceptData(data)
+      const list = (data as ConceptData[]) || []
+      setConceptList(list)
+      // 기본 선택: 현재 학년 우선, 없으면 가장 최근
+      if (list.length > 0) {
+        const currentGradeMatch = list.find(c => c.grade === student.grade)
+        setSelectedGrade(currentGradeMatch?.grade || list[0].grade || '')
+      }
     } catch (e) {
       console.error(e)
     } finally {
       setLoading(false)
     }
   }
+
+  // 현재 선택된 학년의 데이터
+  const conceptData = useMemo(() => {
+    if (!selectedGrade) return conceptList[0] || null
+    return conceptList.find(c => c.grade === selectedGrade) || null
+  }, [conceptList, selectedGrade])
+
+  // 학년 목록 (있는 것만)
+  const availableGrades = useMemo(() => {
+    const grades = new Set(conceptList.map(c => c.grade).filter(Boolean) as string[])
+    return Array.from(grades).sort()
+  }, [conceptList])
 
   const handleApprove = async () => {
     if (!conceptData) return
@@ -113,39 +141,107 @@ export default function ConceptTab({ student }: Props) {
     )
   }
 
-  // 진단 미완료
-  if (!conceptData || conceptData.status === 'in_progress') {
-    const answered = conceptData ? Object.keys(conceptData.answers || {}).length : 0
-    const progress = Math.round((answered / 200) * 100)
-
+  // 진단 데이터 자체가 없음
+  if (conceptList.length === 0) {
     return (
       <div className="py-8">
         <div className="bg-white border border-line rounded-2xl p-8 text-center max-w-[480px] mx-auto">
           <div className="text-4xl mb-4">📝</div>
-          <div className="text-[16px] font-bold text-ink mb-2">
-            {conceptData ? '진단 진행 중' : '아직 진단을 시작하지 않았어요'}
-          </div>
+          <div className="text-[16px] font-bold text-ink mb-2">아직 진단을 시작하지 않았어요</div>
           <div className="text-[13px] text-ink-secondary mb-5">
-            {conceptData
-              ? `${student.name} 학생이 현재 200문항 진단을 진행 중이에요.`
-              : `${student.name} 학생이 아직 진로 컨셉 진단을 시작하지 않았어요.`}
+            {student.name} 학생이 아직 진로 계열 검사 진단을 시작하지 않았어요.
           </div>
-          {conceptData && (
-            <div className="mb-4">
-              <div className="flex items-center justify-between text-[12px] font-semibold mb-1.5">
-                <span className="text-ink-muted">진행률</span>
-                <span className="text-brand-high">{progress}% ({answered}/200)</span>
-              </div>
-              <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-brand-high rounded-full" style={{ width: `${progress}%` }} />
-              </div>
-            </div>
-          )}
           <div className="text-[12px] text-ink-muted">학생이 진단을 완료하면 이 화면에서 결과를 확인할 수 있어요.</div>
         </div>
       </div>
     )
   }
+
+  return (
+    <div className="py-6 max-w-[1200px]">
+      {/* ⭐ 학년 탭 (2개 이상일 때만 표시) */}
+      {availableGrades.length > 1 && (
+        <div className="flex gap-2 mb-5 border-b border-line">
+          {availableGrades.map(grade => {
+            const isActive = selectedGrade === grade
+            const item = conceptList.find(c => c.grade === grade)
+            const isApproved = item?.status === 'approved'
+            return (
+              <button
+                key={grade}
+                onClick={() => setSelectedGrade(grade)}
+                className={`px-4 py-2.5 text-[13px] font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+                  isActive
+                    ? 'border-brand-high text-brand-high-dark'
+                    : 'border-transparent text-ink-muted hover:text-ink'
+                }`}
+              >
+                {grade}
+                {isApproved && (
+                  <span className="text-[10px] text-green-600">✓</span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {!conceptData ? (
+        <div className="py-8 text-center text-ink-muted">
+          선택한 학년의 진단 데이터가 없어요.
+        </div>
+      ) : conceptData.status === 'in_progress' ? (
+        <InProgressView conceptData={conceptData} studentName={student.name} />
+      ) : (
+        <CompletedView
+          conceptData={conceptData}
+          onApprove={handleApprove}
+          onRevoke={handleRevoke}
+          approving={approving}
+        />
+      )}
+    </div>
+  )
+}
+
+// 진단 진행 중 화면
+function InProgressView({ conceptData, studentName }: { conceptData: ConceptData; studentName: string }) {
+  const answered = Object.keys(conceptData.answers || {}).length
+  const progress = Math.round((answered / 200) * 100)
+  return (
+    <div className="bg-white border border-line rounded-2xl p-8 text-center max-w-[480px] mx-auto">
+      <div className="text-4xl mb-4">📝</div>
+      <div className="text-[16px] font-bold text-ink mb-2">진단 진행 중</div>
+      <div className="text-[13px] text-ink-secondary mb-5">
+        {studentName} 학생이 현재 200문항 진단을 진행 중이에요.
+      </div>
+      <div className="mb-4">
+        <div className="flex items-center justify-between text-[12px] font-semibold mb-1.5">
+          <span className="text-ink-muted">진행률</span>
+          <span className="text-brand-high">{progress}% ({answered}/200)</span>
+        </div>
+        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-full bg-brand-high rounded-full" style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 진단 완료 화면
+function CompletedView({
+  conceptData,
+  onApprove,
+  onRevoke,
+  approving,
+}: {
+  conceptData: ConceptData
+  onApprove: () => void
+  onRevoke: () => void
+  approving: boolean
+}) {
+  // ⭐ 유형 해설 모달 상태
+  const [detailOpen, setDetailOpen] = useState(false)
 
   const typeCode = conceptData.type_code ?? ''
   const typeName = conceptData.type_name ?? TYPE_NAMES[typeCode] ?? typeCode
@@ -156,12 +252,11 @@ export default function ConceptTab({ student }: Props) {
   const maxScore = topScores[0]?.[1] ?? 1
 
   return (
-    <div className="py-6 max-w-[900px]">
-
+    <>
       {/* 상태 배지 */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <span className="text-[18px] font-extrabold text-ink">진로 컨셉 진단 결과</span>
+          <span className="text-[18px] font-extrabold text-ink">진로 계열 검사 진단 결과</span>
           <span className={`text-[11px] font-bold px-3 py-1 rounded-full ${
             conceptData.status === 'approved'
               ? 'bg-green-100 text-green-700 border border-green-200'
@@ -175,9 +270,9 @@ export default function ConceptTab({ student }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-5 mb-5">
-
-        {/* 유형 결과 */}
+      {/* ⭐ 3열 그리드: 유형 결과 / 점수 차트 / 해설 카드 */}
+      <div className="grid grid-cols-3 gap-4 mb-5 max-lg:grid-cols-1">
+        {/* 1열: 유형 결과 */}
         <div className="bg-gradient-to-br from-brand-high-pale to-blue-50 border-2 border-brand-high-light rounded-2xl p-6">
           <div className="text-[11px] font-bold text-brand-high-dark uppercase tracking-wider mb-4">진단 유형</div>
           <div className="flex items-center gap-3 mb-4">
@@ -198,7 +293,7 @@ export default function ConceptTab({ student }: Props) {
           </div>
         </div>
 
-        {/* 점수 차트 */}
+        {/* 2열: 점수 차트 */}
         <div className="bg-white border border-line rounded-2xl p-6">
           <div className="text-[13px] font-bold text-ink mb-4">📊 유형별 점수</div>
           <div className="flex flex-col gap-2">
@@ -209,24 +304,30 @@ export default function ConceptTab({ student }: Props) {
                   <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 ${idx === 0 ? 'bg-brand-high text-white' : 'bg-gray-100 text-ink-muted'}`}>
                     {idx + 1}
                   </div>
-                  <div className="w-24 text-[11px] font-semibold text-ink truncate flex-shrink-0">
+                  <div className="w-20 text-[11px] font-semibold text-ink truncate flex-shrink-0">
                     {TYPE_NAMES[type] || type}
                   </div>
                   <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                     <div className={`h-full rounded-full ${idx === 0 ? 'bg-brand-high' : 'bg-gray-300'}`} style={{ width: `${pct}%` }} />
                   </div>
-                  <div className="text-[11px] text-ink-muted w-8 text-right flex-shrink-0">{score}</div>
+                  <div className="text-[11px] text-ink-muted w-7 text-right flex-shrink-0">{score}</div>
                 </div>
               )
             })}
           </div>
         </div>
+
+        {/* 3열: ⭐ 진단 유형 해설 카드 (신규) */}
+        <TypeDetailCard
+          typeCode={typeCode}
+          onOpenDetail={() => setDetailOpen(true)}
+        />
       </div>
 
-      {/* 학생이 선택한 학과/목표 (approved된 경우) */}
+      {/* 학생이 선택한 학과/목표 */}
       {conceptData.status === 'approved' && conceptData.major && (
         <div className="bg-white border border-line rounded-2xl p-6 mb-5">
-          <div className="text-[13px] font-bold text-ink mb-4">🎯 학생이 선택한 진로 컨셉</div>
+          <div className="text-[13px] font-bold text-ink mb-4">🎯 학생이 선택한 진로 계열 검사</div>
           <div className="flex flex-col gap-3">
             {[
               { label: '선택 학과', value: conceptData.major },
@@ -261,7 +362,7 @@ export default function ConceptTab({ student }: Props) {
               학생과 충분히 상담한 후 승인해주세요.
             </div>
             <button
-              onClick={handleApprove}
+              onClick={onApprove}
               disabled={approving}
               className="w-full py-3.5 bg-gradient-to-r from-brand-high-dark to-brand-high text-white rounded-xl text-[14px] font-bold hover:opacity-90 transition-all shadow-[0_4px_12px_rgba(37,99,235,0.25)] disabled:opacity-50"
             >
@@ -277,7 +378,7 @@ export default function ConceptTab({ student }: Props) {
               </div>
             </div>
             <button
-              onClick={handleRevoke}
+              onClick={onRevoke}
               disabled={approving}
               className="px-4 py-2 border border-line rounded-lg text-[12px] font-semibold text-ink-secondary hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
@@ -286,6 +387,13 @@ export default function ConceptTab({ student }: Props) {
           </div>
         )}
       </div>
-    </div>
+
+      {/* ⭐ 진단 유형 해설 상세 모달 */}
+      <TypeDetailModal
+        typeCode={typeCode}
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+      />
+    </>
   )
 }

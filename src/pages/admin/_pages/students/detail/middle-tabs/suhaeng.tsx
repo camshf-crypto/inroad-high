@@ -55,9 +55,36 @@ const EVAL_CRITERIA: Record<string, { name: string; max: number; standard: numbe
     { name: "결과 해석", max: 100, standard: 80 },
     { name: "결론", max: 100, standard: 75 },
   ],
+  포트폴리오: [
+    { name: "구성", max: 100, standard: 80 },
+    { name: "완성도", max: 100, standard: 80 },
+    { name: "성찰", max: 100, standard: 75 },
+  ],
 };
 
-function getFunctionNameByType(questionType: string): string | null {
+// ⭐ 학원/학교 구분해서 적절한 Edge Function 이름 반환
+function getFunctionNameByType(questionType: string, category: string): string | null {
+  // 🏫 학교 수행평가 (새로 만든 함수 4개)
+  if (category === "school") {
+    switch (questionType) {
+      case "논술형":
+      case "서술형":
+      case "기타":
+        return "middle-school-suhaeng-essay";
+      case "포트폴리오":
+      case "주제탐구":
+        return "middle-school-suhaeng-portfolio";
+      case "탐구수행":
+        return "middle-school-suhaeng-experiment";
+      case "구술발표":
+        return "middle-school-suhaeng-presentation";
+      default:
+        // 기본 fallback: essay
+        return "middle-school-suhaeng-essay";
+    }
+  }
+
+  // 📋 학원 수행평가 (기존 함수)
   switch (questionType) {
     case "논술형": return "middle-suhaeng-essay";
     case "서술형": return "middle-suhaeng-short";
@@ -78,19 +105,28 @@ interface ComparisonAnalysis {
   teacherDraft: string;
 }
 interface AiAnalysis {
-  evalCriteria: string;
-  studentScores: number[];
-  scores: ScoreSection[];
-  summary: string;
-  strengths: string[];
-  improvements: string[];
-  totalScore: number;
-  maxScore: number;
+  // 학원용 (기존)
+  evalCriteria?: string;
+  studentScores?: number[];
+  scores?: ScoreSection[];
+  summary?: string;
+  strengths?: string[];
+  improvements?: string[];
+  totalScore?: number;
+  maxScore?: number;
+  // 학교용 (새로 추가)
+  grade?: string;        // A/B/C/D/E
+  score?: number;
+  weaknesses?: string[];
+  overallFeedback?: string;
+  criteriaReference?: string;
+  // 공통
   second: ComparisonAnalysis | null;
   teacherDraft?: string;
 }
 interface Submission {
   id: string;
+  questionId: string | null;
   questionType: string;
   category: string;
   schoolName: string;
@@ -101,6 +137,8 @@ interface Submission {
   minChars?: number;
   maxChars?: number;
   studentAnswer: string;
+  answerText: string | null;          // 원본 텍스트
+  answerSections: Record<string, string> | null;  // 원본 섹션
   audioUrl: string | null;
   videoUrl: string | null;
   photoUrls: string[] | null;
@@ -130,6 +168,7 @@ const dbToSubmission = (db: any, fb: any | null): Submission => {
   }
   return {
     id: db.id,
+    questionId: db.question_key || null,  // school-xxx 형태
     questionType: db.question_type || "논술형",
     category: db.question_category || "practice",
     schoolName: db.question_school_name || "",
@@ -140,6 +179,8 @@ const dbToSubmission = (db: any, fb: any | null): Submission => {
     minChars: db.question_min_chars,
     maxChars: db.question_max_chars,
     studentAnswer,
+    answerText: db.answer_text || null,
+    answerSections: db.answer_sections || null,
     audioUrl: db.answer_audio_url ?? null,
     videoUrl: db.answer_video_url ?? null,
     photoUrls: db.answer_photo_urls ?? null,
@@ -237,20 +278,80 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
     return 0;
   };
 
+  // ⭐ 학교 수행평가용 채점기준 DB 조회
+  const fetchSchoolCriteria = async (questionKey: string | null) => {
+    if (!questionKey || !questionKey.startsWith("school-")) return null;
+    const schoolSuhaengId = questionKey.replace("school-", "");
+    const { data, error } = await supabase
+      .from("school_suhaeng")
+      .select("*")
+      .eq("id", schoolSuhaengId)
+      .maybeSingle();
+    if (error) {
+      console.error("학교 채점기준 조회 실패:", error);
+      return null;
+    }
+    return data;
+  };
+
   const runAiAnalysis = async () => {
     if (!selSub) return;
-    const fnName = getFunctionNameByType(selSub.questionType);
+    console.log("🔍 selSub.category:", selSub.category);
+    console.log("🔍 selSub.questionType:", selSub.questionType);
+    console.log("🔍 selSub.questionId:", selSub.questionId);
+    const fnName = getFunctionNameByType(selSub.questionType, selSub.category);
+    console.log("🔍 호출할 함수:", fnName);
     if (!fnName) { alert(`${selSub.questionType} 유형의 AI 분석은 아직 준비 중이에요.`); return; }
     if (!selSub.studentAnswer || selSub.studentAnswer.length < 10) { alert("학생 답안이 너무 짧거나 없어요."); return; }
     setAnalyzing(true); setShowAiPanel(true); setAiTab("first");
     try {
-      const { data, error } = await supabase.functions.invoke(fnName, {
-        body: {
-          questionTitle: selSub.title, questionContent: selSub.questionContent,
-          questionSubject: selSub.subject, minChars: selSub.minChars, maxChars: selSub.maxChars,
-          answerText: selSub.studentAnswer, grade: student?.grade, studentName: student?.name, ratio: selSub.ratio,
-        },
-      });
+      let requestBody: any = {};
+
+      if (selSub.category === "school") {
+        // ⭐ 학교 수행평가: DB에서 채점기준 가져오기
+        const criteria = await fetchSchoolCriteria(selSub.questionId);
+        if (!criteria) {
+          alert("학교 채점 기준을 찾을 수 없어요.");
+          setAnalyzing(false);
+          return;
+        }
+        requestBody = {
+          studentName: student?.name,
+          studentGrade: student?.grade,
+          subject: selSub.subject,
+          taskTitle: selSub.title,
+          evalType: criteria.eval_type,
+          score: criteria.score || 100,
+          scoringFactors: criteria.scoring_factors || "",
+          gradeScale: criteria.grade_scale || "A~E",
+          scoringCriteriaOriginal: criteria.scoring_criteria_original || "",
+          scoringCriteriaAi: criteria.scoring_criteria_ai || "",
+          // 답안 (텍스트 or 섹션)
+          answerText: selSub.answerText || undefined,
+          answerSections: selSub.answerSections || undefined,
+          // 실기/발표 추가 정보
+          answerPhotoUrls: selSub.photoUrls || undefined,
+          answerAudioUrl: selSub.audioUrl || undefined,
+          answerVideoUrl: selSub.videoUrl || undefined,
+          presentTimeMin: criteria.present_time_min,
+          presentTimeMax: criteria.present_time_max,
+        };
+      } else {
+        // 📋 학원 수행평가: 기존 방식
+        requestBody = {
+          questionTitle: selSub.title,
+          questionContent: selSub.questionContent,
+          questionSubject: selSub.subject,
+          minChars: selSub.minChars,
+          maxChars: selSub.maxChars,
+          answerText: selSub.studentAnswer,
+          grade: student?.grade,
+          studentName: student?.name,
+          ratio: selSub.ratio,
+        };
+      }
+
+      const { data, error } = await supabase.functions.invoke(fnName, { body: requestBody });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || "AI 분석 실패");
       const analysis: AiAnalysis = data.analysis;
@@ -264,18 +365,54 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
   const runSecondAnalysis = async () => {
     if (!selSub) return;
     if (!selSub.studentResubmission || selSub.studentResubmission.length < 10) { alert("학생 재제출 답안이 너무 짧거나 없어요."); return; }
-    const fnName = getFunctionNameByType(selSub.questionType);
+    const fnName = getFunctionNameByType(selSub.questionType, selSub.category);
     if (!fnName) return;
     setSecondAiLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke(fnName, {
-        body: {
-          questionTitle: selSub.title, questionContent: selSub.questionContent,
-          questionSubject: selSub.subject, minChars: selSub.minChars, maxChars: selSub.maxChars,
-          answerText: selSub.studentResubmission, grade: student?.grade, studentName: student?.name, ratio: selSub.ratio,
-          previousAnswer: selSub.studentAnswer || "", previousFeedback: selSub.teacherFirstFeedback || "",
-        },
-      });
+      let requestBody: any = {};
+
+      if (selSub.category === "school") {
+        const criteria = await fetchSchoolCriteria(selSub.questionId);
+        if (!criteria) {
+          alert("학교 채점 기준을 찾을 수 없어요.");
+          setSecondAiLoading(false);
+          return;
+        }
+        requestBody = {
+          studentName: student?.name,
+          studentGrade: student?.grade,
+          subject: selSub.subject,
+          taskTitle: selSub.title,
+          evalType: criteria.eval_type,
+          score: criteria.score || 100,
+          scoringFactors: criteria.scoring_factors || "",
+          gradeScale: criteria.grade_scale || "A~E",
+          scoringCriteriaOriginal: criteria.scoring_criteria_original || "",
+          scoringCriteriaAi: criteria.scoring_criteria_ai || "",
+          // 재제출 답안 (텍스트로 보냄)
+          answerText: selSub.studentResubmission,
+          // 1차 정보
+          previousAnswer: selSub.answerText || selSub.studentAnswer,
+          previousAnswerSections: selSub.answerSections || undefined,
+          previousFeedback: selSub.teacherFirstFeedback || "",
+        };
+      } else {
+        requestBody = {
+          questionTitle: selSub.title,
+          questionContent: selSub.questionContent,
+          questionSubject: selSub.subject,
+          minChars: selSub.minChars,
+          maxChars: selSub.maxChars,
+          answerText: selSub.studentResubmission,
+          grade: student?.grade,
+          studentName: student?.name,
+          ratio: selSub.ratio,
+          previousAnswer: selSub.studentAnswer || "",
+          previousFeedback: selSub.teacherFirstFeedback || "",
+        };
+      }
+
+      const { data, error } = await supabase.functions.invoke(fnName, { body: requestBody });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || "2차 분석 실패");
       const comparison: ComparisonAnalysis = data.analysis;
@@ -341,7 +478,7 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
   };
 
   const getBarData = () => {
-    if (!selSub?.aiAnalysis) return [];
+    if (!selSub?.aiAnalysis?.scores) return [];
     return selSub.aiAnalysis.scores.map((s) => ({ name: s.label, score: s.score, max: s.max, pct: Math.round((s.score / s.max) * 100) }));
   };
 
@@ -371,6 +508,9 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
     return { label: "✓ 피드백완료", bg: "#D1FAE5", color: "#065F46", border: "#6EE7B7" };
   };
 
+  // 학교 수행평가 AI 결과 (간소화된 등급/점수 표시)
+  const isSchoolAnalysis = selSub?.category === "school" && selSub?.aiAnalysis?.grade;
+
   return (
     <>
       <div className="flex gap-4 h-full overflow-hidden">
@@ -390,7 +530,6 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
             </div>
           </div>
 
-          {/* ⭐ 우리학교 / 학원 탭 */}
           <div className="flex border-b border-line flex-shrink-0">
             <button
               onClick={() => setCategoryTab("school")}
@@ -518,7 +657,7 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                       }}>
                       {selSub.status === "pending" || selSub.status === "analyzed" ? "⏳ 피드백 대기"
                         : selSub.status === "first_done" ? "📩 1차 피드백 전달"
-                        : selSub.status === "resubmitted" ? "🔄 재제출됨" : "✓ 완료"}
+                          : selSub.status === "resubmitted" ? "🔄 재제출됨" : "✓ 완료"}
                     </span>
                   </div>
                 </div>
@@ -719,70 +858,145 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
 
           {aiTab === "first" && (
             <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
-              <div className="rounded-xl px-4 py-3.5" style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}>
-                <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-sm">✅</span>
-                  <div className="text-[13px] font-extrabold" style={{ color: THEME.accentDark }}>답안 정합성 분석</div>
-                </div>
-                <div className="text-[11px] font-medium text-ink-secondary mb-3">답안을 {selSub.questionType} 평가 기준에 맞춰 분석한 결과입니다.</div>
-                <div className="h-[260px] mb-2 bg-white rounded-lg p-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart data={getRadarData()} margin={{ top: 24, right: 40, bottom: 24, left: 40 }}>
-                      <PolarGrid stroke="#E5E7EB" />
-                      <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: "#374151", fontWeight: 600 }} tickLine={false} />
-                      <Radar name="평가 기준" dataKey="standard" stroke="#F97316" fill="#F97316" fillOpacity={0.3} strokeWidth={2} />
-                      <Radar name="학생 답안" dataKey="student" stroke={THEME.accent} fill={THEME.accent} fillOpacity={0.5} strokeWidth={2} />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
-                {getBarData().map((d, i) => (
-                  <div key={i} className="mb-2.5 bg-white rounded-lg px-3 py-2">
-                    <div className="flex justify-between text-[12px] mb-1">
-                      <span className="font-semibold text-ink">{d.name}</span>
-                      <span className="font-bold" style={{ color: THEME.accent }}>{d.score}/{d.max}</span>
+              {/* ⭐ 학교 수행평가 분석 (등급/점수/잘한점/개선점) */}
+              {isSchoolAnalysis ? (
+                <>
+                  {/* 등급 + 점수 */}
+                  <div className="rounded-xl px-5 py-5 text-center" style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}>
+                    <div className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-2">학교 채점 결과</div>
+                    <div className="flex items-center justify-center gap-4">
+                      <div>
+                        <div className="text-[10px] font-bold text-ink-muted mb-1">등급</div>
+                        <div className="text-[48px] font-black leading-none" style={{ color: THEME.accentDark }}>
+                          {selSub.aiAnalysis?.grade}
+                        </div>
+                      </div>
+                      <div className="w-px h-16 bg-line" />
+                      <div>
+                        <div className="text-[10px] font-bold text-ink-muted mb-1">점수</div>
+                        <div className="text-[36px] font-black leading-none" style={{ color: THEME.accentDark }}>
+                          {selSub.aiAnalysis?.score}
+                          <span className="text-[16px] font-bold text-ink-muted ml-1">
+                            / {selSub.aiAnalysis?.maxScore}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all" style={{ width: `${d.pct}%`, background: d.pct >= 80 ? THEME.accent : d.pct >= 60 ? "#F97316" : "#EF4444" }} />
-                    </div>
+                    {selSub.aiAnalysis?.criteriaReference && (
+                      <div className="mt-3 text-[10px] text-ink-muted">
+                        📌 {selSub.aiAnalysis.criteriaReference}
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
-              <div className="bg-white border border-line rounded-xl px-4 py-3.5">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-sm">📊</span>
-                  <div className="text-[13px] font-extrabold text-ink">AI 종합 분석</div>
-                </div>
-                <div className="bg-gray-50 border border-line rounded-lg px-3 py-2.5 mb-3 mt-2">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-ink-muted mb-1.5">📝 {selSub.questionType} 평가 기준</div>
-                  <div className="text-[12px] font-medium text-ink leading-[1.7]">{selSub.aiAnalysis.evalCriteria}</div>
-                </div>
-                <div className="mb-3">
-                  <div className="text-[12px] font-bold text-ink mb-2">답안 적합성 평가</div>
-                  {selSub.aiAnalysis.scores.map((s, i) => (
-                    <div key={i} className="mb-2">
-                      <div className="text-[12px] font-bold text-ink mb-0.5">{i + 1}. {s.label} ({s.max}점)</div>
-                      <div className="text-[12px] font-medium text-ink-secondary leading-[1.6]">{s.desc}</div>
+
+                  {/* 종합 피드백 */}
+                  {selSub.aiAnalysis?.overallFeedback && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3">
+                      <div className="text-[11px] font-bold text-orange-800 mb-1">📌 종합 평가</div>
+                      <div className="text-[12px] font-medium text-orange-900 leading-[1.7]">{selSub.aiAnalysis.overallFeedback}</div>
                     </div>
-                  ))}
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2.5 mt-2">
-                    <div className="text-[11px] font-bold text-orange-800 mb-1">📌 평가 요약</div>
-                    <div className="text-[12px] font-medium text-orange-900 leading-[1.7]">{selSub.aiAnalysis.summary}</div>
+                  )}
+
+                  {/* 잘한 점 */}
+                  {selSub.aiAnalysis?.strengths && selSub.aiAnalysis.strengths.length > 0 && (
+                    <div className="bg-white border border-line rounded-xl px-4 py-3.5">
+                      <div className="text-[12px] font-extrabold mb-2.5" style={{ color: THEME.accent }}>💪 잘한 점</div>
+                      {selSub.aiAnalysis.strengths.map((s: string, i: number) => (
+                        <div key={i} className="text-[12px] font-medium leading-[1.7] px-3 py-2 rounded-lg mb-1.5"
+                          style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}40`, color: THEME.accentDark }}>✓ {s}</div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 개선할 점 */}
+                  {selSub.aiAnalysis?.weaknesses && selSub.aiAnalysis.weaknesses.length > 0 && (
+                    <div className="bg-white border border-line rounded-xl px-4 py-3.5">
+                      <div className="text-[12px] font-extrabold text-red-500 mb-2.5">⚡ 개선할 점</div>
+                      {selSub.aiAnalysis.weaknesses.map((s: string, i: number) => (
+                        <div key={i} className="text-[12px] font-medium text-red-900 leading-[1.7] px-3 py-2 bg-red-50 border border-red-200 rounded-lg mb-1.5">△ {s}</div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* 📋 학원 수행평가 분석 (기존 - 레이더 차트) */
+                <>
+                  <div className="rounded-xl px-4 py-3.5" style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-sm">✅</span>
+                      <div className="text-[13px] font-extrabold" style={{ color: THEME.accentDark }}>답안 정합성 분석</div>
+                    </div>
+                    <div className="text-[11px] font-medium text-ink-secondary mb-3">답안을 {selSub.questionType} 평가 기준에 맞춰 분석한 결과입니다.</div>
+                    <div className="h-[260px] mb-2 bg-white rounded-lg p-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RadarChart data={getRadarData()} margin={{ top: 24, right: 40, bottom: 24, left: 40 }}>
+                          <PolarGrid stroke="#E5E7EB" />
+                          <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: "#374151", fontWeight: 600 }} tickLine={false} />
+                          <Radar name="평가 기준" dataKey="standard" stroke="#F97316" fill="#F97316" fillOpacity={0.3} strokeWidth={2} />
+                          <Radar name="학생 답안" dataKey="student" stroke={THEME.accent} fill={THEME.accent} fillOpacity={0.5} strokeWidth={2} />
+                        </RadarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    {getBarData().map((d, i) => (
+                      <div key={i} className="mb-2.5 bg-white rounded-lg px-3 py-2">
+                        <div className="flex justify-between text-[12px] mb-1">
+                          <span className="font-semibold text-ink">{d.name}</span>
+                          <span className="font-bold" style={{ color: THEME.accent }}>{d.score}/{d.max}</span>
+                        </div>
+                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all" style={{ width: `${d.pct}%`, background: d.pct >= 80 ? THEME.accent : d.pct >= 60 ? "#F97316" : "#EF4444" }} />
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-                <div className="mb-3">
-                  <div className="text-[11px] font-extrabold uppercase tracking-wider mb-2" style={{ color: THEME.accent }}>💪 강점 포인트</div>
-                  {selSub.aiAnalysis.strengths.map((s, i) => (
-                    <div key={i} className="text-[12px] font-medium leading-[1.6] px-3 py-2 rounded-lg mb-1.5"
-                      style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}40`, color: THEME.accentDark }}>✓ {s}</div>
-                  ))}
-                </div>
-                <div>
-                  <div className="text-[11px] font-extrabold text-red-500 uppercase tracking-wider mb-2">⚡ 개선 포인트</div>
-                  {selSub.aiAnalysis.improvements.map((s, i) => (
-                    <div key={i} className="text-[12px] font-medium text-red-900 leading-[1.6] px-3 py-2 bg-red-50 border border-red-200 rounded-lg mb-1.5">△ {s}</div>
-                  ))}
-                </div>
-              </div>
+                  <div className="bg-white border border-line rounded-xl px-4 py-3.5">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-sm">📊</span>
+                      <div className="text-[13px] font-extrabold text-ink">AI 종합 분석</div>
+                    </div>
+                    {selSub.aiAnalysis?.evalCriteria && (
+                      <div className="bg-gray-50 border border-line rounded-lg px-3 py-2.5 mb-3 mt-2">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-ink-muted mb-1.5">📝 {selSub.questionType} 평가 기준</div>
+                        <div className="text-[12px] font-medium text-ink leading-[1.7]">{selSub.aiAnalysis.evalCriteria}</div>
+                      </div>
+                    )}
+                    {selSub.aiAnalysis?.scores && (
+                      <div className="mb-3">
+                        <div className="text-[12px] font-bold text-ink mb-2">답안 적합성 평가</div>
+                        {selSub.aiAnalysis.scores.map((s, i) => (
+                          <div key={i} className="mb-2">
+                            <div className="text-[12px] font-bold text-ink mb-0.5">{i + 1}. {s.label} ({s.max}점)</div>
+                            <div className="text-[12px] font-medium text-ink-secondary leading-[1.6]">{s.desc}</div>
+                          </div>
+                        ))}
+                        {selSub.aiAnalysis.summary && (
+                          <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2.5 mt-2">
+                            <div className="text-[11px] font-bold text-orange-800 mb-1">📌 평가 요약</div>
+                            <div className="text-[12px] font-medium text-orange-900 leading-[1.7]">{selSub.aiAnalysis.summary}</div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {selSub.aiAnalysis?.strengths && (
+                      <div className="mb-3">
+                        <div className="text-[11px] font-extrabold uppercase tracking-wider mb-2" style={{ color: THEME.accent }}>💪 강점 포인트</div>
+                        {selSub.aiAnalysis.strengths.map((s, i) => (
+                          <div key={i} className="text-[12px] font-medium leading-[1.6] px-3 py-2 rounded-lg mb-1.5"
+                            style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}40`, color: THEME.accentDark }}>✓ {s}</div>
+                        ))}
+                      </div>
+                    )}
+                    {selSub.aiAnalysis?.improvements && (
+                      <div>
+                        <div className="text-[11px] font-extrabold text-red-500 uppercase tracking-wider mb-2">⚡ 개선 포인트</div>
+                        {selSub.aiAnalysis.improvements.map((s, i) => (
+                          <div key={i} className="text-[12px] font-medium text-red-900 leading-[1.6] px-3 py-2 bg-red-50 border border-red-200 rounded-lg mb-1.5">△ {s}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )}
 

@@ -31,17 +31,25 @@ const SETECH_DATA: any[] = [
   },
 ]
 
+const gradeFilterToNum = (g: string): number | null => {
+  if (g === '고1') return 1
+  if (g === '고2') return 2
+  if (g === '고3') return 3
+  return null
+}
+
 export default function TopicList() {
   const navigate = useNavigate()
   const student = useAtomValue(studentState)
   const studentGrade = student?.grade as string ?? '고1'
+  const studentGradeNum = gradeToNum(studentGrade) ?? 1
   const [activeGrade, setActiveGrade] = useState<string>(studentGrade)
   const [selResearchId, setSelResearchId] = useState<string | null>(null)
   const [messageInput, setMessageInput] = useState('')
 
   const [showModal, setShowModal] = useState(false)
   const [modalStep, setModalStep] = useState<1 | 2>(1)
-  const [filterGrade, setFilterGrade] = useState('전체')
+  const [filterGrade, setFilterGrade] = useState(studentGrade)
   const [filterMajorInput, setFilterMajorInput] = useState('')
   const [filterMajor, setFilterMajor] = useState('전체')
   const [filterSubjectInput, setFilterSubjectInput] = useState('')
@@ -51,7 +59,7 @@ export default function TopicList() {
   const [selSetech, setSelSetech] = useState<any>(null)
   const [expandedSetech, setExpandedSetech] = useState<number | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  const [newTopic, setNewTopic] = useState({ title: '', subject: '', content: '', grade: gradeToNum(studentGrade) ?? 1 })
+  const [newTopic, setNewTopic] = useState({ title: '', subject: '', content: '', grade: studentGradeNum })
 
   const chatEndRef = useRef<HTMLDivElement>(null)
 
@@ -61,8 +69,8 @@ export default function TopicList() {
   const sendMessage = useSendStudentMessage(selResearchId ?? '')
   const deleteResearch = useDeleteResearch()
 
-  // ⭐ 모달에서 선택한 학년의 진로 컨셉 조회
-  const { data: concept } = useStudentConcept(newTopic.grade)
+  const conceptGradeNum = gradeFilterToNum(filterGrade) ?? studentGradeNum
+  const { data: concept } = useStudentConcept(conceptGradeNum)
 
   const selected = researches.find(r => r.id === selResearchId)
   const messages = selected ? buildMessages(selected, analyses) : []
@@ -78,7 +86,22 @@ export default function TopicList() {
     if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: 'smooth' })
   }, [messages.length])
 
-  const isFilterEmpty = filterGrade === '전체' && filterMajor === '전체' && filterSubject === '전체'
+  useEffect(() => {
+    if (showModal) {
+      const activeGradeNum = gradeToNum(activeGrade) ?? studentGradeNum
+      setFilterGrade(activeGrade)
+      setNewTopic(p => ({ ...p, grade: activeGradeNum }))
+    }
+  }, [showModal, activeGrade])
+
+  useEffect(() => {
+    const num = gradeFilterToNum(filterGrade)
+    if (num) {
+      setNewTopic(p => ({ ...p, grade: num }))
+    }
+  }, [filterGrade])
+
+  const isFilterEmpty = filterMajor === '전체' && filterSubject === '전체'
   const filteredSetech = isFilterEmpty ? [] : SETECH_DATA.filter(s =>
     (filterGrade === '전체' || s.grade === filterGrade) &&
     (filterMajor === '전체' || s.major.includes(filterMajor) || s.school.includes(filterMajor)) &&
@@ -119,61 +142,55 @@ export default function TopicList() {
 
   const closeModal = () => {
     setShowModal(false); setModalStep(1); setSelSetech(null)
-    setFilterGrade('전체'); setFilterMajor('전체'); setFilterMajorInput('')
+    setFilterGrade(studentGrade); setFilterMajor('전체'); setFilterMajorInput('')
     setFilterSubject('전체'); setFilterSubjectInput(''); setExpandedSetech(null)
-    setNewTopic({ title: '', subject: '', content: '', grade: gradeToNum(studentGrade) ?? 1 })
+    setNewTopic({ title: '', subject: '', content: '', grade: studentGradeNum })
   }
 
-  // 학년 변경 시 subject 초기화 (다른 학년에 없는 과목이 남아있는 것 방지)
   const handleGradeChange = (newGrade: number) => {
     setNewTopic(p => ({ ...p, grade: newGrade, subject: '' }))
+    const gradeStr = newGrade === 1 ? '고1' : newGrade === 2 ? '고2' : '고3'
+    setFilterGrade(gradeStr)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage() }
   }
 
-  // ⭐ 진로 컨셉 가이드 배너 컴포넌트
+  // ⭐ 진로 계열 검사 가이드 배너 - 한 줄로 압축!
   const ConceptGuideBanner = () => {
+    const displayGrade = conceptGradeNum
     if (!concept?.major) {
       return (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 mb-3 flex items-start gap-2">
-          <span className="text-base flex-shrink-0">💡</span>
-          <div className="flex-1">
-            <div className="text-[11.5px] font-bold text-amber-800 mb-0.5">
-              고{newTopic.grade} 진로 컨셉이 설정되지 않았어요
-            </div>
-            <div className="text-[10.5px] text-amber-700 leading-relaxed">
-              <span className="font-semibold">진로 컨셉</span> 메뉴에서 먼저 설정하면, 방향에 맞는 탐구주제를 추천받을 수 있어요!
-            </div>
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 mb-2.5 flex items-center gap-2">
+          <span className="text-[12px] flex-shrink-0">💡</span>
+          <div className="text-[11px] text-amber-800 flex-1 min-w-0 truncate">
+            <span className="font-bold">고{displayGrade} 진로 계열 검사 미설정</span>
+            <span className="text-amber-700"> · 진로 계열 검사 메뉴에서 먼저 설정해보세요</span>
           </div>
         </div>
       )
     }
 
+    const keywordText = (concept.keywords?.length ?? 0) > 0
+      ? concept.keywords!.slice(0, 3).map(k => `#${k}`).join(' ') + (concept.keywords!.length > 3 ? ` +${concept.keywords!.length - 3}` : '')
+      : ''
+
     return (
-      <div className="bg-gradient-to-br from-brand-high-pale to-blue-50 border border-brand-high-light rounded-lg px-3 py-2.5 mb-3">
-        <div className="flex items-start gap-2">
-          <span className="text-base flex-shrink-0">🎯</span>
-          <div className="flex-1 min-w-0">
-            <div className="text-[10px] font-bold text-brand-high-dark uppercase tracking-wider mb-1">
-              고{newTopic.grade} 진로 컨셉 · 이 방향에 맞는 탐구주제를 작성해보세요
-            </div>
-            <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
-              <span className="text-[11.5px] font-semibold text-ink">{concept.major}</span>
-              <span className="text-ink-muted text-[10px]">›</span>
-              <span className="text-[11.5px] font-bold text-brand-high-dark">{concept.career || concept.custom_goal}</span>
-            </div>
-            {(concept.keywords?.length ?? 0) > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {concept.keywords?.map(kw => (
-                  <span key={kw} className="text-[10px] font-semibold px-1.5 py-0.5 bg-white text-brand-high-dark rounded-full border border-brand-high-light">
-                    #{kw}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+      <div className="bg-gradient-to-r from-brand-high-pale to-blue-50 border border-brand-high-light rounded-lg px-3 py-1.5 mb-2.5 flex items-center gap-2">
+        <span className="text-[12px] flex-shrink-0">🎯</span>
+        <div className="text-[11px] flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
+          <span className="font-bold text-brand-high-dark">고{displayGrade} 진로</span>
+          <span className="text-ink">·</span>
+          <span className="font-semibold text-ink">{concept.major}</span>
+          <span className="text-ink-muted">›</span>
+          <span className="font-bold text-brand-high-dark">{concept.career || concept.custom_goal}</span>
+          {keywordText && (
+            <>
+              <span className="text-ink-muted">·</span>
+              <span className="text-brand-high-dark font-semibold">{keywordText}</span>
+            </>
+          )}
         </div>
       </div>
     )
@@ -198,10 +215,7 @@ export default function TopicList() {
         </button>
       </div>
 
-      {/* 좌우 패널 */}
       <div className="flex gap-4 flex-1 overflow-hidden">
-
-        {/* 왼쪽: 탐구주제 리스트 */}
         <div className="w-[300px] flex-shrink-0 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
           <div className="px-4 py-3 border-b border-line-light flex-shrink-0">
             <div className="text-[13px] font-bold text-ink mb-2">탐구주제 목록</div>
@@ -260,7 +274,6 @@ export default function TopicList() {
           </div>
         </div>
 
-        {/* 오른쪽: 채팅 */}
         <div className="flex-1 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
           {!selected ? (
             <div className="flex-1 flex flex-col items-center justify-center text-ink-muted gap-2">
@@ -349,8 +362,8 @@ export default function TopicList() {
 
             {modalStep === 1 && (
               <div className="flex-1 overflow-hidden flex flex-col">
-                {/* ⭐ 진로 컨셉 가이드 배너 */}
-                <div className="px-6 pt-4 flex-shrink-0">
+                {/* ⭐ 진로 계열 검사 가이드 배너 - 컴팩트! */}
+                <div className="px-6 pt-3 flex-shrink-0">
                   <ConceptGuideBanner />
                 </div>
                 <div className="flex-1 overflow-hidden flex">
@@ -420,7 +433,7 @@ export default function TopicList() {
                       {!isFilterEmpty && (
                         <div className="text-[11px] text-ink-muted flex items-center justify-between font-medium">
                           <span>총 <span className="text-brand-high-dark font-bold">{filteredSetech.length}개</span></span>
-                          <button onClick={() => { setFilterGrade('전체'); setFilterMajor('전체'); setFilterMajorInput(''); setFilterSubject('전체'); setFilterSubjectInput(''); setExpandedSetech(null) }}
+                          <button onClick={() => { setFilterGrade(studentGrade); setFilterMajor('전체'); setFilterMajorInput(''); setFilterSubject('전체'); setFilterSubjectInput(''); setExpandedSetech(null) }}
                             className="text-ink-secondary hover:text-ink underline">초기화</button>
                         </div>
                       )}
@@ -437,7 +450,7 @@ export default function TopicList() {
                       <div className="text-center py-16">
                         <div className="text-4xl mb-3">🔬</div>
                         <div className="text-[14px] font-semibold text-ink-secondary mb-1.5">세특 사례를 선택해보세요</div>
-                        <div className="text-[12px] text-ink-muted leading-relaxed">왼쪽에서 학년, 학과, 과목을 선택하면<br />관련 세특 사례를 볼 수 있어요</div>
+                        <div className="text-[12px] text-ink-muted leading-relaxed">왼쪽에서 학과, 과목을 선택하면<br />관련 세특 사례를 볼 수 있어요</div>
                       </div>
                     ) : filteredSetech.length === 0 ? (
                       <div className="text-center py-16"><div className="text-3xl mb-2">🔍</div><div className="text-[13px] text-ink-muted font-medium">해당 조건의 세특 사례가 없어요.</div></div>
@@ -501,7 +514,6 @@ export default function TopicList() {
 
             {modalStep === 2 && (
               <div className="flex-1 overflow-y-auto px-6 py-5">
-                {/* ⭐ 진로 컨셉 가이드 배너 */}
                 <ConceptGuideBanner />
 
                 {selSetech && (
@@ -513,7 +525,6 @@ export default function TopicList() {
                   </div>
                 )}
                 <div className="flex flex-col gap-3.5">
-                  {/* 학년 선택 */}
                   <div>
                     <label className="text-[11px] font-semibold text-ink-secondary mb-1.5 block">학년 *</label>
                     <div className="flex gap-1">
@@ -523,6 +534,9 @@ export default function TopicList() {
                             newTopic.grade === g.val ? 'bg-brand-high text-white border-brand-high' : 'bg-white text-ink-secondary border-line hover:border-brand-high-light'
                           }`}>
                           {g.label}
+                          {g.val === studentGradeNum && (
+                            <span className={`ml-1 text-[8px] font-bold px-1 py-0.5 rounded-full ${newTopic.grade === g.val ? 'bg-white/25 text-white' : 'bg-brand-high text-white'}`}>현재</span>
+                          )}
                         </button>
                       ))}
                     </div>

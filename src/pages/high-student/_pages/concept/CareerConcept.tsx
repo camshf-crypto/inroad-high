@@ -112,7 +112,7 @@ export default function CareerConcept() {
       {/* 왼쪽: 학년 사이드바 */}
       <div className="w-[220px] flex-shrink-0 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
         <div className="px-4 py-3 border-b border-line-light flex-shrink-0">
-          <div className="text-[13px] font-bold text-ink">학년별 진로 컨셉</div>
+          <div className="text-[13px] font-bold text-ink">학년별 진로 계열 검사</div>
         </div>
 
         {/* 학년 카드 영역 */}

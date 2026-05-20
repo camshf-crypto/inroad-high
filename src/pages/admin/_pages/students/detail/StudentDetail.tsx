@@ -35,7 +35,7 @@ import MiddlePresentationTab from './middle-tabs/presentation'
 // ⭐ 탭에 menuKey 매핑 추가 (학원의 enabled_menus와 매치)
 const HIGH_TABS = [
   { key: 'roadmap', label: '로드맵', menuKey: 'high.roadmap' },
-  { key: 'concept', label: '진로 컨셉', menuKey: 'high.concept' },
+  { key: 'concept', label: '진로 계열 검사', menuKey: 'high.concept' },
   { key: 'topic', label: '탐구주제', menuKey: 'high.topic' },
   { key: 'book', label: '독서리스트', menuKey: 'high.book' },
   { key: 'record', label: '생기부', menuKey: 'high.record' },

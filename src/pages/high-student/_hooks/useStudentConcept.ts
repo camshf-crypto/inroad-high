@@ -25,7 +25,7 @@ export const gradeNumToText = (gradeNum: number): string => {
 }
 
 /**
- * 특정 학년의 진로 컨셉 조회
+ * 특정 학년의 진로 계열 검사 조회
  * @param gradeNum 1 | 2 | 3 (숫자)
  */
 export function useStudentConcept(gradeNum?: number) {
@@ -41,6 +41,7 @@ export function useStudentConcept(gradeNum?: number) {
     queryFn: async (): Promise<StudentConcept | null> => {
       if (!studentId || !academyId || !gradeText) return null
 
+      // 학년별 데이터 조회 (status 무관)
       const { data, error } = await supabase
         .from('student_concept')
         .select('id, grade, status, major, career, custom_goal, keywords, type_name')
@@ -53,7 +54,14 @@ export function useStudentConcept(gradeNum?: number) {
         console.error('컨셉 조회 실패:', error)
         return null
       }
-      return data as StudentConcept | null
+
+      // ⭐ 승인 + 학과 선택까지 완료된 경우만 유효한 컨셉으로 반환
+      // (진단 중/대기 중/학과 미선택은 모두 null 반환 → "설정 안 됨"으로 표시)
+      if (!data) return null
+      if (data.status !== 'approved') return null
+      if (!data.major) return null
+
+      return data as StudentConcept
     },
     enabled: !!studentId && !!academyId && !!gradeText,
   })

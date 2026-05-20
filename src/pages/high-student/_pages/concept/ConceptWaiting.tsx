@@ -3,7 +3,6 @@
 import { useAtomValue } from 'jotai'
 import { studentState } from '@/lib/auth/atoms'
 import type { ConceptData } from './CareerConcept'
-import { TYPE_NAMES } from './questions'
 
 interface Props {
   conceptData: ConceptData
@@ -11,89 +10,90 @@ interface Props {
 
 export default function ConceptWaiting({ conceptData }: Props) {
   const student = useAtomValue(studentState)
-
-  const scores = conceptData.scores
-  const topScores = scores
-    ? Object.entries(scores).sort((a, b) => b[1] - a[1]).slice(0, 5)
-    : []
+  const answeredCount = Object.keys(conceptData.answers || {}).length
 
   return (
-    <div className="h-full overflow-y-auto flex items-center justify-center px-6 py-5 bg-[#F8FAFC]">
-      <div className="max-w-[560px] w-full">
+    <div className="h-full overflow-y-auto bg-[#F8FAFC]">
+      <div className="max-w-[480px] w-full mx-auto px-6 py-6">
 
-        {/* 헤더 - 아이콘 작게 */}
-        <div className="text-center mb-4">
-          <div className="w-10 h-10 mx-auto bg-gradient-to-br from-amber-400 to-amber-500 rounded-lg flex items-center justify-center text-xl mb-2 shadow-[0_4px_12px_rgba(245,158,11,0.2)]">
+        {/* 헤더 - 대기 분위기 */}
+        <div className="text-center mb-5">
+          <div className="w-14 h-14 mx-auto bg-gradient-to-br from-amber-400 to-amber-500 rounded-2xl flex items-center justify-center text-2xl mb-3 shadow-[0_8px_24px_rgba(245,158,11,0.25)] animate-pulse">
             ⏳
           </div>
-          <div className="text-[17px] font-extrabold text-ink tracking-tight mb-0.5">진단 완료!</div>
+          <div className="text-[18px] font-extrabold text-ink tracking-tight mb-1">
+            진단 완료!
+          </div>
           <div className="text-[12px] text-ink-secondary leading-relaxed">
-            <span className="font-bold text-ink">{student?.name}</span>님의 진단이 완료되었어요.
-            <span className="mx-1">·</span>선생님이 결과를 확인하고 상담 후 승인해주실 거예요.
+            <span className="font-bold text-ink">{student?.name}</span>님, 진단을 모두 완료했어요!
           </div>
         </div>
 
-        {/* 결과 카드 - 컴팩트 */}
-        <div className="bg-white border border-brand-high-light rounded-xl p-4 mb-3 text-left shadow-sm">
-          <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2.5">진단 결과 (잠정)</div>
-
-          {conceptData.type_code && (
-            <div className="flex items-center gap-2.5 mb-3 p-3 bg-brand-high-pale rounded-lg border border-brand-high-light">
-              <div className="text-2xl">{conceptData.type_name?.split(' ')[0]}</div>
-              <div>
-                <div className="text-[14px] font-extrabold text-brand-high-dark">{conceptData.type_name}</div>
-                <div className="text-[11px] text-ink-secondary mt-0.5">주 유형 코드: {conceptData.type_code}</div>
-              </div>
+        {/* 메인 메시지 카드 */}
+        <div className="bg-white border-2 border-amber-200 rounded-2xl p-5 mb-3 shadow-[0_4px_16px_rgba(245,158,11,0.08)]">
+          <div className="text-center mb-4">
+            <div className="text-[15px] font-bold text-amber-700 mb-1.5">
+              📋 선생님이 결과를 검토 중이에요
             </div>
-          )}
-
-          {topScores.length > 0 && (
-            <div>
-              <div className="text-[11px] font-bold text-ink-muted mb-2">TOP 5 유형 점수</div>
-              <div className="flex flex-col gap-1.5">
-                {topScores.map(([type, score], idx) => {
-                  const maxScore = topScores[0][1]
-                  const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
-                  return (
-                    <div key={type} className="flex items-center gap-2.5">
-                      <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 ${idx === 0 ? 'bg-brand-high text-white' : 'bg-gray-100 text-ink-muted'}`}>
-                        {idx + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-0.5">
-                          <span className="text-[11px] font-semibold text-ink truncate">{TYPE_NAMES[type] || type}</span>
-                          <span className="text-[10px] text-ink-muted ml-2 flex-shrink-0">{score}점</span>
-                        </div>
-                        <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${idx === 0 ? 'bg-brand-high' : 'bg-gray-300'}`}
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+            <div className="text-[12px] text-ink-secondary leading-relaxed">
+              선생님과 상담 후 결과를 승인해주시면<br />
+              나의 진로 컨셉을 확인할 수 있어요
             </div>
-          )}
+          </div>
+
+          {/* 진행 상태 */}
+          <div className="bg-gray-50 rounded-xl p-3 mb-3">
+            <div className="flex items-center justify-between text-[11px] mb-1.5">
+              <span className="font-bold text-ink-muted">상태</span>
+              <span className="font-bold text-amber-600">⏳ 승인 대기 중</span>
+            </div>
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-bold text-ink-muted">제출 문항</span>
+              <span className="font-bold text-ink">{answeredCount} / 200</span>
+            </div>
+          </div>
+
+          {/* 다음 단계 안내 */}
+          <div className="border-t border-line pt-3">
+            <div className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-2">다음 단계</div>
+            <div className="space-y-1.5">
+              {[
+                { num: '1', text: '선생님이 진단 결과를 검토해요', status: 'current' },
+                { num: '2', text: '선생님과 1:1 상담을 진행해요', status: 'pending' },
+                { num: '3', text: '승인 후 학과 선택 단계로 넘어가요', status: 'pending' },
+              ].map((s) => (
+                <div key={s.num} className="flex items-center gap-2">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
+                    s.status === 'current'
+                      ? 'bg-amber-500 text-white animate-pulse'
+                      : 'bg-gray-100 text-ink-muted'
+                  }`}>
+                    {s.num}
+                  </div>
+                  <div className={`text-[12px] font-medium ${
+                    s.status === 'current' ? 'text-ink' : 'text-ink-muted'
+                  }`}>
+                    {s.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* 안내 - 컴팩트 */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3 text-left">
+        {/* 안내 메시지 */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-3">
           <div className="flex items-start gap-2">
-            <span className="text-sm flex-shrink-0">📋</span>
+            <span className="text-sm flex-shrink-0">💡</span>
             <div className="text-[11px] text-blue-800 leading-relaxed">
-              <div className="font-bold mb-0.5">다음 단계 안내</div>
-              <div>1. 선생님이 진단 결과를 검토합니다</div>
-              <div>2. 선생님과 1:1 상담을 진행합니다</div>
-              <div>3. 선생님이 결과를 승인하면 학과 선택 단계로 넘어갑니다</div>
+              <div className="font-bold mb-0.5">진단 결과는 어떻게 확인하나요?</div>
+              <div>선생님이 결과를 승인하시면 자동으로 다음 화면이 나타나요. 선생님께 직접 문의하셔도 좋아요!</div>
             </div>
           </div>
         </div>
 
         <div className="text-center text-[11px] text-ink-muted">
-          승인이 완료되면 이 화면이 자동으로 업데이트돼요
+          이 페이지는 자동으로 새로고침돼요
         </div>
       </div>
     </div>
