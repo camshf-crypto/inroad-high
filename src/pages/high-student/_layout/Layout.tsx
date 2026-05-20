@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase'
 
 const MENUS = [
   { path: '/high-student/roadmap', label: '내 로드맵', icon: '⊞', menuKey: 'high.roadmap' },
-  { path: '/high-student/concept', label: '진로 계열 검사', icon: '🎯', menuKey: 'high.concept' },
+  { path: '/high-student/concept', label: '진로 계열 검사', icon: '🧭', menuKey: 'high.concept' },
   { path: '/high-student/topic', label: '탐구주제', icon: '🔬', menuKey: 'high.topic' },
   { path: '/high-student/book', label: '독서리스트', icon: '📚', menuKey: 'high.book' },
   { path: '/high-student/suhaeng', label: '수행평가', icon: '✏️', menuKey: 'high.suhaeng' },

@@ -8,6 +8,7 @@ import {
   useUpdateBookRecord,
   useBookFeedback,
 } from "@/pages/middle-student/_hooks/useBooklist";
+import { useMiddleConceptData } from "@/pages/middle-student/_hooks/useMiddleConceptData";
 
 // ── 분야 → 세부 카테고리 구조 ──────────────────────────────
 const CATEGORY_MAP: Record<string, { label: string; keyword: string }[]> = {
@@ -674,6 +675,7 @@ export default function MiddleBookList() {
 
   const studentId = student?.id ? String(student.id) : undefined;
   const { data: books = [], isLoading } = useMyBooks(studentId);
+  const { concept } = useMiddleConceptData();
   const addBook = useAddBook();
   const updateRecord = useUpdateBookRecord();
 
@@ -874,8 +876,8 @@ export default function MiddleBookList() {
   const modalTitle = modalStep === 1 ? "📚 책 추가하기" : modalStep === 2 ? "도서 상세" : "도서 등록";
   const modalDesc =
     modalStep === 1 ? "관심 분야 → 세부 카테고리 → 검색 순서로 찾아보세요"
-    : modalStep === 2 ? "책 정보를 확인하고 등록할지 결정해주세요"
-    : "이 책으로 등록할까요?";
+      : modalStep === 2 ? "책 정보를 확인하고 등록할지 결정해주세요"
+        : "이 책으로 등록할까요?";
 
   return (
     <div className="flex h-full overflow-hidden font-sans text-ink">
@@ -1083,6 +1085,46 @@ export default function MiddleBookList() {
               </div>
             </div>
 
+            {/* ⭐ 진로 계열 검사 배너 (Step 1에서만 표시) */}
+            {modalStep === 1 && concept && (
+              <div className="px-6 py-3 bg-gradient-to-r from-brand-middle-pale to-emerald-50 border-b border-brand-middle-light flex-shrink-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-bold text-brand-middle-dark uppercase tracking-wider">🎯 내 진로</span>
+                  <span className="px-2.5 py-0.5 bg-white text-ink-secondary text-[11px] font-semibold rounded-full border border-line">
+                    {concept.typeName}
+                  </span>
+                  <span className="text-ink-muted text-[10px]">›</span>
+                  <span className="px-2.5 py-0.5 bg-white text-brand-middle-dark text-[11px] font-bold rounded-full border border-brand-middle-light">
+                    {concept.major}
+                  </span>
+                  <span className="text-ink-muted text-[10px]">›</span>
+                  <span className="px-2.5 py-0.5 bg-brand-middle text-white text-[11px] font-bold rounded-full">
+                    {concept.career || concept.customGoal}
+                  </span>
+                </div>
+                {concept.keywords.length > 0 && (
+                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                    <span className="text-[10px] font-bold text-brand-middle-dark">키워드:</span>
+                    {concept.keywords.map((kw) => (
+                      <button
+                        key={kw}
+                        onClick={() => {
+                          setSearchInput(kw);
+                          setSelCategory(`내 진로 > ${kw}`);
+                          setSelField(null);
+                          setSelSubCategory(null);
+                        }}
+                        className="px-2 py-0.5 bg-white hover:bg-brand-middle hover:text-white text-brand-middle-dark text-[10.5px] font-bold rounded-full border border-brand-middle-light transition-all"
+                        title="클릭하면 이 키워드로 검색됨"
+                      >
+                        #{kw}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Step 1: 분야 → 카테고리 → 검색 */}
             {modalStep === 1 && (
               <div className="flex flex-1 overflow-hidden">
@@ -1094,11 +1136,10 @@ export default function MiddleBookList() {
                     <button
                       key={field}
                       onClick={() => handleFieldClick(field)}
-                      className={`w-full text-left px-4 py-2.5 text-[12px] font-medium transition-all flex items-center justify-between ${
-                        selField === field
-                          ? "bg-brand-middle-pale text-brand-middle-dark font-bold border-r-2 border-brand-middle"
-                          : "text-ink-secondary hover:bg-gray-50 hover:text-ink"
-                      }`}
+                      className={`w-full text-left px-4 py-2.5 text-[12px] font-medium transition-all flex items-center justify-between ${selField === field
+                        ? "bg-brand-middle-pale text-brand-middle-dark font-bold border-r-2 border-brand-middle"
+                        : "text-ink-secondary hover:bg-gray-50 hover:text-ink"
+                        }`}
                     >
                       <span>{field}</span>
                       {selField === field && <span className="text-brand-middle text-[10px]">›</span>}
@@ -1121,11 +1162,10 @@ export default function MiddleBookList() {
                             key={sub.label}
                             onClick={() => handleSubCategoryClick(selField, sub)}
                             disabled={searching}
-                            className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border disabled:opacity-50 ${
-                              selSubCategory === sub.label
-                                ? "bg-brand-middle text-white border-brand-middle shadow-[0_2px_6px_rgba(16,185,129,0.25)]"
-                                : "bg-white text-ink-secondary border-line hover:border-brand-middle-light hover:bg-brand-middle-pale hover:text-brand-middle-dark"
-                            }`}
+                            className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border disabled:opacity-50 ${selSubCategory === sub.label
+                              ? "bg-brand-middle text-white border-brand-middle shadow-[0_2px_6px_rgba(16,185,129,0.25)]"
+                              : "bg-white text-ink-secondary border-line hover:border-brand-middle-light hover:bg-brand-middle-pale hover:text-brand-middle-dark"
+                              }`}
                           >
                             {sub.label}
                           </button>
@@ -1133,11 +1173,10 @@ export default function MiddleBookList() {
                         {/* ★ 직접 입력 버튼 */}
                         <button
                           onClick={() => { setShowCustomInput(true); setSelSubCategory(null); setSearchInput(""); setCustomCategory(""); }}
-                          className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border ${
-                            showCustomInput
-                              ? "bg-amber-500 text-white border-amber-500"
-                              : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
-                          }`}
+                          className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border ${showCustomInput
+                            ? "bg-amber-500 text-white border-amber-500"
+                            : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                            }`}
                         >
                           ✏️ 직접 입력
                         </button>

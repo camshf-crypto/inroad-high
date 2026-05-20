@@ -51,6 +51,7 @@ import MiddlePresentation from '@/pages/middle-student/_pages/presentation/Prese
 import MiddleSuhaeng from '@/pages/middle-student/_pages/suhaeng/Suhaeng'
 import MiddleDebate from '@/pages/middle-student/_pages/debate/MiddleDebate'
 import MiddleRecord from '@/pages/middle-student/_pages/record/Record'
+import MiddleCareerConcept from '@/pages/middle-student/_pages/concept/CareerConcept'
 
 // Master
 import MasterLayout from '@/pages/master/_layout/Layout'
@@ -143,6 +144,7 @@ const router = createBrowserRouter([
         element: <MiddleLayout />,
         children: [
           { path: 'roadmap', element: <MiddleRoadmap /> },
+          { path: 'concept', element: <MiddleCareerConcept /> },
           { path: 'lesson', element: <MiddleLesson /> },
           { path: 'homework', element: <MiddleHomework /> },
           { path: 'suhaeng', element: <MiddleSuhaeng /> },

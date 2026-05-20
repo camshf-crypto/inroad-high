@@ -31,6 +31,7 @@ import MiddleExpectTab from './middle-tabs/expect'
 import MiddlePastTab from './middle-tabs/past'
 import MiddleSimulationTab from './middle-tabs/simulation'
 import MiddlePresentationTab from './middle-tabs/presentation'
+import MiddleConceptTab from './middle-tabs/ConceptTab'
 
 // ⭐ 탭에 menuKey 매핑 추가 (학원의 enabled_menus와 매치)
 const HIGH_TABS = [
@@ -50,6 +51,7 @@ const HIGH_TABS = [
 
 const MIDDLE_TABS = [
   { key: 'roadmap', label: '로드맵', menuKey: 'middle.roadmap' },
+  { key: 'concept', label: '진로 계열 검사', menuKey: 'middle.concept' },
   { key: 'lesson', label: '수업', menuKey: 'middle.lesson' },
   { key: 'homework', label: '숙제', menuKey: 'middle.homework' },
   { key: 'suhaeng', label: '수행평가', menuKey: 'middle.suhaeng' },
@@ -63,12 +65,12 @@ const MIDDLE_TABS = [
 
 // ⭐ 항상 표시되는 핵심 메뉴 (학원 설정과 무관하게 노출)
 const ALWAYS_VISIBLE_HIGH = ['high.concept', 'high.suhaeng']
-const ALWAYS_VISIBLE_MIDDLE = ['middle.suhaeng']
+const ALWAYS_VISIBLE_MIDDLE = ['middle.concept', 'middle.suhaeng']
 
 const ALL_GRADES: GradeKey[] = ['고1', '고2', '고3']
 
 type HighTabType = 'roadmap' | 'concept' | 'topic' | 'book' | 'record' | 'suhaeng' | 'expect' | 'past' | 'mockexam' | 'simulation' | 'presentation' | 'major'
-type MiddleTabType = 'roadmap' | 'lesson' | 'homework' | 'suhaeng' | 'record' | 'book' | 'expect' | 'past' | 'simulation' | 'presentation'
+type MiddleTabType = 'roadmap' | 'concept' | 'lesson' | 'homework' | 'suhaeng' | 'record' | 'book' | 'expect' | 'past' | 'simulation' | 'presentation'
 
 const THEME = {
   accent: '#2563EB',
@@ -117,7 +119,7 @@ export default function StudentDetail() {
 
   const visibleMiddleTabs = useMemo(() => {
     if (enabledMenus.length === 0) return MIDDLE_TABS
-    // 수행평가는 항상 포함 (핵심 메뉴)
+    // concept, suhaeng은 항상 포함 (핵심 메뉴)
     return MIDDLE_TABS.filter(t =>
       enabledMenus.includes(t.menuKey) || ALWAYS_VISIBLE_MIDDLE.includes(t.menuKey)
     )
@@ -361,6 +363,7 @@ export default function StudentDetail() {
           {isMiddle && (
             <>
               {middleTab === 'roadmap'      && visibleMiddleTabs.find(t => t.key === 'roadmap')      && <MiddleRoadmapTab student={student} />}
+              {middleTab === 'concept'      && visibleMiddleTabs.find(t => t.key === 'concept')      && <MiddleConceptTab student={student} />}
               {middleTab === 'lesson'       && visibleMiddleTabs.find(t => t.key === 'lesson')       && <MiddleLessonTab student={student} />}
               {middleTab === 'homework'     && visibleMiddleTabs.find(t => t.key === 'homework')     && <MiddleHomeworkTab student={student} />}
               {middleTab === 'suhaeng'      && visibleMiddleTabs.find(t => t.key === 'suhaeng')      && <MiddleSuhaengTab student={student} />}

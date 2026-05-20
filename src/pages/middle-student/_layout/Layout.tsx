@@ -3,6 +3,9 @@
 // ⭐ 변경: ConnectForm에서 pending_approvals에 신청 등록 (role 즉시 변경 X)
 //          선생님 승인 시 트리거가 자동으로 role 변경!
 // ⭐ 추가: 학원별 사용 가능 메뉴 필터링 (enabledMenus)
+// ⭐ 추가: 진로 계열 검사 메뉴
+// ⭐ 추가: customBadge 필드로 자유로운 배지 텍스트 표시 (예: '6월')
+// ⭐ 변경: 배지 크기 통일 + 키움 (text-[10px] + px-2 py-1)
 
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
@@ -12,14 +15,17 @@ import { supabase } from '@/lib/supabase'
 import { useStudentRealtime } from '@/lib/realtime/useStudentRealtime'
 
 // ⭐ menuKey 추가 - 학원별 권한 확인용
+// ⭐ isNew: 빨간색 'NEW' 배지
+// ⭐ customBadge: 자유 텍스트 배지 (예: '6월', 'Beta')
 const MENUS = [
   { path: '/middle-student/roadmap', label: '내 커리큘럼', icon: '⊞', menuKey: 'middle.roadmap' },
+  { path: '/middle-student/concept', label: '진로 계열 검사', icon: '🧭', menuKey: 'middle.concept', isNew: true },
   { path: '/middle-student/lesson', label: '수업 영상', icon: '🎬', menuKey: 'middle.lesson' },
   { path: '/middle-student/homework', label: '숙제', icon: '📝', menuKey: 'middle.homework' },
   { path: '/middle-student/suhaeng', label: '수행평가', icon: '🎯', menuKey: 'middle.suhaeng' },
-  { path: '/middle-student/record', label: '내 생기부', icon: '📋', menuKey: 'middle.record', isNew: true },
+  { path: '/middle-student/record', label: '내 생기부', icon: '📋', menuKey: 'middle.record' },
   { path: '/middle-student/book', label: '독서리스트', icon: '📚', menuKey: 'middle.book' },
-  { path: '/middle-student/debate', label: 'AI 토론', icon: '🎤', menuKey: 'middle.debate', isNew: true },
+  { path: '/middle-student/debate', label: 'AI 토론', icon: '🎤', menuKey: 'middle.debate', customBadge: '6월' },
   { path: '/middle-student/expect', label: '자소서 · 예상질문', icon: '💬', menuKey: 'middle.expect' },
   { path: '/middle-student/past', label: '기출문제', icon: '🎓', menuKey: 'middle.past' },
   { path: '/middle-student/simulation', label: '면접 시뮬레이션', icon: '🎙️', menuKey: 'middle.simulation' },
@@ -57,6 +63,7 @@ const MIDDLE_STUDENT_TABLES = [
   'middle_debate_feedbacks',
   'middle_saenggibu_item',
   'middle_semester_lock',
+  'middle_student_concept',
 ]
 
 export default function MiddleLayout() {
@@ -149,9 +156,16 @@ export default function MiddleLayout() {
                 >
                   <span className="text-[15px]">{m.icon}</span>
                   <span className="flex-1 text-left">{m.label}</span>
+                  {/* ⭐ NEW 배지 (빨간색) - 크기 통일 */}
                   {m.isNew && !isLocked && (
-                    <span className="text-[9px] font-extrabold text-white bg-rose-500 px-1.5 py-0.5 rounded-full leading-none">
+                    <span className="text-[10px] font-extrabold text-white bg-rose-500 px-2 py-1 rounded-full leading-none">
                       NEW
+                    </span>
+                  )}
+                  {/* ⭐ 커스텀 배지 (호박색) - NEW와 같은 크기 */}
+                  {m.customBadge && !isLocked && (
+                    <span className="text-[10px] font-extrabold text-white bg-amber-500 px-2 py-1 rounded-full leading-none">
+                      {m.customBadge}
                     </span>
                   )}
                 </button>
