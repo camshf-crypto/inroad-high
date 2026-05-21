@@ -36,7 +36,8 @@ export default function Layout() {
 
   const isAcademyConnected = !!academy.academyId
   const enabledMenus = academy.enabledMenus || []
-  const visibleMenus = MENUS.filter(m => enabledMenus.includes(m.menuKey) || m.menuKey === 'high.concept')
+  const ALWAYS_VISIBLE = ['high.concept', 'high.suhaeng']
+  const visibleMenus = MENUS.filter(m => enabledMenus.includes(m.menuKey) || ALWAYS_VISIBLE.includes(m.menuKey))
 
   useEffect(() => {
     const fetchLogo = async () => {
@@ -115,13 +116,12 @@ export default function Layout() {
                   onClick={() => { if (isLocked) return; navigate(m.path) }}
                   disabled={isLocked}
                   title={isLocked ? '학원 연결 후 사용 가능해요' : ''}
-                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg mb-0.5 transition-all text-[12px] ${
-                    isLocked
+                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg mb-0.5 transition-all text-[12px] ${isLocked
                       ? 'text-ink-muted cursor-not-allowed opacity-50'
                       : isActive
                         ? 'bg-brand-high-pale text-brand-high-dark font-semibold'
                         : 'text-ink-secondary hover:bg-gray-50 hover:text-ink font-medium'
-                  }`}
+                    }`}
                 >
                   <span className="text-[13px]">{m.icon}</span>
                   <span className="flex-1 text-left truncate">{m.label}</span>

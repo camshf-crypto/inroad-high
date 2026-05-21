@@ -1,930 +1,1588 @@
-// src/pages/high-student/_pages/suhaeng/HighSuhaeng.tsx
-
-import React, { useState, useEffect, useRef } from 'react'
-import { useAtomValue } from 'jotai'
-import { studentState, academyState } from '@/lib/auth/atoms'
+import { useState, useEffect, useRef } from "react"
+import { useAtomValue } from "jotai"
+import { studentState } from "@/lib/auth/atoms"
 import {
-  useMyHighAcademyQuestions,
-  useMyHighSubmissions,
-  useSubmitHighAnswer,
-  useResubmitHighAnswer,
-  useMyHighFeedback,
-  type HighAcademySuhaengQuestion,
-  type HighSuhaengSubmission,
-} from '@/pages/high-student/_hooks/useHighSuhaengSubmission'
-import { supabase } from '@/lib/supabase'
+  useMySimulations,
+  useCreateSimulation,
+  useAddSimulationQuestion,
+  useSubmitSimulationAnswer,
+  useCompleteSimulation,
+  useDeleteSimulation,
+  uploadRecording,
+  getQuestionTypeLabel,
+  formatSimDuration,
+  type Simulation,
+} from "@/pages/high-student/_hooks/useMyHighSimulation"
+import {
+  useAllUniversities,
+  useDepartmentsOfUniversity,
+  useMyPastQuestions,
+  type QuestionWithAnswer,
+} from "@/pages/high-student/_hooks/useMyHighQuestions"
+import {
+  useMyQuestions as useMyExpectQuestions,
+  gradeToNum,
+  type ExpectQuestion,
+} from "@/pages/high-student/_hooks/useMyHighSaenggibuQuestions"
 
-const MY_SCHOOL_SUHAENG_HIGH: Record<string, any[]> = {
-  '고1': [
-    { id: 'h1-1', grade: '고1', subject: '국어', type: '글쓰기·논술', title: '현대 사회에서 독서의 의미', content: '디지털 시대에 독서의 중요성이 감소하고 있다는 주장에 대해 자신의 견해를 논술하시오.', ratio: 30, dueIn: 7, urgent: true, scheduledAt: '2026.05.20', minChars: 500, maxChars: 800 },
-    { id: 'h1-2', grade: '고1', subject: '통합과학', type: '탐구보고서', title: '생태계 내 먹이 사슬 탐구', content: '주변 생태계의 먹이 사슬을 조사하고, 특정 생물 개체수 변화가 생태계에 미치는 영향을 분석하는 탐구 보고서를 작성하시오.', ratio: 20, dueIn: 14, urgent: false, scheduledAt: '2026.05.27' },
-    { id: 'h1-3', grade: '고1', subject: '통합사회', type: '발표·토론', title: '기후 위기 대응 방안 토론', content: '기후 위기 해결을 위한 개인적 실천과 국가적 정책 중 어느 것이 더 효과적인지 토론하시오.', ratio: 25, dueIn: 21, urgent: false, scheduledAt: '2026.06.03' },
-    { id: 'h1-4', grade: '고1', subject: '수학', type: '프로젝트·산출물', title: '통계로 보는 우리 학교', content: '학교 생활과 관련된 주제를 선정하여 설문 조사를 실시하고, 통계 자료를 분석하여 결과물을 제작하시오.', ratio: 15, dueIn: 28, urgent: false, scheduledAt: '2026.06.10' },
-    { id: 'h1-5', grade: '고1', subject: '통합과학', type: '실험·실습', title: '산과 염기 반응 실험', content: '다양한 산과 염기 용액을 이용하여 중화 반응 실험을 수행하고, 결과를 분석하여 보고서를 작성하시오.', ratio: 20, dueIn: 35, urgent: false, scheduledAt: '2026.06.17' },
-    { id: 'h1-6', grade: '고1', subject: '영어', type: '독서기록', title: 'English Novel Reading Report', content: '제시된 영어 소설을 읽고 주요 내용 요약, 인상 깊은 구절, 나의 생각을 영어로 작성하시오.', ratio: 10, dueIn: 42, urgent: false, scheduledAt: '2026.06.24' },
-  ],
-  '고2': [
-    { id: 'h2-1', grade: '고2', subject: '문학', type: '글쓰기·논술', title: '현대시 감상 및 비평문 쓰기', content: '제시된 현대시 작품을 감상하고, 작품의 주제와 표현 기법을 분석하여 비평문을 작성하시오.', ratio: 30, dueIn: 5, urgent: true, scheduledAt: '2026.05.18', minChars: 600, maxChars: 1000 },
-    { id: 'h2-2', grade: '고2', subject: '생명과학Ⅰ', type: '탐구보고서', title: '효소의 작용과 환경 요인 탐구', content: '온도와 pH가 효소 활성에 미치는 영향을 실험을 통해 탐구하고 보고서를 작성하시오.', ratio: 20, dueIn: 12, urgent: false, scheduledAt: '2026.05.25' },
-    { id: 'h2-3', grade: '고2', subject: '사회문화', type: '발표·토론', title: '사회 불평등 해소 방안 발표', content: '우리 사회의 불평등 문제를 분석하고, 해소 방안을 제시하는 발표를 준비하시오.', ratio: 20, dueIn: 19, urgent: false, scheduledAt: '2026.06.01' },
-    { id: 'h2-4', grade: '고2', subject: '수학Ⅱ', type: '프로젝트·산출물', title: '미분을 활용한 최적화 문제 탐구', content: '실생활에서 미분을 활용한 최적화 문제를 찾아 수학적으로 해결하는 과정을 보고서로 작성하시오.', ratio: 15, dueIn: 26, urgent: false, scheduledAt: '2026.06.08' },
-    { id: 'h2-5', grade: '고2', subject: '화학Ⅰ', type: '실험·실습', title: '화학 반응 속도 측정 실험', content: '농도와 온도가 화학 반응 속도에 미치는 영향을 실험으로 확인하고 결과를 분석하시오.', ratio: 20, dueIn: 33, urgent: false, scheduledAt: '2026.06.15' },
-    { id: 'h2-6', grade: '고2', subject: '독서', type: '독서기록', title: '고전 산문 읽기와 독서 기록', content: '제시된 고전 산문을 읽고 내용 요약, 핵심 주제, 현대적 의미를 중심으로 독서 기록을 작성하시오.', ratio: 15, dueIn: 40, urgent: false, scheduledAt: '2026.06.22' },
-  ],
-  '고3': [
-    { id: 'h3-1', grade: '고3', subject: '화법과작문', type: '글쓰기·논술', title: '대학 입시와 공정성 논술', content: '현행 대학 입시 제도의 공정성에 대해 자신의 입장을 정하고, 구체적 근거를 들어 논술하시오.', ratio: 35, dueIn: 4, urgent: true, scheduledAt: '2026.05.17', minChars: 700, maxChars: 1200 },
-    { id: 'h3-2', grade: '고3', subject: '생명과학Ⅱ', type: '탐구보고서', title: '유전자 발현 조절 메커니즘 탐구', content: '원핵생물과 진핵생물의 유전자 발현 조절 방식을 비교·분석하는 탐구 보고서를 작성하시오.', ratio: 20, dueIn: 11, urgent: false, scheduledAt: '2026.05.24' },
-    { id: 'h3-3', grade: '고3', subject: '정치와법', type: '발표·토론', title: '헌법 가치와 기본권 제한 토론', content: '공공의 이익을 위한 기본권 제한의 정당성에 대해 찬반 입장을 정해 토론하시오.', ratio: 15, dueIn: 18, urgent: false, scheduledAt: '2026.05.31' },
-    { id: 'h3-4', grade: '고3', subject: '경제', type: '프로젝트·산출물', title: '국내외 경제 지표 분석 보고서', content: '최근 3년간의 주요 경제 지표를 분석하고 시사점을 도출하는 보고서를 작성하시오.', ratio: 15, dueIn: 25, urgent: false, scheduledAt: '2026.06.07' },
-    { id: 'h3-5', grade: '고3', subject: '물리학Ⅱ', type: '실험·실습', title: '전자기 유도 실험 및 분석', content: '패러데이 법칙을 검증하는 실험을 설계·수행하고, 측정 데이터를 분석하여 보고서를 작성하시오.', ratio: 20, dueIn: 32, urgent: false, scheduledAt: '2026.06.14' },
-    { id: 'h3-6', grade: '고3', subject: '고전읽기', type: '독서기록', title: '동서양 고전 비교 독서', content: '동양 고전과 서양 고전 각 1권씩 읽고, 두 작품의 인간관·세계관을 비교하는 독서 기록을 작성하시오.', ratio: 15, dueIn: 39, urgent: false, scheduledAt: '2026.06.21' },
-  ],
+// ─────────────────────────────────────────────
+// 테마 (어드민 훅의 THEME과 통일 — 파랑 #2563EB)
+// ─────────────────────────────────────────────
+const THEME = {
+  accent: "#2563EB",
+  accentDark: "#1E3A8A",
+  accentHover: "#1D4ED8",
+  accentBg: "#EFF6FF",
+  accentPale: "#DBEAFE",
+  accentBorder: "#93C5FD",
+  accentBorderLight: "#BFDBFE",
+  accentShadow: "rgba(37, 99, 235, 0.15)",
+  accentShadowStrong: "rgba(37, 99, 235, 0.4)",
+  gradient: "linear-gradient(135deg, #1E3A8A, #2563EB)",
 }
 
-const TYPE_ICON: Record<string, string> = {
-  '탐구보고서': '🔬', '독서기록': '📚', '발표·토론': '🎤',
-  '프로젝트·산출물': '🛠️', '실험·실습': '🧪', '글쓰기·논술': '✏️',
-}
+// ─────────────────────────────────────────────
+// 상수
+// ─────────────────────────────────────────────
+const QUESTION_TYPES = [
+  { id: "past", label: "5개년 핵심 기출문제", desc: "대학 학과별 기출 면접 질문", icon: "🎓" },
+  { id: "expect", label: "생기부 예상문제", desc: "내 생기부 기반 예상 질문", icon: "📋" },
+  { id: "ai", label: "AI 문제 생성", desc: "AI가 생성하는 맞춤 질문 (준비 중)", icon: "🤖", disabled: true },
+] as const
 
-const SECTION_LABEL_MAP: Record<string, string> = {
-  topic: '탐구 주제', background: '탐구 배경', method: '탐구 방법',
-  content: '탐구 내용', conclusion: '결론 및 느낀 점', reference: '참고 자료',
-  book: '도서 정보', summary: '주요 내용 요약', impression: '인상 깊은 구절',
-  opinion: '나의 생각', apply: '삶에의 적용',
-  position: '나의 입장', reason: '근거', counter: '반론 대응', script: '발표 원고',
-  goal: '프로젝트 목표', plan: '계획', process: '수행 과정', result: '결과물 설명', reflection: '성찰',
-  purpose: '실험 목적', hypothesis: '가설', materials: '준비물', procedure: '실험 과정',
-  answer_text: '답안',
-}
+const QUESTION_MODES = [
+  { id: "text", label: "텍스트 표시", icon: "📝", desc: "질문을 화면에 보여줘요" },
+  { id: "voice", label: "음성만", icon: "🎙️", desc: "질문을 음성으로만 들려줘요" },
+  { id: "both", label: "텍스트 + 음성", icon: "📢", desc: "텍스트와 음성 동시에" },
+]
 
-function getDefaultSections(type: string) {
-  if (type === '탐구보고서') return [
-    { key: 'topic', label: '1. 탐구 주제', placeholder: '탐구할 주제를 작성하세요.', minChars: 20 },
-    { key: 'background', label: '2. 탐구 배경', placeholder: '왜 이 주제를 탐구하게 되었는지 작성하세요.', minChars: 50 },
-    { key: 'method', label: '3. 탐구 방법', placeholder: '어떤 방법으로 탐구했는지 작성하세요.', minChars: 50 },
-    { key: 'content', label: '4. 탐구 내용', placeholder: '탐구한 내용을 구체적으로 정리하세요.', minChars: 150 },
-    { key: 'conclusion', label: '5. 결론 및 느낀 점', placeholder: '탐구 결과와 느낀 점을 작성하세요.', minChars: 80 },
-    { key: 'reference', label: '6. 참고 자료', placeholder: '참고한 자료의 출처를 작성하세요.', minChars: 20 },
-  ]
-  if (type === '독서기록') return [
-    { key: 'book', label: '1. 도서 정보', placeholder: '책 제목, 저자, 출판사를 작성하세요.', minChars: 10 },
-    { key: 'summary', label: '2. 주요 내용 요약', placeholder: '책의 주요 내용을 요약하세요.', minChars: 100 },
-    { key: 'impression', label: '3. 인상 깊은 구절', placeholder: '가장 인상 깊었던 부분과 이유를 작성하세요.', minChars: 50 },
-    { key: 'opinion', label: '4. 나의 생각', placeholder: '책을 읽고 든 생각이나 비판적 의견을 작성하세요.', minChars: 80 },
-    { key: 'apply', label: '5. 삶에의 적용', placeholder: '책에서 배운 점을 자신의 삶에 어떻게 적용할지 작성하세요.', minChars: 50 },
-  ]
-  if (type === '발표·토론') return [
-    { key: 'topic', label: '1. 발표/토론 주제', placeholder: '주제를 입력하세요.', minChars: 10 },
-    { key: 'position', label: '2. 나의 입장', placeholder: '주제에 대한 나의 입장을 작성하세요.', minChars: 50 },
-    { key: 'reason', label: '3. 근거', placeholder: '입장을 뒷받침하는 근거를 2~3가지 작성하세요.', minChars: 100 },
-    { key: 'counter', label: '4. 반론 대응', placeholder: '예상되는 반론과 이에 대한 대응을 작성하세요.', minChars: 50 },
-    { key: 'script', label: '5. 발표 원고', placeholder: '발표 원고를 작성하세요.', minChars: 150 },
-  ]
-  if (type === '프로젝트·산출물') return [
-    { key: 'goal', label: '1. 프로젝트 목표', placeholder: '프로젝트의 목표와 의도를 작성하세요.', minChars: 50 },
-    { key: 'plan', label: '2. 계획', placeholder: '어떻게 진행할 것인지 단계별로 작성하세요.', minChars: 80 },
-    { key: 'process', label: '3. 수행 과정', placeholder: '프로젝트를 진행하면서 한 일을 작성하세요.', minChars: 100 },
-    { key: 'result', label: '4. 결과물 설명', placeholder: '완성된 결과물을 설명하세요.', minChars: 80 },
-    { key: 'reflection', label: '5. 성찰', placeholder: '어려웠던 점, 배운 점, 개선할 점을 작성하세요.', minChars: 50 },
-  ]
-  if (type === '실험·실습') return [
-    { key: 'purpose', label: '1. 실험 목적', placeholder: '무엇을 알아보려는지 작성하세요.', minChars: 30 },
-    { key: 'hypothesis', label: '2. 가설', placeholder: '"만약 ~라면, ~할 것이다" 형식으로 작성하세요.', minChars: 30 },
-    { key: 'materials', label: '3. 준비물', placeholder: '사용한 준비물을 나열하세요.', minChars: 20 },
-    { key: 'procedure', label: '4. 실험 과정', placeholder: '①, ②, ③... 순서대로 작성하세요.', minChars: 80 },
-    { key: 'result', label: '5. 결과 및 데이터', placeholder: '관찰 내용과 데이터를 정리하세요.', minChars: 80 },
-    { key: 'conclusion', label: '6. 결론', placeholder: '실험 결과와 가설을 비교하며 정리하세요.', minChars: 50 },
-  ]
-  if (type === '글쓰기·논술') return null
-  return null
-}
+const GRADE_OPTIONS = [
+  { val: 1, label: "고1" },
+  { val: 2, label: "고2" },
+  { val: 3, label: "고3" },
+]
 
-// ── blobToBase64 ──
-async function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve((reader.result as string).split(',')[1])
-    reader.onerror = reject
-    reader.readAsDataURL(blob)
+const INTERVIEWERS = [
+  {
+    id: 1,
+    name: "면접관 1",
+    videoUrl: "https://yrunxizfvssiwyieevgw.supabase.co/storage/v1/object/public/simulation-videos/interviewer_left.mp4",
+  },
+  {
+    id: 2,
+    name: "면접관 2",
+    videoUrl: "https://yrunxizfvssiwyieevgw.supabase.co/storage/v1/object/public/simulation-videos/interviewer_center.mp4",
+  },
+  {
+    id: 3,
+    name: "면접관 3",
+    videoUrl: "https://yrunxizfvssiwyieevgw.supabase.co/storage/v1/object/public/simulation-videos/interviewer_right.mp4",
+  },
+]
+
+const TIMER_SEC = 80
+const QUESTION_COUNT = 5
+const COUNTDOWN_SEC = 10
+
+// ─────────────────────────────────────────────
+// 유틸
+// ─────────────────────────────────────────────
+const formatDateTime = (s: string) =>
+  new Date(s).toLocaleString("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
   })
+
+const formatDateTimeFull = (s: string) =>
+  new Date(s).toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+
+const formatTime = (s: number) =>
+  `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`
+
+const pickRandom = <T,>(arr: T[], n: number): T[] => {
+  const shuffled = [...arr].sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, n)
 }
 
-// ── 파일 업로드 ──
-const uploadFile = async (file: File | Blob, studentId: string, questionId: string, fileType: string, fileName?: string): Promise<string | null> => {
-  try {
-    const ext = fileName?.split('.').pop() || (fileType === 'audio' ? 'webm' : fileType === 'video' ? 'mp4' : 'jpg')
-    const filePath = `${studentId}/${questionId}/${fileType}-${Date.now()}.${ext}`
-    const { error } = await supabase.storage.from('suhaeng-files').upload(filePath, file, { cacheControl: '3600', upsert: false })
-    if (error) throw error
-    const { data } = supabase.storage.from('suhaeng-files').getPublicUrl(filePath)
-    return data.publicUrl
-  } catch (e) { console.error('파일 업로드 실패:', e); return null }
+// ─────────────────────────────────────────────
+// 메인
+// ─────────────────────────────────────────────
+type Step = "list" | "setup" | "countdown" | "interview" | "result"
+
+interface PickedQuestion {
+  order: number
+  text: string
 }
 
-// ── STT 마이크 버튼 ──
-function MicSTTBtn({ onTranscript }: { onTranscript: (text: string) => void }) {
-  const [recording, setRecording] = useState(false)
-  const [processing, setProcessing] = useState(false)
+interface AnswerRecord {
+  order: number
+  text: string
+  blob: Blob | null
+  durationSec: number
+}
+
+export default function Simulation() {
+  const student = useAtomValue(studentState)
+  const myGrade = gradeToNum((student as any)?.grade)
+
+  // ─── DB ───
+  const { data: simHistory = [], isLoading } = useMySimulations()
+  const createSim = useCreateSimulation()
+  const addQuestion = useAddSimulationQuestion()
+  const submitAnswer = useSubmitSimulationAnswer()
+  const completeSim = useCompleteSimulation()
+  const deleteSim = useDeleteSimulation()
+
+  // ─── 단계 / 설정 ───
+  const [step, setStep] = useState<Step>("list")
+  const [questionType, setQuestionType] = useState<"past" | "expect" | "ai" | "">("")
+  const [tailQ, setTailQ] = useState<boolean | null>(null)
+  const [questionMode, setQuestionMode] = useState<"text" | "voice" | "both" | "">("")
+
+  // past 전용 — 대학/학과
+  const [selUniv, setSelUniv] = useState("")
+  const [selDept, setSelDept] = useState("")
+  const [univSearch, setUnivSearch] = useState("")
+
+  // expect 전용 — 학년
+  const [selGrade, setSelGrade] = useState<number | null>(null)
+
+  // ─── 면접 진행 상태 ───
+  const [questions, setQuestions] = useState<PickedQuestion[]>([])
+  const [curQIdx, setCurQIdx] = useState(0)
+  const [countdown, setCountdown] = useState(COUNTDOWN_SEC)
+  const [timer, setTimer] = useState(TIMER_SEC)
+  const [timerRunning, setTimerRunning] = useState(false)
+  const [showQuestion, setShowQuestion] = useState(true)
+  const [isRecording, setIsRecording] = useState(false)
+  const [activeInterviewer, setActiveInterviewer] = useState(0)
+  const [interviewStartTime, setInterviewStartTime] = useState(0)
+  const [saving, setSaving] = useState(false)
+
+  // 진행중 시뮬레이션 정보
+  const [currentSimId, setCurrentSimId] = useState<string | null>(null)
+  const [answers, setAnswers] = useState<AnswerRecord[]>([])
+
+  // ─── 결과/상세 보기 ───
+  const [selSim, setSelSim] = useState<Simulation | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [playingQId, setPlayingQId] = useState<string | null>(null)
+
+  // ─── refs ───
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const audioStreamRef = useRef<MediaStream | null>(null)
+  const recordStartRef = useRef<number>(0)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const timerRef = useRef<any>(null)
+  const interviewerRef = useRef<any>(null)
+
+  // ─── 질문 소스 데이터 ───
+  // past: 대학/학과 선택 시 → useMyPastQuestions
+  const { data: allUniversities = [] } = useAllUniversities()
+  const { data: deptsOfUniv = [] } = useDepartmentsOfUniversity(selUniv)
+  const { data: pastQuestions = [] } = useMyPastQuestions(
+    questionType === "past" ? selUniv : "",
+    questionType === "past" ? selDept : "",
+  )
+
+  // expect: 학년 선택 시 → useMyQuestions
+  const { data: expectQuestions = [] } = useMyExpectQuestions(
+    questionType === "expect" && selGrade ? selGrade : 0,
+  )
+
+  // ─── 시뮬레이션 상세 보기용 질문 목록 ───
+  const [selSimQuestions, setSelSimQuestions] = useState<any[]>([])
+  useEffect(() => {
+    if (!selSim) {
+      setSelSimQuestions([])
+      return
+    }
+    // 직접 fetch (훅을 동적으로 못 부르므로 effect로 처리)
+    ;(async () => {
+      const { supabase } = await import("@/lib/supabase")
+      const { data } = await supabase
+        .from("high_simulation_questions")
+        .select("*")
+        .eq("simulation_id", selSim.id)
+        .order("order", { ascending: true })
+      setSelSimQuestions(data ?? [])
+    })()
+  }, [selSim])
+
+  // ─── 타이머 / 카운트다운 / 면접관 효과 ───
+  useEffect(() => {
+    if (step !== "countdown") return
+    if (countdown <= 0) {
+      setStep("interview")
+      setTimerRunning(true)
+      setInterviewStartTime(Date.now())
+      return
+    }
+    const t = setTimeout(() => setCountdown((c) => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [step, countdown])
 
   useEffect(() => {
-    return () => { if (audioStreamRef.current) audioStreamRef.current.getTracks().forEach(t => t.stop()) }
+    if (!timerRunning) return
+    if (timer <= 0) {
+      setTimerRunning(false)
+      return
+    }
+    timerRef.current = setTimeout(() => setTimer((t) => t - 1), 1000)
+    return () => clearTimeout(timerRef.current)
+  }, [timerRunning, timer])
+
+  useEffect(() => {
+    if (step !== "interview") return
+    interviewerRef.current = setInterval(
+      () => setActiveInterviewer(Math.floor(Math.random() * 3)),
+      3000,
+    )
+    return () => clearInterval(interviewerRef.current)
+  }, [step])
+
+  useEffect(() => {
+    return () => {
+      audioStreamRef.current?.getTracks().forEach((t) => t.stop())
+    }
   }, [])
 
-  const startRecording = async () => {
+  // ─── 녹음 제어 ───
+  const startQuestionRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       audioStreamRef.current = stream
       const recorder = new MediaRecorder(stream)
       audioChunksRef.current = []
-      recorder.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data)
+      }
       recorder.start()
       mediaRecorderRef.current = recorder
-      setRecording(true)
-    } catch { alert('마이크 권한이 필요해요. 브라우저 설정에서 허용해주세요.') }
-  }
-
-  const stopRecording = async () => {
-    const recorder = mediaRecorderRef.current
-    if (!recorder || recorder.state === 'inactive') return
-    setRecording(false); setProcessing(true)
-    const blobPromise = new Promise<Blob>(resolve => {
-      recorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
-        if (audioStreamRef.current) { audioStreamRef.current.getTracks().forEach(t => t.stop()); audioStreamRef.current = null }
-        resolve(blob)
-      }
-      recorder.stop()
-    })
-    try {
-      const blob = await blobPromise
-      const audioBase64 = await blobToBase64(blob)
-      const { data, error } = await supabase.functions.invoke('middle-stt-short', { body: { audioBase64 } })
-      if (error || !data?.success) { alert('음성 변환 실패: ' + (error?.message || data?.error || 'unknown')); return }
-      const transcript = data?.text || ''
-      if (transcript) onTranscript(transcript)
-      else alert('음성을 인식하지 못했어요. 다시 시도해주세요!')
-    } catch (e: any) { alert('STT 처리 중 오류: ' + e.message) }
-    finally { setProcessing(false) }
-  }
-
-  return (
-    <button onClick={recording ? stopRecording : startRecording} disabled={processing}
-      title={recording ? '녹음 종료' : processing ? '변환 중...' : '음성으로 입력 (1분 이내)'}
-      className={`w-9 h-9 rounded-lg border flex items-center justify-center text-base transition-all ${
-        recording ? 'bg-red-50 border-red-200 text-red-500 animate-pulse'
-          : processing ? 'bg-amber-50 border-amber-200 text-amber-600 cursor-wait'
-          : 'bg-brand-high-pale border-brand-high-light text-brand-high-dark hover:bg-brand-high-pale'
-      }`}>
-      {recording ? '⏹' : processing ? '⏳' : '🎙️'}
-    </button>
-  )
-}
-
-// ── 검색박스 ──
-function SearchBox({ keywords }: { keywords?: string[] }) {
-  const [query, setQuery] = useState('')
-  const [engine, setEngine] = useState<'naver' | 'google'>('naver')
-  const handleSearch = () => {
-    if (!query.trim()) return
-    window.open(engine === 'naver' ? `https://search.naver.com/search.naver?query=${encodeURIComponent(query)}` : `https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank')
-    setQuery('')
-  }
-  return (
-    <div className="bg-white border border-line rounded-xl p-4 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
-      <div className="flex items-center gap-1.5 mb-2.5">
-        <span className="text-brand-high-dark">🔍</span>
-        <span className="text-[12px] font-extrabold text-ink">자료 검색</span>
-      </div>
-      <div className="flex gap-1 mb-2">
-        <button onClick={() => setEngine('naver')} className={`flex-1 text-[10px] font-bold py-1 rounded-md transition-all ${engine === 'naver' ? 'bg-green-500 text-white' : 'bg-gray-100 text-ink-secondary hover:bg-gray-200'}`}>N 네이버</button>
-        <button onClick={() => setEngine('google')} className={`flex-1 text-[10px] font-bold py-1 rounded-md transition-all ${engine === 'google' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-ink-secondary hover:bg-gray-200'}`}>구글</button>
-      </div>
-      <div className="relative">
-        <input type="text" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()} placeholder="검색어를 입력하세요..." className="w-full h-9 px-3 pr-9 text-[11px] border border-line rounded-md focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted" />
-        <button onClick={handleSearch} className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 bg-brand-high text-white rounded-md hover:bg-brand-high-dark transition-all text-xs flex items-center justify-center">🔍</button>
-      </div>
-      {keywords && keywords.length > 0 && (
-        <div className="mt-3">
-          <div className="text-[10px] font-bold text-ink-muted mb-1.5">추천 키워드</div>
-          <div className="flex flex-wrap gap-1">
-            {keywords.map(tag => (
-              <button key={tag} onClick={() => window.open(`https://search.naver.com/search.naver?query=${encodeURIComponent(tag)}`, '_blank')} className="text-[10px] px-2 py-0.5 bg-brand-high-pale text-brand-high-dark rounded-full border border-brand-high-light hover:bg-brand-high hover:text-white transition-all">#{tag}</button>
-            ))}
-          </div>
-        </div>
-      )}
-      <div className="mt-3 pt-3 border-t border-line">
-        <div className="text-[10px] font-bold text-ink-muted mb-1.5">빠른 링크</div>
-        <div className="space-y-1">
-          {[
-            { icon: '📚', label: '네이버 지식백과', url: 'https://terms.naver.com' },
-            { icon: '📖', label: '위키백과', url: 'https://ko.wikipedia.org' },
-            { icon: '📊', label: '통계청 KOSIS', url: 'https://kosis.kr' },
-            { icon: '🔬', label: 'RISS 논문검색', url: 'https://www.riss.kr' },
-            { icon: '📑', label: '국회도서관', url: 'https://www.nanet.go.kr' },
-          ].map((link, i) => (
-            <button key={i} onClick={() => window.open(link.url, '_blank')} className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-brand-high-pale transition-colors group">
-              <span className="text-sm">{link.icon}</span>
-              <span className="text-[11px] font-medium text-ink-secondary group-hover:text-brand-high-dark transition-colors">{link.label}</span>
-              <span className="ml-auto text-[10px] text-ink-muted">↗</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── 연습 헤더 ──
-function PracticeHeader({ q, onBack, onSubmit, onSaveDraft, canSubmit, submitting, secondsLeft }: any) {
-  const [savedAt, setSavedAt] = useState<Date | null>(null)
-  const timeUrgent = secondsLeft < 300
-  const formatTime = (sec: number) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`
-  const handleSave = () => {
-    if (onSaveDraft) {
-      const ok = onSaveDraft()
-      if (ok) { setSavedAt(new Date()); setTimeout(() => setSavedAt(null), 3000) }
+      recordStartRef.current = Date.now()
+      setIsRecording(true)
+    } catch (e) {
+      console.error(e)
+      alert("🎙️ 마이크 권한이 필요해요. 브라우저 설정에서 허용해주세요.")
+      setStep("list")
     }
   }
-  return (
-    <div className="flex items-center justify-between flex-shrink-0">
-      <div className="flex items-center gap-3">
-        <button onClick={onBack} className="text-[12px] font-semibold text-ink-secondary hover:text-ink transition-colors">← 목록으로</button>
-        <div className="w-px h-4 bg-line" />
-        <div>
-          <div className="text-[11px] text-ink-muted font-semibold">{q._isSchool ? '우리 학교 수행평가' : '학원 수행평가'} · {q.subject} · {q.type}</div>
-          <div className="text-[14px] font-bold text-ink">{q.title}</div>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        {savedAt && <div className="text-[11px] font-bold text-brand-high-dark bg-brand-high-pale border border-brand-high-light px-2.5 py-1 rounded-md animate-pulse">✓ 저장됨</div>}
-        {secondsLeft !== undefined && (
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${timeUrgent ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
-            <span className="text-xs">🕐</span>
-            <span className={`text-[13px] font-extrabold tabular-nums ${timeUrgent ? 'text-red-600 animate-pulse' : 'text-amber-700'}`}>{formatTime(secondsLeft)}</span>
-          </div>
-        )}
-        <button onClick={handleSave} className="h-8 px-3 text-[11px] font-medium text-ink-secondary bg-white border border-line rounded-md hover:border-brand-high-light hover:bg-brand-high-pale transition-all">💾 임시저장</button>
-        <button onClick={onSubmit} disabled={!canSubmit || submitting}
-          className={`h-8 px-5 text-[12px] font-semibold rounded-md transition-all ${canSubmit && !submitting ? 'bg-brand-high hover:bg-brand-high-dark text-white hover:-translate-y-px shadow-[0_2px_8px_rgba(37,99,235,0.2)]' : 'bg-gray-100 text-ink-muted cursor-not-allowed'}`}>
-          {submitting ? '제출 중...' : '제출'}
-        </button>
-      </div>
-    </div>
-  )
-}
 
-// ── 문제 카드 ──
-function QuestionCard({ q }: { q: HighAcademySuhaengQuestion }) {
-  return (
-    <div className="bg-white border border-line rounded-xl px-4 py-3.5 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
-      <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
-        <span className="text-[10px] font-bold text-white bg-brand-high px-2 py-0.5 rounded">문제</span>
-        <span className="text-[10px] text-ink-muted font-semibold">학원 수행평가 · {q.subject} · {q.grade}</span>
-      </div>
-      <p className="text-[13px] text-ink leading-[1.8]">{q.content}</p>
-      {q.eval_criteria && q.eval_criteria.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-line">
-          <div className="text-[10px] font-bold text-ink-muted mb-1.5">평가 요소</div>
-          <div className="flex flex-wrap gap-1.5">
-            {q.eval_criteria.map((e, i) => (
-              <span key={i} className="text-[10px] px-2 py-0.5 bg-brand-high-pale text-brand-high-dark rounded-full border border-brand-high-light font-semibold">{e.name} {e.score}점</span>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+  const stopQuestionRecording = (): Promise<{ blob: Blob | null; durationSec: number }> => {
+    return new Promise((resolve) => {
+      const rec = mediaRecorderRef.current
+      if (!rec || rec.state === "inactive") {
+        resolve({ blob: null, durationSec: 0 })
+        return
+      }
+      rec.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" })
+        const durationSec = Math.floor((Date.now() - recordStartRef.current) / 1000)
+        audioStreamRef.current?.getTracks().forEach((t) => t.stop())
+        audioStreamRef.current = null
+        resolve({ blob, durationSec })
+      }
+      rec.stop()
+    })
+  }
 
-// ── 글쓰기·논술 ──
-function EssayPractice({ q, onBack, onSubmit, submitting }: any) {
-  const [answer, setAnswer] = useState(() => {
-    try { const d = localStorage.getItem(`high-suhaeng-draft:${q.id}`); return d ? JSON.parse(d).answer_text || '' : '' } catch { return '' }
-  })
-  const [secondsLeft, setSecondsLeft] = useState(30 * 60)
-  useEffect(() => {
-    if (secondsLeft <= 0) return
-    const t = setInterval(() => setSecondsLeft(p => p - 1), 1000)
-    return () => clearInterval(t)
-  }, [secondsLeft])
-  const minChars = q.min_chars || 300
-  const maxChars = q.max_chars || 1000
-  const isValid = answer.length >= minChars && answer.length <= maxChars
-  const handleSaveDraft = () => {
-    if (!answer.trim()) { alert('답안을 작성하고 저장해주세요.'); return false }
-    try { localStorage.setItem(`high-suhaeng-draft:${q.id}`, JSON.stringify({ answer_text: answer, savedAt: new Date().toISOString() })); return true } catch { return false }
-  }
-  const handleSubmit = () => {
-    if (!isValid) { alert(`${minChars}~${maxChars}자로 작성해주세요.`); return }
-    localStorage.removeItem(`high-suhaeng-draft:${q.id}`)
-    onSubmit({ answer_text: answer })
-  }
-  return (
-    <div className="flex flex-col gap-3 h-[calc(100vh-90px)] overflow-hidden px-6 py-5 font-sans text-ink">
-      <PracticeHeader q={q} onBack={onBack} onSubmit={handleSubmit} onSaveDraft={handleSaveDraft} canSubmit={isValid} submitting={submitting} secondsLeft={secondsLeft} />
-      <div className="flex-1 flex gap-3 min-h-0">
-        <div className="flex-1 h-full overflow-y-auto pr-1 space-y-3">
-          <QuestionCard q={q} />
-          <div className="bg-white border border-line rounded-xl overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
-            <div className="px-4 py-2.5 bg-gray-50 border-b border-line flex items-center justify-between">
-              <div className="flex items-center gap-2"><span>✏️</span><span className="text-[12px] font-bold text-ink">내 답안</span></div>
-              <div className="flex items-center gap-2 text-[11px]">
-                <span className={`font-extrabold tabular-nums ${answer.length < minChars ? 'text-ink-muted' : answer.length > maxChars ? 'text-red-500' : 'text-brand-high-dark'}`}>{answer.length}자</span>
-                <span className="text-ink-muted">/ {minChars}~{maxChars}자</span>
-              </div>
-            </div>
-            <textarea value={answer} onChange={e => setAnswer(e.target.value)} placeholder="이곳에 답안을 작성하세요." className="w-full h-[500px] p-4 text-[13px] leading-[1.8] text-ink resize-none focus:outline-none placeholder:text-ink-muted" />
-          </div>
-        </div>
-        <div className="w-[280px] flex-shrink-0"><SearchBox /></div>
-      </div>
-    </div>
-  )
-}
+  const finishCurrentAnswer = async () => {
+    setIsRecording(false)
+    const { blob, durationSec } = await stopQuestionRecording()
+    const curQ = questions[curQIdx]
+    const newAnswer: AnswerRecord = {
+      order: curQ.order,
+      text: curQ.text,
+      blob,
+      durationSec,
+    }
+    const newAnswers = [...answers, newAnswer]
+    setAnswers(newAnswers)
 
-// ── 섹션 기반 (탐구보고서/독서기록/프로젝트·산출물) ──
-function SectionPractice({ q, onBack, onSubmit, submitting, icon, label }: any) {
-  const sections = getDefaultSections(q.type) || []
-  const [values, setValues] = useState<Record<string, string>>(() => {
-    try { const d = localStorage.getItem(`high-suhaeng-draft:${q.id}`); return d ? JSON.parse(d).sections || sections.reduce((acc: any, s: any) => ({ ...acc, [s.key]: '' }), {}) : sections.reduce((acc: any, s: any) => ({ ...acc, [s.key]: '' }), {}) } catch { return sections.reduce((acc: any, s: any) => ({ ...acc, [s.key]: '' }), {}) }
-  })
-  const [secondsLeft, setSecondsLeft] = useState(30 * 60)
-  useEffect(() => {
-    if (secondsLeft <= 0) return
-    const t = setInterval(() => setSecondsLeft(p => p - 1), 1000)
-    return () => clearInterval(t)
-  }, [secondsLeft])
-  const allValid = sections.every((s: any) => (values[s.key]?.length || 0) >= s.minChars)
-  const totalChars = Object.values(values).join('').length
-  const handleSaveDraft = () => {
-    if (!Object.values(values).some(v => v.trim())) { alert('답안을 작성하고 저장해주세요.'); return false }
-    try { localStorage.setItem(`high-suhaeng-draft:${q.id}`, JSON.stringify({ sections: values, savedAt: new Date().toISOString() })); return true } catch { return false }
+    if (curQIdx >= questions.length - 1) {
+      await finishInterview(newAnswers)
+      return
+    }
+    setCurQIdx((i) => i + 1)
+    setTimer(TIMER_SEC)
+    setTimerRunning(true)
   }
-  const handleSubmit = () => {
-    if (!allValid) { alert('모든 항목을 최소 글자수만큼 작성해주세요.'); return }
-    localStorage.removeItem(`high-suhaeng-draft:${q.id}`)
-    onSubmit({ answer_sections: values })
-  }
-  return (
-    <div className="flex flex-col gap-3 h-[calc(100vh-90px)] overflow-hidden px-6 py-5 font-sans text-ink">
-      <PracticeHeader q={q} onBack={onBack} onSubmit={handleSubmit} onSaveDraft={handleSaveDraft} canSubmit={allValid} submitting={submitting} secondsLeft={secondsLeft} />
-      <div className="flex-1 flex gap-3 min-h-0">
-        <div className="flex-1 h-full overflow-y-auto pr-1 space-y-3">
-          <QuestionCard q={q} />
-          <div className="bg-white border border-line rounded-xl overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
-            <div className="px-4 py-2.5 bg-gray-50 border-b border-line flex items-center justify-between">
-              <div className="flex items-center gap-2"><span>{icon}</span><span className="text-[12px] font-bold text-ink">{label}</span></div>
-              <div className="text-[11px] text-ink-muted">총 <span className="font-extrabold text-brand-high-dark">{totalChars}</span>자</div>
-            </div>
-            <div className="p-4 space-y-4">
-              {sections.map((s: any) => {
-                const value = values[s.key] || ''
-                const valid = value.length >= s.minChars
-                return (
-                  <div key={s.key}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[12px] font-bold text-ink">{s.label}</label>
-                      <span className={`text-[10px] font-bold tabular-nums ${valid ? 'text-brand-high-dark' : 'text-ink-muted'}`}>{value.length}자 {valid ? '✓' : `/ 최소 ${s.minChars}자`}</span>
-                    </div>
-                    <textarea value={value} onChange={e => setValues({ ...values, [s.key]: e.target.value })}
-                      placeholder={s.placeholder} rows={4}
-                      className="w-full px-3 py-2.5 text-[12px] border border-line rounded-lg focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted resize-y leading-[1.7]" />
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-        <div className="w-[280px] flex-shrink-0"><SearchBox /></div>
-      </div>
-    </div>
-  )
-}
 
-// ── 실험·실습 ──
-function ExperimentPractice({ q, onBack, onSubmit, submitting, studentId }: any) {
-  const sections = getDefaultSections('실험·실습') || []
-  const [values, setValues] = useState<Record<string, string>>(sections.reduce((acc: any, s: any) => ({ ...acc, [s.key]: '' }), {}))
-  const [photos, setPhotos] = useState<File[]>([])
-  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
-  const [uploading, setUploading] = useState(false)
-  const allValid = sections.every((s: any) => (values[s.key]?.length || 0) >= s.minChars)
-  const totalChars = Object.values(values).join('').length
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    const newPhotos = [...photos, ...files].slice(0, 5)
-    setPhotos(newPhotos); setPhotoPreviews(newPhotos.map(f => URL.createObjectURL(f)))
+  const skipQuestion = async () => {
+    if (isRecording) {
+      await finishCurrentAnswer()
+      return
+    }
+    const curQ = questions[curQIdx]
+    const newAnswers = [
+      ...answers,
+      { order: curQ.order, text: curQ.text, blob: null, durationSec: 0 },
+    ]
+    setAnswers(newAnswers)
+
+    if (curQIdx >= questions.length - 1) {
+      await finishInterview(newAnswers)
+      return
+    }
+    setCurQIdx((i) => i + 1)
+    setTimer(TIMER_SEC)
+    setTimerRunning(true)
   }
-  const handleSubmit = async () => {
-    if (!allValid) { alert('모든 항목을 최소 글자수만큼 작성해주세요.'); return }
-    setUploading(true)
+
+  // ─── 시뮬레이션 종료: 답변 업로드 + 질문/답변 DB 저장 + complete ───
+  const finishInterview = async (allAnswers: AnswerRecord[]) => {
+    if (!currentSimId) {
+      alert("시뮬레이션 ID가 없어요. 다시 시도해주세요.")
+      setStep("list")
+      return
+    }
+    setSaving(true)
+    setTimerRunning(false)
+    if (interviewerRef.current) clearInterval(interviewerRef.current)
+
+    const elapsedSec = Math.floor((Date.now() - interviewStartTime) / 1000)
+
     try {
-      const photoUrls: string[] = []
-      for (const file of photos) { const url = await uploadFile(file, studentId, q.id, 'photo', file.name); if (url) photoUrls.push(url) }
-      onSubmit({ answer_sections: values, answer_photo_urls: photoUrls.length > 0 ? photoUrls : undefined })
-    } catch (e: any) { alert('업로드 실패: ' + e.message) }
-    finally { setUploading(false) }
-  }
-  const [secondsLeftExp, setSecondsLeftExp] = useState(30 * 60)
-  useEffect(() => {
-    if (secondsLeftExp <= 0) return
-    const t = setInterval(() => setSecondsLeftExp(p => p - 1), 1000)
-    return () => clearInterval(t)
-  }, [secondsLeftExp])
-  const handleSaveDraftExp = () => {
-    try { localStorage.setItem(`high-suhaeng-draft:${q.id}`, JSON.stringify({ sections, savedAt: new Date().toISOString() })); return true } catch { return false }
-  }
-  return (
-    <div className="flex flex-col gap-3 h-[calc(100vh-90px)] overflow-hidden px-6 py-5 font-sans text-ink">
-      <PracticeHeader q={q} onBack={onBack} onSubmit={handleSubmit} onSaveDraft={handleSaveDraftExp} canSubmit={allValid} submitting={submitting || uploading} secondsLeft={secondsLeftExp} />
-      <div className="flex-1 flex gap-3 min-h-0">
-        <div className="flex-1 h-full overflow-y-auto pr-1 space-y-3">
-          <QuestionCard q={q} />
-          <div className="bg-white border border-line rounded-xl overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
-            <div className="px-4 py-2.5 bg-gray-50 border-b border-line flex items-center justify-between">
-              <div className="flex items-center gap-2"><span>🧪</span><span className="text-[12px] font-bold text-ink">실험 보고서</span></div>
-              <div className="text-[11px] text-ink-muted">총 <span className="font-extrabold text-brand-high-dark">{totalChars}</span>자</div>
-            </div>
-            <div className="p-4 space-y-4">
-              {sections.map((s: any) => {
-                const value = values[s.key] || ''
-                const valid = value.length >= s.minChars
-                return (
-                  <div key={s.key}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[12px] font-bold text-ink">{s.label}</label>
-                      <span className={`text-[10px] font-bold ${valid ? 'text-brand-high-dark' : 'text-ink-muted'}`}>{value.length}자 {valid ? '✓' : `/ 최소 ${s.minChars}자`}</span>
-                    </div>
-                    <textarea value={value} onChange={e => setValues({ ...values, [s.key]: e.target.value })}
-                      placeholder={s.placeholder} rows={4}
-                      className="w-full px-3 py-2.5 text-[12px] border border-line rounded-lg focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted resize-y leading-[1.7]" />
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-          <div className="bg-white border border-line rounded-xl p-4 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
-            <div className="flex items-center gap-1.5 mb-3">
-              <span>📷</span><span className="text-[12px] font-extrabold text-ink">실험 사진 첨부</span>
-              <span className="text-[10px] text-ink-muted ml-auto">선택사항 · 최대 5장 ({photos.length}/5)</span>
-            </div>
-            {photoPreviews.length > 0 && (
-              <div className="grid grid-cols-3 gap-2 mb-3">
-                {photoPreviews.map((url, i) => (
-                  <div key={i} className="relative group">
-                    <img src={url} alt={`사진 ${i + 1}`} className="w-full aspect-square object-cover rounded-lg border border-line" />
-                    <button onClick={() => { const p = photos.filter((_, j) => j !== i); setPhotos(p); setPhotoPreviews(p.map(f => URL.createObjectURL(f))) }}
-                      className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">×</button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {photos.length < 5 && (
-              <label className="w-full h-20 rounded-lg font-bold text-brand-high-dark bg-brand-high-pale border-2 border-dashed border-brand-high-light hover:bg-brand-high-bg transition-all flex flex-col items-center justify-center gap-1 cursor-pointer">
-                <span className="text-2xl">📷</span>
-                <span className="text-[11px]">실험 사진 업로드</span>
-                <input type="file" accept="image/*" multiple onChange={handlePhotoSelect} className="hidden" />
-              </label>
-            )}
-          </div>
-        </div>
-        <div className="w-[280px] flex-shrink-0"><SearchBox /></div>
-      </div>
-    </div>
-  )
-}
+      // 각 질문에 대해 1) 질문 행 INSERT 2) 녹음 업로드 3) answer UPDATE
+      for (const a of allAnswers) {
+        // 1. 질문 행 생성
+        const qRow = await addQuestion.mutateAsync({
+          simulationId: currentSimId,
+          order: a.order,
+          questionText: a.text,
+          isTail: false,
+        })
 
-// ── 발표·토론 (STT 포함) ──
-function PresentationPractice({ q, onBack, onSubmit, submitting, studentId }: any) {
-  const sections = getDefaultSections('발표·토론') || []
-  const [values, setValues] = useState<Record<string, string>>(sections.reduce((acc: any, s: any) => ({ ...acc, [s.key]: '' }), {}))
-  const [isRecording, setIsRecording] = useState(false)
-  const [recordTime, setRecordTime] = useState(0)
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
-  const [audioUrl, setAudioUrl] = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const audioChunksRef = useRef<Blob[]>([])
-  const allValid = sections.every((s: any) => (values[s.key]?.length || 0) >= s.minChars)
+        // 2. 녹음 있으면 업로드
+        let recordingUrl: string | undefined
+        if (a.blob) {
+          try {
+            recordingUrl = await uploadRecording(
+              a.blob,
+              currentSimId,
+              `q${a.order}-${Date.now()}.webm`,
+            )
+          } catch (e: any) {
+            console.error("녹음 업로드 실패:", e)
+          }
+        }
 
-  useEffect(() => {
-    if (!isRecording) return
-    const t = setInterval(() => setRecordTime(p => p + 1), 1000)
-    return () => clearInterval(t)
-  }, [isRecording])
+        // 3. 답변 정보 업데이트 (있을 때만)
+        if (recordingUrl || a.durationSec > 0) {
+          await submitAnswer.mutateAsync({
+            questionId: qRow.id,
+            simulationId: currentSimId,
+            recordingUrl,
+            durationSec: a.durationSec,
+          })
+        }
+      }
 
-  const formatRecTime = (sec: number) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`
-
-  const toggleRecording = async () => {
-    if (isRecording) { mediaRecorderRef.current?.stop(); setIsRecording(false); return }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream)
-      audioChunksRef.current = []
-      recorder.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
-      recorder.onstop = () => { const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); setAudioBlob(blob); setAudioUrl(URL.createObjectURL(blob)); stream.getTracks().forEach(t => t.stop()) }
-      mediaRecorderRef.current = recorder; recorder.start(); setIsRecording(true); setRecordTime(0)
-    } catch { alert('마이크 권한을 허용해주세요.') }
-  }
-
-  const handleSubmit = async () => {
-    if (!allValid) { alert('모든 항목을 최소 글자수만큼 작성해주세요.'); return }
-    setUploading(true)
-    try {
-      let audioUploadedUrl: string | undefined
-      if (audioBlob) { const url = await uploadFile(audioBlob, studentId, q.id, 'audio'); if (url) audioUploadedUrl = url }
-      onSubmit({ answer_sections: values, answer_audio_url: audioUploadedUrl })
-    } catch (e: any) { alert('업로드 실패: ' + e.message) }
-    finally { setUploading(false) }
-  }
-
-  const [secondsLeftPres, setSecondsLeftPres] = useState(30 * 60)
-  useEffect(() => {
-    if (secondsLeftPres <= 0) return
-    const t = setInterval(() => setSecondsLeftPres(p => p - 1), 1000)
-    return () => clearInterval(t)
-  }, [secondsLeftPres])
-  const handleSaveDraftPres = () => {
-    if (!Object.values(values).some((v: any) => v.trim())) { alert('답안을 작성하고 저장해주세요.'); return false }
-    try { localStorage.setItem(`high-suhaeng-draft:${q.id}`, JSON.stringify({ sections: values, savedAt: new Date().toISOString() })); return true } catch { return false }
-  }
-
-  return (
-    <div className="flex flex-col gap-3 h-[calc(100vh-90px)] overflow-hidden px-6 py-5 font-sans text-ink">
-      <PracticeHeader q={q} onBack={onBack} onSubmit={handleSubmit} onSaveDraft={handleSaveDraftPres} canSubmit={allValid} submitting={submitting || uploading} secondsLeft={secondsLeftPres} />
-      <div className="flex-1 flex gap-3 min-h-0">
-        <div className="flex-1 h-full overflow-y-auto pr-1 space-y-3">
-          <QuestionCard q={q} />
-          <div className="bg-white border border-line rounded-xl overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
-            <div className="px-4 py-2.5 bg-gray-50 border-b border-line flex items-center gap-2">
-              <span>🎤</span><span className="text-[12px] font-bold text-ink">발표·토론 준비</span>
-              <span className="ml-auto text-[10px] text-ink-muted">🎙️ 버튼으로 음성 입력 가능</span>
-            </div>
-            <div className="p-4 space-y-4">
-              {sections.map((s: any) => {
-                const value = values[s.key] || ''
-                const valid = value.length >= s.minChars
-                return (
-                  <div key={s.key}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[12px] font-bold text-ink">{s.label}</label>
-                      <span className={`text-[10px] font-bold ${valid ? 'text-brand-high-dark' : 'text-ink-muted'}`}>{value.length}자 {valid ? '✓' : `/ 최소 ${s.minChars}자`}</span>
-                    </div>
-                    <textarea value={value} onChange={e => setValues({ ...values, [s.key]: e.target.value })}
-                      placeholder={s.placeholder} rows={s.key === 'script' ? 8 : 4}
-                      className="w-full px-3 py-2.5 text-[12px] border border-line rounded-lg focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all placeholder:text-ink-muted resize-y leading-[1.7]" />
-                    {/* STT 버튼 */}
-                    <div className="flex justify-end mt-1">
-                      <MicSTTBtn onTranscript={t => setValues(prev => ({ ...prev, [s.key]: prev[s.key] ? prev[s.key] + ' ' + t : t }))} />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-          <div className="bg-white border border-line rounded-xl p-4 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-1.5"><span>🎙️</span><span className="text-[12px] font-extrabold text-ink">발표 녹음 제출</span></div>
-              {audioUrl && <span className="text-[10px] font-bold text-brand-high-dark bg-brand-high-pale border border-brand-high-light px-1.5 py-0.5 rounded-full">✓ 녹음됨</span>}
-            </div>
-            <button onClick={toggleRecording} className={`w-full h-14 rounded-lg font-bold text-white transition-all flex items-center justify-center gap-2 ${isRecording ? 'bg-red-500 hover:bg-red-600 animate-pulse' : 'bg-brand-high hover:bg-brand-high-dark'}`}>
-              <span>{isRecording ? '⏹' : '🎙️'}</span>
-              <span className="text-[12px]">{isRecording ? `녹음 중 ${formatRecTime(recordTime)}` : audioUrl ? '다시 녹음' : '녹음 시작'}</span>
-            </button>
-            {audioUrl && <div className="mt-2"><audio controls src={audioUrl} className="w-full h-8" /><button onClick={() => { setAudioBlob(null); setAudioUrl(null) }} className="text-[10px] text-red-500 hover:text-red-700 mt-1">삭제</button></div>}
-          </div>
-        </div>
-        <div className="w-[280px] flex-shrink-0"><SearchBox /></div>
-      </div>
-    </div>
-  )
-}
-
-// ── 피드백 화면 ──
-function FeedbackView({ submission, question, onBack }: { submission: HighSuhaengSubmission; question: HighAcademySuhaengQuestion; onBack: () => void }) {
-  const { data: feedback, isLoading } = useMyHighFeedback(submission.id)
-  const resubmit = useResubmitHighAnswer()
-  const [isResubmitting, setIsResubmitting] = useState(false)
-  const [resubmitText, setResubmitText] = useState('')
-
-  const studentAnswerDisplay = submission.answer_text ||
-    (submission.answer_sections ? Object.entries(submission.answer_sections).map(([k, v]) => `[${SECTION_LABEL_MAP[k] || k}]\n${v}`).join('\n\n') : '')
-
-  const handleResubmit = async () => {
-    if (!resubmitText.trim()) { alert('답안을 작성해주세요.'); return }
-    try {
-      await resubmit.mutateAsync({ submission_id: submission.id, resubmitted_text: resubmitText })
-      alert('✅ 재제출 완료!\n선생님 최종 피드백을 기다려주세요.')
-      setIsResubmitting(false); setResubmitText('')
-    } catch (e: any) { alert(`재제출 실패: ${e.message}`) }
-  }
-
-  const status = submission.status
-
-  return (
-    <div className="flex flex-col gap-3 h-[calc(100vh-90px)] overflow-hidden px-6 py-5 font-sans text-ink">
-      <div className="flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} className="text-[12px] font-semibold text-ink-secondary hover:text-ink transition-colors">← 목록으로</button>
-          <div className="w-px h-4 bg-line" />
-          <div>
-            <div className="text-[11px] text-ink-muted font-semibold">학원 수행평가 · {question.subject} · {question.type}</div>
-            <div className="text-[14px] font-bold text-ink">{question.title}</div>
-          </div>
-        </div>
-        <span className="px-3 py-1.5 rounded-lg text-[12px] font-bold border"
-          style={{
-            background: status === 'pending' || status === 'analyzed' ? '#FEF3C7' : status === 'first_done' ? '#ECFDF5' : status === 'completed' ? '#D1FAE5' : '#FED7AA',
-            color: status === 'pending' || status === 'analyzed' ? '#92400E' : '#065F46',
-            borderColor: status === 'pending' || status === 'analyzed' ? '#FCD34D' : '#6EE7B7'
-          }}>
-          {status === 'pending' ? '⏳ 피드백 대기 중' : status === 'analyzed' ? '⏳ 선생님이 검토 중' : status === 'first_done' ? '📩 1차 피드백 받음' : status === 'resubmitted' ? '🔄 재제출 완료' : '✓ 최종 완료'}
-        </span>
-      </div>
-      <div className="flex-1 overflow-y-auto pr-1 space-y-3">
-        <div className="bg-gray-50 border border-line rounded-xl px-4 py-3">
-          <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">출제 문제</div>
-          <div className="text-[13px] font-medium text-ink leading-[1.7]">{question.content}</div>
-        </div>
-        <div className="bg-white border border-line rounded-xl overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
-          <div className="px-4 py-2.5 bg-gray-50 border-b border-line flex items-center gap-2">
-            <span className="text-[10px] font-extrabold text-white bg-gray-500 px-2 py-0.5 rounded-full">Step 1</span>
-            <span className="text-[12px] font-bold text-ink">내 답안</span>
-            <span className="ml-auto text-[10px] text-ink-muted">{studentAnswerDisplay.length}자</span>
-          </div>
-          <div className="p-4 text-[13px] font-medium text-ink leading-[1.8] whitespace-pre-wrap">{studentAnswerDisplay}</div>
-        </div>
-
-        {feedback?.teacher_first_feedback ? (
-          <div className="bg-white border border-line rounded-xl overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
-            <div className="px-4 py-2.5 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-line flex items-center gap-2">
-              <span className="text-[10px] font-extrabold text-white bg-amber-600 px-2 py-0.5 rounded-full">Step 2</span>
-              <span className="text-[12px] font-bold text-ink">선생님 1차 피드백</span>
-              {feedback.teacher_first_at && <span className="ml-auto text-[10px] text-ink-muted">{new Date(feedback.teacher_first_at).toLocaleDateString('ko-KR')}</span>}
-            </div>
-            <div className="p-4 text-[13px] font-medium text-ink leading-[1.8] whitespace-pre-wrap bg-amber-50/50">{feedback.teacher_first_feedback}</div>
-            {!submission.resubmitted_text && (
-              <div className="p-4 border-t border-line bg-white">
-                {!isResubmitting ? (
-                  <button onClick={() => { setIsResubmitting(true); setResubmitText(submission.answer_text || studentAnswerDisplay || '') }}
-                    className="w-full h-10 bg-brand-high hover:bg-brand-high-dark text-white text-[13px] font-bold rounded-lg transition-all hover:-translate-y-px">
-                    🔄 피드백 반영해서 2차 제출하기
-                  </button>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[12px] font-bold text-ink">📝 수정한 답안</label>
-                      <span className="text-[10px] text-ink-muted">{resubmitText.length}자</span>
-                    </div>
-                    <textarea value={resubmitText} onChange={e => setResubmitText(e.target.value)} rows={10}
-                      placeholder="선생님 피드백을 반영해서 답안을 다시 작성해주세요"
-                      className="w-full px-3 py-2.5 text-[13px] border border-line rounded-lg focus:outline-none focus:border-brand-high focus:ring-2 focus:ring-brand-high/10 transition-all leading-[1.7] resize-y" />
-                    <div className="flex gap-2">
-                      <button onClick={() => { setIsResubmitting(false); setResubmitText('') }} className="flex-1 h-10 bg-white border border-line text-[12px] font-semibold text-ink-secondary rounded-lg hover:bg-gray-50 transition-all">취소</button>
-                      <button onClick={handleResubmit} disabled={!resubmitText.trim() || resubmit.isPending}
-                        className="flex-1 h-10 bg-brand-high hover:bg-brand-high-dark text-white text-[12px] font-semibold rounded-lg transition-all disabled:opacity-50">
-                        {resubmit.isPending ? '제출 중...' : '2차 제출'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        ) : isLoading ? (
-          <div className="bg-white border border-line rounded-xl px-4 py-8 text-center text-ink-muted text-[12px]"><div className="text-2xl mb-2">⏳</div>불러오는 중...</div>
-        ) : (
-          <div className="bg-brand-high-pale border border-brand-high-light rounded-xl px-4 py-6 text-center">
-            <div className="text-3xl mb-2">⏳</div>
-            <div className="text-[13px] font-bold text-brand-high-dark mb-1">선생님 피드백을 기다리는 중이에요</div>
-            <div className="text-[11px] text-ink-secondary">선생님이 답안을 검토하고 피드백을 전달해드릴 거예요.</div>
-          </div>
-        )}
-
-        {submission.resubmitted_text && (
-          <div className="bg-white border border-line rounded-xl overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
-            <div className="px-4 py-2.5 bg-orange-50 border-b border-line flex items-center gap-2">
-              <span className="text-[10px] font-extrabold text-white bg-orange-500 px-2 py-0.5 rounded-full">Step 3</span>
-              <span className="text-[12px] font-bold text-ink">📝 내 재제출 답안</span>
-              {submission.resubmitted_at && <span className="ml-auto text-[10px] text-ink-muted">{new Date(submission.resubmitted_at).toLocaleDateString('ko-KR')}</span>}
-            </div>
-            <div className="p-4 text-[13px] font-medium text-ink leading-[1.8] whitespace-pre-wrap">
-              {submission.resubmitted_text?.split('\n').map(line => {
-                const match = line.match(/^\[(\w+)\]$/)
-                if (match) return `[${SECTION_LABEL_MAP[match[1]] || match[1]}]`
-                return line
-              }).join('\n')}
-            </div>
-          </div>
-        )}
-
-        {feedback?.teacher_final_feedback && (
-          <div className="bg-white border border-line rounded-xl overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
-            <div className="px-4 py-2.5 bg-gradient-to-r from-brand-high-pale to-blue-50 border-b border-line flex items-center gap-2">
-              <span className="text-[10px] font-extrabold text-white bg-brand-high px-2 py-0.5 rounded-full">최종</span>
-              <span className="text-[12px] font-bold text-ink">🎉 선생님 최종 피드백</span>
-              {feedback.teacher_final_at && <span className="ml-auto text-[10px] text-ink-muted">{new Date(feedback.teacher_final_at).toLocaleDateString('ko-KR')}</span>}
-            </div>
-            <div className="p-4 text-[13px] font-medium text-ink leading-[1.8] whitespace-pre-wrap bg-brand-high-pale/50">{feedback.teacher_final_feedback}</div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── 메인 ──
-export default function HighSuhaeng() {
-  const student = useAtomValue(studentState)
-  const academy = useAtomValue(academyState)
-  const studentId = student?.id ? String(student.id) : undefined
-  const academyId = academy?.academyId ? String(academy.academyId) : undefined
-  const grade = (student as any)?.grade ?? undefined
-
-  const [mode, setMode] = useState<'list' | 'practice' | 'feedback'>('list')
-  const [selectedQuestion, setSelectedQuestion] = useState<HighAcademySuhaengQuestion | null>(null)
-  const [feedbackData, setFeedbackData] = useState<{ submission: HighSuhaengSubmission; question: HighAcademySuhaengQuestion } | null>(null)
-  const [showAllModal, setShowAllModal] = useState(false)
-  const [modalGrade, setModalGrade] = useState(grade || '고1')
-
-  const submitAnswer = useSubmitHighAnswer()
-  const { data: mySubmissions = [] } = useMyHighSubmissions(studentId)
-  const { data: questions = [], isLoading } = useMyHighAcademyQuestions(studentId, academyId, grade)
-
-  const getSubmission = (questionId: string) => mySubmissions.find(s => s.question_id === questionId)
-
-  const startPractice = (q: any) => {
-    const isSchool = !!q._isSchool
-    const submitted = isSchool
-      ? mySubmissions.find(s => (s as any).question_key === `school-${q.id}`)
-      : mySubmissions.find(s => s.question_id === q.id)
-    if (submitted) { setFeedbackData({ submission: submitted, question: q }); setMode('feedback'); return }
-    setSelectedQuestion(q); setMode('practice')
-  }
-
-  const backToList = () => { setMode('list'); setSelectedQuestion(null); setFeedbackData(null) }
-
-  const handleSubmit = async (answerData: any) => {
-    if (!studentId || !academyId || !selectedQuestion) { alert('로그인 정보를 불러오지 못했어요.'); return }
-    try {
-      const isSchool = !!(selectedQuestion as any)._isSchool
-      await submitAnswer.mutateAsync({
-        ...(isSchool ? { question_key: `school-${selectedQuestion.id}` } : { question_id: selectedQuestion.id }),
-        student_id: studentId, academy_id: academyId, ...answerData,
+      // 시뮬레이션 완료 처리
+      await completeSim.mutateAsync({
+        simulationId: currentSimId,
+        durationSec: elapsedSec,
+        questionCount: allAnswers.length,
       })
-      alert('✅ 제출 완료!\n선생님 피드백을 기다려주세요.')
-      backToList()
-    } catch (error: any) { alert(`제출 실패: ${error.message || '알 수 없는 오류'}`) }
+
+      // 결과 화면용 데이터
+      const updated = simHistory.find((s: Simulation) => s.id === currentSimId) ?? null
+      setSelSim(updated)
+      setStep("result")
+    } catch (e: any) {
+      alert(`저장 실패: ${e.message}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
-  if (mode === 'feedback' && feedbackData) {
-    return <FeedbackView submission={feedbackData.submission} question={feedbackData.question} onBack={backToList} />
+  // ─── 시작 가능 여부 ───
+  const canStart = (() => {
+    if (!questionType || tailQ === null || !questionMode) return false
+    if (questionType === "past") return !!selUniv && !!selDept
+    if (questionType === "expect") return !!selGrade
+    return false
+  })()
+
+  // ─── 시뮬레이션 시작 ───
+  const startSimulation = async () => {
+    if (!canStart) return
+
+    // 1. 질문 소스 결정
+    let sourcePool: string[] = []
+    if (questionType === "past") {
+      sourcePool = pastQuestions
+        .map((q: QuestionWithAnswer) => q.question)
+        .filter((s: string | undefined): s is string => !!s)
+    } else if (questionType === "expect") {
+      sourcePool = expectQuestions
+        .map((q: ExpectQuestion) => q.teacher_edited_question || q.question)
+        .filter((s: string | null | undefined): s is string => !!s)
+    }
+
+    if (sourcePool.length === 0) {
+      alert("해당 조건에 등록된 질문이 없어요. 다른 조건을 선택해주세요.")
+      return
+    }
+
+    // 2. 랜덤 N개
+    const picked = pickRandom(sourcePool, Math.min(QUESTION_COUNT, sourcePool.length))
+    const numbered: PickedQuestion[] = picked.map((text, i) => ({
+      order: i + 1,
+      text,
+    }))
+
+    // 3. 시뮬레이션 행 생성 (질문은 면접 종료 시 한꺼번에 저장)
+    try {
+      const newSim = await createSim.mutateAsync({
+        questionType,
+        tailQuestionEnabled: tailQ === true,
+        questionMode,
+        university: questionType === "past" ? selUniv : undefined,
+        department: questionType === "past" ? selDept : undefined,
+        grade: questionType === "expect" && selGrade ? `고${selGrade}` : undefined,
+      })
+      setCurrentSimId(newSim.id)
+    } catch (e: any) {
+      alert(`시뮬레이션 생성 실패: ${e.message}`)
+      return
+    }
+
+    // 4. 면접 진행 상태 초기화
+    setQuestions(numbered)
+    setCountdown(COUNTDOWN_SEC)
+    setCurQIdx(0)
+    setTimer(TIMER_SEC)
+    setAnswers([])
+    setShowQuestion(questionMode !== "voice")
+    setIsRecording(false)
+    setStep("countdown")
   }
 
-  if (mode === 'practice' && selectedQuestion) {
-    const q = selectedQuestion
-    const submitting = submitAnswer.isPending
-    if (q.type === '글쓰기·논술') return <EssayPractice q={q} onBack={backToList} onSubmit={handleSubmit} submitting={submitting} />
-    if (q.type === '탐구보고서') return <SectionPractice q={q} onBack={backToList} onSubmit={handleSubmit} submitting={submitting} icon="🔬" label="탐구 보고서" />
-    if (q.type === '독서기록') return <SectionPractice q={q} onBack={backToList} onSubmit={handleSubmit} submitting={submitting} icon="📚" label="독서 기록" />
-    if (q.type === '발표·토론') return <PresentationPractice q={q} onBack={backToList} onSubmit={handleSubmit} submitting={submitting} studentId={studentId} />
-    if (q.type === '프로젝트·산출물') return <SectionPractice q={q} onBack={backToList} onSubmit={handleSubmit} submitting={submitting} icon="🛠️" label="프로젝트 산출물" />
-    if (q.type === '실험·실습') return <ExperimentPractice q={q} onBack={backToList} onSubmit={handleSubmit} submitting={submitting} studentId={studentId} />
+  const handleDeleteSim = async (id: string) => {
+    try {
+      await deleteSim.mutateAsync(id)
+      if (selSim?.id === id) setSelSim(null)
+      setDeleteTarget(null)
+    } catch (e: any) {
+      alert(`삭제 실패: ${e.message}`)
+    }
   }
 
-  const myGradeSuhaeng = MY_SCHOOL_SUHAENG_HIGH[grade] || []
+  const resetSetup = () => {
+    setQuestionType("")
+    setTailQ(null)
+    setQuestionMode("")
+    setSelUniv("")
+    setSelDept("")
+    setUnivSearch("")
+    setSelGrade(null)
+    setCurrentSimId(null)
+  }
 
-  return (
-    <div className="flex flex-col gap-3 h-[calc(100vh-90px)] overflow-hidden px-6 py-5 font-sans text-ink">
-      <div className="flex items-center justify-between flex-shrink-0">
-        <div>
-          <div className="text-[18px] font-extrabold text-ink tracking-tight">수행평가</div>
-          <div className="text-[12px] text-ink-muted mt-0.5">{student?.name} · {academy?.academyName}</div>
-        </div>
-        <div className="flex gap-2">
-          {mySubmissions.length > 0 && (
-            <div className="bg-blue-50 text-blue-700 text-[12px] font-bold px-3.5 py-1.5 rounded-full border border-blue-200">📤 제출한 답안 {mySubmissions.length}건</div>
-          )}
-          <div className="bg-brand-high-pale text-brand-high-dark text-[12px] font-bold px-3.5 py-1.5 rounded-full border border-brand-high-light">다가오는 수행평가 {myGradeSuhaeng.length}건</div>
-        </div>
-      </div>
+  const toggleType = (id: "past" | "expect" | "ai") => {
+    if (id === "ai") return // 비활성
+    if (questionType === id) {
+      setQuestionType("")
+    } else {
+      setQuestionType(id)
+    }
+    // 유형 바뀌면 종속 선택 초기화
+    setSelUniv("")
+    setSelDept("")
+    setUnivSearch("")
+    setSelGrade(null)
+  }
 
-      <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4 min-h-0">
-        <div className="bg-amber-50 border border-amber-200 rounded-xl shadow-[0_4px_16px_rgba(245,158,11,0.08)] flex-shrink-0">
-          <div className="px-4 py-3 border-b border-amber-200 flex items-center justify-between">
-            <div>
-              <div className="text-[14px] font-extrabold text-amber-900 tracking-tight">🏫 우리 학교 수행평가</div>
-              <div className="text-[11px] text-amber-700 mt-0.5">{grade} · 2026학년도 1학기 평가 계획</div>
-            </div>
-            <button onClick={() => setShowAllModal(true)} className="text-[11px] font-semibold text-amber-700 hover:text-amber-900 transition-colors">전체 보기 ›</button>
-          </div>
-          <div className="grid grid-cols-3 gap-2.5 p-3">
-            {myGradeSuhaeng.map((t: any) => (
-              <div key={t.id} onClick={() => { setSelectedQuestion({ ...t, _isSchool: true, id: t.id, academy_id: '', teacher_id: null, is_active: true, is_draft: false, eval_criteria: null, min_chars: t.minChars || null, max_chars: t.maxChars || null, created_at: '', updated_at: '' }); setMode('practice') }}
-                className={`relative rounded-lg border px-3 py-2.5 cursor-pointer transition-all hover:-translate-y-px ${t.urgent ? 'bg-red-50 border-red-200 hover:shadow-[0_4px_16px_rgba(239,68,68,0.15)]' : 'bg-white border-amber-200 hover:border-amber-400 hover:shadow-sm'}`}>
-                {t.urgent && <div className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full">D-{t.dueIn}</div>}
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded">{t.subject}</span>
-                  <span className="text-[10px] font-semibold text-amber-700">{t.type}</span>
-                </div>
-                <div className="text-[12px] font-bold text-amber-900 leading-tight mb-2 line-clamp-2 min-h-[30px]">{t.title}</div>
-                <div className="flex items-center justify-between text-[10px] pt-2 border-t border-amber-200">
-                  <span className="text-amber-600">D-{t.dueIn} · {t.ratio}%</span>
-                  <span className="font-bold text-amber-700">바로 시작 →</span>
-                </div>
+  const filteredUnivs = allUniversities.filter((u: string) =>
+    u.toLowerCase().includes(univSearch.toLowerCase()),
+  )
+
+  const playQuestionAudio = async (qId: string, audioUrl: string) => {
+    if (!audioRef.current) return
+    const audio = audioRef.current
+    if (playingQId === qId) {
+      audio.pause()
+      setPlayingQId(null)
+      return
+    }
+    try {
+      audio.pause()
+      audio.currentTime = 0
+      audio.src = audioUrl
+      audio.muted = false
+      audio.volume = 1.0
+      audio.load()
+      await new Promise<void>((resolve) => {
+        const onReady = () => {
+          audio.removeEventListener("loadedmetadata", onReady)
+          resolve()
+        }
+        audio.addEventListener("loadedmetadata", onReady)
+        setTimeout(resolve, 1000)
+      })
+      await audio.play()
+      setPlayingQId(qId)
+    } catch (err: any) {
+      console.error("재생 실패:", err)
+      alert(`음성 재생 실패: ${err.message}`)
+      setPlayingQId(null)
+    }
+  }
+
+  // ─── 시뮬레이션 제목 ───
+  const getSimTitle = (sim: Simulation) => {
+    if (sim.university && sim.department) {
+      return `${sim.university} · ${sim.department}`
+    }
+    if (sim.grade) return `${sim.grade} · ${getQuestionTypeLabel(sim.question_type)}`
+    return getQuestionTypeLabel(sim.question_type)
+  }
+
+  // ═════════════════════════════════════════════
+  // 목록 화면
+  // ═════════════════════════════════════════════
+  if (step === "list") {
+    return (
+      <div className="flex flex-col gap-3 h-full overflow-hidden px-6 py-5 font-sans text-ink">
+        <div className="flex gap-4 flex-1 overflow-hidden">
+          {/* ─── 왼쪽: 시뮬레이션 목록 ─── */}
+          <div className="w-[340px] flex-shrink-0 bg-white border border-line rounded-xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
+            <div className="px-3.5 py-3 border-b border-line flex-shrink-0">
+              <div className="text-[14px] font-bold text-ink tracking-tight">
+                면접 시뮬레이션
               </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white border border-line rounded-xl shadow-[0_4px_16px_rgba(15,23,42,0.04)] flex-shrink-0">
-          <div className="px-4 py-3 border-b border-line">
-            <div className="text-[14px] font-extrabold text-ink tracking-tight">📋 학원 수행평가</div>
-            <div className="text-[11px] text-ink-muted mt-0.5">선생님이 출제한 문제 · AI 피드백 제공</div>
-          </div>
-          {isLoading ? (
-            <div className="px-4 py-10 text-center text-ink-muted text-[12px]"><div className="text-2xl mb-2">⏳</div>불러오는 중...</div>
-          ) : questions.length === 0 ? (
-            <div className="px-4 py-10 text-center text-ink-muted text-[12px]">
-              <div className="text-3xl mb-2">📋</div>
-              <div className="font-medium">아직 출제된 문제가 없어요</div>
-              <div className="mt-1 text-[11px]">선생님이 문제를 만들면 여기서 확인할 수 있어요</div>
-            </div>
-          ) : (
-            <div className="p-3 grid grid-cols-3 gap-2.5">
-              {questions.map(q => {
-                const submitted = getSubmission(q.id)
-                return (
-                  <div key={q.id} onClick={() => startPractice(q)}
-                    className={`relative rounded-xl border px-4 py-3.5 cursor-pointer transition-all hover:-translate-y-px ${submitted ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-line hover:border-brand-high-light hover:shadow-sm'}`}>
-                    {submitted && <div className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-blue-500 text-white text-[9px] font-bold rounded-full">✓ 제출됨</div>}
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <span className="text-xl">{TYPE_ICON[q.type] || '📝'}</span>
-                      <div>
-                        <span className="text-[10px] font-bold text-ink-secondary bg-white border border-line px-1.5 py-0.5 rounded mr-1">{q.subject}</span>
-                        <span className="text-[10px] font-semibold text-brand-high-dark">{q.type}</span>
-                      </div>
-                    </div>
-                    <div className="text-[13px] font-bold text-ink leading-tight mb-2 line-clamp-2">{q.title}</div>
-                    <div className="text-[11px] text-ink-muted line-clamp-2 leading-relaxed mb-2">{q.content}</div>
-                    <div className="flex items-center justify-between text-[10px] pt-2 border-t border-line">
-                      <span className="text-ink-muted">{q.grade}</span>
-                      <span className="font-bold text-brand-high-dark">{submitted ? '제출 완료 ✓' : '시작하기 →'}</span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {showAllModal && (
-        <div onClick={() => setShowAllModal(false)} className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center backdrop-blur-sm">
-          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl w-[720px] max-h-[80vh] flex flex-col shadow-[0_20px_60px_rgba(15,23,42,0.25)]">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-line">
-              <div>
-                <div className="text-[16px] font-extrabold text-ink tracking-tight">🏫 우리 학교 수행평가 전체</div>
-                <div className="text-[11px] text-ink-muted mt-0.5">학년별 전체 수행평가 일정</div>
+              <div className="text-[11px] text-ink-secondary mt-0.5">
+                총 <span className="font-bold" style={{ color: THEME.accent }}>
+                  {simHistory.length}개
+                </span>
               </div>
-              <button onClick={() => setShowAllModal(false)} className="text-ink-muted hover:text-ink text-xl transition-colors">✕</button>
             </div>
-            <div className="flex gap-1 px-5 py-3 border-b border-line">
-              {['고1', '고2', '고3'].map(g => (
-                <button key={g} onClick={() => setModalGrade(g)}
-                  className={`px-4 py-1.5 rounded-full text-[12px] font-bold border transition-all ${modalGrade === g ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-ink-secondary border-line hover:border-amber-300'}`}>
-                  {g} {g === grade && <span className="ml-1 text-[10px] opacity-80">(내 학년)</span>}
-                </button>
-              ))}
-            </div>
-            <div className="flex-1 overflow-y-auto p-5">
-              {(MY_SCHOOL_SUHAENG_HIGH[modalGrade] || []).length === 0 ? (
-                <div className="text-center py-10 text-ink-muted text-[12px]"><div className="text-3xl mb-2">📅</div>{modalGrade} 수행평가 정보가 없어요</div>
+            <div className="flex-1 overflow-y-auto px-3 py-2.5">
+              {isLoading ? (
+                <div className="text-center py-10 text-ink-muted text-[12px]">
+                  불러오는 중...
+                </div>
+              ) : simHistory.length === 0 ? (
+                <div className="text-center py-10 text-ink-muted text-[12px]">
+                  <div className="text-3xl mb-2">🎙️</div>
+                  시뮬레이션 기록이 없어요.
+                </div>
               ) : (
-                <div className="space-y-2">
-                  {(MY_SCHOOL_SUHAENG_HIGH[modalGrade] || []).map((s: any) => (
-                    <div key={s.id} className="border border-line rounded-lg p-3 hover:border-brand-high-light hover:bg-brand-high-pale/20 cursor-pointer transition-all"
-                      onClick={() => { setShowAllModal(false); setSelectedQuestion({ ...s, _isSchool: true, id: s.id, academy_id: '', teacher_id: null, is_active: true, is_draft: false, eval_criteria: null, min_chars: s.minChars || null, max_chars: s.maxChars || null, created_at: '', updated_at: '' }); setMode('practice') }}>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="text-[10px] font-bold text-ink-secondary bg-white border border-line px-1.5 py-0.5 rounded">{s.subject}</span>
-                        <span className="text-[10px] font-semibold text-brand-high-dark">{s.type}</span>
-                        <span className="text-[10px] text-ink-muted">· 배점 {s.ratio}%</span>
-                        {s.urgent && <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded">D-{s.dueIn}</span>}
-                        <span className="ml-auto text-[10px] text-ink-muted">{s.scheduledAt}</span>
+                simHistory.map((s: Simulation) => {
+                  const isSel = selSim?.id === s.id
+                  return (
+                    <div
+                      key={s.id}
+                      onClick={() => {
+                        setSelSim(s)
+                        setPlayingQId(null)
+                      }}
+                      className="border rounded-xl px-3.5 py-3 mb-1.5 cursor-pointer transition-all relative"
+                      style={{
+                        borderColor: isSel ? THEME.accent : "#E5E7EB",
+                        background: isSel ? THEME.accentBg : "#fff",
+                        boxShadow: isSel
+                          ? `0 4px 16px ${THEME.accentShadow}`
+                          : "none",
+                      }}
+                    >
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDeleteTarget(s.id)
+                        }}
+                        className="absolute top-2 right-2 w-5 h-5 rounded-full bg-gray-100 hover:bg-red-100 hover:text-red-500 text-ink-muted flex items-center justify-center text-[10px] transition-colors"
+                      >
+                        ✕
+                      </button>
+                      <div className="text-[10px] text-ink-muted font-medium mb-1">
+                        {formatDateTime(s.created_at)}
                       </div>
-                      <div className="text-[13px] font-bold text-ink">{s.title}</div>
+                      <div className="text-[12.5px] font-semibold text-ink mb-1.5 pr-6">
+                        {getSimTitle(s)}
+                      </div>
+                      <div className="flex gap-1 flex-wrap">
+                        <span
+                          className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                          style={{
+                            color: THEME.accentDark,
+                            background: THEME.accentBg,
+                            borderColor: THEME.accentBorderLight,
+                          }}
+                        >
+                          {getQuestionTypeLabel(s.question_type)}
+                        </span>
+                        <span
+                          className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                          style={{
+                            color: THEME.accentDark,
+                            background: THEME.accentBg,
+                            borderColor: THEME.accentBorderLight,
+                          }}
+                        >
+                          꼬리질문 {s.tail_question_enabled ? "ON" : "OFF"}
+                        </span>
+                        {s.teacher_feedback && (
+                          <span className="text-[10px] font-bold text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+                            ✓ 피드백
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+            <div className="p-3 border-t border-line flex-shrink-0">
+              <button
+                onClick={() => {
+                  resetSetup()
+                  setStep("setup")
+                }}
+                className="w-full h-11 text-white rounded-lg text-[13px] font-semibold transition-all hover:-translate-y-px"
+                style={{
+                  background: THEME.accent,
+                  boxShadow: `0 4px 16px ${THEME.accentShadow}`,
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = THEME.accentHover)}
+                onMouseLeave={(e) => (e.currentTarget.style.background = THEME.accent)}
+              >
+                + 모의면접 시작하기
+              </button>
+            </div>
+          </div>
+
+          {/* ─── 오른쪽: 상세 ─── */}
+          <div className="flex-1 bg-white border border-line rounded-xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)] min-w-0">
+            {!selSim ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-ink-muted gap-2">
+                <div className="text-4xl">🎙️</div>
+                <div className="text-[14px] font-semibold text-ink-secondary">
+                  시뮬레이션을 선택해주세요
+                </div>
+                <div className="text-[12px]">
+                  왼쪽에서 기록을 클릭하면 피드백을 볼 수 있어요
+                </div>
+              </div>
+            ) : (
+              <>
+                <audio
+                  ref={audioRef}
+                  onEnded={() => setPlayingQId(null)}
+                  className="hidden"
+                />
+                <div className="px-4 py-3.5 border-b border-line flex-shrink-0">
+                  <div className="text-[14px] font-extrabold text-ink tracking-tight mb-1">
+                    {getSimTitle(selSim)}
+                  </div>
+                  <div className="text-[11px] text-ink-muted font-medium">
+                    {formatDateTimeFull(selSim.created_at)} ·{" "}
+                    {formatSimDuration(selSim.duration_sec)} ·{" "}
+                    {selSim.question_count}문제
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+                  {/* 선생님 피드백 */}
+                  <div className="bg-white border border-line rounded-xl px-4 py-3.5">
+                    <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">
+                      선생님 피드백
+                    </div>
+                    {selSim.teacher_feedback ? (
+                      <div
+                        className="rounded-lg px-3 py-2.5 text-[13px] leading-[1.8] whitespace-pre-wrap border"
+                        style={{
+                          background: THEME.accentBg,
+                          color: THEME.accentDark,
+                          borderColor: THEME.accentBorderLight,
+                        }}
+                      >
+                        {selSim.teacher_feedback}
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 rounded-lg px-3 py-2.5 text-[12px] text-ink-muted text-center">
+                        선생님 피드백을 기다리는 중이에요.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 질문 + 답변 */}
+                  <div className="text-[11px] font-bold text-ink-muted uppercase tracking-wider px-1">
+                    질문별 답변 ({selSimQuestions.length}개)
+                  </div>
+                  {selSimQuestions.map((q) => (
+                    <div
+                      key={q.id}
+                      className="bg-white border border-line rounded-xl px-4 py-3.5"
+                    >
+                      <div className="flex items-start gap-2 mb-2.5">
+                        <span
+                          className="w-6 h-6 rounded-full text-white text-[11px] font-extrabold flex items-center justify-center flex-shrink-0"
+                          style={{ background: THEME.accent }}
+                        >
+                          Q{q.order}
+                        </span>
+                        <span className="text-[13px] font-semibold text-ink leading-[1.5] flex-1">
+                          {q.question_text}
+                        </span>
+                        {q.recording_url ? (
+                          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex-shrink-0">
+                            답변완료
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full flex-shrink-0">
+                            미답변
+                          </span>
+                        )}
+                      </div>
+
+                      {q.recording_url && (
+                        <div className="bg-gray-50 border border-line rounded-lg px-3 py-2 mb-2 flex items-center gap-2.5">
+                          <button
+                            onClick={() => playQuestionAudio(q.id, q.recording_url)}
+                            className="w-9 h-9 rounded-full text-white flex items-center justify-center text-xs flex-shrink-0 transition-all hover:scale-105"
+                            style={{
+                              background: THEME.accent,
+                              boxShadow: `0 4px 12px ${THEME.accentShadow}`,
+                            }}
+                          >
+                            {playingQId === q.id ? "⏸" : "▶"}
+                          </button>
+                          <div className="flex-1 text-[11px] text-ink-secondary font-medium">
+                            {playingQId === q.id ? "재생 중..." : "재생하려면 클릭"}
+                            <div className="text-[10px] text-ink-muted">
+                              길이: {formatTime(q.duration_sec || 0)}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {q.transcript && (
+                        <div
+                          className="rounded-lg px-3 py-2 text-[12.5px] leading-[1.7] whitespace-pre-wrap border"
+                          style={{
+                            background: THEME.accentBg,
+                            color: THEME.accentDark,
+                            borderColor: THEME.accentBorderLight,
+                          }}
+                        >
+                          <div
+                            className="text-[10px] font-bold mb-1"
+                            style={{ color: THEME.accentDark }}
+                          >
+                            📝 음성 텍스트
+                          </div>
+                          {q.transcript}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* ─── 삭제 모달 ─── */}
+        {deleteTarget !== null && (
+          <div
+            onClick={() => setDeleteTarget(null)}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl p-7 w-[380px] text-center shadow-[0_24px_64px_rgba(0,0,0,0.2)]"
+            >
+              <div className="text-4xl mb-3">⚠️</div>
+              <div className="text-[16px] font-bold text-ink mb-2 tracking-tight">
+                시뮬레이션을 삭제하시겠어요?
+              </div>
+              <div className="text-[13px] text-ink-secondary mb-6 leading-[1.6]">
+                삭제하면 녹음 파일과 피드백이 모두 사라져요.
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setDeleteTarget(null)}
+                  className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={() => handleDeleteSim(deleteTarget)}
+                  disabled={deleteSim.isPending}
+                  className="flex-1 h-11 bg-red-500 hover:bg-red-600 text-white rounded-lg text-[13px] font-semibold transition-all hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(239,68,68,0.3)] disabled:opacity-50"
+                >
+                  {deleteSim.isPending ? "삭제 중..." : "삭제"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ═════════════════════════════════════════════
+  // 설정 모달
+  // ═════════════════════════════════════════════
+  if (step === "setup") {
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-7 w-[560px] max-h-[92vh] overflow-y-auto shadow-[0_24px_64px_rgba(0,0,0,0.2)] font-sans text-ink">
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-[17px] font-extrabold text-ink tracking-tight">
+              시뮬레이션 설정
+            </div>
+            <button
+              onClick={() => setStep("list")}
+              className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-ink-secondary transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* 헤더 카드 */}
+          <div
+            className="rounded-xl px-5 py-4 mb-5 flex items-center gap-3 relative overflow-hidden"
+            style={{
+              background: THEME.gradient,
+              boxShadow: `0 8px 24px ${THEME.accentShadow}`,
+            }}
+          >
+            <div
+              className="absolute -top-10 -right-10 w-48 h-48 rounded-full pointer-events-none"
+              style={{
+                background:
+                  "radial-gradient(circle, rgba(255,255,255,0.15), transparent 70%)",
+              }}
+            />
+            <div className="text-4xl relative">🎯</div>
+            <div className="relative">
+              <div className="text-[11px] bg-white/20 backdrop-blur-sm text-white font-semibold px-2 py-0.5 rounded-full inline-block mb-1">
+                실전처럼 차근차근 해보자!
+              </div>
+              <div className="text-[15px] font-extrabold text-white tracking-tight">
+                원하는 문제 유형을 골라주세요
+              </div>
+              <div className="text-[12px] text-white/90 font-medium">
+                하나만 선택해서 시작해요.
+              </div>
+            </div>
+          </div>
+
+          {/* 문제 유형 */}
+          <div className="mb-5">
+            <div className="text-[13px] font-bold text-ink mb-2.5">
+              문제 유형 (1개 선택)
+            </div>
+            <div className="flex flex-col gap-2">
+              {QUESTION_TYPES.map((t) => {
+                const isSel = questionType === t.id
+                const isDisabled = (t as any).disabled
+                return (
+                  <div key={t.id}>
+                    <button
+                      onClick={() => toggleType(t.id as any)}
+                      disabled={isDisabled}
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{
+                        borderColor: isSel ? THEME.accent : "#E5E7EB",
+                        background: isSel ? THEME.accentBg : "#fff",
+                      }}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-xl">{t.icon}</span>
+                        <div>
+                          <div className="text-[13px] font-bold text-ink">{t.label}</div>
+                          <div className="text-[11px] text-ink-secondary font-medium">
+                            {t.desc}
+                          </div>
+                        </div>
+                      </div>
+                      {isSel && (
+                        <div
+                          className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[11px] font-bold"
+                          style={{ background: THEME.accent }}
+                        >
+                          ✓
+                        </div>
+                      )}
+                    </button>
+
+                    {/* past: 대학 + 학과 선택 */}
+                    {isSel && t.id === "past" && (
+                      <div
+                        className="rounded-lg px-3.5 py-3 mt-1.5 border"
+                        style={{
+                          background: `${THEME.accentBg}99`,
+                          borderColor: THEME.accentBorderLight,
+                        }}
+                      >
+                        <div
+                          className="text-[11px] font-bold mb-2"
+                          style={{ color: THEME.accentDark }}
+                        >
+                          🏫 대학 선택
+                        </div>
+                        <input
+                          value={univSearch}
+                          onChange={(e) => {
+                            setUnivSearch(e.target.value)
+                            setSelUniv("")
+                            setSelDept("")
+                          }}
+                          placeholder="대학 이름 검색 (예: 서울대, 연세대...)"
+                          className="w-full h-9 px-3 border border-line rounded-lg text-[12px] focus:outline-none transition-all mb-2 bg-white placeholder:text-ink-muted"
+                          onFocus={(e) => {
+                            e.currentTarget.style.borderColor = THEME.accent
+                            e.currentTarget.style.boxShadow = `0 0 0 3px ${THEME.accentShadow}`
+                          }}
+                          onBlur={(e) => {
+                            e.currentTarget.style.borderColor = "#E5E7EB"
+                            e.currentTarget.style.boxShadow = "none"
+                          }}
+                        />
+                        {selUniv && (
+                          <div
+                            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 mb-2 border"
+                            style={{
+                              background: THEME.accentBg,
+                              borderColor: THEME.accentBorderLight,
+                            }}
+                          >
+                            <span
+                              className="text-[12px] font-bold"
+                              style={{ color: THEME.accentDark }}
+                            >
+                              ✓ {selUniv}
+                            </span>
+                            <button
+                              onClick={() => {
+                                setSelUniv("")
+                                setSelDept("")
+                              }}
+                              className="ml-auto text-[10px] text-ink-muted hover:text-ink"
+                            >
+                              변경
+                            </button>
+                          </div>
+                        )}
+                        {!selUniv && (
+                          <div className="max-h-[160px] overflow-y-auto flex flex-col gap-1 mb-3">
+                            {filteredUnivs.length === 0 ? (
+                              <div className="text-[12px] text-ink-muted text-center py-3">
+                                {univSearch
+                                  ? "검색 결과가 없어요"
+                                  : "대학명을 입력해주세요"}
+                              </div>
+                            ) : (
+                              filteredUnivs.slice(0, 30).map((u: string) => (
+                                <button
+                                  key={u}
+                                  onClick={() => {
+                                    setSelUniv(u)
+                                    setSelDept("")
+                                  }}
+                                  className="flex items-center justify-between px-2.5 py-1.5 border border-line rounded-md text-[12px] bg-white text-ink hover:bg-gray-50 transition-all text-left"
+                                >
+                                  {u}
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
+
+                        {/* 학과 선택 */}
+                        {selUniv && (
+                          <>
+                            <div
+                              className="text-[11px] font-bold mb-2"
+                              style={{ color: THEME.accentDark }}
+                            >
+                              📚 학과 선택
+                            </div>
+                            <div className="max-h-[160px] overflow-y-auto flex flex-col gap-1">
+                              {deptsOfUniv.length === 0 ? (
+                                <div className="text-[12px] text-ink-muted text-center py-3">
+                                  등록된 학과가 없어요
+                                </div>
+                              ) : (
+                                deptsOfUniv.map((d: string) => {
+                                  const isD = selDept === d
+                                  return (
+                                    <button
+                                      key={d}
+                                      onClick={() => setSelDept(isD ? "" : d)}
+                                      className="flex items-center justify-between px-2.5 py-1.5 border rounded-md text-[12px] transition-all text-left"
+                                      style={{
+                                        borderColor: isD ? THEME.accent : "#E5E7EB",
+                                        background: isD ? THEME.accentBg : "#fff",
+                                        color: isD ? THEME.accentDark : "#0F172A",
+                                        fontWeight: isD ? 600 : 400,
+                                      }}
+                                    >
+                                      {d}
+                                      {isD && (
+                                        <span
+                                          className="text-[11px] font-bold"
+                                          style={{ color: THEME.accentDark }}
+                                        >
+                                          ✓
+                                        </span>
+                                      )}
+                                    </button>
+                                  )
+                                })
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* expect: 학년 선택 */}
+                    {isSel && t.id === "expect" && (
+                      <div
+                        className="rounded-lg px-3.5 py-3 mt-1.5 border"
+                        style={{
+                          background: `${THEME.accentBg}99`,
+                          borderColor: THEME.accentBorderLight,
+                        }}
+                      >
+                        <div
+                          className="text-[11px] font-bold mb-2"
+                          style={{ color: THEME.accentDark }}
+                        >
+                          🎒 학년 선택
+                        </div>
+                        <div className="flex gap-2">
+                          {GRADE_OPTIONS.map((g) => {
+                            const isG = selGrade === g.val
+                            return (
+                              <button
+                                key={g.val}
+                                onClick={() => setSelGrade(isG ? null : g.val)}
+                                className="flex-1 h-10 rounded-lg text-[13px] border-2 transition-all font-semibold"
+                                style={{
+                                  borderColor: isG ? THEME.accent : "#E5E7EB",
+                                  background: isG ? THEME.accentBg : "#fff",
+                                  color: isG ? THEME.accentDark : "#475569",
+                                  fontWeight: isG ? 800 : 600,
+                                }}
+                              >
+                                {g.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        {myGrade && selGrade !== myGrade && (
+                          <div className="text-[10px] text-ink-muted mt-2">
+                            ℹ 내 학년은 고{myGrade}이에요
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* 꼬리질문 */}
+          <div className="mb-5">
+            <div className="text-[13px] font-bold text-ink mb-2.5">꼬리질문</div>
+            <div className="flex gap-2.5">
+              {[
+                { val: true, label: "ON" },
+                { val: false, label: "OFF" },
+              ].map((o) => {
+                const isSel = tailQ === o.val
+                return (
+                  <button
+                    key={String(o.val)}
+                    onClick={() => setTailQ(o.val)}
+                    className="flex-1 h-11 rounded-xl text-[14px] border-2 transition-all"
+                    style={{
+                      borderColor: isSel ? THEME.accent : "#E5E7EB",
+                      background: isSel ? THEME.accentBg : "#fff",
+                      color: isSel ? THEME.accentDark : "#475569",
+                      fontWeight: isSel ? 800 : 500,
+                    }}
+                  >
+                    {o.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* 질문 방식 */}
+          <div className="mb-6">
+            <div className="text-[13px] font-bold text-ink mb-2.5">질문 방식</div>
+            <div className="flex flex-col gap-2">
+              {QUESTION_MODES.map((m) => {
+                const isSel = questionMode === m.id
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setQuestionMode(m.id as any)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left"
+                    style={{
+                      borderColor: isSel ? THEME.accent : "#E5E7EB",
+                      background: isSel ? THEME.accentBg : "#fff",
+                    }}
+                  >
+                    <span className="text-2xl">{m.icon}</span>
+                    <div className="flex-1">
+                      <div className="text-[13px] font-bold text-ink">{m.label}</div>
+                      <div className="text-[11px] text-ink-secondary font-medium">
+                        {m.desc}
+                      </div>
+                    </div>
+                    {isSel && (
+                      <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[11px] font-bold"
+                        style={{ background: THEME.accent }}
+                      >
+                        ✓
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <button
+            onClick={startSimulation}
+            disabled={!canStart || createSim.isPending}
+            className="w-full h-12 rounded-xl text-[14px] font-bold transition-all"
+            style={{
+              background: canStart && !createSim.isPending ? THEME.accent : "#F3F4F6",
+              color: canStart && !createSim.isPending ? "#fff" : "#94A3B8",
+              cursor: canStart && !createSim.isPending ? "pointer" : "not-allowed",
+              boxShadow:
+                canStart && !createSim.isPending
+                  ? `0 4px 16px ${THEME.accentShadow}`
+                  : "none",
+            }}
+          >
+            {createSim.isPending ? "준비 중..." : "다음으로 →"}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ═════════════════════════════════════════════
+  // 카운트다운
+  // ═════════════════════════════════════════════
+  if (step === "countdown") {
+    const subtitle =
+      questionType === "past"
+        ? `${selUniv} · ${selDept}`
+        : questionType === "expect"
+        ? `고${selGrade} · ${getQuestionTypeLabel("expect")}`
+        : ""
+
+    return (
+      <div
+        className="h-full flex flex-col items-center justify-center gap-5 font-sans text-ink relative overflow-hidden"
+        style={{
+          background: `linear-gradient(135deg, ${THEME.accentBg}, #fff, ${THEME.accentBg}99)`,
+        }}
+      >
+        <div
+          className="absolute -top-20 -right-20 w-[400px] h-[400px] rounded-full pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(37,99,235,0.15), transparent 70%)",
+          }}
+        />
+        <div
+          className="absolute -bottom-20 -left-20 w-[300px] h-[300px] rounded-full pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(37,99,235,0.1), transparent 70%)",
+          }}
+        />
+
+        <div className="flex gap-2 mb-2 relative z-10">
+          <span
+            className="text-[12px] font-bold px-3 py-1 rounded-full border"
+            style={{
+              background: THEME.accentBg,
+              color: THEME.accentDark,
+              borderColor: THEME.accentBorderLight,
+            }}
+          >
+            {getQuestionTypeLabel(questionType)}
+          </span>
+          <span className="text-[12px] font-bold bg-red-50 text-red-500 px-3 py-1 rounded-full border border-red-200">
+            꼬리질문 {tailQ ? "ON" : "OFF"}
+          </span>
+        </div>
+
+        <div className="text-[20px] font-extrabold text-ink tracking-tight relative z-10">
+          {subtitle}
+        </div>
+        <div className="text-[80px] relative z-10"></div>
+        <div className="text-[15px] text-ink-secondary text-center leading-[1.8] font-medium relative z-10">
+          잠시 후 면접이 시작돼요.
+          <br />
+          깊게 숨 한번 쉬고, 천천히 호흡을 가다듬어볼까요?
+        </div>
+        <div
+          className="w-20 h-20 rounded-full bg-white flex items-center justify-center text-[32px] font-extrabold mt-2 relative z-10"
+          style={{
+            border: `3px solid ${THEME.accent}`,
+            color: THEME.accentDark,
+            boxShadow: `0 8px 24px ${THEME.accentShadow}`,
+          }}
+        >
+          {countdown}
+        </div>
+      </div>
+    )
+  }
+
+  // ═════════════════════════════════════════════
+  // 면접 화면
+  // ═════════════════════════════════════════════
+  if (step === "interview") {
+    const curQ = questions[curQIdx]
+    if (!curQ) return null
+
+    const subtitle =
+      questionType === "past"
+        ? `${selUniv} · ${selDept}`
+        : `고${selGrade}`
+
+    return (
+      <div className="h-full bg-[#0a0a0a] flex flex-col overflow-hidden relative font-sans">
+        {/* 상단 바 */}
+        <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-5 py-3">
+          <button
+            onClick={async () => {
+              if (isRecording) await stopQuestionRecording()
+              setStep("list")
+            }}
+            className="text-[13px] text-white/80 hover:text-white font-medium transition-colors"
+          >
+            ← 처음으로
+          </button>
+          <div className="text-[14px] font-bold text-white tracking-tight">
+            실전 면접 시뮬레이션
+          </div>
+          <div className="text-[12px] text-white/60 font-medium">
+            고민하는 시간도 성장의 일부예요!
+          </div>
+        </div>
+
+        {/* 정보 표시 */}
+        <div className="absolute top-11 left-0 right-0 z-10 flex items-center gap-2 px-5 py-1.5">
+          <span
+            className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+            style={{ background: THEME.accentBg, color: THEME.accentDark }}
+          >
+            {getQuestionTypeLabel(questionType)}
+          </span>
+          <span className="text-[11px] font-bold bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">
+            꼬리질문 {tailQ ? "ON" : "OFF"}
+          </span>
+          <span className="text-[11px] text-white/60 font-medium">{subtitle}</span>
+          <span className="text-[11px] text-white/60 font-medium ml-auto">
+            {curQIdx + 1} / {questions.length}
+          </span>
+          {isRecording && (
+            <span className="text-[11px] font-bold bg-red-500/30 text-red-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+              REC
+            </span>
+          )}
+        </div>
+
+        {/* 면접관 영상 3명 */}
+        <div className="flex-1 flex items-center justify-center pt-20 pb-[120px]">
+          <div className="flex gap-1 w-full h-full">
+            {INTERVIEWERS.map((iv, i) => {
+              const isActive = activeInterviewer === i
+              return (
+                <div
+                  key={iv.id}
+                  className="flex-1 flex flex-col items-center justify-center rounded transition-all relative overflow-hidden"
+                  style={{
+                    background: isActive ? "#0F1B33" : "#0a0a0a",
+                    border: isActive
+                      ? `1px solid ${THEME.accent}80`
+                      : "1px solid transparent",
+                    boxShadow: isActive
+                      ? `inset 0 0 32px ${THEME.accentShadow}`
+                      : "none",
+                  }}
+                >
+                  <video
+                    src={iv.videoUrl}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
+                    <div
+                      className="text-[12px] font-medium px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm"
+                      style={{
+                        color: isActive ? THEME.accentBorder : "rgba(255,255,255,0.6)",
+                      }}
+                    >
+                      {iv.name}
+                    </div>
+                    {isActive && (
+                      <div className="flex gap-1 mt-1.5">
+                        <div
+                          className="w-1 h-1 rounded-full animate-pulse"
+                          style={{ background: THEME.accentBorder }}
+                        />
+                        <div
+                          className="w-1 h-1 rounded-full animate-pulse"
+                          style={{
+                            background: THEME.accentBorder,
+                            animationDelay: "0.2s",
+                          }}
+                        />
+                        <div
+                          className="w-1 h-1 rounded-full animate-pulse"
+                          style={{
+                            background: THEME.accentBorder,
+                            animationDelay: "0.4s",
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* 타이머 */}
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10">
+          <div className="bg-black/70 backdrop-blur-md rounded-full px-4 py-1 flex items-center gap-2 border border-white/10">
+            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-[14px] font-bold text-white font-mono">
+              {formatTime(timer)} / 01:20
+            </span>
+          </div>
+        </div>
+
+        {/* 하단 질문 + 버튼 */}
+        <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black via-black/90 to-transparent px-6 pt-5 pb-6">
+          <div className="text-[11px] text-amber-300/90 mb-1.5 font-medium">
+            * {getQuestionTypeLabel(questionType)} 중 {questions.length}문제가 무작위로 출제됩니다.
+          </div>
+          <div className="flex items-center justify-between gap-5">
+            <div className="flex-1 min-w-0">
+              {showQuestion ? (
+                <div className="text-[20px] font-extrabold text-white tracking-tight leading-[1.4]">
+                  <span style={{ color: THEME.accentBorder }}>
+                    질문 {curQIdx + 1}.{" "}
+                  </span>
+                  {curQ.text}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <div className="text-[20px] font-extrabold text-white">
+                    <span style={{ color: THEME.accentBorder }}>
+                      질문 {curQIdx + 1}.{" "}
+                    </span>
+                    <span className="bg-white/10 backdrop-blur-sm rounded-md px-2 py-0.5 text-white/50 text-sm font-medium">
+                      음성으로 확인하세요
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setShowQuestion(true)}
+                    className="text-[11px] font-semibold rounded-md px-2 py-1 border transition-colors"
+                    style={{
+                      color: THEME.accentBorder,
+                      background: `${THEME.accent}33`,
+                      borderColor: `${THEME.accent}80`,
+                    }}
+                  >
+                    텍스트 보기
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2.5 flex-shrink-0">
+              {!isRecording ? (
+                <>
+                  <button
+                    onClick={startQuestionRecording}
+                    disabled={saving}
+                    className="h-11 px-5 rounded-lg text-[13px] font-bold text-white transition-all hover:-translate-y-px disabled:opacity-50"
+                    style={{
+                      background: THEME.accent,
+                      boxShadow: `0 4px 16px ${THEME.accentShadowStrong}`,
+                    }}
+                  >
+                    ● 답변 시작
+                  </button>
+                  <button
+                    onClick={skipQuestion}
+                    disabled={saving}
+                    className="h-11 px-5 bg-white/10 backdrop-blur-sm text-white border border-white/30 rounded-lg text-[13px] font-semibold hover:bg-white/20 transition-all disabled:opacity-50"
+                  >
+                    {saving
+                      ? "저장 중..."
+                      : curQIdx >= questions.length - 1
+                      ? "면접 종료 →"
+                      : "건너뛰기 →"}
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={finishCurrentAnswer}
+                  disabled={saving}
+                  className="h-11 px-5 rounded-lg text-[13px] font-bold text-white transition-all hover:-translate-y-px bg-red-500 hover:bg-red-600 disabled:opacity-50"
+                  style={{ boxShadow: "0 4px 16px rgba(239,68,68,0.4)" }}
+                >
+                  {saving
+                    ? "저장 중..."
+                    : curQIdx >= questions.length - 1
+                    ? "⏹ 답변 종료 (면접 종료)"
+                    : "⏹ 답변 종료 (다음 질문)"}
+                </button>
               )}
             </div>
           </div>
         </div>
-      )}
-    </div>
-  )
+      </div>
+    )
+  }
+
+  // ═════════════════════════════════════════════
+  // 결과 화면
+  // ═════════════════════════════════════════════
+  if (step === "result") {
+    const answeredCount = answers.filter((a) => a.blob).length
+    return (
+      <div className="px-6 py-4 font-sans text-ink h-full overflow-y-auto">
+        <div className="flex items-center gap-2.5 mb-3">
+          <button
+            onClick={() => setStep("list")}
+            className="w-8 h-8 rounded-lg bg-white border border-line flex items-center justify-center text-base text-ink-secondary transition-all"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = THEME.accentBorder
+              e.currentTarget.style.color = THEME.accentDark
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "#E5E7EB"
+              e.currentTarget.style.color = "#475569"
+            }}
+          >
+            ←
+          </button>
+          <div className="text-[16px] font-semibold text-ink">시뮬레이션 완료</div>
+        </div>
+
+        <div className="text-center py-3 mb-3 relative overflow-hidden">
+          <div className="relative">
+            <div className="text-3xl mb-1">🎉</div>
+            <div className="text-[18px] font-extrabold text-ink tracking-tight mb-0.5">
+              면접 시뮬레이션 완료!
+            </div>
+            <div className="text-[12px] text-ink-secondary font-medium">
+              총 {answers.length}개 질문에 답변했어요.
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white border border-line rounded-2xl p-4 mb-3 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
+          <div className="text-[13px] font-bold text-ink mb-2 tracking-tight">
+            이번 시뮬레이션 요약
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: "답변한 질문", val: `${answeredCount}/${answers.length}개` },
+              {
+                label: "문제 유형",
+                val: getQuestionTypeLabel(questionType),
+              },
+              { label: "꼬리질문", val: tailQ ? "ON" : "OFF" },
+            ].map((s, i) => (
+              <div
+                key={i}
+                className="bg-gray-50 border border-line rounded-xl px-3 py-2 text-center"
+              >
+                <div className="text-[10px] text-ink-muted font-medium mb-0.5">
+                  {s.label}
+                </div>
+                <div className="text-[14px] font-extrabold text-ink tracking-tight">
+                  {s.val}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div
+          className="rounded-xl px-4 py-3 mb-3 border"
+          style={{
+            background: THEME.accentBg,
+            borderColor: THEME.accentBorderLight,
+          }}
+        >
+          <div
+            className="text-[12px] font-bold mb-0.5"
+            style={{ color: THEME.accentDark }}
+          >
+            💬 선생님 피드백 대기중
+          </div>
+          <div className="text-[11px] text-ink-secondary leading-[1.5]">
+            선생님이 녹음 내용을 듣고 피드백을 남겨드릴 예정이에요.
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              resetSetup()
+              setStep("setup")
+            }}
+            className="flex-1 h-11 text-white rounded-xl text-[13px] font-bold transition-all hover:-translate-y-px"
+            style={{
+              background: THEME.accent,
+              boxShadow: `0 4px 16px ${THEME.accentShadow}`,
+            }}
+          >
+            다시 시뮬레이션하기
+          </button>
+          <button
+            onClick={() => setStep("list")}
+            className="flex-1 h-11 bg-white rounded-xl text-[13px] font-bold transition-all"
+            style={{
+              border: `2px solid ${THEME.accent}`,
+              color: THEME.accentDark,
+            }}
+          >
+            📋 방금 한거 상세보기
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return null
 }
