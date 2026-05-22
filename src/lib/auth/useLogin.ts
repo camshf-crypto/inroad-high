@@ -151,7 +151,13 @@ export function useLogin(options: UseLoginOptions) {
         }
       } else {
         // ⭐ 관리자 로그인 처리
-        if (!options.allowedRoles.includes(role as Role)) {
+        // pending → 통과 (학원 등록 폼으로)
+        if (role === 'pending') {
+          console.log('✅ pending 통과 (학원 등록 필요)')
+          console.log('=====================')
+          // 통과 → 아래로
+        }
+        else if (!options.allowedRoles.includes(role as Role)) {
           console.log('❌ 관리자 권한 없음')
           console.log('=====================')
           setError(options.roleErrorMessage)
@@ -159,8 +165,10 @@ export function useLogin(options: UseLoginOptions) {
           setLoading(false)
           return
         }
-        console.log('✅ 관리자 통과')
-        console.log('=====================')
+        else {
+          console.log('✅ 관리자 통과')
+          console.log('=====================')
+        }
       }
 
       // 4️⃣ 학원 정보 가져오기
@@ -175,12 +183,23 @@ export function useLogin(options: UseLoginOptions) {
         academyInfo = academy
       }
 
-      // admin은 학원 정보 필수
-      if (options.loginType === 'admin' && !academyInfo) {
+      // admin은 학원 정보 필수 (단, pending은 학원 등록 폼으로 통과)
+      if (options.loginType === 'admin' && !academyInfo && profile.role !== 'pending') {
+        
+        // ⭐ 학원이 승인 대기 상태면 별도 처리
+        const isPendingReview = options.loginType === 'admin' && academyInfo?.status === 'pending_review'
+        if (isPendingReview) {
+          console.log('⏳ 학원 승인 대기 상태')
+        }
         setError('소속된 학원 정보를 찾을 수 없습니다.')
         await supabase.auth.signOut()
         setLoading(false)
         return
+      }
+      // ⭐ 학원이 승인 대기 상태면 별도 처리 (대시보드 진입 막지 않고, 학원 정보는 살림)
+      const isPendingReview = options.loginType === 'admin' && academyInfo?.status === 'pending_review'
+      if (isPendingReview) {
+        console.log('⏳ 학원 승인 대기 상태')
       }
 
       // 5️⃣ Jotai 상태 저장
@@ -192,15 +211,29 @@ export function useLogin(options: UseLoginOptions) {
       })
 
       if (options.loginType === 'admin') {
-        setAcademy({
-          academyId: academyInfo!.id,
-          academyCode: academyInfo!.academy_code || '',
-          academyName: academyInfo!.name,
-          enabledMenus: academyInfo!.enabled_menus || [],  // ⭐ 추가!
-          ownerName: profile.name || '',
-          role: profile.role === 'admin' ? 'OWNER' : 'TEACHER',
-          plans: ['high', 'middle'],
-        })
+        if (academyInfo) {
+          // 정상 원장/선생님 (학원 정보 있음)
+          setAcademy({
+            academyId: academyInfo.id,
+            academyCode: academyInfo.academy_code || '',
+            academyName: academyInfo.name,
+            enabledMenus: academyInfo.enabled_menus || [],
+            ownerName: profile.name || '',
+            role: profile.role === 'admin' ? 'OWNER' : 'TEACHER',
+            plans: ['high', 'middle'],
+          })
+        } else {
+          // pending 원장 (학원 미등록 → 학원 등록 폼 표시됨)
+          setAcademy({
+            academyId: undefined,
+            academyCode: undefined,
+            academyName: undefined,
+            enabledMenus: [],
+            ownerName: profile.name || '',
+            role: 'OWNER',
+            plans: ['high', 'middle'],
+          })
+        }
       } else {
         const fallbackGrade = profile.role === 'high_student' ? '고1' : '중1'
 

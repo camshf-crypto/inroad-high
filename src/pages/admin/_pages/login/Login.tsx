@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useLogin } from '@/lib/auth/useLogin'
 
 export default function Login() {
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
@@ -151,7 +153,15 @@ export default function Login() {
               비밀번호 찾기
             </button>
             <span className="text-line">|</span>
-           
+            <button
+              onClick={() => navigate('/admin/signup')}
+              className="font-bold transition-colors"
+              style={{ color: '#1E3A8A' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#2563EB')}
+              onMouseLeave={e => (e.currentTarget.style.color = '#1E3A8A')}
+            >
+              회원가입
+            </button>
           </div>
 
         </div>

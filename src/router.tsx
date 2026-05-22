@@ -83,6 +83,7 @@ const router = createBrowserRouter([
     path: 'admin',
     children: [
       { path: 'login', element: <AdminLogin /> },
+      { path: 'signup', element: <Navigate to="/signup" replace /> },
       {
         path: '',
         element: <AdminLayout />,
