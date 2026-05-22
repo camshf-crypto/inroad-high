@@ -1,14 +1,133 @@
 import { useState } from 'react'
 
-const ACTIVE_MONTHS = [1, 2, 3, 5, 7, 8, 10, 12]
+// ─────────────────────────────────────────────
+// 상수 / 타입
+// ─────────────────────────────────────────────
 
-const PAYMENT_HISTORY = [
-  { month: '2025-03', count: 28, unitPrice: 46000, total: 1288000, status: '완료', date: '2025-03-01', card: '신한카드 **** 1234', receiptNo: 'RCP-20250301-001' },
-  { month: '2025-02', count: 28, unitPrice: 46000, total: 1288000, status: '완료', date: '2025-02-01', card: '신한카드 **** 1234', receiptNo: 'RCP-20250201-001' },
-  { month: '2025-01', count: 25, unitPrice: 48000, total: 1200000, status: '완료', date: '2025-01-01', card: '신한카드 **** 1234', receiptNo: 'RCP-20250101-001' },
+type PlanId = 'consulting' | 'interview' | 'all'
+type AcademyType = 'middle' | 'high' | 'both'
+
+interface Plan {
+  id: PlanId
+  name: string
+  title: string
+  desc: string
+  basePrice: number
+  popular: boolean
+  features: string[]
+}
+
+const PLANS: Record<AcademyType, Plan[]> = {
+  high: [
+    {
+      id: 'consulting',
+      name: '입시 컨설팅',
+      title: '학생부 종합 관리',
+      desc: '탐구주제부터 생기부까지 체계적인 학종 관리',
+      basePrice: 35000,
+      popular: false,
+      features: ['탐구주제 추천', '독서리스트', '생기부 만들기', '우리 학교 수행평가', '학원 수행평가'],
+    },
+    {
+      id: 'interview',
+      name: '입시 면접',
+      title: '면접 집중 케어',
+      desc: '모의면접부터 제시문까지 AI 기반 면접 대비',
+      basePrice: 35000,
+      popular: false,
+      features: ['면접 모의고사', '생기부 예상질문', '기출문제', '면접 시뮬레이션', '전공특화문제', '제시문 면접'],
+    },
+    {
+      id: 'all',
+      name: '올인원',
+      title: '올인원 패키지',
+      desc: '입시 컨설팅 + 면접까지 모든 서비스 이용',
+      basePrice: 50000,
+      popular: true,
+      features: ['컨설팅의 모든 기능', '면접의 모든 기능', '우선 고객 지원'],
+    },
+  ],
+  middle: [
+    {
+      id: 'consulting',
+      name: '입시 컨설팅',
+      title: '학생 성장 관리',
+      desc: '수업부터 생기부까지 체계적인 학습 관리',
+      basePrice: 35000,
+      popular: false,
+      features: ['수업 영상', '숙제 관리', '우리 학교 수행평가', '학원 수행평가', '생기부 만들기'],
+    },
+    {
+      id: 'interview',
+      name: '입시 면접',
+      title: '면접 집중 케어',
+      desc: '자소서부터 면접까지 AI 기반 입시 대비',
+      basePrice: 35000,
+      popular: false,
+      features: ['생기부 예상질문', '자소서 작성 및 예상질문', '기출문제', '면접 시뮬레이션', '제시문 면접'],
+    },
+    {
+      id: 'all',
+      name: '올인원',
+      title: '올케어 패키지',
+      desc: '입시 컨설팅 + 면접까지 모든 서비스 이용',
+      basePrice: 50000,
+      popular: true,
+      features: ['컨설팅의 모든 기능', '면접의 모든 기능', '우선 고객 지원'],
+    },
+  ],
+  both: [
+    {
+      id: 'consulting',
+      name: '입시 컨설팅',
+      title: '학습 + 학종 관리',
+      desc: '중등·고등 통합 학습 관리',
+      basePrice: 35000,
+      popular: false,
+      features: ['수업/숙제 관리', '탐구주제·독서리스트', '생기부 만들기', '수행평가 관리'],
+    },
+    {
+      id: 'interview',
+      name: '입시 면접',
+      title: '면접 집중 케어',
+      desc: '중등·고등 면접 통합 대비',
+      basePrice: 35000,
+      popular: false,
+      features: ['생기부 예상질문', '기출문제', '면접 시뮬레이션', '제시문 면접', '면접 모의고사'],
+    },
+    {
+      id: 'all',
+      name: '올인원',
+      title: '올인원 패키지',
+      desc: '모든 서비스 통합 이용',
+      basePrice: 50000,
+      popular: true,
+      features: ['컨설팅의 모든 기능', '면접의 모든 기능', '우선 고객 지원'],
+    },
+  ],
+}
+
+// 인원수 할인율 (랜딩과 동일)
+const DISCOUNT_TIERS = [
+  { min: 1, max: 9, discount: 0, label: '기본' },
+  { min: 10, max: 19, discount: 0.04, label: '4% 할인' },
+  { min: 20, max: 29, discount: 0.08, label: '8% 할인' },
+  { min: 30, max: 39, discount: 0.12, label: '12% 할인' },
+  { min: 40, max: 59, discount: 0.16, label: '16% 할인' },
 ]
 
-// 파랑 테마
+// 결제 스케줄 제한
+const MIN_ACTIVE_MONTHS = 5
+const MAX_ACTIVE_MONTHS = 12
+// 초기값 (실제로는 DB academies.active_months에서 불러와야 함)
+const DEFAULT_ACTIVE_MONTHS = [1, 2, 3, 5, 7, 8, 10, 12]
+
+const PAYMENT_HISTORY = [
+  { month: '2025-03', plan: 'all' as PlanId, count: 28, unitPrice: 46000, total: 1288000, status: '완료', date: '2025-03-01', card: '신한카드 **** 1234', receiptNo: 'RCP-20250301-001' },
+  { month: '2025-02', plan: 'all' as PlanId, count: 28, unitPrice: 46000, total: 1288000, status: '완료', date: '2025-02-01', card: '신한카드 **** 1234', receiptNo: 'RCP-20250201-001' },
+  { month: '2025-01', plan: 'interview' as PlanId, count: 25, unitPrice: 32200, total: 805000, status: '완료', date: '2025-01-01', card: '신한카드 **** 1234', receiptNo: 'RCP-20250101-001' },
+]
+
 const THEME = {
   accent: '#2563EB',
   accentDark: '#1E3A8A',
@@ -28,16 +147,58 @@ const Modal = ({ children, onClose }: { children: React.ReactNode, onClose: () =
   </div>
 )
 
-const getUnitPrice = (count: number) => {
-  if (count < 10) return 50000
-  if (count < 20) return 48000
-  if (count < 30) return 46000
-  if (count < 40) return 44000
-  if (count < 60) return 42000
-  return null
+// 인원수에 따른 할인율
+function getDiscount(count: number): number {
+  if (count >= 60) return 0.16
+  for (const t of DISCOUNT_TIERS) {
+    if (count >= t.min && count <= t.max) return t.discount
+  }
+  return 0
 }
 
+// 1인당 단가 계산 (플랜 기본가 × (1-할인율))
+function getUnitPrice(planId: PlanId, academyType: AcademyType, count: number): number | null {
+  if (count >= 60) return null // 별도 협의
+  const plan = PLANS[academyType].find(p => p.id === planId)
+  if (!plan) return null
+  return Math.round(plan.basePrice * (1 - getDiscount(count)))
+}
+
+function formatPrice(num: number): string {
+  return num.toLocaleString('ko-KR')
+}
+
+// ─────────────────────────────────────────────
+// 메인
+// ─────────────────────────────────────────────
+
 export default function Billing() {
+  // ⚠️ MOCK: 실제로는 DB(academies 테이블)에서 가져와야 함
+  // - academies.academy_type → 학원 유형 (middle/high/both)
+  // - academies.current_plan → 현재 구독 중인 플랜
+  const academyType = 'high' as AcademyType // MOCK
+  const [currentPlan, setCurrentPlan] = useState<PlanId>('all') // MOCK
+
+  // 결제 스케줄 (원장이 직접 설정)
+  // ⚠️ MOCK: 실제로는 DB academies.active_months에서 불러와야 함
+  const [activeMonths, setActiveMonths] = useState<number[]>(DEFAULT_ACTIVE_MONTHS)
+  const [monthsSaved, setMonthsSaved] = useState(false)
+
+  const toggleMonth = (m: number) => {
+    if (activeMonths.includes(m)) {
+      // 끄는 경우 — 최소 개수 이하로 떨어지면 안 됨
+      if (activeMonths.length <= MIN_ACTIVE_MONTHS) {
+        alert(`결제 월은 최소 ${MIN_ACTIVE_MONTHS}개월 이상 설정해야 해요.`)
+        return
+      }
+      setActiveMonths(activeMonths.filter(x => x !== m))
+    } else {
+      setActiveMonths([...activeMonths, m].sort((a, b) => a - b))
+    }
+    setMonthsSaved(true)
+    setTimeout(() => setMonthsSaved(false), 1500)
+  }
+
   const [savedCount, setSavedCount] = useState(28)
   const [inputCount, setInputCount] = useState(28)
   const [showSaveConfirm, setShowSaveConfirm] = useState(false)
@@ -60,25 +221,21 @@ export default function Billing() {
   const [inputExpiry, setInputExpiry] = useState('')
   const [inputCvc, setInputCvc] = useState('')
 
-  const unitPrice = getUnitPrice(savedCount)
+  // ─── 계산 ───
+  const plans = PLANS[academyType]
+  const activePlan = plans.find(p => p.id === currentPlan)!
+  const unitPrice = getUnitPrice(currentPlan, academyType, savedCount)
   const totalPrice = unitPrice ? savedCount * unitPrice : null
+  const discount = getDiscount(savedCount)
 
   const now = new Date()
   const currentMonth = now.getMonth() + 1
-  const nextBillingMonth = ACTIVE_MONTHS.find(m => m > currentMonth) || ACTIVE_MONTHS[0]
+  const nextBillingMonth = activeMonths.find(m => m > currentMonth) || activeMonths[0]
   const nextBillingYear = nextBillingMonth <= currentMonth ? now.getFullYear() + 1 : now.getFullYear()
   const nextBillingDate = `${nextBillingYear}-${String(nextBillingMonth).padStart(2, '0')}-01`
-  const isActiveMonth = ACTIVE_MONTHS.includes(currentMonth)
+  const isActiveMonth = activeMonths.includes(currentMonth)
 
-  const PLANS = [
-    { range: '1~9명', price: '1인당 50,000원', active: savedCount < 10 },
-    { range: '10~19명', price: '1인당 48,000원', active: savedCount >= 10 && savedCount < 20 },
-    { range: '20~29명', price: '1인당 46,000원', active: savedCount >= 20 && savedCount < 30 },
-    { range: '30~39명', price: '1인당 44,000원', active: savedCount >= 30 && savedCount < 40 },
-    { range: '40~59명', price: '1인당 42,000원', active: savedCount >= 40 && savedCount < 60 },
-    { range: '60명 이상', price: '별도 협의', active: savedCount >= 60 },
-  ]
-
+  // ─── 핸들러 ───
   const openCardModal = (edit: boolean) => {
     setIsEditMode(edit)
     setInputNumber(edit ? cardNumber : '')
@@ -113,7 +270,14 @@ export default function Billing() {
     setTimeout(() => setSaved(false), 2000)
   }
 
+  const handlePlanChange = (planId: PlanId) => {
+    if (planId === currentPlan) return
+    setCurrentPlan(planId)
+  }
+
   const isChanged = inputCount !== savedCount
+
+  const academyTypeLabel = academyType === 'middle' ? '중등 학원' : academyType === 'high' ? '고등 학원' : '중등·고등 통합 학원'
 
   return (
     <div className="px-8 py-7 min-h-[calc(100vh-50px)] bg-[#F8FAFC] font-sans text-ink">
@@ -121,31 +285,161 @@ export default function Billing() {
       {/* 헤더 */}
       <div className="mb-6 flex items-center gap-2.5">
         <span className="text-2xl">💳</span>
-        <div>
+        <div className="flex-1">
           <div className="text-[22px] font-extrabold text-ink tracking-tight mb-0.5">결제 / 플랜 관리</div>
-          <div className="text-[13px] text-ink-secondary font-medium">수업이 있는 달 1일에 자동 결제됩니다. (연 8회)</div>
+          <div className="text-[13px] text-ink-secondary font-medium flex items-center gap-2">
+            <span>설정한 결제 월의 1일에 자동 결제됩니다. (연 {activeMonths.length}회)</span>
+            <span
+              className="text-[11px] font-bold px-2 py-0.5 rounded-full border"
+              style={{
+                background: THEME.accentBg,
+                color: THEME.accentDark,
+                borderColor: `${THEME.accentBorder}80`,
+              }}
+            >
+              🏫 {academyTypeLabel}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* 연간 결제 스케줄 */}
+      {/* ─── 플랜 선택 카드 ─── */}
       <div className="bg-white border border-line rounded-2xl p-6 mb-4 shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
-        <div className="text-[15px] font-bold text-ink tracking-tight mb-4 flex items-center gap-2">
-          <span>📅</span>
-          <span>연간 결제 스케줄</span>
+        <div className="text-[15px] font-bold text-ink tracking-tight mb-1 flex items-center gap-2">
+          <span>🎯</span>
+          <span>현재 플랜</span>
+        </div>
+        <div className="text-[12px] text-ink-secondary font-medium mb-4">
+          학원에 맞는 플랜을 선택하세요. 다음 결제일부터 적용돼요.
+        </div>
+
+        <div className="grid grid-cols-3 max-md:grid-cols-1 gap-3">
+          {plans.map(plan => {
+            const isCurrent = plan.id === currentPlan
+            return (
+              <button
+                key={plan.id}
+                onClick={() => handlePlanChange(plan.id)}
+                className="relative rounded-xl p-5 text-left transition-all hover:-translate-y-0.5"
+                style={{
+                  border: isCurrent
+                    ? `2px solid ${THEME.accent}`
+                    : '1px solid #E5E7EB',
+                  background: isCurrent ? THEME.accentBg : '#fff',
+                  boxShadow: isCurrent ? `0 8px 24px ${THEME.accentShadow}` : 'none',
+                }}
+              >
+                {/* 인기 뱃지 (가장 인기있는 플랜) */}
+                {plan.popular && !isCurrent && (
+                  <div
+                    className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-1 text-white text-[10px] font-bold rounded-full whitespace-nowrap shadow-md"
+                    style={{ background: THEME.accent }}
+                  >
+                    가장 인기
+                  </div>
+                )}
+
+                {/* 현재 사용중 뱃지 */}
+                {isCurrent && (
+                  <div
+                    className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-1 text-white text-[10px] font-bold rounded-full whitespace-nowrap shadow-md"
+                    style={{ background: THEME.accentDark }}
+                  >
+                    ✓ 현재 사용 중
+                  </div>
+                )}
+
+                <div className="text-[12px] font-semibold mb-1" style={{ color: THEME.accent }}>
+                  {plan.name}
+                </div>
+                <div className="text-[16px] font-extrabold text-ink tracking-tight mb-1">
+                  {plan.title}
+                </div>
+                <div className="text-[11px] text-ink-secondary font-medium leading-[1.5] mb-3 min-h-[33px]">
+                  {plan.desc}
+                </div>
+
+                <div className="flex items-baseline gap-1 mb-3 pb-3 border-b border-line-light">
+                  <span className="text-[20px] font-extrabold text-ink tracking-tight">
+                    {formatPrice(plan.basePrice)}
+                  </span>
+                  <span className="text-[11px] text-ink-secondary">원 / 1인당 월</span>
+                </div>
+
+                <ul className="flex flex-col gap-1">
+                  {plan.features.slice(0, 4).map(f => (
+                    <li key={f} className="text-[11px] text-ink-secondary font-medium flex items-start gap-1.5">
+                      <span style={{ color: THEME.accent }} className="font-bold flex-shrink-0">✓</span>
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                  {plan.features.length > 4 && (
+                    <li className="text-[10px] text-ink-muted font-medium ml-3.5">
+                      외 {plan.features.length - 4}개
+                    </li>
+                  )}
+                </ul>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* ─── 연간 결제 스케줄 ─── */}
+      <div className="bg-white border border-line rounded-2xl p-6 mb-4 shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-[15px] font-bold text-ink tracking-tight flex items-center gap-2">
+            <span>📅</span>
+            <span>연간 결제 스케줄</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {monthsSaved && (
+              <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                ✓ 저장됨
+              </span>
+            )}
+            <span
+              className="text-[11px] font-bold px-2 py-0.5 rounded-full border"
+              style={{
+                background: THEME.accentBg,
+                color: THEME.accentDark,
+                borderColor: `${THEME.accentBorder}80`,
+              }}
+            >
+              총 {activeMonths.length}개월
+            </span>
+          </div>
+        </div>
+        <div className="text-[12px] text-ink-secondary font-medium mb-4">
+          학원 운영 일정에 맞춰 결제할 월을 선택하세요.
+          <span className="ml-1 text-ink-muted">
+            (최소 {MIN_ACTIVE_MONTHS}개월, 최대 {MAX_ACTIVE_MONTHS}개월)
+          </span>
         </div>
         <div className="grid grid-cols-12 gap-1.5 max-md:grid-cols-6">
           {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
-            const isActive = ACTIVE_MONTHS.includes(m)
+            const isActive = activeMonths.includes(m)
             const isCurrent = m === currentMonth
+            const isDisabled = isActive && activeMonths.length <= MIN_ACTIVE_MONTHS
             return (
-              <div
+              <button
                 key={m}
-                className="text-center py-2.5 rounded-lg transition-all"
+                onClick={() => toggleMonth(m)}
+                disabled={isDisabled}
+                className="text-center py-2.5 rounded-lg transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed"
                 style={{
                   background: isCurrent ? THEME.accent : isActive ? THEME.accentBg : '#F8FAFC',
                   border: `1px solid ${isCurrent ? THEME.accent : isActive ? THEME.accentBorder : '#E5E7EB'}`,
                   boxShadow: isCurrent ? `0 4px 12px ${THEME.accentShadow}` : 'none',
+                  opacity: isDisabled ? 0.6 : 1,
                 }}
+                title={
+                  isDisabled
+                    ? `최소 ${MIN_ACTIVE_MONTHS}개월은 유지해야 해요`
+                    : isActive
+                      ? '클릭하면 결제 안 함으로 변경'
+                      : '클릭하면 결제 월로 추가'
+                }
               >
                 <div
                   className="text-[12px] font-bold"
@@ -157,9 +451,9 @@ export default function Billing() {
                   className="text-[9px] font-semibold mt-1"
                   style={{ color: isCurrent ? 'rgba(255,255,255,0.85)' : isActive ? THEME.accent : '#D1D5DB' }}
                 >
-                  {isActive ? '결제' : '없음'}
+                  {isActive ? '결제' : '휴무'}
                 </div>
-              </div>
+              </button>
             )
           })}
         </div>
@@ -245,7 +539,7 @@ export default function Billing() {
               <span>이번 달 청구</span>
               {!isActiveMonth && (
                 <span className="ml-auto text-[10px] font-bold text-ink-secondary bg-gray-100 px-2 py-0.5 rounded-full">
-                  수업 없는 달
+                  휴무 달
                 </span>
               )}
             </div>
@@ -254,7 +548,7 @@ export default function Billing() {
               <div className="text-center py-6">
                 <div className="text-4xl mb-3">📅</div>
                 <div className="text-[13px] text-ink-secondary font-medium leading-[1.6]">
-                  이번 달은 수업이 없어서<br />결제가 발생하지 않아요.
+                  이번 달은 휴무로 설정되어<br />결제가 발생하지 않아요.
                 </div>
                 <div className="mt-3 text-[12px] font-bold" style={{ color: THEME.accent }}>
                   다음 결제일: {nextBillingDate}
@@ -267,13 +561,29 @@ export default function Billing() {
                   style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}40` }}
                 >
                   <div className="flex justify-between text-[12px] mb-2">
+                    <span className="text-ink-secondary font-medium">현재 플랜</span>
+                    <span className="font-bold" style={{ color: THEME.accent }}>{activePlan.name}</span>
+                  </div>
+                  <div className="flex justify-between text-[12px] mb-2">
+                    <span className="text-ink-secondary font-medium">기본 단가</span>
+                    <span className="text-ink font-bold">{formatPrice(activePlan.basePrice)}원 / 1인</span>
+                  </div>
+                  <div className="flex justify-between text-[12px] mb-2">
                     <span className="text-ink-secondary font-medium">학생 수</span>
                     <span className="text-ink font-bold">{savedCount}명</span>
                   </div>
+                  {discount > 0 && savedCount < 60 && (
+                    <div className="flex justify-between text-[12px] mb-2">
+                      <span className="text-ink-secondary font-medium">할인</span>
+                      <span className="font-bold text-emerald-600">
+                        −{Math.round(discount * 100)}%
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-[12px] mb-2">
                     <span className="text-ink-secondary font-medium">적용 단가</span>
                     <span className="font-bold" style={{ color: THEME.accent }}>
-                      {unitPrice ? `1인당 ${unitPrice.toLocaleString()}원` : '60명 이상 · 별도 협의'}
+                      {unitPrice ? `1인당 ${formatPrice(unitPrice)}원` : '60명 이상 · 별도 협의'}
                     </span>
                   </div>
                   <div className="h-px my-3" style={{ background: `${THEME.accentBorder}60` }} />
@@ -283,7 +593,7 @@ export default function Billing() {
                       className="text-[22px] font-extrabold"
                       style={{ color: savedCount >= 60 ? '#6B7280' : THEME.accentDark }}
                     >
-                      {totalPrice ? `${totalPrice.toLocaleString()}원` : '협의 후 결정'}
+                      {totalPrice ? `${formatPrice(totalPrice)}원` : '협의 후 결정'}
                     </span>
                   </div>
                 </div>
@@ -313,7 +623,7 @@ export default function Billing() {
                       boxShadow: hasCard ? `0 4px 12px ${THEME.accentShadow}` : 'none',
                     }}
                   >
-                    {hasCard ? `💳 결제하기 (${totalPrice?.toLocaleString()}원)` : '카드를 먼저 등록해주세요'}
+                    {hasCard ? `💳 결제하기 (${formatPrice(totalPrice ?? 0)}원)` : '카드를 먼저 등록해주세요'}
                   </button>
                 )}
               </>
@@ -332,7 +642,6 @@ export default function Billing() {
             </div>
             {hasCard ? (
               <>
-                {/* 카드 디자인 */}
                 <div
                   className="rounded-xl p-6 mb-3.5 relative overflow-hidden"
                   style={{
@@ -372,10 +681,7 @@ export default function Billing() {
                   <button
                     onClick={() => openCardModal(true)}
                     className="flex-1 h-10 bg-white border rounded-lg text-[12px] font-bold transition-all hover:-translate-y-px"
-                    style={{
-                      color: THEME.accent,
-                      borderColor: THEME.accent,
-                    }}
+                    style={{ color: THEME.accent, borderColor: THEME.accent }}
                   >
                     카드 변경
                   </button>
@@ -396,10 +702,7 @@ export default function Billing() {
                 <button
                   onClick={() => openCardModal(false)}
                   className="px-6 py-3 text-white rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px"
-                  style={{
-                    background: THEME.accent,
-                    boxShadow: `0 4px 12px ${THEME.accentShadow}`,
-                  }}
+                  style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
                 >
                   + 카드 등록하기
                 </button>
@@ -407,52 +710,100 @@ export default function Billing() {
             )}
           </div>
 
-          {/* 요금 안내 */}
+          {/* 인원수 할인 안내 */}
           <div className="bg-white border border-line rounded-2xl p-6 shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
             <div className="text-[15px] font-bold text-ink tracking-tight mb-4 pb-3 border-b border-line flex items-center gap-2">
-              <span>📋</span>
-              <span>요금 안내</span>
+              <span>🎁</span>
+              <span>인원수 할인 안내</span>
+            </div>
+            <div className="text-[11.5px] text-ink-secondary font-medium mb-3 leading-[1.6]">
+              학생 수가 많을수록 1인당 단가가 할인돼요. 현재 플랜의 기본가에 적용됩니다.
             </div>
             <div className="flex flex-col gap-1.5 mb-4">
-              {PLANS.map((p, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between px-4 py-2.5 rounded-lg transition-all"
-                  style={{
-                    background: p.active ? THEME.accentBg : '#F8FAFC',
-                    border: `1px solid ${p.active ? THEME.accentBorder : '#E5E7EB'}`,
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    {p.active && (
-                      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: THEME.accent }} />
-                    )}
+              {DISCOUNT_TIERS.map((t, i) => {
+                const isActive = savedCount >= t.min && savedCount <= t.max
+                const exampleUnit = Math.round(activePlan.basePrice * (1 - t.discount))
+                return (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between px-4 py-2.5 rounded-lg transition-all"
+                    style={{
+                      background: isActive ? THEME.accentBg : '#F8FAFC',
+                      border: `1px solid ${isActive ? THEME.accentBorder : '#E5E7EB'}`,
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      {isActive && (
+                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: THEME.accent }} />
+                      )}
+                      <span
+                        className="text-[12px]"
+                        style={{
+                          fontWeight: isActive ? 700 : 500,
+                          color: isActive ? THEME.accentDark : '#6B7280',
+                        }}
+                      >
+                        {t.min}~{t.max}명
+                      </span>
+                      <span
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                        style={{
+                          background: t.discount > 0 ? '#FEF3C7' : '#F3F4F6',
+                          color: t.discount > 0 ? '#92400E' : '#9CA3AF',
+                        }}
+                      >
+                        {t.discount === 0 ? '기본가' : `${Math.round(t.discount * 100)}% 할인`}
+                      </span>
+                    </div>
                     <span
                       className="text-[12px]"
                       style={{
-                        fontWeight: p.active ? 700 : 500,
-                        color: p.active ? THEME.accentDark : '#6B7280',
+                        fontWeight: isActive ? 700 : 500,
+                        color: isActive ? THEME.accentDark : '#6B7280',
                       }}
                     >
-                      {p.range}
+                      1인당 {formatPrice(exampleUnit)}원
                     </span>
                   </div>
+                )
+              })}
+              <div
+                className="flex items-center justify-between px-4 py-2.5 rounded-lg"
+                style={{
+                  background: savedCount >= 60 ? THEME.accentBg : '#F8FAFC',
+                  border: `1px solid ${savedCount >= 60 ? THEME.accentBorder : '#E5E7EB'}`,
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  {savedCount >= 60 && (
+                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: THEME.accent }} />
+                  )}
                   <span
                     className="text-[12px]"
                     style={{
-                      fontWeight: p.active ? 700 : 500,
-                      color: p.active ? THEME.accentDark : '#6B7280',
+                      fontWeight: savedCount >= 60 ? 700 : 500,
+                      color: savedCount >= 60 ? THEME.accentDark : '#6B7280',
                     }}
                   >
-                    {p.price}
+                    60명 이상
                   </span>
                 </div>
-              ))}
+                <span
+                  className="text-[12px]"
+                  style={{
+                    fontWeight: savedCount >= 60 ? 700 : 500,
+                    color: savedCount >= 60 ? THEME.accentDark : '#6B7280',
+                  }}
+                >
+                  별도 협의
+                </span>
+              </div>
             </div>
             <div className="bg-gray-50 rounded-lg px-4 py-3">
               <div className="text-[11px] text-ink-secondary font-medium leading-[1.8]">
-                • 수업이 있는 달 1일에 자동 결제됩니다.<br />
-                • 수업 없는 달 (4월·6월·9월·11월)은 결제되지 않아요.<br />
+                • 위 캘린더에서 설정한 결제 월의 1일에 자동 결제돼요.<br />
+                • 휴무 달은 결제되지 않아요. (현재 휴무: {Array.from({ length: 12 }, (_, i) => i + 1).filter(m => !activeMonths.includes(m)).map(m => `${m}월`).join('·') || '없음'})<br />
+                • 결제 월은 언제든 위 캘린더에서 변경할 수 있어요. (최소 {MIN_ACTIVE_MONTHS}개월)<br />
                 • 60명 이상은 별도 문의가 필요합니다.<br />
                 • 문의: <span className="font-semibold" style={{ color: THEME.accent }}>company@seumlearning.com</span>
               </div>
@@ -470,7 +821,7 @@ export default function Billing() {
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-[#F8FAFC]">
-              {['결제월', '학생 수', '단가', '결제금액', '결제 수단', '결제일', '상태', ''].map((h, i) => (
+              {['결제월', '플랜', '학생 수', '단가', '결제금액', '결제 수단', '결제일', '상태', ''].map((h, i) => (
                 <th
                   key={i}
                   className="px-5 py-3 text-[11px] font-bold text-ink-muted uppercase tracking-wider text-left border-b border-line"
@@ -481,46 +832,58 @@ export default function Billing() {
             </tr>
           </thead>
           <tbody>
-            {PAYMENT_HISTORY.map((p, i) => (
-              <tr
-                key={i}
-                className="hover:bg-gray-50 transition-colors"
-                style={{ borderBottom: i < PAYMENT_HISTORY.length - 1 ? '1px solid #F1F5F9' : 'none' }}
-              >
-                <td className="px-5 py-3 text-[13px] font-bold text-ink">{p.month}</td>
-                <td className="px-5 py-3 text-[13px] font-semibold text-ink">{p.count}명</td>
-                <td className="px-5 py-3 text-[13px] font-medium text-ink-secondary">{p.unitPrice.toLocaleString()}원</td>
-                <td className="px-5 py-3 text-[13px] font-extrabold" style={{ color: THEME.accent }}>
-                  {p.total.toLocaleString()}원
-                </td>
-                <td className="px-5 py-3 text-[12px] font-medium text-ink-secondary">{p.card}</td>
-                <td className="px-5 py-3 text-[13px] font-medium text-ink-secondary">{p.date}</td>
-                <td className="px-5 py-3">
-                  <span
-                    className="text-[11px] font-bold px-2.5 py-1 rounded-full"
-                    style={{
-                      color: '#059669',
-                      background: '#ECFDF5',
-                      border: '1px solid #6EE7B7',
-                    }}
-                  >
-                    ✓ {p.status}
-                  </span>
-                </td>
-                <td className="px-5 py-3">
-                  <button
-                    onClick={() => setReceipt(p)}
-                    className="text-[11px] font-bold bg-white border px-3 py-1.5 rounded-full transition-all hover:-translate-y-px"
-                    style={{
-                      color: THEME.accent,
-                      borderColor: THEME.accent,
-                    }}
-                  >
-                    영수증
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {PAYMENT_HISTORY.map((p, i) => {
+              const planLabel = PLANS[academyType].find(x => x.id === p.plan)?.name || p.plan
+              return (
+                <tr
+                  key={i}
+                  className="hover:bg-gray-50 transition-colors"
+                  style={{ borderBottom: i < PAYMENT_HISTORY.length - 1 ? '1px solid #F1F5F9' : 'none' }}
+                >
+                  <td className="px-5 py-3 text-[13px] font-bold text-ink">{p.month}</td>
+                  <td className="px-5 py-3">
+                    <span
+                      className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                      style={{
+                        background: THEME.accentBg,
+                        color: THEME.accentDark,
+                        border: `1px solid ${THEME.accentBorder}80`,
+                      }}
+                    >
+                      {planLabel}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3 text-[13px] font-semibold text-ink">{p.count}명</td>
+                  <td className="px-5 py-3 text-[13px] font-medium text-ink-secondary">{formatPrice(p.unitPrice)}원</td>
+                  <td className="px-5 py-3 text-[13px] font-extrabold" style={{ color: THEME.accent }}>
+                    {formatPrice(p.total)}원
+                  </td>
+                  <td className="px-5 py-3 text-[12px] font-medium text-ink-secondary">{p.card}</td>
+                  <td className="px-5 py-3 text-[13px] font-medium text-ink-secondary">{p.date}</td>
+                  <td className="px-5 py-3">
+                    <span
+                      className="text-[11px] font-bold px-2.5 py-1 rounded-full"
+                      style={{
+                        color: '#059669',
+                        background: '#ECFDF5',
+                        border: '1px solid #6EE7B7',
+                      }}
+                    >
+                      ✓ {p.status}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3">
+                    <button
+                      onClick={() => setReceipt(p)}
+                      className="text-[11px] font-bold bg-white border px-3 py-1.5 rounded-full transition-all hover:-translate-y-px"
+                      style={{ color: THEME.accent, borderColor: THEME.accent }}
+                    >
+                      영수증
+                    </button>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -544,14 +907,18 @@ export default function Billing() {
               <div className="flex justify-between text-[12px] mb-2">
                 <span className="text-ink-secondary font-medium">적용 단가</span>
                 <span className="font-bold" style={{ color: THEME.accent }}>
-                  {getUnitPrice(inputCount) ? `1인당 ${getUnitPrice(inputCount)?.toLocaleString()}원` : '별도 협의'}
+                  {getUnitPrice(currentPlan, academyType, inputCount)
+                    ? `1인당 ${formatPrice(getUnitPrice(currentPlan, academyType, inputCount)!)}원`
+                    : '별도 협의'}
                 </span>
               </div>
               <div className="h-px my-2.5" style={{ background: `${THEME.accentBorder}60` }} />
               <div className="flex justify-between text-[14px] font-bold">
                 <span className="text-ink">월 청구액</span>
                 <span style={{ color: THEME.accentDark }}>
-                  {getUnitPrice(inputCount) ? `${(inputCount * (getUnitPrice(inputCount) ?? 0)).toLocaleString()}원` : '협의 후 결정'}
+                  {getUnitPrice(currentPlan, academyType, inputCount)
+                    ? `${formatPrice(inputCount * getUnitPrice(currentPlan, academyType, inputCount)!)}원`
+                    : '협의 후 결정'}
                 </span>
               </div>
             </div>
@@ -565,10 +932,7 @@ export default function Billing() {
               <button
                 onClick={handleSaveCount}
                 className="flex-1 h-11 text-white rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px"
-                style={{
-                  background: THEME.accent,
-                  boxShadow: `0 4px 12px ${THEME.accentShadow}`,
-                }}
+                style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
               >
                 저장
               </button>
@@ -629,10 +993,7 @@ export default function Billing() {
               <button
                 onClick={handleCardSave}
                 className="flex-1 h-11 text-white rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px"
-                style={{
-                  background: THEME.accent,
-                  boxShadow: `0 4px 12px ${THEME.accentShadow}`,
-                }}
+                style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
               >
                 저장하기
               </button>
@@ -674,10 +1035,7 @@ export default function Billing() {
               <button
                 onClick={handleConfirm}
                 className="flex-1 h-11 text-white rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px"
-                style={{
-                  background: THEME.accent,
-                  boxShadow: `0 4px 12px ${THEME.accentShadow}`,
-                }}
+                style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
               >
                 확인
               </button>
@@ -733,12 +1091,13 @@ export default function Billing() {
             >
               {[
                 { label: '결제월', value: receipt.month },
+                { label: '플랜', value: PLANS[academyType].find(x => x.id === receipt.plan)?.name || receipt.plan },
                 { label: '학생 수', value: `${receipt.count}명` },
-                { label: '적용 단가', value: `${receipt.unitPrice.toLocaleString()}원` },
+                { label: '적용 단가', value: `${formatPrice(receipt.unitPrice)}원` },
                 { label: '결제 수단', value: receipt.card },
                 { label: '결제일', value: receipt.date },
-              ].map((r, i) => (
-                <div key={i} className={`flex justify-between text-[12px] ${i < 4 ? 'mb-2.5' : ''}`}>
+              ].map((r, i, arr) => (
+                <div key={i} className={`flex justify-between text-[12px] ${i < arr.length - 1 ? 'mb-2.5' : ''}`}>
                   <span className="text-ink-secondary font-medium">{r.label}</span>
                   <span className="text-ink font-bold">{r.value}</span>
                 </div>
@@ -747,17 +1106,14 @@ export default function Billing() {
               <div className="flex justify-between items-center">
                 <span className="text-[15px] font-bold text-ink">총 결제금액</span>
                 <span className="text-[20px] font-extrabold" style={{ color: THEME.accentDark }}>
-                  {receipt.total.toLocaleString()}원
+                  {formatPrice(receipt.total)}원
                 </span>
               </div>
             </div>
             <div className="flex gap-2">
               <button
                 className="flex-1 h-11 bg-white border rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px"
-                style={{
-                  color: THEME.accent,
-                  borderColor: THEME.accent,
-                }}
+                style={{ color: THEME.accent, borderColor: THEME.accent }}
               >
                 📄 PDF 다운로드
               </button>
