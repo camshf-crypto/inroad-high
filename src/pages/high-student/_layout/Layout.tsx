@@ -5,6 +5,7 @@ import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { academyState, tokenState, studentState } from '@/lib/auth/atoms'
 import { supabase } from '@/lib/supabase'
+import SchoolSearchInput from '@/components/SchoolSearchInput'
 
 const MENUS = [
   { path: '/high-student/roadmap', label: '내 로드맵', icon: '⊞', menuKey: 'high.roadmap' },
@@ -180,6 +181,7 @@ function ConnectForm() {
   const navigate = useNavigate()
   const [code, setCode] = useState('')
   const [school, setSchool] = useState('')
+  const [schoolCode, setSchoolCode] = useState('')
   const [grade, setGrade] = useState<typeof HIGH_GRADES[number] | ''>('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -202,7 +204,7 @@ function ConnectForm() {
 
   const handleConnect = async () => {
     if (!code.trim()) { setError('학원 코드를 입력해주세요.'); return }
-    if (!school.trim()) { setError('학교 이름을 입력해주세요.'); return }
+    if (!school.trim() || !schoolCode) { setError('학교를 검색해서 선택해주세요.'); return }
     if (!grade) { setError('학년을 선택해주세요.'); return }
     setLoading(true); setError('')
     try {
@@ -266,8 +268,18 @@ function ConnectForm() {
           </div>
           <div className="mb-4">
             <label className="text-[11px] font-bold text-ink-secondary block mb-1.5 uppercase tracking-wider">학교</label>
-            <input type="text" placeholder="예: 서울고등학교" value={school} onChange={e => { setSchool(e.target.value); setError('') }} disabled={loading}
-              className={`w-full border rounded-xl px-4 py-3 text-[14px] font-medium outline-none transition-all placeholder:text-ink-muted ${error.includes('학교') ? 'border-red-500 bg-red-50' : 'border-line focus:border-brand-high focus:ring-2 focus:ring-brand-high-pale'}`} />
+            <SchoolSearchInput
+              schoolType="고등학교"
+              value={school}
+              onSelect={(s) => {
+                setSchool(s.SCHUL_NM)
+                setSchoolCode(s.SD_SCHUL_CODE)
+                setError('')
+              }}
+              disabled={loading}
+              theme="high"
+              error={error.includes('학교')}
+            />
           </div>
           <div className="mb-4">
             <label className="text-[11px] font-bold text-ink-secondary block mb-1.5 uppercase tracking-wider">학년</label>

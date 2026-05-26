@@ -12,12 +12,12 @@ import {
 import {
   useSchoolSuhaeng,
   useStudentSchool,
-  useSchools,
   updateStudentSchool,
+  findOrCreateSchool,
   type SchoolSuhaeng,
-  type School,
 } from "@/pages/middle-student/_hooks/useSchoolSuhaeng";
-import { supabase } from "@/lib/supabase";
+
+const NEIS_API_KEY = import.meta.env.VITE_NEIS_API_KEY
 
 type Mode = "list" | "practice" | "feedback"
 
@@ -93,35 +93,76 @@ function gradeToDb(studentGrade?: string | null): string | undefined {
   const m = studentGrade.match(/[123]/)
   return m ? m[0] : undefined
 }
-// ⭐ 학교 선택 모달
-function SchoolSelectModal({ studentId, currentSchoolId, onClose, onChanged }: {
+
+// ⭐ NEIS 학교 검색 모달 (자동 INSERT)
+interface NeisSchool {
+  SD_SCHUL_CODE: string
+  SCHUL_NM: string
+  SCHUL_KND_SC_NM: string
+  LCTN_SC_NM: string
+  ORG_RDNMA: string
+}
+
+function SchoolSelectModal({ studentId, onClose, onChanged }: {
   studentId: string
-  currentSchoolId?: string | null
   onClose: () => void
-  onChanged: (school: School) => void
+  onChanged: () => void
 }) {
-  const [search, setSearch] = useState('')
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<NeisSchool[]>([])
+  const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const { data: schools = [], isLoading } = useSchools('중학교')
 
-  const filteredSchools = React.useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return schools
-    return schools.filter(s =>
-      s.name.toLowerCase().includes(q) ||
-      (s.region?.toLowerCase().includes(q) ?? false)
-    )
-  }, [schools, search])
+  // 디바운스 검색
+  useEffect(() => {
+    if (!query.trim() || query.length < 2) {
+      setResults([])
+      return
+    }
+    setLoading(true)
+    const timer = setTimeout(async () => {
+      try {
+        const url = new URL('https://open.neis.go.kr/hub/schoolInfo')
+        url.searchParams.set('KEY', NEIS_API_KEY)
+        url.searchParams.set('Type', 'json')
+        url.searchParams.set('pIndex', '1')
+        url.searchParams.set('pSize', '20')
+        url.searchParams.set('SCHUL_NM', query.trim())
+        const res = await fetch(url.toString())
+        const data = await res.json()
+        if (data.schoolInfo && data.schoolInfo[1]?.row) {
+          // 중학교만 필터링
+          const filtered = data.schoolInfo[1].row.filter(
+            (s: NeisSchool) => s.SCHUL_KND_SC_NM === '중학교'
+          )
+          setResults(filtered)
+        } else {
+          setResults([])
+        }
+      } catch (e) {
+        console.error('[NEIS]', e)
+        setResults([])
+      } finally {
+        setLoading(false)
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [query])
 
-  const handleSelect = async (school: School) => {
-    if (school.id === currentSchoolId) { onClose(); return }
+  const handleSelect = async (neisSchool: NeisSchool) => {
     setSaving(true)
     try {
+      // 1. NEIS 정보로 schools 테이블에 찾기 or 생성
+      const school = await findOrCreateSchool(neisSchool)
+      // 2. profiles에 학교 정보 저장
       await updateStudentSchool(studentId, school.id, school.name)
-      onChanged(school)
+      onChanged()
       onClose()
-    } catch (e: any) { alert(`학교 변경 실패: ${e.message}`) }
-    finally { setSaving(false) }
+    } catch (e: any) {
+      alert(`학교 변경 실패: ${e.message}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -130,46 +171,50 @@ function SchoolSelectModal({ studentId, currentSchoolId, onClose, onChanged }: {
         <div className="flex items-center justify-between px-5 py-4 border-b border-line flex-shrink-0">
           <div>
             <div className="text-[15px] font-extrabold text-ink tracking-tight">🏫 학교 선택</div>
-            <div className="text-[11px] text-ink-muted mt-0.5">우리 학교 수행평가를 보려면 학교를 선택해주세요</div>
+            <div className="text-[11px] text-ink-muted mt-0.5">⚠️ 한 번 선택하면 변경할 수 없어요</div>
           </div>
           <button onClick={onClose} className="text-ink-muted hover:text-ink text-xl transition-colors">✕</button>
         </div>
         <div className="px-5 py-3 border-b border-line flex-shrink-0">
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 학교명 또는 지역 검색" autoFocus
+          <input type="text" value={query} onChange={e => setQuery(e.target.value)}
+            placeholder="🔍 학교명 검색 (예: 인천신정중)" autoFocus
             className="w-full h-10 px-3 text-[13px] border border-line rounded-lg focus:outline-none focus:border-brand-middle" />
         </div>
         <div className="flex-1 overflow-y-auto p-3">
-          {isLoading ? (
-            <div className="text-center py-10 text-[12px] text-ink-muted">불러오는 중...</div>
-          ) : filteredSchools.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-10 text-[12px] text-ink-muted">
+              <div className="inline-block w-5 h-5 border-2 border-gray-300 border-t-brand-middle rounded-full animate-spin mb-2" />
+              <div>검색 중...</div>
+            </div>
+          ) : query.length < 2 ? (
+            <div className="text-center py-10 text-ink-muted">
+              <div className="text-3xl mb-2">🔍</div>
+              <div className="text-[13px] font-medium mb-1">학교명을 2글자 이상 입력해주세요</div>
+              <div className="text-[11px]">전국 모든 중학교를 검색할 수 있어요</div>
+            </div>
+          ) : results.length === 0 ? (
             <div className="text-center py-10 text-ink-muted">
               <div className="text-3xl mb-2">🔍</div>
               <div className="text-[13px] font-medium mb-1">검색 결과가 없어요</div>
-              <div className="text-[11px]">학원에 문의해서 학교 등록을 요청해주세요</div>
+              <div className="text-[11px]">학교명을 정확히 입력해주세요</div>
             </div>
           ) : (
             <div className="space-y-1.5">
-              {filteredSchools.map(school => {
-                const isSelected = school.id === currentSchoolId
-                return (
-                  <button key={school.id} onClick={() => handleSelect(school)} disabled={saving}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all text-left ${isSelected ? 'border-brand-middle bg-brand-middle-pale' : 'border-line bg-white hover:border-brand-middle-light hover:shadow-sm'} disabled:opacity-50`}>
-                    <div className="flex items-center gap-2.5">
-                      <span>🏫</span>
-                      <div>
-                        <div className="text-[13px] font-bold text-ink">{school.name}</div>
-                        {school.region && <div className="text-[10.5px] text-ink-muted">{school.region}</div>}
-                      </div>
-                    </div>
-                    {isSelected && <span className="text-[10px] font-bold text-white bg-brand-middle px-2 py-0.5 rounded-full">현재</span>}
-                  </button>
-                )
-              })}
+              {results.map(school => (
+                <button key={school.SD_SCHUL_CODE} onClick={() => handleSelect(school)} disabled={saving}
+                  className="w-full flex items-start gap-2.5 px-4 py-3 rounded-xl border border-line bg-white hover:border-brand-middle-light hover:bg-brand-middle-pale/30 hover:shadow-sm transition-all text-left disabled:opacity-50">
+                  <span className="text-base flex-shrink-0">🏫</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-bold text-ink">{school.SCHUL_NM}</div>
+                    <div className="text-[10.5px] text-ink-muted mt-0.5 truncate">{school.LCTN_SC_NM} · {school.ORG_RDNMA}</div>
+                  </div>
+                </button>
+              ))}
             </div>
           )}
         </div>
         <div className="px-5 py-3 border-t border-line bg-gray-50">
-          <div className="text-[10.5px] text-ink-muted text-center">💡 우리 학교가 없으면 학원 선생님께 등록을 요청해주세요</div>
+          <div className="text-[10.5px] text-ink-muted text-center">⚠️ 학교는 한 번만 선택 가능해요 · 신중히 골라주세요</div>
         </div>
       </div>
     </div>
@@ -198,18 +243,15 @@ function SearchBox() {
   )
 }
 
-// ⭐ 풍부한 사이드바 (자료 검색 + 빠른 링크 + 작성 힌트 + 체크리스트)
 function PracticeSidebar({ q }: { q: any }) {
   return (
     <div className="w-[300px] flex-shrink-0 h-full overflow-y-auto pr-1 space-y-3">
-      {/* 자료 검색 */}
       <div className="bg-white border border-line rounded-xl p-4 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
         <div className="flex items-center gap-1.5 mb-2.5">
           <span className="text-brand-middle-dark">🔍</span>
           <span className="text-[12px] font-extrabold text-ink">자료 검색</span>
         </div>
         <SearchBox />
-
         {q.keywords && q.keywords.length > 0 && (
           <div className="mt-3">
             <div className="text-[10px] font-bold text-ink-muted mb-1.5">추천 키워드</div>
@@ -223,8 +265,6 @@ function PracticeSidebar({ q }: { q: any }) {
             </div>
           </div>
         )}
-
-        {/* 빠른 링크 */}
         <div className="mt-3 pt-3 border-t border-line">
           <div className="text-[10px] font-bold text-ink-muted mb-1.5">빠른 링크</div>
           <div className="space-y-1">
@@ -247,7 +287,6 @@ function PracticeSidebar({ q }: { q: any }) {
         </div>
       </div>
 
-      {/* 작성 힌트 (있을 때만) */}
       {q.hints && q.hints.length > 0 && (
         <div className="bg-white border border-line rounded-xl p-4 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
           <div className="flex items-center gap-1.5 mb-2.5">
@@ -265,7 +304,6 @@ function PracticeSidebar({ q }: { q: any }) {
         </div>
       )}
 
-      {/* 체크리스트 (있을 때만) */}
       {q.checklist && q.checklist.length > 0 && (
         <div className="bg-white border border-line rounded-xl p-4 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
           <div className="flex items-center gap-1.5 mb-2.5">
@@ -336,6 +374,7 @@ function PracticeHeader({ q, secondsLeft, onBack, onSubmit, onSaveDraft, canSubm
     </div>
   )
 }
+
 function EssayPractice({ q, onBack, onSubmit, submitting }: any) {
   const [answer, setAnswer] = useState(() => loadDraft(q)?.answer_text || "")
   const [secondsLeft, setSecondsLeft] = useState((q.timeLimit || 30) * 60)
@@ -506,6 +545,7 @@ function FeedbackView({ submission, onBack }: any) {
     </div>
   )
 }
+
 export default function Suhaeng() {
   const student = useAtomValue(studentState)
   const academy = useAtomValue(academyState)
@@ -527,12 +567,15 @@ export default function Suhaeng() {
     student?.grade ?? undefined,
   )
 
-  const { data: studentSchool } = useStudentSchool(studentId)
+  const { data: studentSchool, refetch: refetchStudentSchool } = useStudentSchool(studentId)
   const { data: schoolSuhaengList = [], isLoading: loadingSchool } = useSchoolSuhaeng(
     studentSchool?.school_id, studentGrade, '1',
   )
 
   const mySchoolSuhaeng = schoolSuhaengList.map(s => schoolSuhaengToUI(s, studentSchool?.school_name || '우리 학교'))
+
+  // ⭐ 학교 선택됐는지 (한 번이라도)
+  const hasSchoolSelected = !!studentSchool?.school_id
 
   const startPractice = (question: any) => {
     const existingKey = question._isAcademy ? `academy-${question.id}` : question._isSchool ? `school-${question.id}` : `practice-${question.id}`
@@ -616,10 +659,11 @@ export default function Suhaeng() {
                   )}
                 </div>
               </div>
-              {studentId && (
+              {/* ⭐ 한 번도 선택 안 했을 때만 "학교 선택" 버튼 표시 */}
+              {studentId && !hasSchoolSelected && (
                 <button onClick={() => setShowSchoolModal(true)}
                   className="text-[11px] font-bold text-brand-middle-dark bg-brand-middle-pale border border-brand-middle-light px-3 py-1.5 rounded-full hover:bg-brand-middle hover:text-white transition-all">
-                  {studentSchool?.school_name ? '🏫 학교 변경' : '+ 학교 선택'}
+                  + 학교 선택
                 </button>
               )}
             </div>
@@ -632,7 +676,7 @@ export default function Suhaeng() {
             <div className="px-4 py-10 text-center">
               <div className="text-4xl mb-3">🏫</div>
               <div className="text-[13px] font-bold text-ink mb-1">학교를 선택해주세요</div>
-              <div className="text-[11px] text-ink-muted mb-4">우리 학교 수행평가를 보려면 학교를 먼저 선택해주세요</div>
+              <div className="text-[11px] text-ink-muted mb-4">⚠️ 한 번 선택하면 변경할 수 없으니 신중히 선택해주세요</div>
               <button onClick={() => setShowSchoolModal(true)}
                 className="h-9 px-5 bg-brand-middle hover:bg-brand-middle-hover text-white text-[12px] font-bold rounded-lg transition-all">
                 + 학교 선택하기
@@ -739,13 +783,15 @@ export default function Suhaeng() {
         </div>
       )}
 
-      {/* 학교 선택 모달 */}
+      {/* 학교 선택 모달 (NEIS 검색) */}
       {showSchoolModal && studentId && (
         <SchoolSelectModal
           studentId={studentId}
-          currentSchoolId={studentSchool?.school_id}
           onClose={() => setShowSchoolModal(false)}
-          onChanged={() => window.location.reload()}
+          onChanged={() => {
+            refetchStudentSchool()
+            window.location.reload()
+          }}
         />
       )}
     </div>

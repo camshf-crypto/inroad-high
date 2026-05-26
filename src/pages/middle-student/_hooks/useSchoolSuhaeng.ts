@@ -8,6 +8,7 @@ export interface School {
   name: string
   region: string | null
   school_type: string
+  neis_code?: string | null
 }
 
 export interface SchoolSuhaeng {
@@ -27,7 +28,7 @@ export interface SchoolSuhaeng {
   
   // 평가
   task_title: string
-  eval_type: string                  // 원본: "논술형"/"서술형"/"포트폴리오형"...
+  eval_type: string
   score: number | null
   eval_period: string | null
   
@@ -38,7 +39,7 @@ export interface SchoolSuhaeng {
   scoring_criteria_ai: string | null
   
   // UI 표시용
-  display_type: string               // 시스템용: "논술형"/"서술형"/"주제탐구"/"구술발표"/"탐구수행"/"포트폴리오"
+  display_type: string
   min_chars: number | null
   max_chars: number | null
   time_limit: number
@@ -126,4 +127,37 @@ export async function updateStudentSchool(studentId: string, schoolId: string, s
     .update({ school_id: schoolId, school_name: schoolName })
     .eq('id', studentId)
   if (error) throw error
+}
+
+// ⭐ NEIS 정보로 schools에 학교 찾기 또는 생성
+export async function findOrCreateSchool(neisData: {
+  SD_SCHUL_CODE: string
+  SCHUL_NM: string
+  SCHUL_KND_SC_NM: string
+  LCTN_SC_NM: string
+}): Promise<{ id: string; name: string }> {
+  // 1. neis_code로 기존 학교 찾기
+  const { data: existing, error: findError } = await supabase
+    .from('schools')
+    .select('id, name')
+    .eq('neis_code', neisData.SD_SCHUL_CODE)
+    .maybeSingle()
+
+  if (findError) throw findError
+  if (existing) return existing
+
+  // 2. 없으면 새로 생성
+  const { data: created, error: createError } = await supabase
+    .from('schools')
+    .insert({
+      name: neisData.SCHUL_NM,
+      region: neisData.LCTN_SC_NM,
+      school_type: neisData.SCHUL_KND_SC_NM,
+      neis_code: neisData.SD_SCHUL_CODE,
+    })
+    .select('id, name')
+    .single()
+
+  if (createError) throw createError
+  return created
 }
