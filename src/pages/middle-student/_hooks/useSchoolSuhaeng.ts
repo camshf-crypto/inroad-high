@@ -14,39 +14,27 @@ export interface School {
 export interface SchoolSuhaeng {
   id: string
   school_id: string
-  
-  // 기본
   grade: string
   semester: string
   year: number
-  
-  // 과목/주제
   subject: string
   unit_topic: string | null
   achievement_standard: string | null
   core_concept: string | null
-  
-  // 평가
   task_title: string
   eval_type: string
   score: number | null
   eval_period: string | null
-  
-  // 채점 (AI 피드백용)
   scoring_factors: string | null
   grade_scale: string | null
   scoring_criteria_original: string | null
   scoring_criteria_ai: string | null
-  
-  // UI 표시용
   display_type: string
   min_chars: number | null
   max_chars: number | null
   time_limit: number
-  
   present_time_min: number | null
   present_time_max: number | null
-  
   sections: any[] | null
   hints: any[] | null
   checklist: string[] | null
@@ -102,7 +90,7 @@ export function useSchoolSuhaeng(schoolId?: string | null, grade?: string, semes
   })
 }
 
-// 학생 프로필에서 학교 정보 조회
+// 학생 프로필에서 학교 정보 + 변경 카운트 조회
 export function useStudentSchool(studentId?: string) {
   return useQuery({
     queryKey: ['student-school', studentId],
@@ -110,7 +98,7 @@ export function useStudentSchool(studentId?: string) {
       if (!studentId) return null
       const { data, error } = await supabase
         .from('profiles')
-        .select('school_id, school_name')
+        .select('school_id, school_name, school_change_count')
         .eq('id', studentId)
         .maybeSingle()
       if (error) throw error
@@ -120,16 +108,28 @@ export function useStudentSchool(studentId?: string) {
   })
 }
 
-// 학생 학교 정보 업데이트
+// 학생 학교 정보 업데이트 + 카운트 증가
 export async function updateStudentSchool(studentId: string, schoolId: string, schoolName: string) {
+  const { data: current } = await supabase
+    .from('profiles')
+    .select('school_change_count')
+    .eq('id', studentId)
+    .maybeSingle()
+
+  const newCount = (current?.school_change_count || 0) + 1
+
   const { error } = await supabase
     .from('profiles')
-    .update({ school_id: schoolId, school_name: schoolName })
+    .update({
+      school_id: schoolId,
+      school_name: schoolName,
+      school_change_count: newCount,
+    })
     .eq('id', studentId)
   if (error) throw error
 }
 
-// ⭐ NEIS 정보로 schools에 학교 찾기 또는 생성
+// NEIS 정보로 schools에 학교 찾기 또는 생성 (UNIQUE 제약 대응)
 export async function findOrCreateSchool(neisData: {
   SD_SCHUL_CODE: string
   SCHUL_NM: string
@@ -137,16 +137,35 @@ export async function findOrCreateSchool(neisData: {
   LCTN_SC_NM: string
 }): Promise<{ id: string; name: string }> {
   // 1. neis_code로 기존 학교 찾기
-  const { data: existing, error: findError } = await supabase
+  const { data: byCode, error: codeError } = await supabase
     .from('schools')
     .select('id, name')
     .eq('neis_code', neisData.SD_SCHUL_CODE)
     .maybeSingle()
 
-  if (findError) throw findError
-  if (existing) return existing
+  if (codeError) throw codeError
+  if (byCode) return byCode
 
-  // 2. 없으면 새로 생성
+  // 2. name으로도 찾기 (이미 다른 학생이 등록했을 수 있음)
+  const { data: byName, error: nameError } = await supabase
+    .from('schools')
+    .select('id, name, neis_code')
+    .eq('name', neisData.SCHUL_NM)
+    .maybeSingle()
+
+  if (nameError) throw nameError
+
+  if (byName) {
+    if (!byName.neis_code) {
+      await supabase
+        .from('schools')
+        .update({ neis_code: neisData.SD_SCHUL_CODE })
+        .eq('id', byName.id)
+    }
+    return { id: byName.id, name: byName.name }
+  }
+
+  // 3. 둘 다 없으면 새로 INSERT
   const { data: created, error: createError } = await supabase
     .from('schools')
     .insert({

@@ -94,7 +94,6 @@ function gradeToDb(studentGrade?: string | null): string | undefined {
   return m ? m[0] : undefined
 }
 
-// ⭐ NEIS 학교 검색 모달 (자동 INSERT)
 interface NeisSchool {
   SD_SCHUL_CODE: string
   SCHUL_NM: string
@@ -103,7 +102,8 @@ interface NeisSchool {
   ORG_RDNMA: string
 }
 
-function SchoolSelectModal({ studentId, onClose, onChanged }: {
+// 학교 변경 모달 (NEIS 검색)
+function SchoolChangeModal({ studentId, onClose, onChanged }: {
   studentId: string
   onClose: () => void
   onChanged: () => void
@@ -113,7 +113,6 @@ function SchoolSelectModal({ studentId, onClose, onChanged }: {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  // 디바운스 검색
   useEffect(() => {
     if (!query.trim() || query.length < 2) {
       setResults([])
@@ -131,7 +130,6 @@ function SchoolSelectModal({ studentId, onClose, onChanged }: {
         const res = await fetch(url.toString())
         const data = await res.json()
         if (data.schoolInfo && data.schoolInfo[1]?.row) {
-          // 중학교만 필터링
           const filtered = data.schoolInfo[1].row.filter(
             (s: NeisSchool) => s.SCHUL_KND_SC_NM === '중학교'
           )
@@ -150,11 +148,11 @@ function SchoolSelectModal({ studentId, onClose, onChanged }: {
   }, [query])
 
   const handleSelect = async (neisSchool: NeisSchool) => {
+    if (!confirm(`"${neisSchool.SCHUL_NM}"으로 변경하시겠어요?\n\n⚠️ 변경 후에는 더 이상 학교를 바꿀 수 없어요.`)) return
+
     setSaving(true)
     try {
-      // 1. NEIS 정보로 schools 테이블에 찾기 or 생성
       const school = await findOrCreateSchool(neisSchool)
-      // 2. profiles에 학교 정보 저장
       await updateStudentSchool(studentId, school.id, school.name)
       onChanged()
       onClose()
@@ -170,14 +168,14 @@ function SchoolSelectModal({ studentId, onClose, onChanged }: {
       <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl w-[480px] max-h-[80vh] flex flex-col shadow-[0_20px_60px_rgba(15,23,42,0.25)]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-line flex-shrink-0">
           <div>
-            <div className="text-[15px] font-extrabold text-ink tracking-tight">🏫 학교 선택</div>
-            <div className="text-[11px] text-ink-muted mt-0.5">⚠️ 한 번 선택하면 변경할 수 없어요</div>
+            <div className="text-[15px] font-extrabold text-ink tracking-tight">🏫 학교 변경</div>
+            <div className="text-[11px] text-red-600 mt-0.5 font-bold">⚠️ 마지막 변경 기회입니다 (1회만 가능)</div>
           </div>
           <button onClick={onClose} className="text-ink-muted hover:text-ink text-xl transition-colors">✕</button>
         </div>
         <div className="px-5 py-3 border-b border-line flex-shrink-0">
           <input type="text" value={query} onChange={e => setQuery(e.target.value)}
-            placeholder="🔍 학교명 검색 (예: 인천신정중)" autoFocus
+            placeholder="🔍 학교명 검색 (예: 남춘천여자중)" autoFocus
             className="w-full h-10 px-3 text-[13px] border border-line rounded-lg focus:outline-none focus:border-brand-middle" />
         </div>
         <div className="flex-1 overflow-y-auto p-3">
@@ -190,13 +188,11 @@ function SchoolSelectModal({ studentId, onClose, onChanged }: {
             <div className="text-center py-10 text-ink-muted">
               <div className="text-3xl mb-2">🔍</div>
               <div className="text-[13px] font-medium mb-1">학교명을 2글자 이상 입력해주세요</div>
-              <div className="text-[11px]">전국 모든 중학교를 검색할 수 있어요</div>
             </div>
           ) : results.length === 0 ? (
             <div className="text-center py-10 text-ink-muted">
               <div className="text-3xl mb-2">🔍</div>
               <div className="text-[13px] font-medium mb-1">검색 결과가 없어요</div>
-              <div className="text-[11px]">학교명을 정확히 입력해주세요</div>
             </div>
           ) : (
             <div className="space-y-1.5">
@@ -213,8 +209,8 @@ function SchoolSelectModal({ studentId, onClose, onChanged }: {
             </div>
           )}
         </div>
-        <div className="px-5 py-3 border-t border-line bg-gray-50">
-          <div className="text-[10.5px] text-ink-muted text-center">⚠️ 학교는 한 번만 선택 가능해요 · 신중히 골라주세요</div>
+        <div className="px-5 py-3 border-t border-line bg-red-50">
+          <div className="text-[10.5px] text-red-700 text-center font-semibold">⚠️ 한 번 변경하면 더 이상 수정할 수 없어요</div>
         </div>
       </div>
     </div>
@@ -552,7 +548,7 @@ export default function Suhaeng() {
   const [mode, setMode] = useState<Mode>("list")
   const [selectedQuestion, setSelectedQuestion] = useState<any>(null)
   const [showAllModal, setShowAllModal] = useState(false)
-  const [showSchoolModal, setShowSchoolModal] = useState(false)
+  const [showChangeModal, setShowChangeModal] = useState(false)
   const [feedbackSubmission, setFeedbackSubmission] = useState<any>(null)
 
   const studentId = student?.id ? String(student.id) : undefined
@@ -562,20 +558,19 @@ export default function Suhaeng() {
   const { data: mySubmissions } = useMySuhaengSubmissions(studentId) as { data: any[] | undefined }
 
   const { data: academyQuestions = [], isLoading: loadingAcademy } = useMyAcademyQuestions(
-    studentId,
-    academy?.academyId ? String(academy.academyId) : undefined,
-    student?.grade ?? undefined,
+    studentId, academy?.academyId ? String(academy.academyId) : undefined, student?.grade ?? undefined,
   )
 
-  const { data: studentSchool, refetch: refetchStudentSchool } = useStudentSchool(studentId)
+  const { data: studentSchool } = useStudentSchool(studentId)
   const { data: schoolSuhaengList = [], isLoading: loadingSchool } = useSchoolSuhaeng(
     studentSchool?.school_id, studentGrade, '1',
   )
 
   const mySchoolSuhaeng = schoolSuhaengList.map(s => schoolSuhaengToUI(s, studentSchool?.school_name || '우리 학교'))
 
-  // ⭐ 학교 선택됐는지 (한 번이라도)
-  const hasSchoolSelected = !!studentSchool?.school_id
+  // ⭐ 학교 변경 가능 여부 (school_change_count < 2: 회원가입(1) + 1회 변경)
+  const changeCount = studentSchool?.school_change_count || 0
+  const canChangeSchool = changeCount < 2
 
   const startPractice = (question: any) => {
     const existingKey = question._isAcademy ? `academy-${question.id}` : question._isSchool ? `school-${question.id}` : `practice-${question.id}`
@@ -594,18 +589,12 @@ export default function Suhaeng() {
     const questionKey = isAcademy ? `academy-${q.id}` : isSchool ? `school-${q.id}` : `practice-${q.id}`
     try {
       await submitAnswer.mutateAsync({
-        student_id: String(student.id),
-        academy_id: String(academy.academyId),
-        question_key: questionKey,
-        question_type: q.type,
-        question_title: q.title,
-        question_content: q.content,
-        question_category: isAcademy ? "academy" : isSchool ? "school" : "practice",
+        student_id: String(student.id), academy_id: String(academy.academyId),
+        question_key: questionKey, question_type: q.type, question_title: q.title,
+        question_content: q.content, question_category: isAcademy ? "academy" : isSchool ? "school" : "practice",
         question_school_name: isAcademy ? "학원 수행평가" : isSchool ? q.schoolName : "우리 학교",
-        question_subject: q.subject,
-        question_ratio: q.ratio || null,
-        question_min_chars: q.minChars || null,
-        question_max_chars: q.maxChars || null,
+        question_subject: q.subject, question_ratio: q.ratio || null,
+        question_min_chars: q.minChars || null, question_max_chars: q.maxChars || null,
         ...answerData,
       })
       alert("✅ 제출 완료!")
@@ -645,7 +634,6 @@ export default function Suhaeng() {
       </div>
 
       <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4 min-h-0">
-        {/* 우리 학교 수행평가 */}
         <div className="bg-white border border-line rounded-xl shadow-[0_4px_16px_rgba(15,23,42,0.04)] flex-shrink-0">
           <div className="px-4 py-3 border-b border-line flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -655,15 +643,15 @@ export default function Suhaeng() {
                   {studentSchool?.school_name ? (
                     <>{studentSchool.school_name} · {student?.grade} · 2026학년도 1학기</>
                   ) : (
-                    <>학교를 선택해주세요</>
+                    <>학교 정보가 없어요</>
                   )}
                 </div>
               </div>
-              {/* ⭐ 한 번도 선택 안 했을 때만 "학교 선택" 버튼 표시 */}
-              {studentId && !hasSchoolSelected && (
-                <button onClick={() => setShowSchoolModal(true)}
+              {/* ⭐ 1회 변경 가능 (school_change_count < 2) */}
+              {studentId && canChangeSchool && (
+                <button onClick={() => setShowChangeModal(true)}
                   className="text-[11px] font-bold text-brand-middle-dark bg-brand-middle-pale border border-brand-middle-light px-3 py-1.5 rounded-full hover:bg-brand-middle hover:text-white transition-all">
-                  + 학교 선택
+                  🏫 학교 변경 (1회 남음)
                 </button>
               )}
             </div>
@@ -673,14 +661,10 @@ export default function Suhaeng() {
           </div>
 
           {!studentSchool?.school_id ? (
-            <div className="px-4 py-10 text-center">
-              <div className="text-4xl mb-3">🏫</div>
-              <div className="text-[13px] font-bold text-ink mb-1">학교를 선택해주세요</div>
-              <div className="text-[11px] text-ink-muted mb-4">⚠️ 한 번 선택하면 변경할 수 없으니 신중히 선택해주세요</div>
-              <button onClick={() => setShowSchoolModal(true)}
-                className="h-9 px-5 bg-brand-middle hover:bg-brand-middle-hover text-white text-[12px] font-bold rounded-lg transition-all">
-                + 학교 선택하기
-              </button>
+            <div className="px-4 py-10 text-center text-ink-muted">
+              <div className="text-3xl mb-2">🏫</div>
+              <div className="text-[13px] font-bold text-ink mb-1">학교 정보가 없어요</div>
+              <div className="text-[11px]">학원에 문의해주세요</div>
             </div>
           ) : loadingSchool ? (
             <div className="px-4 py-10 text-center text-ink-muted text-[12px]">
@@ -717,7 +701,6 @@ export default function Suhaeng() {
           )}
         </div>
 
-        {/* 학원 수행평가 */}
         <div className="bg-white border border-line rounded-xl shadow-[0_4px_16px_rgba(15,23,42,0.04)] flex-shrink-0">
           <div className="px-4 py-3 border-b border-line">
             <div className="text-[14px] font-extrabold text-ink tracking-tight">📋 학원 수행평가</div>
@@ -752,7 +735,6 @@ export default function Suhaeng() {
         </div>
       </div>
 
-      {/* 전체 보기 모달 */}
       {showAllModal && studentSchool?.school_id && (
         <div onClick={() => setShowAllModal(false)} className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center backdrop-blur-sm">
           <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl w-[720px] max-h-[80vh] flex flex-col shadow-[0_20px_60px_rgba(15,23,42,0.25)]">
@@ -783,15 +765,11 @@ export default function Suhaeng() {
         </div>
       )}
 
-      {/* 학교 선택 모달 (NEIS 검색) */}
-      {showSchoolModal && studentId && (
-        <SchoolSelectModal
+      {showChangeModal && studentId && (
+        <SchoolChangeModal
           studentId={studentId}
-          onClose={() => setShowSchoolModal(false)}
-          onChanged={() => {
-            refetchStudentSchool()
-            window.location.reload()
-          }}
+          onClose={() => setShowChangeModal(false)}
+          onChanged={() => window.location.reload()}
         />
       )}
     </div>
