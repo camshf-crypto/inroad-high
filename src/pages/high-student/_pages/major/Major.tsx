@@ -12,7 +12,6 @@ import {
   useMySaenggibu,
   useSaveSaenggibu,
   uploadSaenggibuMajor,
-  getAIFeedback,
   gradeStringToNum,
   type MajorChapter,
   type MajorQuestion,
@@ -35,14 +34,14 @@ export default function Major() {
 
   const screen = location.pathname.endsWith('chapter') ? 'chapter'
     : location.pathname.endsWith('grade') ? 'grade'
-    : 'dept'
+      : 'dept'
 
   const [deptSearch, setDeptSearch] = useState('')
   const [selMajorId, setSelMajorId] = useState<string | null>(null)
   const [selMajorName, setSelMajorName] = useState('')
   const [selGrade, setSelGrade] = useState<string>('')
   const [selChapterId, setSelChapterId] = useState<string | null>(null)
-  
+
   // 답변 상태
   const [currentQIndex, setCurrentQIndex] = useState(0)
   const [retryMode, setRetryMode] = useState(false)
@@ -50,7 +49,6 @@ export default function Major() {
   const [objAnswers, setObjAnswers] = useState<Record<string, string>>({}) // questionId -> answer
   const [retryAnswers, setRetryAnswers] = useState<Record<string, string>>({})
   const [subjInput, setSubjInput] = useState('')
-  const [aiLoading, setAiLoading] = useState(false)
 
   // 생기부
   const [bioFile, setBioFile] = useState<File | null>(null)
@@ -77,10 +75,10 @@ export default function Major() {
   const saveSaenggibu = useSaveSaenggibu()
 
   const filteredMajors = majors.filter(m => m.name.includes(deptSearch))
-  
+
   const objQuestions = questions?.objective || []
   const subjQuestion = questions?.subjective || null
-  
+
   // 진행 정보
   const isAnsweredObj = chapterProgress?.obj_answers && Array.isArray(chapterProgress.obj_answers) && chapterProgress.obj_answers.length > 0
   const objAnswered = isAnsweredObj ? chapterProgress.obj_answers : []
@@ -99,16 +97,16 @@ export default function Major() {
     if (saenggibu?.status === 'uploaded' || saenggibu?.status === 'generating') {
       setProgressPercent(0)
       setElapsedSec(0)
-      
+
       const startTime = Date.now()
       const interval = setInterval(() => {
         const elapsed = (Date.now() - startTime) / 1000
         setElapsedSec(Math.floor(elapsed))
-        
+
         const pct = Math.min(95, (elapsed / AI_GENERATION_AVG_SEC) * 95)
         setProgressPercent(pct)
       }, 500)
-      
+
       return () => clearInterval(interval)
     } else if (saenggibu?.status === 'ready') {
       setProgressPercent(100)
@@ -167,13 +165,13 @@ export default function Major() {
       return
     }
     if (!chapterProgress) return
-    
+
     const answers = objQuestions.map(q => ({
       question_id: q.id,
       user_answer: objAnswers[q.id] || '',
       is_correct: objAnswers[q.id] === q.correct_answer,
     }))
-    
+
     try {
       await submitObj.mutateAsync({ progressId: chapterProgress.id, answers })
       setCurrentQIndex(4)
@@ -182,23 +180,19 @@ export default function Major() {
     }
   }
 
-  // 주관식 제출 + AI 피드백
+  // 주관식 제출 (AI 피드백 없이 바로 저장)
   const handleSubmitSubj = async () => {
     if (!subjQuestion || !chapterProgress || !subjInput.trim()) return
-    setAiLoading(true)
     try {
-      const aiFeedback = await getAIFeedback(subjQuestion.question_text, subjInput, selMajorName)
       await submitSubj.mutateAsync({
         progressId: chapterProgress.id,
         questionId: subjQuestion.id,
         answer: subjInput,
-        aiFeedback,
+        aiFeedback: '',
       })
       setSubjInput('')
     } catch (e: any) {
       alert('주관식 저장 실패: ' + e.message)
-    } finally {
-      setAiLoading(false)
     }
   }
 
@@ -232,8 +226,8 @@ export default function Major() {
         </div>
         <div className="relative max-w-[360px]">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2">
-            <circle cx="11" cy="11" r="8"/>
-            <path d="m21 21-4.35-4.35"/>
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
           </svg>
           <input
             value={deptSearch}
@@ -414,14 +408,14 @@ export default function Major() {
                     {Math.floor(progressPercent)}%
                   </span>
                 </div>
-                
+
                 <div className="h-2.5 bg-amber-100 rounded-full overflow-hidden mb-2">
                   <div
                     className="h-full bg-gradient-to-r from-amber-400 to-amber-600 transition-all duration-500 ease-out rounded-full"
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between text-[10px] text-ink-muted font-medium">
                   <span>경과: {Math.floor(elapsedSec / 60)}분 {elapsedSec % 60}초</span>
                   <span>예상: 약 1~2분</span>
@@ -442,12 +436,10 @@ export default function Major() {
                     const isCurrent = progressPercent > (i === 0 ? 0 : (i === 1 ? 5 : i === 2 ? 25 : i === 3 ? 50 : 80)) && !isDone
                     return (
                       <div key={i} className="flex items-center gap-2.5">
-                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                          isDone ? 'bg-emerald-500' : isCurrent ? 'bg-amber-500 animate-pulse' : 'bg-gray-300'
-                        }`} />
-                        <span className={`text-[11px] font-semibold ${
-                          isDone ? 'text-emerald-700' : isCurrent ? 'text-amber-700' : 'text-ink-muted'
-                        }`}>
+                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isDone ? 'bg-emerald-500' : isCurrent ? 'bg-amber-500 animate-pulse' : 'bg-gray-300'
+                          }`} />
+                        <span className={`text-[11px] font-semibold ${isDone ? 'text-emerald-700' : isCurrent ? 'text-amber-700' : 'text-ink-muted'
+                          }`}>
                           {step.label}
                         </span>
                         {isDone && (
@@ -588,9 +580,8 @@ export default function Major() {
                 <button
                   key={ch.id}
                   onClick={() => selectChapter(ch)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg mb-0.5 transition-all text-left ${
-                    selChapterId === ch.id ? 'bg-blue-50 text-blue-700 font-bold' : 'text-ink-secondary hover:bg-gray-50 font-medium'
-                  }`}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg mb-0.5 transition-all text-left ${selChapterId === ch.id ? 'bg-blue-50 text-blue-700 font-bold' : 'text-ink-secondary hover:bg-gray-50 font-medium'
+                    }`}
                 >
                   <span className="text-[12px]">{ch.title}</span>
                   <span className={`text-[11px] font-bold ${isDone ? 'text-emerald-500' : 'text-gray-300'}`}>
@@ -713,47 +704,51 @@ export default function Major() {
 
                   {selProgress?.subj_answer ? (
                     <div>
+                      {/* 내 답변 */}
                       <div className="bg-gray-50 border border-line rounded-xl px-4 py-3 text-[13px] text-ink leading-relaxed mb-3.5">
+                        <div className="font-extrabold mb-2 text-ink-secondary">내 답변</div>
                         {selProgress.subj_answer}
                       </div>
 
-                      {selProgress.subj_ai_feedback ? (
-                        <>
-                          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5 text-[13px] text-amber-900 leading-relaxed mb-3.5">
-                            <div className="font-extrabold mb-2 text-amber-700">AI 피드백</div>
-                            {selProgress.subj_ai_feedback}
-                          </div>
-
-                          {wrongQs.length > 0 && (
-                            <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-3.5 flex items-center justify-between mb-3.5">
-                              <div className="text-[13px] font-bold text-red-600">
-                                객관식 {score}/4 · 틀린 문제 {wrongQs.length}개
-                              </div>
-                              <button onClick={() => { setRetryMode(true); setRetryIndex(0); setRetryAnswers({}) }} className="px-4 py-2 bg-red-500 text-white rounded-lg text-[12px] font-bold hover:bg-red-600 transition-all shadow-sm">
-                                다시 풀기
-                              </button>
-                            </div>
-                          )}
-
-                          {chapters.findIndex(c => c.id === selChapterId) < chapters.length - 1 && (
-                            <button
-                              onClick={() => {
-                                const idx = chapters.findIndex(c => c.id === selChapterId)
-                                if (idx >= 0 && idx < chapters.length - 1) {
-                                  selectChapter(chapters[idx + 1])
-                                }
-                              }}
-                              className="w-full h-12 bg-emerald-600 text-white rounded-xl text-[14px] font-bold hover:bg-emerald-700 transition-all shadow-lg"
-                            >
-                              다음 챕터로
-                            </button>
-                          )}
-                        </>
-                      ) : (
-                        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3.5 text-[13px] text-blue-700 font-semibold flex items-center gap-2.5">
-                          <div className="w-4 h-4 border-[2.5px] border-blue-500 border-t-transparent rounded-full animate-spin" />
-                          AI 피드백 생성 중...
+                      {/* 모범답안 */}
+                      {subjQuestion.correct_answer && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3.5 text-[13px] text-blue-900 leading-relaxed mb-3.5">
+                          <div className="font-extrabold mb-2 text-blue-700">모범답안</div>
+                          {subjQuestion.correct_answer}
                         </div>
+                      )}
+
+                      {/* 해설 */}
+                      {subjQuestion.explanation && (
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3.5 text-[13px] text-emerald-900 leading-relaxed mb-3.5">
+                          <div className="font-extrabold mb-2 text-emerald-700">해설</div>
+                          {subjQuestion.explanation}
+                        </div>
+                      )}
+
+                      {wrongQs.length > 0 && (
+                        <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-3.5 flex items-center justify-between mb-3.5">
+                          <div className="text-[13px] font-bold text-red-600">
+                            객관식 {score}/4 · 틀린 문제 {wrongQs.length}개
+                          </div>
+                          <button onClick={() => { setRetryMode(true); setRetryIndex(0); setRetryAnswers({}) }} className="px-4 py-2 bg-red-500 text-white rounded-lg text-[12px] font-bold hover:bg-red-600 transition-all shadow-sm">
+                            다시 풀기
+                          </button>
+                        </div>
+                      )}
+
+                      {chapters.findIndex(c => c.id === selChapterId) < chapters.length - 1 && (
+                        <button
+                          onClick={() => {
+                            const idx = chapters.findIndex(c => c.id === selChapterId)
+                            if (idx >= 0 && idx < chapters.length - 1) {
+                              selectChapter(chapters[idx + 1])
+                            }
+                          }}
+                          className="w-full h-12 bg-emerald-600 text-white rounded-xl text-[14px] font-bold hover:bg-emerald-700 transition-all shadow-lg"
+                        >
+                          다음 챕터로
+                        </button>
                       )}
                     </div>
                   ) : (
@@ -767,10 +762,10 @@ export default function Major() {
                       />
                       <button
                         onClick={handleSubmitSubj}
-                        disabled={!subjInput.trim() || aiLoading || submitSubj.isPending}
+                        disabled={!subjInput.trim() || submitSubj.isPending}
                         className={`w-full h-12 rounded-xl text-[14px] font-bold mt-3 transition-all ${subjInput.trim() ? 'bg-ink text-white hover:bg-ink-secondary shadow-lg' : 'bg-gray-200 text-ink-muted cursor-not-allowed'}`}
                       >
-                        {aiLoading || submitSubj.isPending ? '제출 중...' : '제출하기'}
+                        {submitSubj.isPending ? '제출 중...' : '제출하기'}
                       </button>
                     </>
                   )}

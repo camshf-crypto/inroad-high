@@ -385,14 +385,26 @@ export default function MajorTab({ student }: { student: any }) {
                     </div>
                   </div>
 
-                  {/* AI 피드백 */}
-                  {chapterDetail.progress.subj_ai_feedback && (
-                    <div className="rounded-lg px-3 py-2.5" style={{ background: '#FFF7ED', border: '1px solid #FDBA7460' }}>
-                      <div className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#D97706' }}>
-                        ✨ AI 피드백
+                  {/* 모범답안 */}
+                  {chapterDetail.subjQuestion.correct_answer && (
+                    <div className="rounded-lg px-3 py-2.5 mb-3" style={{ background: '#EFF6FF', border: '1px solid #93C5FD60' }}>
+                      <div className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#2563EB' }}>
+                        ✅ 모범답안
                       </div>
-                      <div className="text-[12px] font-medium text-amber-800 leading-[1.7] whitespace-pre-wrap">
-                        {chapterDetail.progress.subj_ai_feedback}
+                      <div className="text-[12px] font-medium text-blue-900 leading-[1.7] whitespace-pre-wrap">
+                        {chapterDetail.subjQuestion.correct_answer}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 해설 */}
+                  {chapterDetail.subjQuestion.explanation && (
+                    <div className="rounded-lg px-3 py-2.5" style={{ background: '#ECFDF5', border: '1px solid #6EE7B760' }}>
+                      <div className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#059669' }}>
+                        💡 해설
+                      </div>
+                      <div className="text-[12px] font-medium text-emerald-900 leading-[1.7] whitespace-pre-wrap">
+                        {chapterDetail.subjQuestion.explanation}
                       </div>
                     </div>
                   )}
