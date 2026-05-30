@@ -1,8 +1,136 @@
 // src/pages/admin/_pages/reports/Reports.tsx
 // 어드민 사이드바 → 월간 보고서 (고등/중등 통합)
-// 🚀 월말 일괄 발행 기능 추가
+// 실제 DB 연동 버전 - 단일 파일
 
 import { useState, useMemo, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
+
+// ════════════════════════════════════════════════════════
+// 📡 DB Hooks (같은 파일에 통합)
+// ════════════════════════════════════════════════════════
+
+interface AcademyStudentReport {
+  student_id: string
+  student_name: string
+  student_grade: string
+  student_school: string | null
+  student_avatar_url: string | null
+  teacher_id: string | null
+  essay_count: number
+  past_answer_count: number
+  simulation_count: number
+  interview_count: number
+  passage_count: number
+  reading_count: number
+  lessons_progress_count: number
+  homework_submission_count: number
+  suhaeng_count: number
+  major_answer_count: number
+  research_count: number
+  report_id: string | null
+  is_published: boolean | null
+  ai_comment_draft: string | null
+  teacher_comment: string | null
+  published_at: string | null
+  report_updated_at: string | null
+}
+
+interface SaveReportInput {
+  student_id: string
+  academy_id: string
+  grade_level: 'high' | 'middle'
+  year_month: string
+  ai_comment_draft?: string
+  teacher_comment?: string
+}
+
+// 학원의 학생들 + 월간 데이터 + 발행 상태
+function useAcademyMonthlySummary(
+  academyId: string | null,
+  gradeLevel: 'high' | 'middle',
+  yearMonth: string
+) {
+  return useQuery({
+    queryKey: ['academy-monthly-summary', academyId, gradeLevel, yearMonth],
+    enabled: !!academyId,
+    queryFn: async (): Promise<AcademyStudentReport[]> => {
+      const { data, error } = await supabase.rpc('get_academy_monthly_summary', {
+        p_academy_id: academyId,
+        p_year_month: yearMonth,
+        p_grade_level: gradeLevel,
+      })
+      if (error) throw error
+      return (data as AcademyStudentReport[]) || []
+    },
+  })
+}
+
+// 보고서 저장 (임시 저장)
+function useSaveReport() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: SaveReportInput) => {
+      const { data, error } = await supabase
+        .from('parent_monthly_reports')
+        .upsert(
+          {
+            student_id: input.student_id,
+            academy_id: input.academy_id,
+            grade_level: input.grade_level,
+            year_month: input.year_month,
+            ai_comment_draft: input.ai_comment_draft || null,
+            teacher_comment: input.teacher_comment || null,
+          },
+          { onConflict: 'student_id,year_month' }
+        )
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['academy-monthly-summary'] })
+    },
+  })
+}
+
+// 보고서 발행 (is_published = true)
+function usePublishReport() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: SaveReportInput) => {
+      const { data: userData } = await supabase.auth.getUser()
+      const { data, error } = await supabase
+        .from('parent_monthly_reports')
+        .upsert(
+          {
+            student_id: input.student_id,
+            academy_id: input.academy_id,
+            grade_level: input.grade_level,
+            year_month: input.year_month,
+            ai_comment_draft: input.ai_comment_draft || null,
+            teacher_comment: input.teacher_comment || null,
+            is_published: true,
+            published_at: new Date().toISOString(),
+            published_by: userData.user?.id || null,
+          },
+          { onConflict: 'student_id,year_month' }
+        )
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['academy-monthly-summary'] })
+    },
+  })
+}
+
+// ════════════════════════════════════════════════════════
+// 🎨 Reports 메인 컴포넌트
+// ════════════════════════════════════════════════════════
 
 type Grade = 'high' | 'middle'
 type ReportStatus = 'published' | 'draft' | 'none'
@@ -32,65 +160,84 @@ const THEMES = {
 }
 
 const CARDS_PER_PAGE = 12
-const MOCK_MONTHS = ['2026-06', '2026-05', '2026-04', '2026-03']
 
-// ========== 가짜 데이터 ==========
-interface MockStudent {
-  id: string
-  name: string
-  grade: '고1' | '고2' | '고3' | '중1' | '중2' | '중3'
-  gradeLevel: Grade
-  attendance: number
-  homeworkSubmitted: number
-  homeworkTotal: number
-  simulationCount: number
-  simulationAvgScore: number
-  essayCount: number
-  pastAnswerCount: number
-  bookCount: number
-  videoWatched: number
-  videoTotal: number
-  reportStatus: ReportStatus
-  publishedAt?: string
-  lastActivity: string
+// ========== 현재 사용자(원장/선생님) 프로필 hook ==========
+function useCurrentProfile() {
+  return useQuery({
+    queryKey: ['current-profile'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return null
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name, role, academy_id, grade, email')
+        .eq('id', user.id)
+        .single()
+      if (error) throw error
+      return data
+    },
+  })
 }
 
-const INITIAL_STUDENTS: MockStudent[] = [
-  { id: 'm1', name: '김민지', grade: '중2', gradeLevel: 'middle', attendance: 92, homeworkSubmitted: 8, homeworkTotal: 8, simulationCount: 5, simulationAvgScore: 82, essayCount: 3, pastAnswerCount: 5, bookCount: 3, videoWatched: 12, videoTotal: 15, reportStatus: 'draft', lastActivity: '2026-06-30' },
-  { id: 'm2', name: '박서연', grade: '중1', gradeLevel: 'middle', attendance: 88, homeworkSubmitted: 6, homeworkTotal: 8, simulationCount: 3, simulationAvgScore: 75, essayCount: 1, pastAnswerCount: 2, bookCount: 2, videoWatched: 10, videoTotal: 15, reportStatus: 'published', publishedAt: '2026-07-01', lastActivity: '2026-06-28' },
-  { id: 'm3', name: '이지훈', grade: '중3', gradeLevel: 'middle', attendance: 95, homeworkSubmitted: 8, homeworkTotal: 8, simulationCount: 8, simulationAvgScore: 87, essayCount: 5, pastAnswerCount: 12, bookCount: 4, videoWatched: 15, videoTotal: 15, reportStatus: 'draft', lastActivity: '2026-06-30' },
-  { id: 'm4', name: '정유나', grade: '중2', gradeLevel: 'middle', attendance: 78, homeworkSubmitted: 4, homeworkTotal: 8, simulationCount: 1, simulationAvgScore: 65, essayCount: 0, pastAnswerCount: 1, bookCount: 1, videoWatched: 5, videoTotal: 15, reportStatus: 'none', lastActivity: '2026-06-20' },
-  { id: 'm5', name: '최예린', grade: '중1', gradeLevel: 'middle', attendance: 90, homeworkSubmitted: 7, homeworkTotal: 8, simulationCount: 4, simulationAvgScore: 78, essayCount: 2, pastAnswerCount: 3, bookCount: 2, videoWatched: 11, videoTotal: 15, reportStatus: 'published', publishedAt: '2026-07-01', lastActivity: '2026-06-29' },
-  { id: 'm6', name: '강도현', grade: '중3', gradeLevel: 'middle', attendance: 96, homeworkSubmitted: 8, homeworkTotal: 8, simulationCount: 7, simulationAvgScore: 85, essayCount: 4, pastAnswerCount: 10, bookCount: 5, videoWatched: 14, videoTotal: 15, reportStatus: 'published', publishedAt: '2026-07-01', lastActivity: '2026-06-30' },
-  { id: 'm7', name: '윤하늘', grade: '중2', gradeLevel: 'middle', attendance: 82, homeworkSubmitted: 6, homeworkTotal: 8, simulationCount: 3, simulationAvgScore: 72, essayCount: 2, pastAnswerCount: 4, bookCount: 2, videoWatched: 9, videoTotal: 15, reportStatus: 'draft', lastActivity: '2026-06-27' },
-  { id: 'm8', name: '조민서', grade: '중1', gradeLevel: 'middle', attendance: 85, homeworkSubmitted: 7, homeworkTotal: 8, simulationCount: 4, simulationAvgScore: 76, essayCount: 1, pastAnswerCount: 2, bookCount: 3, videoWatched: 12, videoTotal: 15, reportStatus: 'none', lastActivity: '2026-06-25' },
+// ========== 가능한 월 리스트 (최근 6개월) ==========
+function getRecentMonths(count = 6): string[] {
+  const result: string[] = []
+  const now = new Date()
+  for (let i = 0; i < count; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    result.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+  return result
+}
 
-  { id: 'h1', name: '한지원', grade: '고2', gradeLevel: 'high', attendance: 94, homeworkSubmitted: 10, homeworkTotal: 10, simulationCount: 6, simulationAvgScore: 84, essayCount: 4, pastAnswerCount: 18, bookCount: 4, videoWatched: 18, videoTotal: 20, reportStatus: 'draft', lastActivity: '2026-06-30' },
-  { id: 'h2', name: '오세현', grade: '고3', gradeLevel: 'high', attendance: 98, homeworkSubmitted: 10, homeworkTotal: 10, simulationCount: 12, simulationAvgScore: 91, essayCount: 8, pastAnswerCount: 35, bookCount: 6, videoWatched: 20, videoTotal: 20, reportStatus: 'published', publishedAt: '2026-07-01', lastActivity: '2026-06-30' },
-  { id: 'h3', name: '서민준', grade: '고1', gradeLevel: 'high', attendance: 86, homeworkSubmitted: 8, homeworkTotal: 10, simulationCount: 4, simulationAvgScore: 77, essayCount: 2, pastAnswerCount: 8, bookCount: 3, videoWatched: 15, videoTotal: 20, reportStatus: 'none', lastActivity: '2026-06-26' },
-  { id: 'h4', name: '임소영', grade: '고3', gradeLevel: 'high', attendance: 97, homeworkSubmitted: 10, homeworkTotal: 10, simulationCount: 10, simulationAvgScore: 89, essayCount: 7, pastAnswerCount: 28, bookCount: 5, videoWatched: 20, videoTotal: 20, reportStatus: 'published', publishedAt: '2026-07-01', lastActivity: '2026-06-30' },
-  { id: 'h5', name: '권지안', grade: '고2', gradeLevel: 'high', attendance: 89, homeworkSubmitted: 9, homeworkTotal: 10, simulationCount: 5, simulationAvgScore: 80, essayCount: 3, pastAnswerCount: 14, bookCount: 3, videoWatched: 17, videoTotal: 20, reportStatus: 'draft', lastActivity: '2026-06-29' },
-  { id: 'h6', name: '백시현', grade: '고1', gradeLevel: 'high', attendance: 91, homeworkSubmitted: 9, homeworkTotal: 10, simulationCount: 5, simulationAvgScore: 81, essayCount: 2, pastAnswerCount: 10, bookCount: 4, videoWatched: 16, videoTotal: 20, reportStatus: 'published', publishedAt: '2026-07-01', lastActivity: '2026-06-30' },
-  { id: 'h7', name: '문채영', grade: '고3', gradeLevel: 'high', attendance: 95, homeworkSubmitted: 10, homeworkTotal: 10, simulationCount: 9, simulationAvgScore: 86, essayCount: 6, pastAnswerCount: 22, bookCount: 5, videoWatched: 19, videoTotal: 20, reportStatus: 'draft', lastActivity: '2026-06-30' },
-  { id: 'h8', name: '장은우', grade: '고2', gradeLevel: 'high', attendance: 83, homeworkSubmitted: 7, homeworkTotal: 10, simulationCount: 3, simulationAvgScore: 73, essayCount: 1, pastAnswerCount: 6, bookCount: 2, videoWatched: 14, videoTotal: 20, reportStatus: 'none', lastActivity: '2026-06-24' },
-]
+// ========== 상태 계산 ==========
+function getReportStatus(s: AcademyStudentReport): ReportStatus {
+  if (s.is_published === true) return 'published'
+  if (s.teacher_comment || s.ai_comment_draft) return 'draft'
+  return 'none'
+}
 
-const MOCK_AI_COMMENT_TEMPLATE = (s: MockStudent) => `${s.name}는 6월 들어 ${s.essayCount > 2 ? '자기소개서 작성에 본격적으로 들어갔어요' : '학습 기초를 다지는 데 집중했어요'}. ${s.essayCount > 0 ? `자소서 ${s.essayCount}건을 작성하면서 글의 구체성이 많이 향상되었습니다.` : ''}
+// ========== AI 코멘트 생성 (Edge Function 호출) ==========
+async function generateAIComment(
+  s: AcademyStudentReport,
+  gradeLevel: Grade,
+  yearMonth: string
+): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('ai-monthly-report-comment', {
+    body: {
+      studentName: s.student_name,
+      grade: s.student_grade,
+      school: s.student_school,
+      gradeLevel,
+      yearMonth,
+      activities: {
+        essay_count: s.essay_count,
+        past_answer_count: s.past_answer_count,
+        simulation_count: s.simulation_count,
+        interview_count: s.interview_count,
+        passage_count: s.passage_count,
+        reading_count: s.reading_count,
+        lessons_progress_count: s.lessons_progress_count,
+        homework_submission_count: s.homework_submission_count,
+        suhaeng_count: s.suhaeng_count,
+        major_answer_count: s.major_answer_count,
+        research_count: s.research_count,
+      },
+    },
+  })
 
-${s.simulationCount > 0 ? `면접 시뮬레이션 ${s.simulationCount}회 진행하면서 평균 ${s.simulationAvgScore}점을 기록했고, 자신감이 많이 붙은 모습이 보였습니다.` : ''}
-
-${s.bookCount > 0 ? `독서 활동도 꾸준히 ${s.bookCount}권을 완독했고, 책 내용을 ${s.gradeLevel === 'high' ? '논술' : '면접'} 답변에 잘 활용하고 있습니다.` : ''}
-
-7월 학습 방향: ${s.gradeLevel === 'high' ? '자기소개서 마무리 작업과 면접 대비를 본격화할 예정입니다.' : '자기소개서 다음 문항 작성에 집중하면서, 제시문 면접을 차근차근 익혀나갈 예정입니다.'}`
-
+  if (error) throw error
+  if (!data?.comment) throw new Error('AI 코멘트가 비어있어요')
+  return data.comment as string
+}
 
 // ========== 메인 ==========
 export default function Reports() {
-  const [students, setStudents] = useState<MockStudent[]>(INITIAL_STUDENTS)
+  const { data: profile, isLoading: profileLoading } = useCurrentProfile()
 
   const [grade, setGrade] = useState<Grade>('middle')
-  const [selectedStudent, setSelectedStudent] = useState<MockStudent | null>(null)
-  const [selectedMonth, setSelectedMonth] = useState('2026-06')
+  const [selectedStudent, setSelectedStudent] = useState<AcademyStudentReport | null>(null)
+  const [selectedMonth, setSelectedMonth] = useState(() => getRecentMonths(1)[0])
 
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | ReportStatus>('all')
@@ -99,43 +246,55 @@ export default function Reports() {
 
   const [teacherComment, setTeacherComment] = useState('')
   const [aiGenerating, setAiGenerating] = useState(false)
-  const [publishing, setPublishing] = useState(false)
 
-  // 🚀 일괄 발행 state
+  // 일괄 발행 state
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false)
   const [bulkRunning, setBulkRunning] = useState(false)
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, name: '' })
   const [bulkIncludePublished, setBulkIncludePublished] = useState(false)
 
   const THEME = THEMES[grade]
+  const months = useMemo(() => getRecentMonths(6), [])
 
+  // ===== DB hooks =====
+  const academyId = profile?.academy_id || null
+  const { data: students = [], isLoading: studentsLoading, refetch } = useAcademyMonthlySummary(
+    academyId,
+    grade,
+    selectedMonth
+  )
+
+  const publishMutation = usePublishReport()
+  const saveMutation = useSaveReport()
+
+  // ===== 화면 전환 시 초기화 =====
   useEffect(() => {
     setSelectedStudent(null)
     setSearchQuery('')
     setStatusFilter('all')
     setSubGradeFilter('all')
     setCurrentPage(1)
-  }, [grade])
+  }, [grade, selectedMonth])
 
   useEffect(() => {
-    setTeacherComment('')
+    if (selectedStudent) {
+      setTeacherComment(selectedStudent.teacher_comment || '')
+    } else {
+      setTeacherComment('')
+    }
   }, [selectedStudent])
 
-  const studentsInGrade = useMemo(
-    () => students.filter(s => s.gradeLevel === grade),
-    [students, grade]
-  )
-
+  // ===== 필터링 =====
   const subGrades = grade === 'high' ? ['고1', '고2', '고3'] : ['중1', '중2', '중3']
 
   const filteredStudents = useMemo(() => {
-    return studentsInGrade.filter(s => {
-      const matchSearch = !searchQuery.trim() || s.name.includes(searchQuery.trim())
-      const matchStatus = statusFilter === 'all' || s.reportStatus === statusFilter
-      const matchGrade = subGradeFilter === 'all' || s.grade === subGradeFilter
+    return students.filter(s => {
+      const matchSearch = !searchQuery.trim() || s.student_name.includes(searchQuery.trim())
+      const matchStatus = statusFilter === 'all' || getReportStatus(s) === statusFilter
+      const matchGrade = subGradeFilter === 'all' || s.student_grade === subGradeFilter
       return matchSearch && matchStatus && matchGrade
     })
-  }, [studentsInGrade, searchQuery, statusFilter, subGradeFilter])
+  }, [students, searchQuery, statusFilter, subGradeFilter])
 
   const totalPages = Math.max(1, Math.ceil(filteredStudents.length / CARDS_PER_PAGE))
   const paginated = useMemo(() => {
@@ -145,85 +304,142 @@ export default function Reports() {
 
   useEffect(() => { setCurrentPage(1) }, [searchQuery, statusFilter, subGradeFilter])
 
+  // ===== 통계 =====
   const stats = useMemo(() => {
-    const total = studentsInGrade.length
-    const published = studentsInGrade.filter(s => s.reportStatus === 'published').length
-    const draft = studentsInGrade.filter(s => s.reportStatus === 'draft').length
-    const none = studentsInGrade.filter(s => s.reportStatus === 'none').length
+    const total = students.length
+    const published = students.filter(s => s.is_published).length
+    const draft = students.filter(s => !s.is_published && (s.teacher_comment || s.ai_comment_draft)).length
+    const none = total - published - draft
     return { total, published, draft, none }
-  }, [studentsInGrade])
+  }, [students])
 
-  // 일괄 발행 대상 수
   const bulkTargetCount = useMemo(() => {
-    return studentsInGrade.filter(s =>
-      bulkIncludePublished ? true : s.reportStatus !== 'published'
-    ).length
-  }, [studentsInGrade, bulkIncludePublished])
+    return students.filter(s => bulkIncludePublished ? true : !s.is_published).length
+  }, [students, bulkIncludePublished])
 
-  // ========== AI 코멘트 (개별) ==========
-  const handleGenerateAI = () => {
+  // ===== AI 코멘트 (개별) =====
+  const handleGenerateAI = async () => {
     if (!selectedStudent) return
     setAiGenerating(true)
-    setTimeout(() => {
-      setTeacherComment(MOCK_AI_COMMENT_TEMPLATE(selectedStudent))
+    try {
+      const comment = await generateAIComment(selectedStudent, grade, selectedMonth)
+      setTeacherComment(comment)
+    } catch (e: any) {
+      alert(`AI 코멘트 생성 실패: ${e.message}`)
+    } finally {
       setAiGenerating(false)
-    }, 1500)
+    }
   }
 
-  const handlePublish = () => {
+  // ===== 발행 =====
+  const handlePublish = async () => {
     if (!teacherComment.trim()) {
       alert('선생님 코멘트를 작성하거나 AI 초안을 생성해주세요!')
       return
     }
-    if (!selectedStudent) return
-    setPublishing(true)
-    setTimeout(() => {
-      setStudents(prev => prev.map(s =>
-        s.id === selectedStudent.id
-          ? { ...s, reportStatus: 'published', publishedAt: '2026-07-01' }
-          : s
-      ))
+    if (!selectedStudent || !academyId) return
+
+    try {
+      await publishMutation.mutateAsync({
+        student_id: selectedStudent.student_id,
+        academy_id: academyId,
+        grade_level: grade,
+        year_month: selectedMonth,
+        teacher_comment: teacherComment,
+        ai_comment_draft: selectedStudent.ai_comment_draft || undefined,
+      })
       alert('✅ 보고서가 발행됐어요!')
-      setPublishing(false)
       setSelectedStudent(null)
-    }, 1000)
+    } catch (e: any) {
+      alert(`발행 실패: ${e.message}`)
+    }
+  }
+
+  const handleSaveDraft = async () => {
+    if (!selectedStudent || !academyId) return
+    try {
+      await saveMutation.mutateAsync({
+        student_id: selectedStudent.student_id,
+        academy_id: academyId,
+        grade_level: grade,
+        year_month: selectedMonth,
+        teacher_comment: teacherComment,
+      })
+      alert('💾 임시 저장됐어요!')
+    } catch (e: any) {
+      alert(`저장 실패: ${e.message}`)
+    }
   }
 
   const handleDownloadPDF = () => {
-    alert('📄 PDF 다운로드 (가짜 데이터 모드)')
+    alert('📄 PDF 다운로드는 다음 단계에서 연결할 예정이에요')
   }
 
-  // ========== 🚀 일괄 발행 ==========
+  // ===== 일괄 발행 =====
   const handleBulkPublish = async () => {
+    if (!academyId) return
     setBulkConfirmOpen(false)
     setBulkRunning(true)
 
-    const targets = studentsInGrade.filter(s =>
-      bulkIncludePublished ? true : s.reportStatus !== 'published'
-    )
-
+    const targets = students.filter(s => bulkIncludePublished ? true : !s.is_published)
     setBulkProgress({ current: 0, total: targets.length, name: '' })
 
-    for (let i = 0; i < targets.length; i++) {
-      const student = targets[i]
-      setBulkProgress({ current: i, total: targets.length, name: student.name })
+    try {
+      // 한 명씩 진행 표시 위해 순차 처리
+      for (let i = 0; i < targets.length; i++) {
+        const s = targets[i]
+        setBulkProgress({ current: i, total: targets.length, name: s.student_name })
 
-      // 실제로는: AI 코멘트 생성 → DB 저장 → PDF 생성
-      // 여기는 가짜로 0.6초씩
-      await new Promise(r => setTimeout(r, 600))
+        // 진짜 AI 코멘트 생성 (Edge Function)
+        let aiComment: string
+        try {
+          aiComment = await generateAIComment(s, grade, selectedMonth)
+        } catch (e: any) {
+          console.warn(`AI 코멘트 생성 실패 (${s.student_name}):`, e.message)
+          // AI 실패해도 발행은 계속 - 빈 코멘트로
+          aiComment = `${s.student_name} 학생의 ${selectedMonth} 월간 보고서입니다. (AI 코멘트 생성 실패 - 직접 작성 필요)`
+        }
 
-      setStudents(prev => prev.map(s =>
-        s.id === student.id
-          ? { ...s, reportStatus: 'published', publishedAt: '2026-07-01' }
-          : s
-      ))
+        await publishMutation.mutateAsync({
+          student_id: s.student_id,
+          academy_id: academyId,
+          grade_level: grade,
+          year_month: selectedMonth,
+          ai_comment_draft: aiComment,
+          teacher_comment: s.teacher_comment || aiComment,
+        })
+      }
+
+      setBulkProgress({ current: targets.length, total: targets.length, name: '' })
+      await new Promise(r => setTimeout(r, 400))
+      setBulkRunning(false)
+      alert(`✅ ${targets.length}명의 보고서가 일괄 발행됐어요!`)
+      refetch()
+    } catch (e: any) {
+      setBulkRunning(false)
+      alert(`일괄 발행 중 에러: ${e.message}`)
     }
+  }
 
-    setBulkProgress({ current: targets.length, total: targets.length, name: '' })
-    await new Promise(r => setTimeout(r, 500))
+  // ========== 로딩 ==========
+  if (profileLoading) {
+    return (
+      <div className="px-8 py-7 min-h-full flex items-center justify-center">
+        <div className="text-[13px] text-ink-secondary">사용자 정보를 불러오는 중...</div>
+      </div>
+    )
+  }
 
-    setBulkRunning(false)
-    alert(`✅ ${targets.length}명의 보고서가 일괄 발행됐어요!`)
+  if (!academyId) {
+    return (
+      <div className="px-8 py-7 min-h-full">
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-6 py-5 text-center">
+          <div className="text-2xl mb-2">⚠️</div>
+          <div className="text-[14px] font-bold text-amber-900 mb-1">학원 정보가 없어요</div>
+          <div className="text-[12px] text-amber-700">관리자에게 문의해주세요.</div>
+        </div>
+      </div>
+    )
   }
 
   // ========== 편집 화면 ==========
@@ -233,13 +449,16 @@ export default function Reports() {
         student={selectedStudent}
         month={selectedMonth}
         theme={THEME}
+        gradeLevel={grade}
         teacherComment={teacherComment}
         setTeacherComment={setTeacherComment}
         aiGenerating={aiGenerating}
-        publishing={publishing}
+        publishing={publishMutation.isPending}
+        saving={saveMutation.isPending}
         onBack={() => setSelectedStudent(null)}
         onGenerateAI={handleGenerateAI}
         onPublish={handlePublish}
+        onSaveDraft={handleSaveDraft}
         onDownloadPDF={handleDownloadPDF}
       />
     )
@@ -292,7 +511,7 @@ export default function Reports() {
               className="px-3.5 py-2 border-2 rounded-lg text-[13px] font-bold focus:outline-none cursor-pointer bg-white transition-all"
               style={{ borderColor: THEME.accentBorder, color: THEME.accentDark }}
             >
-              {MOCK_MONTHS.map(m => (
+              {months.map(m => (
                 <option key={m} value={m}>
                   {m.split('-')[0]}년 {parseInt(m.split('-')[1])}월
                 </option>
@@ -311,16 +530,16 @@ export default function Reports() {
             🚀
           </div>
           <div>
-            <div className="text-[16px] font-extrabold text-white mb-0.5">월말 일괄 발행</div>
-            <div className="text-[12px] text-white/85 font-medium">
+            <div className="text-[16px] font-extrabold mb-0.5" style={{ color: '#fff' }}>월말 일괄 발행</div>
+            <div className="text-[12px] font-medium" style={{ color: '#fff', opacity: 0.85 }}>
               {stats.total - stats.published}명 미발행 학생의 AI 코멘트를 자동 생성하고 한 번에 발행해요.
-              <span className="ml-1 font-bold">필요한 학생만 나중에 수정 가능!</span>
+              <span className="ml-1 font-bold" style={{ color: '#fff' }}>필요한 학생만 나중에 수정 가능!</span>
             </div>
           </div>
         </div>
         <button
           onClick={() => setBulkConfirmOpen(true)}
-          disabled={stats.total === 0}
+          disabled={stats.total === 0 || studentsLoading}
           className="px-6 py-3 bg-white text-[13px] font-extrabold rounded-xl transition-all hover:-translate-y-px shadow-lg disabled:opacity-50"
           style={{ color: THEME.accentDark }}
         >
@@ -391,11 +610,16 @@ export default function Reports() {
       </div>
 
       {/* 학생 카드 */}
-      {paginated.length === 0 ? (
+      {studentsLoading ? (
+        <div className="bg-white border border-line rounded-2xl px-10 py-16 text-center">
+          <div className="inline-block w-6 h-6 border-2 border-gray-200 rounded-full animate-spin mb-3" style={{ borderTopColor: THEME.accent }} />
+          <div className="text-[13px] font-medium text-ink-secondary">학생 데이터를 불러오는 중...</div>
+        </div>
+      ) : paginated.length === 0 ? (
         <div className="bg-white border border-line rounded-2xl px-10 py-16 text-center">
           <div className="text-4xl mb-2">🔍</div>
           <p className="text-[13px] font-medium text-ink-secondary">
-            {studentsInGrade.length === 0 ? `${THEME.label} 학생이 없어요` : '검색 결과가 없어요'}
+            {students.length === 0 ? `${THEME.label} 학생이 없어요` : '검색 결과가 없어요'}
           </p>
         </div>
       ) : (
@@ -403,8 +627,9 @@ export default function Reports() {
           <div className="grid grid-cols-4 max-lg:grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-3 mb-5">
             {paginated.map(student => (
               <StudentCard
-                key={student.id}
+                key={student.student_id}
                 student={student}
+                gradeLevel={grade}
                 theme={THEME}
                 onClick={() => setSelectedStudent(student)}
               />
@@ -433,19 +658,18 @@ export default function Reports() {
         </>
       )}
 
-      {/* ============ 🚀 일괄 발행 확인 모달 ============ */}
+      {/* ============ 일괄 발행 확인 모달 ============ */}
       {bulkConfirmOpen && (
         <div onClick={() => setBulkConfirmOpen(false)} className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(15, 23, 42, 0.55)', backdropFilter: 'blur(4px)' }}>
           <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl w-[480px] max-w-full shadow-[0_20px_60px_rgba(0,0,0,0.25)] overflow-hidden">
-
             <div className="px-6 py-5" style={{ background: THEME.gradient }}>
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-2xl border border-white/30">
                   🚀
                 </div>
                 <div>
-                  <div className="text-[16px] font-extrabold text-white">월말 일괄 발행</div>
-                  <div className="text-[11px] text-white/90 font-medium">
+                  <div className="text-[16px] font-extrabold" style={{ color: '#fff' }}>월말 일괄 발행</div>
+                  <div className="text-[11px] font-medium" style={{ color: '#fff', opacity: 0.9 }}>
                     {selectedMonth.split('-')[0]}년 {parseInt(selectedMonth.split('-')[1])}월 · {THEME.label}
                   </div>
                 </div>
@@ -456,10 +680,10 @@ export default function Reports() {
               <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
                 <div className="text-[12px] font-bold text-amber-900 mb-2">📋 작업 내용</div>
                 <div className="text-[11px] text-amber-800 leading-[1.8]">
-                  · 학생 데이터를 자동으로 수집해서 AI 코멘트 생성<br />
-                  · 보고서를 PDF로 생성하고 발행 완료<br />
+                  · 학생 활동 데이터를 자동 수집해서 AI 코멘트 생성<br />
+                  · 보고서를 DB에 저장하고 발행 완료<br />
                   · 발행 후 필요한 학생은 개별로 수정 가능<br />
-                  · 학생당 약 1~2초 소요됨
+                  · 학생당 약 1초 소요
                 </div>
               </div>
 
@@ -473,7 +697,7 @@ export default function Reports() {
                 <div className="text-[10px] text-ink-muted mt-1">
                   {bulkIncludePublished
                     ? `전체 ${stats.total}명 (이미 발행된 학생도 다시 발행)`
-                    : `미발행 ${stats.none + stats.draft}명 (${stats.published}명은 이미 발행 완료)`
+                    : `미발행 ${stats.none + stats.draft}명 (${stats.published}명은 이미 발행)`
                   }
                 </div>
               </div>
@@ -507,7 +731,7 @@ export default function Reports() {
         </div>
       )}
 
-      {/* ============ 🚀 일괄 발행 진행 모달 ============ */}
+      {/* ============ 일괄 발행 진행 모달 ============ */}
       {bulkRunning && (
         <div className="fixed inset-0 z-[201] flex items-center justify-center p-4" style={{ background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-white rounded-2xl w-[460px] max-w-full shadow-[0_20px_60px_rgba(0,0,0,0.3)] p-8 text-center">
@@ -519,7 +743,6 @@ export default function Reports() {
               학생 한 명씩 AI 코멘트 생성 + 보고서 발행 중이에요. 잠시만 기다려주세요.
             </div>
 
-            {/* 진행 바 */}
             <div className="mb-2">
               <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
                 <div className="h-full rounded-full transition-all duration-300"
@@ -545,13 +768,19 @@ export default function Reports() {
 }
 
 // ========== 학생 카드 ==========
-function StudentCard({ student, theme, onClick }: { student: MockStudent, theme: typeof THEMES.high, onClick: () => void }) {
+function StudentCard({ student, gradeLevel, theme, onClick }: {
+  student: AcademyStudentReport
+  gradeLevel: Grade
+  theme: typeof THEMES.high
+  onClick: () => void
+}) {
+  const status = getReportStatus(student)
   const statusConfig = {
     published: { label: '✓ 발행 완료', bg: '#ECFDF5', color: '#065F46', border: '#6EE7B7' },
     draft: { label: '📝 작성 중', bg: '#FFFBEB', color: '#92400E', border: '#FDE68A' },
     none: { label: '⏳ 미작성', bg: '#F1F5F9', color: '#64748B', border: '#CBD5E1' },
   }
-  const status = statusConfig[student.reportStatus]
+  const sc = statusConfig[status]
 
   return (
     <button
@@ -570,41 +799,55 @@ function StudentCard({ student, theme, onClick }: { student: MockStudent, theme:
       <div className="flex items-start justify-between mb-3">
         <div className="h-1 rounded-full" style={{ background: theme.gradient, width: 40 }} />
         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
-          style={{ background: status.bg, color: status.color, borderColor: status.border }}>
-          {status.label}
+          style={{ background: sc.bg, color: sc.color, borderColor: sc.border }}>
+          {sc.label}
         </span>
       </div>
 
       <div className="mb-3">
-        <div className="text-[16px] font-extrabold text-ink mb-0.5">{student.name}</div>
-        <div className="text-[11px] font-bold text-ink-muted">{student.grade}</div>
+        <div className="text-[16px] font-extrabold text-ink mb-0.5">{student.student_name}</div>
+        <div className="text-[11px] font-bold text-ink-muted">
+          {student.student_grade}{student.student_school ? ` · ${student.student_school}` : ''}
+        </div>
       </div>
 
       <div className="space-y-1.5 mb-3">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-bold text-ink-muted">출석률</span>
-          <span className="text-[12px] font-extrabold" style={{ color: theme.accent }}>{student.attendance}%</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-bold text-ink-muted">숙제</span>
-          <span className="text-[12px] font-bold text-ink-secondary">
-            {student.homeworkSubmitted}/{student.homeworkTotal}
-          </span>
+          <span className="text-[11px] font-bold text-ink-muted">자소서</span>
+          <span className="text-[12px] font-extrabold" style={{ color: theme.accent }}>{student.essay_count}건</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-bold text-ink-muted">면접 시뮬</span>
-          <span className="text-[12px] font-bold text-ink-secondary">{student.simulationCount}회</span>
+          <span className="text-[12px] font-bold text-ink-secondary">{student.simulation_count}회</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-bold text-ink-muted">자소서</span>
-          <span className="text-[12px] font-bold text-ink-secondary">{student.essayCount}건</span>
+          <span className="text-[11px] font-bold text-ink-muted">기출 답변</span>
+          <span className="text-[12px] font-bold text-ink-secondary">{student.past_answer_count}건</span>
         </div>
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold text-ink-muted">독서</span>
+          <span className="text-[12px] font-bold text-ink-secondary">{student.reading_count}건</span>
+        </div>
+        {gradeLevel === 'middle' && (
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-ink-muted">숙제</span>
+            <span className="text-[12px] font-bold text-ink-secondary">{student.homework_submission_count}건</span>
+          </div>
+        )}
+        {gradeLevel === 'high' && (
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-ink-muted">전공질문</span>
+            <span className="text-[12px] font-bold text-ink-secondary">{student.major_answer_count}건</span>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between pt-2.5 border-t border-line-light">
-        <div className="text-[10px] text-ink-muted">최근 {student.lastActivity.slice(5)}</div>
+        <div className="text-[10px] text-ink-muted">
+          {student.published_at ? `발행 ${student.published_at.slice(5, 10)}` : '미발행'}
+        </div>
         <span className="text-[11px] font-bold transition-all group-hover:translate-x-0.5" style={{ color: theme.accent }}>
-          {student.reportStatus === 'published' ? '수정 →' : '발행 →'}
+          {status === 'published' ? '수정 →' : '작성 →'}
         </span>
       </div>
     </button>
@@ -612,17 +855,24 @@ function StudentCard({ student, theme, onClick }: { student: MockStudent, theme:
 }
 
 // ========== 보고서 편집 화면 ==========
-function ReportEditView({ student, month, theme, teacherComment, setTeacherComment, aiGenerating, publishing, onBack, onGenerateAI, onPublish, onDownloadPDF }: {
-  student: MockStudent
+function ReportEditView({
+  student, month, theme, gradeLevel,
+  teacherComment, setTeacherComment, aiGenerating, publishing, saving,
+  onBack, onGenerateAI, onPublish, onSaveDraft, onDownloadPDF,
+}: {
+  student: AcademyStudentReport
   month: string
   theme: typeof THEMES.high
+  gradeLevel: Grade
   teacherComment: string
   setTeacherComment: (v: string) => void
   aiGenerating: boolean
   publishing: boolean
+  saving: boolean
   onBack: () => void
   onGenerateAI: () => void
   onPublish: () => void
+  onSaveDraft: () => void
   onDownloadPDF: () => void
 }) {
   const monthLabel = `${month.split('-')[0]}년 ${parseInt(month.split('-')[1])}월`
@@ -639,25 +889,29 @@ function ReportEditView({ student, month, theme, teacherComment, setTeacherComme
             <span className="text-2xl">{theme.icon}</span>
             <div>
               <div className="text-[18px] font-extrabold tracking-tight" style={{ color: theme.accentDark }}>
-                {student.name} 학생
+                {student.student_name} 학생
               </div>
               <div className="text-[11px] font-medium text-ink-secondary">
-                {student.grade} · {monthLabel} 월간 보고서
+                {student.student_grade}{student.student_school ? ` · ${student.student_school}` : ''} · {monthLabel}
               </div>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          <button onClick={onSaveDraft} disabled={saving}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-line text-ink-secondary text-[12px] font-bold rounded-full transition-all hover:bg-gray-50 disabled:opacity-50">
+            {saving ? '저장 중...' : '💾 임시저장'}
+          </button>
           <button onClick={onDownloadPDF}
             className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border-2 text-[12px] font-bold rounded-full transition-all hover:-translate-y-px"
             style={{ borderColor: theme.accentBorder, color: theme.accentDark }}>
-            📄 PDF 다운로드
+            📄 PDF
           </button>
           <button onClick={onPublish} disabled={publishing}
             className="inline-flex items-center gap-1.5 px-5 py-2 text-white text-[12px] font-bold rounded-full transition-all hover:-translate-y-px disabled:opacity-50"
             style={{ background: theme.gradient, boxShadow: `0 4px 12px ${theme.accentShadow}` }}>
-            {publishing ? '발행 중...' : student.reportStatus === 'published' ? '✓ 재발행' : '✓ 발행하기'}
+            {publishing ? '발행 중...' : student.is_published ? '✓ 재발행' : '✓ 발행하기'}
           </button>
         </div>
       </div>
@@ -670,48 +924,48 @@ function ReportEditView({ student, month, theme, teacherComment, setTeacherComme
             <div className="text-[11px] font-medium text-ink-muted">부모님께 전달될 화면</div>
           </div>
 
-          <div className="p-8 text-white" style={{ background: theme.gradient }}>
-            <div className="text-[11px] font-bold opacity-85 mb-2 tracking-wider">
+          <div className="p-8" style={{ background: theme.gradient, color: '#fff' }}>
+            <div className="text-[11px] font-bold mb-2 tracking-wider" style={{ color: '#fff', opacity: 0.85 }}>
               {monthLabel} 월간 학습 보고서
             </div>
-            <h1 className="text-[28px] font-extrabold mb-1">{student.name} 학생</h1>
-            <div className="text-[13px] opacity-95">{student.grade}</div>
+            <h1 className="text-[28px] font-extrabold mb-1" style={{ color: '#fff' }}>{student.student_name} 학생</h1>
+            <div className="text-[13px]" style={{ color: '#fff', opacity: 0.95 }}>{student.student_grade}</div>
 
             <div className="grid grid-cols-4 gap-2 mt-5">
               {[
-                { num: `${student.attendance}%`, label: '출석률' },
-                { num: `${student.homeworkSubmitted}/${student.homeworkTotal}`, label: '숙제' },
-                { num: student.simulationCount, label: '면접 시뮬' },
-                { num: `${student.bookCount}권`, label: '독서' },
+                { num: student.essay_count, label: '자소서' },
+                { num: student.simulation_count, label: '면접 시뮬' },
+                { num: student.past_answer_count, label: '기출 답변' },
+                { num: student.reading_count, label: '독서' },
               ].map((s, i) => (
                 <div key={i} className="rounded-xl px-3 py-3 text-center backdrop-blur-sm" style={{ background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.25)' }}>
-                  <div className="text-[22px] font-extrabold leading-none mb-1">{s.num}</div>
-                  <div className="text-[10px] opacity-90 font-medium">{s.label}</div>
+                  <div className="text-[22px] font-extrabold leading-none mb-1" style={{ color: '#fff' }}>{s.num}</div>
+                  <div className="text-[10px] font-medium" style={{ color: '#fff', opacity: 0.9 }}>{s.label}</div>
                 </div>
               ))}
             </div>
           </div>
 
           <div className="p-6 space-y-4">
-            <ReportSection icon="📝" title="자기소개서 작성" meta={`${student.essayCount}건`} show={student.essayCount > 0} theme={theme}>
-              <div className="text-[12px] text-ink-secondary">실제 발행 시 작성한 자소서 본문 전체가 들어갑니다.</div>
-            </ReportSection>
-
-            <ReportSection icon="🎓" title="기출문제 답변" meta={`${student.pastAnswerCount}건`} show={student.pastAnswerCount > 0} theme={theme}>
-              <div className="text-[12px] text-ink-secondary">답변 본문 + 선생님 피드백이 들어갑니다.</div>
-            </ReportSection>
-
-            <ReportSection icon="🎙️" title="AI 면접 시뮬레이션" meta={`${student.simulationCount}회 · 평균 ${student.simulationAvgScore}점`} show={student.simulationCount > 0} theme={theme}>
-              <div className="text-[12px] text-ink-secondary">점수 추이 그래프 + 베스트 답변이 들어갑니다.</div>
-            </ReportSection>
-
-            <ReportSection icon="📚" title="독서 활동" meta={`${student.bookCount}권 완독`} show={student.bookCount > 0} theme={theme}>
-              <div className="text-[12px] text-ink-secondary">읽은 책 목록이 들어갑니다.</div>
-            </ReportSection>
-
-            <ReportSection icon="🎬" title="수업 영상 시청" meta={`${student.videoWatched}/${student.videoTotal}개`} show={student.videoWatched > 0} theme={theme}>
-              <div className="text-[12px] text-ink-secondary">시청한 영상 목록이 들어갑니다.</div>
-            </ReportSection>
+            <ReportSection icon="📝" title="자기소개서 작성" meta={`${student.essay_count}건`} show={student.essay_count > 0} theme={theme} />
+            <ReportSection icon="🎓" title="기출문제 답변" meta={`${student.past_answer_count}건`} show={student.past_answer_count > 0} theme={theme} />
+            <ReportSection icon="🎙️" title="AI 면접 시뮬레이션" meta={`${student.simulation_count}회`} show={student.simulation_count > 0} theme={theme} />
+            <ReportSection icon="🎤" title="면접" meta={`${student.interview_count}회`} show={student.interview_count > 0} theme={theme} />
+            <ReportSection icon="📜" title="제시문 면접" meta={`${student.passage_count}회`} show={student.passage_count > 0} theme={theme} />
+            <ReportSection icon="📚" title="독서 활동" meta={`${student.reading_count}건`} show={student.reading_count > 0} theme={theme} />
+            {gradeLevel === 'middle' && (
+              <>
+                <ReportSection icon="🎬" title="수업 영상 시청" meta={`${student.lessons_progress_count}건`} show={student.lessons_progress_count > 0} theme={theme} />
+                <ReportSection icon="📒" title="숙제 제출" meta={`${student.homework_submission_count}건`} show={student.homework_submission_count > 0} theme={theme} />
+              </>
+            )}
+            {gradeLevel === 'high' && (
+              <>
+                <ReportSection icon="🎯" title="전공 질문 답변" meta={`${student.major_answer_count}건`} show={student.major_answer_count > 0} theme={theme} />
+                <ReportSection icon="🔬" title="탐구 활동" meta={`${student.research_count}건`} show={student.research_count > 0} theme={theme} />
+              </>
+            )}
+            <ReportSection icon="📝" title="수행평가" meta={`${student.suhaeng_count}건`} show={student.suhaeng_count > 0} theme={theme} />
 
             <div className="rounded-2xl p-5 border" style={{ background: '#FFFBEB', borderColor: '#FDE68A' }}>
               <div className="flex items-center gap-2 mb-3">
@@ -732,7 +986,7 @@ function ReportEditView({ student, month, theme, teacherComment, setTeacherComme
               <div className="text-[13px] font-extrabold" style={{ color: theme.accentDark }}>AI 코멘트 초안</div>
             </div>
             <div className="text-[11px] text-ink-secondary mb-3 leading-[1.6]">
-              학생의 6월 데이터를 분석해서 코멘트 초안을 만들어드려요.
+              학생의 {monthLabel} 데이터를 분석해서 코멘트 초안을 만들어드려요.
             </div>
             <button onClick={onGenerateAI} disabled={aiGenerating}
               className="w-full py-2.5 text-white text-[12px] font-bold rounded-lg transition-all hover:-translate-y-px disabled:opacity-50"
@@ -776,13 +1030,21 @@ function ReportEditView({ student, month, theme, teacherComment, setTeacherComme
             </div>
             <div className="space-y-1.5">
               {[
-                ['출석률', `${student.attendance}%`],
-                ['숙제 제출', `${student.homeworkSubmitted}/${student.homeworkTotal}`],
-                ['면접 시뮬', `${student.simulationCount}회 (평균 ${student.simulationAvgScore}점)`],
-                ['자소서', `${student.essayCount}건`],
-                ['기출문제 답변', `${student.pastAnswerCount}건`],
-                ['독서', `${student.bookCount}권`],
-                ['수업 영상', `${student.videoWatched}/${student.videoTotal}개`],
+                ['자소서', `${student.essay_count}건`],
+                ['기출 답변', `${student.past_answer_count}건`],
+                ['면접 시뮬', `${student.simulation_count}회`],
+                ['면접', `${student.interview_count}회`],
+                ['제시문', `${student.passage_count}회`],
+                ['독서', `${student.reading_count}건`],
+                ...(gradeLevel === 'middle' ? [
+                  ['수업 영상', `${student.lessons_progress_count}건`],
+                  ['숙제', `${student.homework_submission_count}건`],
+                ] : []),
+                ...(gradeLevel === 'high' ? [
+                  ['전공 답변', `${student.major_answer_count}건`],
+                  ['탐구', `${student.research_count}건`],
+                ] : []),
+                ['수행평가', `${student.suhaeng_count}건`],
               ].map(([k, v]) => (
                 <div key={k} className="flex items-center justify-between text-[11px]">
                   <span className="text-ink-muted font-medium">{k}</span>
@@ -797,13 +1059,12 @@ function ReportEditView({ student, month, theme, teacherComment, setTeacherComme
   )
 }
 
-function ReportSection({ icon, title, meta, show, theme, children }: {
+function ReportSection({ icon, title, meta, show, theme }: {
   icon: string
   title: string
   meta?: string
   show: boolean
   theme: typeof THEMES.high
-  children: React.ReactNode
 }) {
   if (!show) return null
   return (
@@ -813,7 +1074,6 @@ function ReportSection({ icon, title, meta, show, theme, children }: {
         <span className="text-[13px] font-extrabold" style={{ color: theme.accentDark }}>{title}</span>
         {meta && <span className="text-[10px] font-bold ml-auto px-2 py-0.5 rounded-full" style={{ background: theme.accentBg, color: theme.accent }}>{meta}</span>}
       </div>
-      {children}
     </div>
   )
 }
