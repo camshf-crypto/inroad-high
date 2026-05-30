@@ -16,6 +16,7 @@ import Settings from '@/pages/admin/_pages/settings/Settings'
 import Teachers from '@/pages/admin/_pages/teachers/Teachers'
 import StudentApproval from '@/pages/admin/_pages/student-approval/StudentApproval'
 import SuhaengManage from '@/pages/admin/_pages/suhaeng/SuhaengManage'
+import Reports from '@/pages/admin/_pages/reports/Reports'
 
 // High Student
 import StudentLayout from '@/pages/high-student/_layout/Layout'
@@ -94,6 +95,7 @@ const router = createBrowserRouter([
           { path: 'middle-students', element: <Students /> },
           { path: 'middle-students/:id', element: <StudentDetail /> },
           { path: 'middle-suhaeng', element: <SuhaengManage /> },
+          { path: 'reports', element: <Reports /> },
           { path: 'student-approval', element: <StudentApproval /> },
           { path: 'teachers', element: <Teachers /> },
           { path: 'academy', element: <Academy /> },

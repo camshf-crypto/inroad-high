@@ -1,6 +1,6 @@
 // src/pages/middle-student/_pages/debate/MiddleDebate.tsx
 // ──────────────────────────────────────────────────────────────
-// AI 토론 면접 시뮬레이션 - 7월 초 오픈 안내 모달 추가
+// AI 토론 면접 시뮬레이션
 // ──────────────────────────────────────────────────────────────
 
 import { useEffect, useRef, useState } from 'react'
@@ -144,20 +144,13 @@ export default function MiddleDebate() {
   const [totalSec, setTotalSec] = useState(0)
   const [remainingSec, setRemainingSec] = useState(0)
 
-  // 🚧 7월 초 오픈 안내 모달
-  const [showComingSoonModal, setShowComingSoonModal] = useState(false)
-
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
 
-  // 🚧 토론 시작 버튼 클릭 → 모달만 띄움 (실제 토론 시작 막힘)
+  // ✅ 토론 시작 - 실제 작동
   const handleStartDebate = () => {
     if (!selectedTopic) return
-    setShowComingSoonModal(true)
-    return
 
-    // ⚠️ 아래는 7월 초 오픈 시 활성화 (지금은 막혀있음)
-    /*
     const seconds = DIFFICULTY_SECONDS[selectedTopic.difficulty]
     const chars = assignAICharacters(debateFormat, studentStance)
 
@@ -181,7 +174,6 @@ export default function MiddleDebate() {
         durationSec: 25,
       }])
     }, 800)
-    */
   }
 
   useEffect(() => {
@@ -333,37 +325,6 @@ export default function MiddleDebate() {
           elapsedSec={elapsedSec}
           onRestart={handleRestart}
         />
-      )}
-
-      {/* 🚧 7월 초 오픈 안내 모달 */}
-      {showComingSoonModal && (
-        <div
-          onClick={() => setShowComingSoonModal(false)}
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl p-7 w-[420px] text-center shadow-[0_24px_64px_rgba(0,0,0,0.2)] relative"
-          >
-            <div className="text-5xl mb-3"></div>
-            <div className="text-[18px] font-extrabold text-ink mb-2 tracking-tight">
-              AI 토론 준비 중
-            </div>
-            <div className="text-[14px] text-ink-secondary leading-[1.7] mb-5">
-              현재 준비 중이에요.<br />
-              <span className="font-bold text-brand-middle-dark">7월 초</span>에 이용하실 수 있습니다.
-            </div>
-            <div className="bg-brand-middle-pale border border-brand-middle-light rounded-xl px-4 py-3 mb-5">
-              <div className="text-[12px] font-bold text-brand-middle-dark mb-1">✨ 곧 만나요!</div>
-            </div>
-            <button
-              onClick={() => setShowComingSoonModal(false)}
-              className="w-full h-11 bg-brand-middle hover:bg-brand-middle-hover text-white rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px hover:shadow-btn-middle"
-            >
-              확인
-            </button>
-          </div>
-        </div>
       )}
     </>
   )
