@@ -14,22 +14,9 @@ import { useAtomValue } from 'jotai'
 import { studentState } from '@/lib/auth/atoms'
 import { gradeToNum } from '../../_hooks/useMyHighResearch'
 import { useStudentConcept } from '../../_hooks/useStudentConcept'
+import { useSetechLite, useSetechSubjects, useSetechMajors } from '../../_hooks/useSetechLite'
 
 const GRADES = ['전체', '고1', '고2', '고3']
-const MAJORS = ['공학계열', '자연과학', '의약계열', '인문사회', '사범교육', '예체능', 'IT/소프트웨어', '경영/경제', '법학', '건축학', '환경공학', '항공우주', '식품영양', '간호학', '약학', '의학', '치의학', '수의학', '농업생명']
-
-const SETECH_DATA: any[] = [
-  {
-    id: 1, subject: '화학', grade: '고3', major: '자연과학', school: '한국우주공학과', views: 1523,
-    activity: '화학II에서의 기초 화학 원리 탐구와 실험적 적용.',
-    topics: [
-      '화학 실험 과정에서 발생할 수 있는 변수와 오차를 최소화하는 방법을 탐색하고 적용함.',
-      '물질의 화학적 반응을 관찰하고 결과를 분석하여 실험 보고서를 작성하며 논리적 사고를 강화함.',
-      '화학II 수업에서 원자 구조와 주기율표의 기본 개념을 학습하고 이를 바탕으로 물질의 성질을 예측하는 실험을 수행함.',
-    ],
-    competency: '비판적 사고력과 문제 해결 능력을 통해 실험 과정에서의 변수 조절 및 데이터 분석 역량을 발휘함.',
-  },
-]
 
 const gradeFilterToNum = (g: string): number | null => {
   if (g === '고1') return 1
@@ -52,10 +39,8 @@ export default function TopicList() {
   const [filterGrade, setFilterGrade] = useState(studentGrade)
   const [filterMajorInput, setFilterMajorInput] = useState('')
   const [filterMajor, setFilterMajor] = useState('전체')
-  const [filterSubjectInput, setFilterSubjectInput] = useState('')
   const [filterSubject, setFilterSubject] = useState('전체')
   const [showMajorDrop, setShowMajorDrop] = useState(false)
-  const [showSubjectDrop, setShowSubjectDrop] = useState(false)
   const [selSetech, setSelSetech] = useState<any>(null)
   const [expandedSetech, setExpandedSetech] = useState<number | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -102,14 +87,23 @@ export default function TopicList() {
   }, [filterGrade])
 
   const isFilterEmpty = filterMajor === '전체' && filterSubject === '전체'
-  const filteredSetech = isFilterEmpty ? [] : SETECH_DATA.filter(s =>
-    (filterGrade === '전체' || s.grade === filterGrade) &&
-    (filterMajor === '전체' || s.major.includes(filterMajor) || s.school.includes(filterMajor)) &&
-    (filterSubject === '전체' || s.subject === filterSubject)
+
+  // DB 조회: 학과(부분일치)·학년·과목으로 세특 검색 (계열 구분 없이 학과명으로 매칭)
+  const setechGradeNum = gradeFilterToNum(filterGrade)
+  const { data: filteredSetech = [], isLoading: isSetechLoading } = useSetechLite({
+    grade: setechGradeNum ?? undefined,
+    major: filterMajor !== '전체' ? filterMajor : undefined,
+    subject: filterSubject !== '전체' ? filterSubject : undefined,
+  })
+
+  // 학과 자동완성 (DB)
+  const { data: filteredMajorOptions = [] } = useSetechMajors(filterMajorInput)
+
+  // 과목 칩 (현재 학과+학년 기준 실제 존재 과목, DB 집계)
+  const { data: subjectChips = [] } = useSetechSubjects(
+    filterMajor !== '전체' ? filterMajor : undefined,
+    setechGradeNum ?? undefined,
   )
-  const filteredMajorOptions = MAJORS.filter(m => filterMajorInput && m.includes(filterMajorInput))
-  const FILTER_SUBJECTS = ['국어', '수학', '영어', '물리', '화학', '생물', '지구과학', '정보', '사회', '역사', '윤리', '경제', '정치', '심리학']
-  const filteredSubjectOptions = FILTER_SUBJECTS.filter(s => !filterSubjectInput || s.includes(filterSubjectInput))
 
   const copyText = (text: string, id: string) => {
     navigator.clipboard.writeText(text); setCopiedId(id); setTimeout(() => setCopiedId(null), 1500)
@@ -143,7 +137,7 @@ export default function TopicList() {
   const closeModal = () => {
     setShowModal(false); setModalStep(1); setSelSetech(null)
     setFilterGrade(studentGrade); setFilterMajor('전체'); setFilterMajorInput('')
-    setFilterSubject('전체'); setFilterSubjectInput(''); setExpandedSetech(null)
+    setFilterSubject('전체'); setExpandedSetech(null)
     setNewTopic({ title: '', subject: '', content: '', grade: studentGradeNum })
   }
 
@@ -373,7 +367,7 @@ export default function TopicList() {
                         <div className="text-[11px] font-semibold text-ink-secondary mb-2">학년</div>
                         <div className="flex gap-1.5 flex-wrap">
                           {GRADES.map(g => (
-                            <button key={g} onClick={() => { setFilterGrade(g); setExpandedSetech(null) }}
+                            <button key={g} onClick={() => { setFilterGrade(g); setFilterSubject('전체'); setExpandedSetech(null) }}
                               className={`px-2.5 py-1 rounded-full text-[12px] border transition-all ${filterGrade === g ? 'bg-brand-high text-white border-brand-high font-semibold' : 'bg-white text-ink-secondary border-line hover:border-brand-high-light'}`}>
                               {g}
                             </button>
@@ -384,14 +378,14 @@ export default function TopicList() {
                         <div className="text-[11px] font-semibold text-ink-secondary mb-2">지원학과 및 계열</div>
                         <div className="relative">
                           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-ink-muted text-[12px]">🔍</span>
-                          <input value={filterMajorInput} onChange={e => { setFilterMajorInput(e.target.value); setFilterMajor(e.target.value || '전체'); setShowMajorDrop(true) }}
+                          <input value={filterMajorInput} onChange={e => { setFilterMajorInput(e.target.value); setFilterMajor(e.target.value || '전체'); setFilterSubject('전체'); setShowMajorDrop(true) }}
                             onFocus={() => setShowMajorDrop(true)} onBlur={() => setTimeout(() => setShowMajorDrop(false), 150)}
                             placeholder="학과 또는 계열 검색"
                             className="w-full h-9 border border-line rounded-lg pl-7 pr-2 text-[12px] outline-none focus:border-brand-high transition-colors font-sans bg-white" />
                           {showMajorDrop && filteredMajorOptions.length > 0 && (
                             <div className="absolute top-10 left-0 right-0 bg-white border border-line rounded-lg z-10 max-h-[150px] overflow-y-auto shadow-lg">
                               {filteredMajorOptions.map(m => (
-                                <div key={m} onClick={() => { setFilterMajorInput(m); setFilterMajor(m); setShowMajorDrop(false); setExpandedSetech(null) }}
+                                <div key={m} onClick={() => { setFilterMajorInput(m); setFilterMajor(m); setFilterSubject('전체'); setShowMajorDrop(false); setExpandedSetech(null) }}
                                   className="px-3 py-2 text-[12px] cursor-pointer text-ink hover:bg-brand-high-pale transition-colors">{m}</div>
                               ))}
                             </div>
@@ -400,40 +394,43 @@ export default function TopicList() {
                         {filterMajor !== '전체' && (
                           <div className="mt-1.5">
                             <span className="text-[11px] bg-brand-high-pale text-brand-high-dark px-2 py-0.5 rounded-full inline-flex items-center gap-1 font-semibold">
-                              {filterMajor}<button onClick={() => { setFilterMajor('전체'); setFilterMajorInput('') }} className="hover:text-brand-high-dark">✕</button>
+                              {filterMajor}<button onClick={() => { setFilterMajor('전체'); setFilterMajorInput(''); setFilterSubject('전체') }} className="hover:text-brand-high-dark">✕</button>
                             </span>
                           </div>
                         )}
                       </div>
                       <div className="mb-4">
-                        <div className="text-[11px] font-semibold text-ink-secondary mb-2">과목</div>
-                        <div className="relative">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-ink-muted text-[12px]">🔍</span>
-                          <input value={filterSubjectInput} onChange={e => { setFilterSubjectInput(e.target.value); setFilterSubject(e.target.value || '전체'); setShowSubjectDrop(true) }}
-                            onFocus={() => setShowSubjectDrop(true)} onBlur={() => setTimeout(() => setShowSubjectDrop(false), 150)}
-                            placeholder="과목 검색 (예: 화학)"
-                            className="w-full h-9 border border-line rounded-lg pl-7 pr-2 text-[12px] outline-none focus:border-brand-high transition-colors font-sans bg-white" />
-                          {showSubjectDrop && (
-                            <div className="absolute top-10 left-0 right-0 bg-white border border-line rounded-lg z-10 max-h-[150px] overflow-y-auto shadow-lg">
-                              {filteredSubjectOptions.map(s => (
-                                <div key={s} onClick={() => { setFilterSubjectInput(s); setFilterSubject(s); setShowSubjectDrop(false); setExpandedSetech(null) }}
-                                  className="px-3 py-2 text-[12px] cursor-pointer text-ink hover:bg-brand-high-pale transition-colors">{s}</div>
-                              ))}
-                            </div>
-                          )}
+                        <div className="text-[11px] font-semibold text-ink-secondary mb-2">
+                          과목
+                          {subjectChips.length > 0 && <span className="ml-1 text-ink-muted font-normal">({subjectChips.length})</span>}
                         </div>
-                        {filterSubject !== '전체' && (
-                          <div className="mt-1.5">
-                            <span className="text-[11px] bg-brand-high-pale text-brand-high-dark px-2 py-0.5 rounded-full inline-flex items-center gap-1 font-semibold">
-                              {filterSubject}<button onClick={() => { setFilterSubject('전체'); setFilterSubjectInput('') }} className="hover:text-brand-high-dark">✕</button>
-                            </span>
+                        {filterMajor === '전체' ? (
+                          <div className="text-[11px] text-ink-muted bg-gray-50 border border-line-light rounded-lg px-3 py-2.5 leading-relaxed">
+                            학과를 먼저 선택하면<br />관련 과목이 여기에 나와요
+                          </div>
+                        ) : subjectChips.length === 0 ? (
+                          <div className="text-[11px] text-ink-muted bg-gray-50 border border-line-light rounded-lg px-3 py-2.5">
+                            해당 조건의 과목이 없어요
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            <button onClick={() => { setFilterSubject('전체'); setExpandedSetech(null) }}
+                              className={`px-2.5 py-1 rounded-full text-[12px] border transition-all ${filterSubject === '전체' ? 'bg-brand-high text-white border-brand-high font-semibold' : 'bg-white text-ink-secondary border-line hover:border-brand-high-light'}`}>
+                              전체
+                            </button>
+                            {subjectChips.map(({ name, count }) => (
+                              <button key={name} onClick={() => { setFilterSubject(name); setExpandedSetech(null) }}
+                                className={`px-2.5 py-1 rounded-full text-[12px] border transition-all ${filterSubject === name ? 'bg-brand-high text-white border-brand-high font-semibold' : 'bg-white text-ink-secondary border-line hover:border-brand-high-light hover:bg-brand-high-pale/50'}`}>
+                                {name}<span className={`ml-1 text-[10px] ${filterSubject === name ? 'text-white/70' : 'text-ink-muted'}`}>{count}</span>
+                              </button>
+                            ))}
                           </div>
                         )}
                       </div>
                       {!isFilterEmpty && (
                         <div className="text-[11px] text-ink-muted flex items-center justify-between font-medium">
                           <span>총 <span className="text-brand-high-dark font-bold">{filteredSetech.length}개</span></span>
-                          <button onClick={() => { setFilterGrade(studentGrade); setFilterMajor('전체'); setFilterMajorInput(''); setFilterSubject('전체'); setFilterSubjectInput(''); setExpandedSetech(null) }}
+                          <button onClick={() => { setFilterGrade(studentGrade); setFilterMajor('전체'); setFilterMajorInput(''); setFilterSubject('전체'); setExpandedSetech(null) }}
                             className="text-ink-secondary hover:text-ink underline">초기화</button>
                         </div>
                       )}
@@ -452,6 +449,11 @@ export default function TopicList() {
                         <div className="text-[14px] font-semibold text-ink-secondary mb-1.5">세특 사례를 선택해보세요</div>
                         <div className="text-[12px] text-ink-muted leading-relaxed">왼쪽에서 학과, 과목을 선택하면<br />관련 세특 사례를 볼 수 있어요</div>
                       </div>
+                    ) : isSetechLoading ? (
+                      <div className="text-center py-16">
+                        <div className="inline-block w-5 h-5 border-2 border-gray-200 border-t-brand-high rounded-full animate-spin" />
+                        <div className="text-[12px] text-ink-muted mt-2">세특 사례를 불러오는 중...</div>
+                      </div>
                     ) : filteredSetech.length === 0 ? (
                       <div className="text-center py-16"><div className="text-3xl mb-2">🔍</div><div className="text-[13px] text-ink-muted font-medium">해당 조건의 세특 사례가 없어요.</div></div>
                     ) : filteredSetech.map((s: any) => (
@@ -461,13 +463,11 @@ export default function TopicList() {
                             <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
                               <span className="text-[11px] font-bold text-brand-high-dark bg-brand-high-pale px-2 py-0.5 rounded-full">{s.subject}</span>
                               <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">{s.major}</span>
-                              <span className="text-[11px] font-medium text-ink-secondary bg-gray-100 px-2 py-0.5 rounded-full">{s.grade}</span>
-                              <span className="text-[11px] text-ink-muted font-medium">{s.school}</span>
+                              <span className="text-[11px] font-medium text-ink-secondary bg-gray-100 px-2 py-0.5 rounded-full">고{s.grade}</span>
                             </div>
                             <div className="text-[13px] font-semibold text-ink leading-relaxed">{s.activity}</div>
                           </div>
                           <div className="flex items-center gap-2 ml-3 flex-shrink-0">
-                            <span className="text-[11px] text-ink-muted font-medium">👁 {s.views?.toLocaleString()}</span>
                             <span className={`text-[14px] text-ink-muted transition-transform ${expandedSetech === s.id ? 'rotate-180' : ''}`}>∨</span>
                           </div>
                         </div>
@@ -481,7 +481,7 @@ export default function TopicList() {
                                     {copiedId === item.id ? '✓ 복사됨' : '📋 복사'}
                                   </button>
                                 </div>
-                                <div className="bg-gray-50 border border-line-light rounded-lg px-3 py-2.5 text-[12px] text-ink leading-relaxed">{item.text}</div>
+                                <div className="bg-gray-50 border border-line-light rounded-lg px-3 py-2.5 text-[12px] text-ink leading-relaxed whitespace-pre-wrap">{item.text}</div>
                               </div>
                             ))}
                             <div className="mt-3 mb-3.5">
@@ -519,7 +519,7 @@ export default function TopicList() {
                 {selSetech && (
                   <div className="bg-brand-high-pale border border-brand-high-light rounded-xl px-4 py-3 mb-4 flex items-center gap-2">
                     <span className="text-[11px] font-bold bg-brand-high text-white px-2 py-0.5 rounded-full flex-shrink-0">참고</span>
-                    <span className="text-[12px] text-brand-high-dark font-semibold flex-1 min-w-0 truncate">{selSetech.subject} · {selSetech.major} · {selSetech.school}</span>
+                    <span className="text-[12px] text-brand-high-dark font-semibold flex-1 min-w-0 truncate">{selSetech.subject} · {selSetech.major}</span>
                     <button onClick={() => { setSelSetech(null); setNewTopic(p => ({ ...p, title: '', subject: '', content: '' })) }}
                       className="text-[11px] text-ink-secondary hover:text-ink font-medium flex-shrink-0 transition-colors">제거</button>
                   </div>
