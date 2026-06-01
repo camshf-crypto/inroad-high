@@ -1,4 +1,9 @@
+// src/pages/admin/_pages/.../MiddlePastTab.tsx
+// 학교별 진짜 평가 기준 + Edge Function AI 분석
+
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 import {
   RadarChart,
   Radar,
@@ -27,54 +32,68 @@ const THEME = {
   gradient: "linear-gradient(135deg, #065F46, #10B981)",
 };
 
-// AI mock 데이터
-const AI_ANALYSIS_MOCK = {
-  evalCriteria:
-    "면접에서는 자기주도적 학습 능력과 지원 동기의 진정성을 중시합니다.",
-  scores: [
-    { label: "자기주도성", score: 24, max: 30, desc: "스스로 학습 계획을 세우고 실천한 경험이 드러났다." },
-    { label: "전공적합성", score: 38, max: 50, desc: "지원 학교와의 연결성이 일부 드러났으나 구체성이 부족하다." },
-    { label: "의사소통역량", score: 14, max: 20, desc: "답변 구조는 있으나 논리 전개가 다소 아쉽다." },
-  ],
-  summary: "자기주도성은 잘 드러났으나 학교 건학이념과의 연결이 부족하다.",
-  strengths: [
-    "자기주도적 학습 경험을 구체적으로 설명하였다.",
-    "진로와 연결된 활동 경험이 잘 드러났다.",
-  ],
-  improvements: [
-    "학교 건학이념과의 연결이 명확하지 않다.",
-    "지원 동기가 추상적이어서 구체적인 사례가 필요하다.",
-  ],
-  teacherFirstFeedback:
-    "○○이의 답변을 잘 읽었어요. 자기주도학습에 대한 의지가 잘 드러났네요! 한 가지만 보완해보면 좋겠어요. 자기주도학습 능력을 어떻게 키워왔는지 구체적인 사례를 하나 추가해보세요. 예를 들어 어떤 과목을 어떻게 스스로 공부했는지, 그 결과 어떤 변화가 있었는지 적으면 답변이 훨씬 설득력 있어질 거예요. 학교 건학이념과 본인의 학습 방식이 어떻게 연결되는지도 한 문장 추가하면 완벽해요! 화이팅 💪",
-  teacherFinalFeedback:
-    '업그레이드된 답변을 보니 정말 많이 좋아졌어요! 구체적인 사례가 추가되어서 자기주도성이 잘 드러납니다. 한 가지만 더 보완해보면, 면접관 입장에서 "그래서 이 학교에서만 가능한 게 뭔데?"라는 질문이 생길 수 있어요. 학교만의 특성과 본인의 학습 방식이 어떻게 만나는지 한 문장 더 추가하면 완벽해요. 잘했어요! 👏',
-  tailSuggestions: [
-    "학교의 자기주도학습 전형이 본인의 학습 방식과 어떻게 맞는지 구체적으로 설명해주세요.",
-    "지원 동기에서 언급한 경험이 고등학교 입학 후 어떻게 발전될 것 같은지 말해보세요.",
-    "본인이 가장 어려웠던 학습 경험과 극복 과정을 구체적으로 말씀해주세요.",
-  ],
-  second: {
-    beforeDistribution: [
-      { factorCode: "F01", factorName: "자기주도성", distribution: 35, evidence: "학습 계획 수립 경험 언급" },
-      { factorCode: "F02", factorName: "전공적합성", distribution: 40, evidence: "지원 동기와 진로 연결" },
-      { factorCode: "F03", factorName: "의사소통역량", distribution: 25, evidence: "논리적 전개 시도" },
-    ],
-    afterDistribution: [
-      { factorCode: "F01", factorName: "자기주도성", distribution: 30, evidence: "구체적 실천 사례 보완 필요" },
-      { factorCode: "F02", factorName: "전공적합성", distribution: 50, evidence: "학교 특성과의 연결이 강화됨" },
-      { factorCode: "F03", factorName: "의사소통역량", distribution: 20, evidence: "논리 흐름은 유지됨" },
-    ],
-    structureComment:
-      "2차 답변은 전공적합성 측면에서 학교와의 연결이 강화되었습니다. 경험 제시 → 의미 도출 → 학교 연결 순서로 재정렬하면 더 명확한 답변이 됩니다.",
-    practiceAnswer:
-      "저는 중학교 3년간 매일 아침 30분씩 스스로 학습 계획을 세우고 실천해왔습니다. 이 과정에서 자기주도학습의 중요성을 깊이 깨달았고, 학교의 자기주도학습 전형이 제 학습 방식과 가장 잘 맞는다고 생각해 지원하게 되었습니다.",
-  },
+// ════════════════════════════════════════════════════════
+// 🆕 학교별 평가 기준 hook
+// ════════════════════════════════════════════════════════
+interface SchoolCriteria {
+  school_name: string;
+  school_type: string;
+  region: string;
+  evaluator_perspective: string;
+  question_style: string;
+  high_score_answer: string;
+  preferred_type: string;
+  evaluation_tone: string;
+  score_self_directed: number;
+  score_humanity: number;
+  score_motivation: number;
+  score_current_affairs: number;
+  score_research_depth: number;
+  score_research_process: number;
+  score_research_ethics: number;
+  score_career_motivation: number;
+}
+
+function useSchoolCriteria(schoolName: string | undefined) {
+  return useQuery({
+    queryKey: ["school-criteria", schoolName],
+    enabled: !!schoolName,
+    queryFn: async (): Promise<SchoolCriteria | null> => {
+      const { data, error } = await supabase
+        .from("high_school_interview_criteria")
+        .select("*")
+        .eq("school_name", schoolName!)
+        .maybeSingle();
+      if (error) throw error;
+      return data as SchoolCriteria | null;
+    },
+  });
+}
+
+// 학교 유형이 과학고/영재면 true
+const isResearchType = (type?: string): boolean => {
+  if (!type) return false;
+  return type.includes("과학고") || type.includes("영재");
 };
 
-const getMockScores = (criteria: any[]): number[] => {
-  return criteria.map((c) => Math.max(c.standard - 15, c.standard - 10));
-};
+// 학교의 점수 항목 4개 자동 분기
+function getScoringFactors(school: SchoolCriteria | null): Array<{ label: string; weight: number }> {
+  if (!school) return [];
+  if (isResearchType(school.school_type)) {
+    return [
+      { label: "탐구 심화", weight: school.score_research_depth },
+      { label: "탐구 과정·사고", weight: school.score_research_process },
+      { label: "연구윤리·인성", weight: school.score_research_ethics },
+      { label: "진로·전공 동기", weight: school.score_career_motivation },
+    ];
+  }
+  return [
+    { label: "자기주도학습", weight: school.score_self_directed },
+    { label: "인성·공동체", weight: school.score_humanity },
+    { label: "지원동기·학교이해", weight: school.score_motivation },
+    { label: "시사·사고력", weight: school.score_current_affairs },
+  ];
+}
 
 const TYPE_COLOR: Record<string, any> = {
   지원동기: { bg: "#ECFDF5", color: "#059669", border: "#6EE7B7" },
@@ -93,12 +112,14 @@ const STEP_LABELS = ["첫 답변", "1차 피드백", "업그레이드", "최종 
 export default function MiddlePastTab({ student }: { student: any }) {
   const studentId = student?.id ? String(student.id) : undefined;
 
-  // ⭐ 학생이 답변한 학교만 가져오기
   const { data: allSchools = [] } = useStudentAnsweredSchools(studentId);
   const [selSchool, setSelSchool] = useState("");
 
   const { data: questions = [] } = useStudentSchoolQuestions(selSchool || undefined);
   const { data: answers = [] } = useStudentPastAnswers(studentId, selSchool || undefined);
+  
+  // 🆕 학교 평가 기준 가져오기
+  const { data: schoolCriteria } = useSchoolCriteria(selSchool || undefined);
 
   const answerByQuestionId = answers.reduce((acc: Record<string, any>, a) => {
     acc[a.question_id] = a;
@@ -115,17 +136,16 @@ export default function MiddlePastTab({ student }: { student: any }) {
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiData, setAiData] = useState<any>(null);
+  const [aiSecondData, setAiSecondData] = useState<any>(null);
   const [aiTab, setAiTab] = useState<"first" | "second">("first");
   const [secondAiLoading, setSecondAiLoading] = useState(false);
   const [showTailModal, setShowTailModal] = useState(false);
   const [tailInput, setTailInput] = useState("");
   const [showAiTailModal, setShowAiTailModal] = useState(false);
-  const [aiTailLoading, setAiTailLoading] = useState(false);
   const [aiTails, setAiTails] = useState<string[]>([]);
   const [selectedAiTails, setSelectedAiTails] = useState<number[]>([]);
   const [aiWriting, setAiWriting] = useState<"first" | "final" | null>(null);
 
-  // 학교 자동 선택 (첫 학교)
   useEffect(() => {
     if (allSchools.length > 0 && !selSchool) {
       setSelSchool(allSchools[0]);
@@ -135,6 +155,7 @@ export default function MiddlePastTab({ student }: { student: any }) {
   useEffect(() => {
     setShowAiPanel(false);
     setAiData(null);
+    setAiSecondData(null);
     setFeedback({});
   }, [selQId]);
 
@@ -164,42 +185,85 @@ export default function MiddlePastTab({ student }: { student: any }) {
     return 4;
   };
 
-  const openAiAnalysis = (tab: "first" | "second" = "first") => {
+  // ════════════════════════════════════════════════════════
+  // 🆕 진짜 AI 분석 (Edge Function 호출)
+  // ════════════════════════════════════════════════════════
+  const openAiAnalysis = async (tab: "first" | "second" = "first") => {
+    if (!selAnswer || !selQ || !schoolCriteria) {
+      alert("학교 평가 기준을 불러오지 못했어요");
+      return;
+    }
     setShowAiPanel(true);
     setAiTab(tab);
-    if (tab === "first") {
-      setAiLoading(true);
-      setAiData(null);
-      setTimeout(() => {
-        setAiData(AI_ANALYSIS_MOCK);
+
+    try {
+      if (tab === "first") {
+        // 캐시 있으면 재사용
+        if (aiData) return;
+        setAiLoading(true);
+
+        const { data, error } = await supabase.functions.invoke("middle-interview-analysis", {
+          body: {
+            analysisType: "first",
+            questionText: selQ.text,
+            questionType: selQ.type,
+            studentAnswer: selAnswer.answer,
+            school: schoolCriteria,
+            studentName: student?.name,
+            studentGrade: student?.grade,
+          },
+        });
+
+        if (error) throw error;
+        setAiData(data.analysis);
         setAiLoading(false);
-      }, 1200);
-    } else {
-      setSecondAiLoading(true);
-      setTimeout(() => {
+      } else {
+        if (aiSecondData) return;
+        setSecondAiLoading(true);
+
+        const { data, error } = await supabase.functions.invoke("middle-interview-analysis", {
+          body: {
+            analysisType: "second",
+            questionText: selQ.text,
+            questionType: selQ.type,
+            studentAnswer: selAnswer.answer,
+            upgradedAnswer: selAnswer.upgraded_answer,
+            school: schoolCriteria,
+            studentName: student?.name,
+            studentGrade: student?.grade,
+          },
+        });
+
+        if (error) throw error;
+        setAiSecondData(data.analysis);
         setSecondAiLoading(false);
-      }, 1200);
+      }
+    } catch (e: any) {
+      setAiLoading(false);
+      setSecondAiLoading(false);
+      alert(`AI 분석 실패: ${e.message}`);
     }
   };
 
+  // ════════════════════════════════════════════════════════
+  // AI 자동 피드백 작성
+  // ════════════════════════════════════════════════════════
   const writeAiTeacherFeedback = (type: "first" | "final") => {
     if (!selAnswer) return;
     setAiWriting(type);
+
+    if (type === "first") {
+      const aiFb = aiData?.teacherFeedback || "";
+      setFeedback((prev) => ({ ...prev, [String(selAnswer.id)]: aiFb }));
+    } else {
+      const aiFb = aiSecondData?.teacherFinalFeedback || "";
+      setFeedback((prev) => ({ ...prev, [`${selAnswer.id}_final`]: aiFb }));
+    }
+
     setTimeout(() => {
-      if (type === "first") {
-        setFeedback((prev) => ({
-          ...prev,
-          [String(selAnswer.id)]: AI_ANALYSIS_MOCK.teacherFirstFeedback,
-        }));
-      } else {
-        setFeedback((prev) => ({
-          ...prev,
-          [`${selAnswer.id}_final`]: AI_ANALYSIS_MOCK.teacherFinalFeedback,
-        }));
-      }
       setAiWriting(null);
       setShowAiPanel(false);
-    }, 1000);
+    }, 500);
   };
 
   const handleSendFirstFb = async () => {
@@ -248,16 +312,43 @@ export default function MiddlePastTab({ student }: { student: any }) {
     }
   };
 
-  const openAiTailModal = () => {
+  // 🆕 AI 꼬리질문 - 2차 분석에 포함된 tailSuggestions 사용
+  const openAiTailModal = async () => {
     setShowAiTailModal(true);
-    setAiTailLoading(true);
     setAiTails([]);
     setSelectedAiTails([]);
-    setTimeout(() => {
-      setAiTails(AI_ANALYSIS_MOCK.tailSuggestions);
+    
+    // 2차 분석 데이터에 꼬리질문 있으면 사용
+    if (aiSecondData?.tailSuggestions && aiSecondData.tailSuggestions.length > 0) {
+      setAiTails(aiSecondData.tailSuggestions);
+      return;
+    }
+    
+    // 없으면 2차 분석 호출
+    if (!selAnswer || !selQ || !schoolCriteria) return;
+    
+    setAiTailLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("middle-interview-analysis", {
+        body: {
+          analysisType: "second",
+          questionText: selQ.text,
+          studentAnswer: selAnswer.answer,
+          upgradedAnswer: selAnswer.upgraded_answer || "",
+          school: schoolCriteria,
+        },
+      });
+      if (error) throw error;
+      setAiSecondData(data.analysis);
+      setAiTails(data.analysis?.tailSuggestions || []);
+    } catch (e: any) {
+      alert(`꼬리질문 생성 실패: ${e.message}`);
+    } finally {
       setAiTailLoading(false);
-    }, 1200);
+    }
   };
+
+  const [aiTailLoading, setAiTailLoading] = useState(false);
 
   const deliverAiTails = async () => {
     if (!selAnswer || selectedAiTails.length === 0) return;
@@ -290,14 +381,25 @@ export default function MiddlePastTab({ student }: { student: any }) {
     }
   };
 
-  const getRadarData = (criteria: any[]) => {
-    const scores = getMockScores(criteria);
-    return criteria.map((c, i) => ({
-      subject: c.name,
-      standard: c.standard,
-      student: scores[i] || 0,
-      fullMark: 100,
-    }));
+  // 🆕 진짜 학교 평가 기준으로 레이더 차트
+  const getRadarData = () => {
+    const factors = getScoringFactors(schoolCriteria || null);
+    if (!aiData?.scores) {
+      return factors.map((f) => ({
+        subject: f.label,
+        standard: f.weight,
+        student: 0,
+      }));
+    }
+    return factors.map((f) => {
+      const aiScore = aiData.scores.find((s: any) => s.label === f.label);
+      const studentPct = aiScore ? Math.round((aiScore.score / aiScore.max) * f.weight) : 0;
+      return {
+        subject: f.label,
+        standard: f.weight,
+        student: studentPct,
+      };
+    });
   };
 
   const getBarData = (analysis: any) => {
@@ -310,8 +412,6 @@ export default function MiddlePastTab({ student }: { student: any }) {
     }));
   };
 
-  const secondData = aiData?.second || null;
-
   const handleTextareaFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
     e.target.style.borderColor = THEME.accent;
     e.target.style.boxShadow = `0 0 0 3px ${THEME.accentShadow}`;
@@ -323,15 +423,12 @@ export default function MiddlePastTab({ student }: { student: any }) {
 
   return (
     <div className="flex flex-col gap-3 h-full overflow-hidden">
-      {/* ==================== ⭐ 학교 버튼 칩 (고등 스타일) ==================== */}
+      {/* ==================== 학교 버튼 칩 ==================== */}
       {allSchools.length === 0 ? (
         <div className="bg-white border border-line rounded-2xl px-6 py-10 text-center flex-shrink-0">
           <div className="text-3xl mb-2">🏫</div>
           <div className="text-[14px] font-bold text-ink-secondary mb-1">
             이 학생은 아직 기출문제를 풀지 않았어요
-          </div>
-          <div className="text-[12px] font-medium text-ink-muted">
-            학생이 답변을 작성하면 여기에 학교가 표시돼요
           </div>
         </div>
       ) : (
@@ -345,15 +442,15 @@ export default function MiddlePastTab({ student }: { student: any }) {
                   setSelSchool(school);
                   setSelQId(null);
                   setShowAiPanel(false);
+                  setAiData(null);
+                  setAiSecondData(null);
                 }}
                 className="px-4 py-2 rounded-full text-[13px] font-bold transition-all hover:-translate-y-px"
                 style={{
                   background: isSelected ? THEME.accent : "#fff",
                   color: isSelected ? "#fff" : THEME.accentDark,
                   border: `1px solid ${isSelected ? THEME.accent : THEME.accentBorder}`,
-                  boxShadow: isSelected
-                    ? `0 4px 12px ${THEME.accentShadow}`
-                    : "0 1px 2px rgba(0,0,0,0.04)",
+                  boxShadow: isSelected ? `0 4px 12px ${THEME.accentShadow}` : "0 1px 2px rgba(0,0,0,0.04)",
                 }}
               >
                 🎓 {school}
@@ -369,15 +466,11 @@ export default function MiddlePastTab({ student }: { student: any }) {
           {/* 왼쪽: 질문 목록 */}
           <div className="w-[300px] flex-shrink-0 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
             <div className="px-4 py-3 border-b border-line flex-shrink-0">
-              <div className="text-[13.5px] font-extrabold text-ink tracking-tight">
-                🎓 {selSchool}
-              </div>
+              <div className="text-[13.5px] font-extrabold text-ink tracking-tight">🎓 {selSchool}</div>
               <div className="text-[11px] font-medium text-ink-secondary mt-1">
                 총 <span className="font-bold" style={{ color: THEME.accent }}>{questions.length}개</span>
-                {" · "}
-                답변완료 <span className="font-bold" style={{ color: THEME.accent }}>{answeredCount}개</span>
-                {" · "}
-                미답변 <span className="font-bold text-amber-600">{questions.length - answeredCount}개</span>
+                {" · "}답변완료 <span className="font-bold" style={{ color: THEME.accent }}>{answeredCount}개</span>
+                {" · "}미답변 <span className="font-bold text-amber-600">{questions.length - answeredCount}개</span>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-3">
@@ -404,48 +497,14 @@ export default function MiddlePastTab({ student }: { student: any }) {
                       }}
                     >
                       <div className="flex gap-1.5 mb-1.5 flex-wrap">
-                        <span
-                          className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                          style={{
-                            color: THEME.accentDark,
-                            background: THEME.accentBg,
-                            border: `1px solid ${THEME.accentBorder}60`,
-                          }}
-                        >
-                          Q{i + 1}
-                        </span>
-                        <span
-                          className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                          style={{
-                            background: tc.bg,
-                            color: tc.color,
-                            border: `1px solid ${tc.border}60`,
-                          }}
-                        >
-                          {q.type}
-                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: THEME.accentDark, background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}>Q{i + 1}</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: tc.bg, color: tc.color, border: `1px solid ${tc.border}60` }}>{q.type}</span>
                       </div>
-                      <div
-                        className="text-[12.5px] font-semibold leading-[1.5] mb-1.5"
-                        style={{ color: isSelected ? THEME.accentDark : "#1a1a1a" }}
-                      >
-                        {q.text}
-                      </div>
+                      <div className="text-[12.5px] font-semibold leading-[1.5] mb-1.5" style={{ color: isSelected ? THEME.accentDark : "#1a1a1a" }}>{q.text}</div>
                       {answered ? (
-                        <span
-                          className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                          style={{
-                            color: THEME.accent,
-                            background: THEME.accentBg,
-                            border: `1px solid ${THEME.accentBorder}60`,
-                          }}
-                        >
-                          ✓ 답변완료
-                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: THEME.accent, background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}>✓ 답변완료</span>
                       ) : (
-                        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                          ⏳ 미답변
-                        </span>
+                        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">⏳ 미답변</span>
                       )}
                     </button>
                   );
@@ -460,37 +519,15 @@ export default function MiddlePastTab({ student }: { student: any }) {
               <div className="flex-1 flex flex-col items-center justify-center text-ink-muted gap-2">
                 <div className="text-4xl">🎓</div>
                 <div className="text-[14px] font-bold text-ink-secondary">질문을 선택해주세요</div>
-                <div className="text-[12px] font-medium">왼쪽에서 기출문제를 클릭하세요</div>
               </div>
             ) : (
               <>
-                {/* 헤더 */}
                 <div className="px-5 py-4 border-b border-line flex-shrink-0">
                   <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <div className="text-[13px] font-extrabold text-ink">
-                        Q{questions.findIndex((q) => q.id === selQ.id) + 1}
-                      </div>
-                      <span
-                        className="text-[11px] font-bold px-2 py-0.5 rounded-full"
-                        style={{
-                          color: THEME.accentDark,
-                          background: THEME.accentBg,
-                          border: `1px solid ${THEME.accentBorder}60`,
-                        }}
-                      >
-                        🏫 {selSchool}
-                      </span>
-                      <span
-                        className="text-[11px] font-bold px-2 py-0.5 rounded-full"
-                        style={{
-                          background: (TYPE_COLOR[selQ.type] || TYPE_COLOR["공통"]).bg,
-                          color: (TYPE_COLOR[selQ.type] || TYPE_COLOR["공통"]).color,
-                          border: `1px solid ${(TYPE_COLOR[selQ.type] || TYPE_COLOR["공통"]).border}60`,
-                        }}
-                      >
-                        {selQ.type}
-                      </span>
+                      <div className="text-[13px] font-extrabold text-ink">Q{questions.findIndex((q) => q.id === selQ.id) + 1}</div>
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ color: THEME.accentDark, background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}>🏫 {selSchool}</span>
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: (TYPE_COLOR[selQ.type] || TYPE_COLOR["공통"]).bg, color: (TYPE_COLOR[selQ.type] || TYPE_COLOR["공통"]).color, border: `1px solid ${(TYPE_COLOR[selQ.type] || TYPE_COLOR["공통"]).border}60` }}>{selQ.type}</span>
                     </div>
                     <div className="flex gap-2 items-center flex-wrap">
                       {selAnswer?.answer && (
@@ -498,7 +535,6 @@ export default function MiddlePastTab({ student }: { student: any }) {
                           onClick={() => {
                             if (showAiPanel) {
                               setShowAiPanel(false);
-                              setAiData(null);
                             } else openAiAnalysis("first");
                           }}
                           className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all hover:-translate-y-px"
@@ -506,22 +542,12 @@ export default function MiddlePastTab({ student }: { student: any }) {
                             background: showAiPanel ? THEME.accent : "#fff",
                             color: showAiPanel ? "#fff" : THEME.accent,
                             border: `1px solid ${THEME.accent}`,
-                            boxShadow: showAiPanel ? `0 4px 12px ${THEME.accentShadow}` : "none",
                           }}
                         >
                           ✨ AI 분석 {showAiPanel ? "닫기" : "보기"}
                         </button>
                       )}
-                      <span
-                        className="text-[11px] font-bold px-2.5 py-1 rounded-full"
-                        style={{
-                          background: selAnswer?.answer ? THEME.accentBg : "#FEF3C7",
-                          color: selAnswer?.answer ? THEME.accentDark : "#92400E",
-                          border: `1px solid ${selAnswer?.answer ? THEME.accentBorder : "#FCD34D"}60`,
-                        }}
-                      >
-                        {selAnswer?.answer ? "✓ 답변완료" : "⏳ 미답변"}
-                      </span>
+                      <span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: selAnswer?.answer ? THEME.accentBg : "#FEF3C7", color: selAnswer?.answer ? THEME.accentDark : "#92400E", border: `1px solid ${selAnswer?.answer ? THEME.accentBorder : "#FCD34D"}60` }}>{selAnswer?.answer ? "✓ 답변완료" : "⏳ 미답변"}</span>
                     </div>
                   </div>
 
@@ -535,64 +561,34 @@ export default function MiddlePastTab({ student }: { student: any }) {
                       const active = isDone || isOn;
                       return (
                         <div key={i} className="flex-1 flex flex-col items-center gap-1 relative">
-                          {i < 4 && (
-                            <div
-                              className="absolute top-[11px] left-[55%] w-[90%] h-px"
-                              style={{ background: isDone ? THEME.accent : "#E5E7EB" }}
-                            />
-                          )}
-                          <div
-                            className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-extrabold z-10 relative border"
-                            style={{
-                              background: active ? THEME.accent : "#F3F4F6",
-                              color: active ? "#fff" : "#9CA3AF",
-                              borderColor: active ? THEME.accent : "#E5E7EB",
-                            }}
-                          >
-                            {isDone ? "✓" : stepNum}
-                          </div>
-                          <div
-                            className="text-[10px] font-bold whitespace-nowrap"
-                            style={{ color: active ? THEME.accentDark : "#9CA3AF" }}
-                          >
-                            {label}
-                          </div>
+                          {i < 4 && <div className="absolute top-[11px] left-[55%] w-[90%] h-px" style={{ background: isDone ? THEME.accent : "#E5E7EB" }} />}
+                          <div className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-extrabold z-10 relative border" style={{ background: active ? THEME.accent : "#F3F4F6", color: active ? "#fff" : "#9CA3AF", borderColor: active ? THEME.accent : "#E5E7EB" }}>{isDone ? "✓" : stepNum}</div>
+                          <div className="text-[10px] font-bold whitespace-nowrap" style={{ color: active ? THEME.accentDark : "#9CA3AF" }}>{label}</div>
                         </div>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* 바디 */}
                 <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
                   <div className="bg-gray-50 border border-line rounded-xl px-4 py-3">
-                    <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">
-                      📌 기출 질문
-                    </div>
+                    <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">📌 기출 질문</div>
                     <div className="text-[14px] font-bold text-ink leading-[1.6]">{selQ.text}</div>
                   </div>
 
                   <div className="bg-white border border-line rounded-xl px-5 py-4">
-                    <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-3">
-                      📜 답변 · 피드백 히스토리
-                    </div>
+                    <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-3">📜 답변 · 피드백 히스토리</div>
                     <div className="flex flex-col gap-3.5">
                       {/* Step 1 */}
                       <div>
                         <div className="flex items-center gap-1.5 mb-2">
-                          <span className="text-[10px] font-extrabold text-white bg-gray-500 px-2 py-0.5 rounded-full">
-                            Step 1
-                          </span>
+                          <span className="text-[10px] font-extrabold text-white bg-gray-500 px-2 py-0.5 rounded-full">Step 1</span>
                           <span className="text-[11px] font-bold text-ink-secondary">👤 학생 첫 답변</span>
                         </div>
                         {selAnswer?.answer ? (
-                          <div className="bg-gray-50 border border-line rounded-lg px-3.5 py-3 text-[13px] font-medium text-ink leading-[1.8] whitespace-pre-wrap">
-                            {selAnswer.answer}
-                          </div>
+                          <div className="bg-gray-50 border border-line rounded-lg px-3.5 py-3 text-[13px] font-medium text-ink leading-[1.8] whitespace-pre-wrap">{selAnswer.answer}</div>
                         ) : (
-                          <div className="bg-gray-50 rounded-lg px-3 py-4 text-[12px] font-medium text-ink-muted text-center">
-                            ⏳ 학생이 아직 답변하지 않았어요
-                          </div>
+                          <div className="bg-gray-50 rounded-lg px-3 py-4 text-[12px] font-medium text-ink-muted text-center">⏳ 학생이 아직 답변하지 않았어요</div>
                         )}
                       </div>
 
@@ -600,53 +596,13 @@ export default function MiddlePastTab({ student }: { student: any }) {
                       {selAnswer?.answer && (
                         <div>
                           <div className="flex items-center gap-1.5 mb-2">
-                            <span
-                              className="text-[10px] font-extrabold text-white px-2 py-0.5 rounded-full"
-                              style={{ background: THEME.accent }}
-                            >
-                              Step 2
-                            </span>
+                            <span className="text-[10px] font-extrabold text-white px-2 py-0.5 rounded-full" style={{ background: THEME.accent }}>Step 2</span>
                             <span className="text-[11px] font-bold text-ink-secondary">💬 선생님 1차 피드백</span>
                           </div>
-                          <textarea
-                            value={feedback[String(selAnswer.id)] || ""}
-                            onChange={(e) =>
-                              setFeedback((prev) => ({
-                                ...prev,
-                                [String(selAnswer.id)]: e.target.value,
-                              }))
-                            }
-                            placeholder="학생 답변에 대한 피드백을 작성해주세요..."
-                            rows={3}
-                            className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] font-medium outline-none resize-y leading-[1.7] transition-all placeholder:text-ink-muted"
-                            onFocus={handleTextareaFocus}
-                            onBlur={handleTextareaBlur}
-                          />
+                          <textarea value={feedback[String(selAnswer.id)] || ""} onChange={(e) => setFeedback((prev) => ({ ...prev, [String(selAnswer.id)]: e.target.value }))} placeholder="학생 답변에 대한 피드백을 작성해주세요..." rows={3} className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] font-medium outline-none resize-y leading-[1.7]" onFocus={handleTextareaFocus} onBlur={handleTextareaBlur} />
                           <div className="flex gap-2 mt-2">
-                            <button
-                              onClick={handleSendFirstFb}
-                              disabled={!(feedback[String(selAnswer.id)] || "").trim() || saveFirstFb.isPending}
-                              className="px-4 py-2 text-white rounded-lg text-[12px] font-bold transition-all disabled:cursor-not-allowed hover:-translate-y-px"
-                              style={{
-                                background:
-                                  (feedback[String(selAnswer.id)] || "").trim() && !saveFirstFb.isPending
-                                    ? THEME.accent
-                                    : "#E5E7EB",
-                                color:
-                                  (feedback[String(selAnswer.id)] || "").trim() && !saveFirstFb.isPending
-                                    ? "#fff"
-                                    : "#9CA3AF",
-                                boxShadow:
-                                  (feedback[String(selAnswer.id)] || "").trim() && !saveFirstFb.isPending
-                                    ? `0 4px 12px ${THEME.accentShadow}`
-                                    : "none",
-                              }}
-                            >
-                              {saveFirstFb.isPending
-                                ? "저장 중..."
-                                : selFeedback?.teacher_first_feedback
-                                  ? "💾 업데이트"
-                                  : "📤 1차 피드백 전달"}
+                            <button onClick={handleSendFirstFb} disabled={!(feedback[String(selAnswer.id)] || "").trim() || saveFirstFb.isPending} className="px-4 py-2 text-white rounded-lg text-[12px] font-bold transition-all disabled:cursor-not-allowed hover:-translate-y-px" style={{ background: (feedback[String(selAnswer.id)] || "").trim() && !saveFirstFb.isPending ? THEME.accent : "#E5E7EB", color: (feedback[String(selAnswer.id)] || "").trim() && !saveFirstFb.isPending ? "#fff" : "#9CA3AF" }}>
+                              {saveFirstFb.isPending ? "저장 중..." : selFeedback?.teacher_first_feedback ? "💾 업데이트" : "📤 1차 피드백 전달"}
                             </button>
                           </div>
                         </div>
@@ -657,38 +613,19 @@ export default function MiddlePastTab({ student }: { student: any }) {
                         <div>
                           <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] font-extrabold text-white bg-gray-500 px-2 py-0.5 rounded-full">
-                                Step 3
-                              </span>
+                              <span className="text-[10px] font-extrabold text-white bg-gray-500 px-2 py-0.5 rounded-full">Step 3</span>
                               <span className="text-[11px] font-bold text-ink-secondary">👤 학생 업그레이드 답변</span>
                             </div>
                             {selAnswer?.upgraded_answer && (
-                              <button
-                                onClick={() => {
-                                  if (showAiPanel && aiTab === "second") {
-                                    setShowAiPanel(false);
-                                    setAiData(null);
-                                  } else openAiAnalysis("second");
-                                }}
-                                className="px-2.5 py-1 rounded-md text-[11px] font-bold transition-all"
-                                style={{
-                                  background: showAiPanel && aiTab === "second" ? THEME.accent : "#fff",
-                                  color: showAiPanel && aiTab === "second" ? "#fff" : THEME.accent,
-                                  border: `1px solid ${THEME.accent}`,
-                                }}
-                              >
+                              <button onClick={() => { if (showAiPanel && aiTab === "second") setShowAiPanel(false); else openAiAnalysis("second"); }} className="px-2.5 py-1 rounded-md text-[11px] font-bold transition-all" style={{ background: showAiPanel && aiTab === "second" ? THEME.accent : "#fff", color: showAiPanel && aiTab === "second" ? "#fff" : THEME.accent, border: `1px solid ${THEME.accent}` }}>
                                 ✨ 2차 AI 분석 {showAiPanel && aiTab === "second" ? "닫기" : "보기"}
                               </button>
                             )}
                           </div>
                           {selAnswer?.upgraded_answer ? (
-                            <div className="bg-gray-50 border border-line rounded-lg px-3.5 py-3 text-[13px] font-medium text-ink leading-[1.8] whitespace-pre-wrap">
-                              {selAnswer.upgraded_answer}
-                            </div>
+                            <div className="bg-gray-50 border border-line rounded-lg px-3.5 py-3 text-[13px] font-medium text-ink leading-[1.8] whitespace-pre-wrap">{selAnswer.upgraded_answer}</div>
                           ) : (
-                            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-4 text-[12px] font-medium text-amber-700 text-center">
-                              ⏳ 학생이 업그레이드 답변을 작성중이에요
-                            </div>
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-4 text-[12px] font-medium text-amber-700 text-center">⏳ 학생이 업그레이드 답변을 작성중이에요</div>
                           )}
                         </div>
                       )}
@@ -697,53 +634,13 @@ export default function MiddlePastTab({ student }: { student: any }) {
                       {selAnswer?.upgraded_answer && (
                         <div>
                           <div className="flex items-center gap-1.5 mb-2">
-                            <span
-                              className="text-[10px] font-extrabold text-white px-2 py-0.5 rounded-full"
-                              style={{ background: THEME.accent }}
-                            >
-                              Step 4
-                            </span>
+                            <span className="text-[10px] font-extrabold text-white px-2 py-0.5 rounded-full" style={{ background: THEME.accent }}>Step 4</span>
                             <span className="text-[11px] font-bold text-ink-secondary">💬 선생님 최종 피드백</span>
                           </div>
-                          <textarea
-                            value={feedback[`${selAnswer.id}_final`] || ""}
-                            onChange={(e) =>
-                              setFeedback((prev) => ({
-                                ...prev,
-                                [`${selAnswer.id}_final`]: e.target.value,
-                              }))
-                            }
-                            placeholder="업그레이드된 답변에 대한 최종 피드백을 작성해주세요..."
-                            rows={3}
-                            className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] font-medium outline-none resize-y leading-[1.7] transition-all placeholder:text-ink-muted"
-                            onFocus={handleTextareaFocus}
-                            onBlur={handleTextareaBlur}
-                          />
+                          <textarea value={feedback[`${selAnswer.id}_final`] || ""} onChange={(e) => setFeedback((prev) => ({ ...prev, [`${selAnswer.id}_final`]: e.target.value }))} placeholder="업그레이드된 답변에 대한 최종 피드백을 작성해주세요..." rows={3} className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] font-medium outline-none resize-y leading-[1.7]" onFocus={handleTextareaFocus} onBlur={handleTextareaBlur} />
                           <div className="flex gap-2 mt-2">
-                            <button
-                              onClick={handleSendFinalFb}
-                              disabled={!(feedback[`${selAnswer.id}_final`] || "").trim() || saveFinalFb.isPending}
-                              className="px-4 py-2 text-white rounded-lg text-[12px] font-bold transition-all disabled:cursor-not-allowed hover:-translate-y-px"
-                              style={{
-                                background:
-                                  (feedback[`${selAnswer.id}_final`] || "").trim() && !saveFinalFb.isPending
-                                    ? THEME.accent
-                                    : "#E5E7EB",
-                                color:
-                                  (feedback[`${selAnswer.id}_final`] || "").trim() && !saveFinalFb.isPending
-                                    ? "#fff"
-                                    : "#9CA3AF",
-                                boxShadow:
-                                  (feedback[`${selAnswer.id}_final`] || "").trim() && !saveFinalFb.isPending
-                                    ? `0 4px 12px ${THEME.accentShadow}`
-                                    : "none",
-                              }}
-                            >
-                              {saveFinalFb.isPending
-                                ? "저장 중..."
-                                : selFeedback?.teacher_final_feedback
-                                  ? "💾 업데이트"
-                                  : "📤 최종 피드백 전달"}
+                            <button onClick={handleSendFinalFb} disabled={!(feedback[`${selAnswer.id}_final`] || "").trim() || saveFinalFb.isPending} className="px-4 py-2 text-white rounded-lg text-[12px] font-bold transition-all disabled:cursor-not-allowed hover:-translate-y-px" style={{ background: (feedback[`${selAnswer.id}_final`] || "").trim() && !saveFinalFb.isPending ? THEME.accent : "#E5E7EB", color: (feedback[`${selAnswer.id}_final`] || "").trim() && !saveFinalFb.isPending ? "#fff" : "#9CA3AF" }}>
+                              {saveFinalFb.isPending ? "저장 중..." : selFeedback?.teacher_final_feedback ? "💾 업데이트" : "📤 최종 피드백 전달"}
                             </button>
                           </div>
                         </div>
@@ -753,67 +650,27 @@ export default function MiddlePastTab({ student }: { student: any }) {
                       {selFeedback?.teacher_final_feedback && (
                         <div>
                           <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                            <span
-                              className="text-[10px] font-extrabold text-white px-2 py-0.5 rounded-full"
-                              style={{ background: THEME.accent }}
-                            >
-                              Step 5
-                            </span>
+                            <span className="text-[10px] font-extrabold text-white px-2 py-0.5 rounded-full" style={{ background: THEME.accent }}>Step 5</span>
                             <span className="text-[11px] font-bold text-ink-secondary">🔗 꼬리질문</span>
                             <div className="ml-auto flex gap-1.5">
-                              <button
-                                onClick={() => setShowTailModal(true)}
-                                className="px-2.5 py-1 bg-white border rounded-md text-[11px] font-bold transition-all hover:-translate-y-px"
-                                style={{ color: THEME.accent, borderColor: THEME.accent }}
-                              >
-                                ➕ 직접 추가
-                              </button>
-                              <button
-                                onClick={openAiTailModal}
-                                className="px-2.5 py-1 text-white rounded-md text-[11px] font-bold transition-all hover:-translate-y-px"
-                                style={{ background: THEME.accent, boxShadow: `0 2px 6px ${THEME.accentShadow}` }}
-                              >
-                                ✨ AI 생성
-                              </button>
+                              <button onClick={() => setShowTailModal(true)} className="px-2.5 py-1 bg-white border rounded-md text-[11px] font-bold transition-all hover:-translate-y-px" style={{ color: THEME.accent, borderColor: THEME.accent }}>➕ 직접 추가</button>
+                              <button onClick={openAiTailModal} className="px-2.5 py-1 text-white rounded-md text-[11px] font-bold transition-all hover:-translate-y-px" style={{ background: THEME.accent }}>✨ AI 생성</button>
                             </div>
                           </div>
                           {!selFeedback?.tail_questions || selFeedback.tail_questions.length === 0 ? (
-                            <div className="text-[12px] font-medium text-ink-muted text-center py-3 bg-gray-50 rounded-lg">
-                              꼬리질문이 없어요.
-                            </div>
+                            <div className="text-[12px] font-medium text-ink-muted text-center py-3 bg-gray-50 rounded-lg">꼬리질문이 없어요.</div>
                           ) : (
                             selFeedback.tail_questions.map((t: any, i: number) => (
-                              <div
-                                key={i}
-                                className="rounded-lg px-3 py-2.5 mb-1.5"
-                                style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}
-                              >
+                              <div key={i} className="rounded-lg px-3 py-2.5 mb-1.5" style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}>
                                 <div className="flex items-start gap-2 mb-1.5">
-                                  <span
-                                    className="text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
-                                    style={{ color: "#fff", background: THEME.accent }}
-                                  >
-                                    꼬리{i + 1}
-                                  </span>
-                                  <span
-                                    className="text-[12.5px] font-medium flex-1 leading-[1.6]"
-                                    style={{ color: THEME.accentDark }}
-                                  >
-                                    {t.text}
-                                  </span>
-                                  <button
-                                    onClick={() => handleRemoveTail(i)}
-                                    className="text-ink-muted hover:text-red-500 text-xs flex-shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-red-50 transition-colors"
-                                  >
-                                    ✕
-                                  </button>
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ color: "#fff", background: THEME.accent }}>꼬리{i + 1}</span>
+                                  <span className="text-[12.5px] font-medium flex-1 leading-[1.6]" style={{ color: THEME.accentDark }}>{t.text}</span>
+                                  <button onClick={() => handleRemoveTail(i)} className="text-ink-muted hover:text-red-500 text-xs flex-shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-red-50">✕</button>
                                 </div>
                                 {t.answer && (
                                   <div className="mt-2 pt-2 border-t" style={{ borderColor: THEME.accentBorder + "60" }}>
                                     <div className="text-[10px] font-bold text-ink-muted mb-1">👤 학생 답변</div>
-                                    <div className="text-[12px] font-medium text-ink leading-[1.6] whitespace-pre-wrap bg-white rounded p-2">
-                                      {t.answer}
-                                    </div>
+                                    <div className="text-[12px] font-medium text-ink leading-[1.6] whitespace-pre-wrap bg-white rounded p-2">{t.answer}</div>
                                   </div>
                                 )}
                               </div>
@@ -830,408 +687,165 @@ export default function MiddlePastTab({ student }: { student: any }) {
         </div>
       )}
 
-      {/* ==================== AI 분석 사이드 패널 ==================== */}
+      {/* ==================== AI 분석 사이드 패널 (진짜 데이터) ==================== */}
       {showAiPanel && selQ && (
         <div className="fixed top-0 right-0 bottom-0 w-[440px] bg-white border-l border-line flex flex-col shadow-[-8px_0_24px_rgba(15,23,42,0.08)] z-50">
           <div className="px-4 py-4 border-b border-line flex-shrink-0 flex items-center justify-between">
             <div>
               <div className="text-[14px] font-extrabold text-ink tracking-tight">✨ AI 분석</div>
-              <div className="text-[11px] font-medium text-ink-secondary mt-0.5">
-                🏫 {selSchool} · Q{questions.findIndex((q) => q.id === selQ.id) + 1}
-              </div>
+              <div className="text-[11px] font-medium text-ink-secondary mt-0.5">🏫 {selSchool} · Q{questions.findIndex((q) => q.id === selQ.id) + 1}</div>
             </div>
-            <button
-              onClick={() => {
-                setShowAiPanel(false);
-                setAiData(null);
-              }}
-              className="text-ink-muted hover:text-ink text-base w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors"
-            >
-              ✕
-            </button>
+            <button onClick={() => setShowAiPanel(false)} className="text-ink-muted hover:text-ink text-base w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-100">✕</button>
           </div>
 
           <div className="flex border-b border-line flex-shrink-0">
-            <button
-              onClick={() => {
-                setAiTab("first");
-                openAiAnalysis("first");
-              }}
-              className="flex-1 py-2.5 text-center text-[12px] font-bold transition-all border-b-2"
-              style={{
-                color: aiTab === "first" ? THEME.accentDark : "#9CA3AF",
-                borderColor: aiTab === "first" ? THEME.accent : "transparent",
-                background: aiTab === "first" ? THEME.accentBg : "transparent",
-              }}
-            >
-              📊 1차 답변 분석
-            </button>
-            <button
-              onClick={() => {
-                if (selAnswer?.upgraded_answer) {
-                  setAiTab("second");
-                  openAiAnalysis("second");
-                }
-              }}
-              disabled={!selAnswer?.upgraded_answer}
-              className="flex-1 py-2.5 text-center text-[12px] font-bold transition-all border-b-2 disabled:cursor-not-allowed"
-              style={{
-                color: !selAnswer?.upgraded_answer
-                  ? "#D1D5DB"
-                  : aiTab === "second"
-                    ? THEME.accentDark
-                    : "#9CA3AF",
-                borderColor: aiTab === "second" ? THEME.accent : "transparent",
-                background: aiTab === "second" ? THEME.accentBg : "transparent",
-              }}
-            >
+            <button onClick={() => { setAiTab("first"); openAiAnalysis("first"); }} className="flex-1 py-2.5 text-center text-[12px] font-bold transition-all border-b-2" style={{ color: aiTab === "first" ? THEME.accentDark : "#9CA3AF", borderColor: aiTab === "first" ? THEME.accent : "transparent", background: aiTab === "first" ? THEME.accentBg : "transparent" }}>📊 1차 답변 분석</button>
+            <button onClick={() => { if (selAnswer?.upgraded_answer) { setAiTab("second"); openAiAnalysis("second"); } }} disabled={!selAnswer?.upgraded_answer} className="flex-1 py-2.5 text-center text-[12px] font-bold transition-all border-b-2 disabled:cursor-not-allowed" style={{ color: !selAnswer?.upgraded_answer ? "#D1D5DB" : aiTab === "second" ? THEME.accentDark : "#9CA3AF", borderColor: aiTab === "second" ? THEME.accent : "transparent", background: aiTab === "second" ? THEME.accentBg : "transparent" }}>
               📈 2차 답변 분석
               {!selAnswer?.upgraded_answer && <div className="text-[9px]">업그레이드 필요</div>}
             </button>
           </div>
 
           {/* 1차 분석 */}
-          {aiTab === "first" &&
-            (aiLoading ? (
-              <div className="flex-1 flex flex-col items-center justify-center gap-3 text-ink-muted">
-                <div className="text-3xl animate-pulse">✨</div>
-                <div className="text-[13px] font-medium">AI가 답변을 분석 중이에요...</div>
-              </div>
-            ) : !aiData ? (
-              <div className="flex-1 flex items-center justify-center text-ink-muted text-[13px] font-medium">
-                분석 데이터가 없어요.
-              </div>
-            ) : (
-              <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
-                <div
-                  className="rounded-xl px-4 py-3.5"
-                  style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}
-                >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-sm">✅</span>
-                    <div className="text-[13px] font-extrabold" style={{ color: THEME.accentDark }}>
-                      답변 정합성 분석
-                    </div>
-                  </div>
-                  <div className="text-[11px] font-medium text-ink-secondary mb-3">
-                    작성하신 답변을 학교별 핵심 평가 기준에 맞춰 분석한 결과입니다.
-                  </div>
+          {aiTab === "first" && (aiLoading ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-ink-muted">
+              <div className="text-3xl animate-pulse">✨</div>
+              <div className="text-[13px] font-medium">AI가 답변을 분석 중이에요...</div>
+              <div className="text-[11px]">학교 평가 기준 적용 중</div>
+            </div>
+          ) : !aiData ? (
+            <div className="flex-1 flex items-center justify-center text-ink-muted text-[13px] font-medium">분석 데이터가 없어요.</div>
+          ) : (
+            <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+              <div className="rounded-xl px-4 py-3.5" style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="text-sm">✅</span>
+                  <div className="text-[13px] font-extrabold" style={{ color: THEME.accentDark }}>답변 정합성 분석</div>
+                </div>
+                <div className="text-[11px] font-medium text-ink-secondary mb-3">{schoolCriteria?.school_name} 평가 기준에 맞춰 분석한 결과입니다.</div>
 
-                  {selQ.evaluation_criteria && selQ.evaluation_criteria.length > 0 && (
-                    <>
-                      <div className="h-[240px] mb-2 bg-white rounded-lg p-2">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <RadarChart
-                            data={getRadarData(selQ.evaluation_criteria)}
-                            margin={{ top: 24, right: 40, bottom: 24, left: 40 }}
-                          >
-                            <PolarGrid stroke="#E5E7EB" />
-                            <PolarAngleAxis
-                              dataKey="subject"
-                              tick={{ fontSize: 11, fill: "#374151", fontWeight: 600 }}
-                              tickLine={false}
-                            />
-                            <Radar
-                              name="학교 기준"
-                              dataKey="standard"
-                              stroke="#F97316"
-                              fill="#F97316"
-                              fillOpacity={0.3}
-                              strokeWidth={2}
-                            />
-                            <Radar
-                              name="학생 답변"
-                              dataKey="student"
-                              stroke={THEME.accent}
-                              fill={THEME.accent}
-                              fillOpacity={0.5}
-                              strokeWidth={2}
-                            />
-                          </RadarChart>
-                        </ResponsiveContainer>
-                      </div>
-                      <div className="flex gap-4 justify-center mb-3">
-                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-secondary">
-                          <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
-                          학교 기준
-                        </div>
-                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-secondary">
-                          <div className="w-2.5 h-2.5 rounded-full" style={{ background: THEME.accent }} />
-                          학생 답변
-                        </div>
-                      </div>
-                    </>
-                  )}
+                <div className="h-[240px] mb-2 bg-white rounded-lg p-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart data={getRadarData()} margin={{ top: 24, right: 40, bottom: 24, left: 40 }}>
+                      <PolarGrid stroke="#E5E7EB" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: "#374151", fontWeight: 600 }} tickLine={false} />
+                      <Radar name="학교 기준" dataKey="standard" stroke="#F97316" fill="#F97316" fillOpacity={0.3} strokeWidth={2} />
+                      <Radar name="학생 답변" dataKey="student" stroke={THEME.accent} fill={THEME.accent} fillOpacity={0.5} strokeWidth={2} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex gap-4 justify-center mb-3">
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-secondary"><div className="w-2.5 h-2.5 rounded-full bg-orange-500" />학교 기준</div>
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-secondary"><div className="w-2.5 h-2.5 rounded-full" style={{ background: THEME.accent }} />학생 답변</div>
+                </div>
 
-                  {getBarData(aiData).map((d: any, i: number) => (
-                    <div key={i} className="mb-2.5 bg-white rounded-lg px-3 py-2">
-                      <div className="flex justify-between text-[12px] mb-1">
-                        <span className="font-semibold text-ink">{d.name}</span>
-                        <span className="font-bold" style={{ color: THEME.accent }}>
-                          {d.score}/{d.max}
-                        </span>
-                      </div>
-                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{
-                            width: `${d.pct}%`,
-                            background: d.pct >= 80 ? THEME.accent : d.pct >= 60 ? "#F97316" : "#EF4444",
-                          }}
-                        />
-                      </div>
+                {getBarData(aiData).map((d: any, i: number) => (
+                  <div key={i} className="mb-2.5 bg-white rounded-lg px-3 py-2">
+                    <div className="flex justify-between text-[12px] mb-1">
+                      <span className="font-semibold text-ink">{d.name}</span>
+                      <span className="font-bold" style={{ color: THEME.accent }}>{d.score}/{d.max}</span>
                     </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${d.pct}%`, background: d.pct >= 80 ? THEME.accent : d.pct >= 60 ? "#F97316" : "#EF4444" }} />
+                    </div>
+                    {d.score !== undefined && aiData.scores?.[i]?.desc && (
+                      <div className="text-[10px] text-ink-muted mt-1 leading-[1.5]">{aiData.scores[i].desc}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-white border border-line rounded-xl px-4 py-3.5">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="text-sm">📊</span>
+                  <div className="text-[13px] font-extrabold text-ink">AI 종합 분석</div>
+                </div>
+
+                <div className="bg-gray-50 border border-line rounded-lg px-3 py-2.5 mb-3">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-ink-muted mb-1.5">🏫 {selSchool} 면접 평가 기준</div>
+                  <div className="text-[12px] font-medium text-ink leading-[1.7]">{aiData.evalCriteria}</div>
+                </div>
+
+                <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2.5 mb-3">
+                  <div className="text-[11px] font-bold text-orange-800 mb-1">📌 평가 요약</div>
+                  <div className="text-[12px] font-medium text-orange-900 leading-[1.7]">{aiData.summary}</div>
+                </div>
+
+                <div className="mb-3">
+                  <div className="text-[11px] font-extrabold uppercase tracking-wider mb-2" style={{ color: THEME.accent }}>💪 강점 포인트</div>
+                  {(aiData.strengths || []).map((s: string, i: number) => (
+                    <div key={i} className="text-[12px] font-medium leading-[1.6] px-3 py-2 rounded-lg mb-1.5" style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}40`, color: THEME.accentDark }}>✓ {s}</div>
                   ))}
                 </div>
 
-                <div className="bg-white border border-line rounded-xl px-4 py-3.5">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-sm">📊</span>
-                    <div className="text-[13px] font-extrabold text-ink">AI 종합 분석</div>
-                  </div>
-
-                  <div className="bg-gray-50 border border-line rounded-lg px-3 py-2.5 mb-3 mt-2">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-ink-muted mb-1.5">
-                      🏫 {selSchool} 면접 평가 기준
-                    </div>
-                    <div className="text-[12px] font-medium text-ink leading-[1.7]">{aiData.evalCriteria}</div>
-                  </div>
-
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2.5 mt-2 mb-3">
-                    <div className="text-[11px] font-bold text-orange-800 mb-1">📌 평가 요약</div>
-                    <div className="text-[12px] font-medium text-orange-900 leading-[1.7]">{aiData.summary}</div>
-                  </div>
-
-                  <div className="mb-3">
-                    <div className="text-[11px] font-extrabold uppercase tracking-wider mb-2" style={{ color: THEME.accent }}>
-                      💪 강점 포인트
-                    </div>
-                    {(aiData.strengths || []).map((s: string, i: number) => (
-                      <div
-                        key={i}
-                        className="text-[12px] font-medium leading-[1.6] px-3 py-2 rounded-lg mb-1.5"
-                        style={{
-                          background: THEME.accentBg,
-                          border: `1px solid ${THEME.accentBorder}40`,
-                          color: THEME.accentDark,
-                        }}
-                      >
-                        ✓ {s}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div>
-                    <div className="text-[11px] font-extrabold text-red-500 uppercase tracking-wider mb-2">
-                      ⚡ 개선 포인트
-                    </div>
-                    {(aiData.improvements || []).map((s: string, i: number) => (
-                      <div
-                        key={i}
-                        className="text-[12px] font-medium text-red-900 leading-[1.6] px-3 py-2 bg-red-50 border border-red-200 rounded-lg mb-1.5"
-                      >
-                        △ {s}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-xl px-4 py-3.5 border-2" style={{ borderColor: THEME.accent }}>
-                  <div
-                    className="text-[11px] font-extrabold uppercase tracking-wider mb-1"
-                    style={{ color: THEME.accent }}
-                  >
-                    ✨ AI 자동 작성
-                  </div>
-                  <div className="text-[11px] text-ink-secondary mb-2.5 leading-[1.6]">
-                    위 분석을 바탕으로 선생님 말투의 1차 피드백을 자동으로 작성해드릴게요. 클릭하면 작성창에 자동 입력돼요.
-                  </div>
-                  <button
-                    onClick={() => writeAiTeacherFeedback("first")}
-                    disabled={aiWriting === "first" || !selAnswer}
-                    className="w-full h-10 text-white rounded-lg text-[12px] font-bold transition-all hover:-translate-y-px disabled:cursor-not-allowed"
-                    style={{
-                      background: aiWriting === "first" ? "#9CA3AF" : THEME.accent,
-                      boxShadow: aiWriting === "first" ? "none" : `0 4px 12px ${THEME.accentShadow}`,
-                    }}
-                  >
-                    {aiWriting === "first" ? "✨ 작성 중..." : "✏️ 선생님 1차 답변 작성하기"}
-                  </button>
+                <div>
+                  <div className="text-[11px] font-extrabold text-red-500 uppercase tracking-wider mb-2">⚡ 개선 포인트</div>
+                  {(aiData.improvements || []).map((s: string, i: number) => (
+                    <div key={i} className="text-[12px] font-medium text-red-900 leading-[1.6] px-3 py-2 bg-red-50 border border-red-200 rounded-lg mb-1.5">△ {s}</div>
+                  ))}
                 </div>
               </div>
-            ))}
+
+              <div className="bg-white rounded-xl px-4 py-3.5 border-2" style={{ borderColor: THEME.accent }}>
+                <div className="text-[11px] font-extrabold uppercase tracking-wider mb-1" style={{ color: THEME.accent }}>✨ AI 자동 작성</div>
+                <div className="text-[11px] text-ink-secondary mb-2.5 leading-[1.6]">위 분석을 바탕으로 선생님 1차 피드백을 자동으로 작성해드릴게요.</div>
+                <button onClick={() => writeAiTeacherFeedback("first")} disabled={aiWriting === "first" || !selAnswer || !aiData?.teacherFeedback} className="w-full h-10 text-white rounded-lg text-[12px] font-bold transition-all hover:-translate-y-px disabled:cursor-not-allowed" style={{ background: aiWriting === "first" ? "#9CA3AF" : THEME.accent }}>
+                  {aiWriting === "first" ? "✨ 작성 중..." : "✏️ 선생님 1차 답변 작성하기"}
+                </button>
+              </div>
+            </div>
+          ))}
 
           {/* 2차 분석 */}
-          {aiTab === "second" &&
-            (secondAiLoading ? (
-              <div className="flex-1 flex flex-col items-center justify-center gap-3 text-ink-muted">
-                <div className="text-3xl animate-pulse">✨</div>
-                <div className="text-[13px] font-medium">AI가 2차 답변을 분석 중...</div>
-              </div>
-            ) : !secondData ? (
-              <div className="flex-1 flex items-center justify-center text-ink-muted text-[13px] font-medium">
-                2차 분석 데이터가 없어요.
-              </div>
-            ) : (
-              <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
-                <div
-                  className="rounded-xl px-4 py-3.5"
-                  style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}
-                >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-sm">📊</span>
-                    <div className="text-[13px] font-extrabold" style={{ color: THEME.accentDark }}>
-                      1차 vs 2차 평가요소 분포
-                    </div>
-                  </div>
-                  {secondData.beforeDistribution.map((b: any, i: number) => {
-                    const after = secondData.afterDistribution.find((a: any) => a.factorCode === b.factorCode);
-                    const diff = (after?.distribution || 0) - b.distribution;
-                    return (
-                      <div key={i} className="mb-3 bg-white rounded-lg px-3 py-2.5">
-                        <div className="flex justify-between items-center mb-1.5">
-                          <span className="text-[12px] font-bold text-ink">{b.factorName}</span>
-                          <span
-                            className="text-[11px] font-extrabold"
-                            style={{
-                              color: diff > 0 ? THEME.accent : diff < 0 ? "#EF4444" : "#6B7280",
-                            }}
-                          >
-                            {diff > 0 ? `▲ +${diff}%` : diff < 0 ? `▼ ${diff}%` : "변동없음"}
-                          </span>
-                        </div>
-                        <div className="mb-1">
-                          <div className="text-[10px] font-semibold text-ink-muted mb-0.5">
-                            1차 · {b.distribution}%
-                          </div>
-                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div
-                              className="h-full rounded-full"
-                              style={{ width: `${b.distribution}%`, background: "#A7F3D0" }}
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] font-semibold text-ink-muted mb-0.5">
-                            2차 · {after?.distribution || 0}%
-                          </div>
-                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div
-                              className="h-full rounded-full transition-all"
-                              style={{ width: `${after?.distribution || 0}%`, background: THEME.accent }}
-                            />
-                          </div>
-                        </div>
-                        {after?.evidence && (
-                          <div className="text-[11px] font-medium text-ink-secondary mt-1.5 leading-[1.5]">
-                            → {after.evidence}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+          {aiTab === "second" && (secondAiLoading ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-ink-muted">
+              <div className="text-3xl animate-pulse">✨</div>
+              <div className="text-[13px] font-medium">AI가 2차 답변을 분석 중...</div>
+            </div>
+          ) : !aiSecondData ? (
+            <div className="flex-1 flex items-center justify-center text-ink-muted text-[13px] font-medium">2차 분석 데이터가 없어요.</div>
+          ) : (
+            <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+              <div className="bg-white border border-line rounded-xl px-4 py-3.5">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="text-sm">🏗️</span>
+                  <div className="text-[13px] font-extrabold text-ink">구조 코멘트</div>
                 </div>
-
-                <div className="bg-white border border-line rounded-xl px-4 py-3.5">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <span className="text-sm">🏗️</span>
-                    <div className="text-[13px] font-extrabold text-ink">구조 코멘트</div>
-                  </div>
-                  <div
-                    className="rounded-lg px-3.5 py-3 text-[13px] font-medium leading-[1.8]"
-                    style={{
-                      background: THEME.accentBg,
-                      border: `1px solid ${THEME.accentBorder}60`,
-                      color: THEME.accentDark,
-                    }}
-                  >
-                    {secondData.structureComment}
-                  </div>
-                </div>
-
-                <div className="bg-white border border-line rounded-xl px-4 py-3.5">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-sm">🎤</span>
-                    <div className="text-[13px] font-extrabold text-ink">연습 답변</div>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg px-3.5 py-3 text-[13px] font-medium text-ink leading-[1.9] italic">
-                    "{secondData.practiceAnswer}"
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-xl px-4 py-3.5 border-2" style={{ borderColor: THEME.accent }}>
-                  <div
-                    className="text-[11px] font-extrabold uppercase tracking-wider mb-1"
-                    style={{ color: THEME.accent }}
-                  >
-                    ✨ AI 자동 작성
-                  </div>
-                  <div className="text-[11px] text-ink-secondary mb-2.5 leading-[1.6]">
-                    위 분석을 바탕으로 선생님 말투의 최종 피드백을 자동으로 작성해드릴게요. 클릭하면 작성창에 자동 입력돼요.
-                  </div>
-                  <button
-                    onClick={() => writeAiTeacherFeedback("final")}
-                    disabled={aiWriting === "final" || !selAnswer}
-                    className="w-full h-10 text-white rounded-lg text-[12px] font-bold transition-all hover:-translate-y-px disabled:cursor-not-allowed"
-                    style={{
-                      background: aiWriting === "final" ? "#9CA3AF" : THEME.accent,
-                      boxShadow: aiWriting === "final" ? "none" : `0 4px 12px ${THEME.accentShadow}`,
-                    }}
-                  >
-                    {aiWriting === "final" ? "✨ 작성 중..." : "✏️ 선생님 최종 답변 작성하기"}
-                  </button>
+                <div className="rounded-lg px-3.5 py-3 text-[13px] font-medium leading-[1.8]" style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60`, color: THEME.accentDark }}>
+                  {aiSecondData.structureComment}
                 </div>
               </div>
-            ))}
+
+              <div className="bg-white border border-line rounded-xl px-4 py-3.5">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="text-sm">🎤</span>
+                  <div className="text-[13px] font-extrabold text-ink">모범 답변</div>
+                </div>
+                <div className="bg-gray-50 rounded-lg px-3.5 py-3 text-[13px] font-medium text-ink leading-[1.9] italic">"{aiSecondData.practiceAnswer}"</div>
+              </div>
+
+              <div className="bg-white rounded-xl px-4 py-3.5 border-2" style={{ borderColor: THEME.accent }}>
+                <div className="text-[11px] font-extrabold uppercase tracking-wider mb-1" style={{ color: THEME.accent }}>✨ AI 자동 작성</div>
+                <div className="text-[11px] text-ink-secondary mb-2.5 leading-[1.6]">최종 피드백을 자동으로 작성해드릴게요.</div>
+                <button onClick={() => writeAiTeacherFeedback("final")} disabled={aiWriting === "final" || !selAnswer || !aiSecondData?.teacherFinalFeedback} className="w-full h-10 text-white rounded-lg text-[12px] font-bold transition-all hover:-translate-y-px disabled:cursor-not-allowed" style={{ background: aiWriting === "final" ? "#9CA3AF" : THEME.accent }}>
+                  {aiWriting === "final" ? "✨ 작성 중..." : "✏️ 선생님 최종 답변 작성하기"}
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
       {/* ==================== 꼬리질문 직접 추가 모달 ==================== */}
       {showTailModal && (
-        <div
-          onClick={() => setShowTailModal(false)}
-          className="fixed inset-0 z-[200] flex items-center justify-center"
-          style={{ background: "rgba(15, 23, 42, 0.55)", backdropFilter: "blur(4px)" }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl p-7 w-[460px] shadow-[0_20px_60px_rgba(0,0,0,0.25)]"
-          >
+        <div onClick={() => setShowTailModal(false)} className="fixed inset-0 z-[200] flex items-center justify-center" style={{ background: "rgba(15, 23, 42, 0.55)", backdropFilter: "blur(4px)" }}>
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl p-7 w-[460px] shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
             <div className="text-[18px] font-extrabold text-ink mb-1">➕ 꼬리질문 추가</div>
-            <div className="text-[12px] font-medium text-ink-secondary mb-4">
-              학생에게 추가로 물어볼 꼬리질문을 작성해요.
-            </div>
-            <textarea
-              value={tailInput}
-              onChange={(e) => setTailInput(e.target.value)}
-              placeholder="꼬리질문을 입력해주세요..."
-              rows={4}
-              autoFocus
-              className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] font-medium outline-none resize-none leading-[1.7] mb-4 transition-all placeholder:text-ink-muted"
-              onFocus={handleTextareaFocus}
-              onBlur={handleTextareaBlur}
-            />
+            <div className="text-[12px] font-medium text-ink-secondary mb-4">학생에게 추가로 물어볼 꼬리질문을 작성해요.</div>
+            <textarea value={tailInput} onChange={(e) => setTailInput(e.target.value)} placeholder="꼬리질문을 입력해주세요..." rows={4} autoFocus className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] font-medium outline-none resize-none leading-[1.7] mb-4" onFocus={handleTextareaFocus} onBlur={handleTextareaBlur} />
             <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  setShowTailModal(false);
-                  setTailInput("");
-                }}
-                className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleAddTail}
-                disabled={!tailInput.trim() || updateTails.isPending}
-                className="flex-1 h-11 text-white rounded-lg text-[13px] font-bold transition-all disabled:cursor-not-allowed hover:-translate-y-px"
-                style={{
-                  background: tailInput.trim() && !updateTails.isPending ? THEME.accent : "#E5E7EB",
-                  color: tailInput.trim() && !updateTails.isPending ? "#fff" : "#9CA3AF",
-                  boxShadow:
-                    tailInput.trim() && !updateTails.isPending ? `0 4px 12px ${THEME.accentShadow}` : "none",
-                }}
-              >
+              <button onClick={() => { setShowTailModal(false); setTailInput(""); }} className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50">취소</button>
+              <button onClick={handleAddTail} disabled={!tailInput.trim() || updateTails.isPending} className="flex-1 h-11 text-white rounded-lg text-[13px] font-bold transition-all disabled:cursor-not-allowed hover:-translate-y-px" style={{ background: tailInput.trim() && !updateTails.isPending ? THEME.accent : "#E5E7EB", color: tailInput.trim() && !updateTails.isPending ? "#fff" : "#9CA3AF" }}>
                 {updateTails.isPending ? "추가 중..." : "📤 추가하기"}
               </button>
             </div>
@@ -1241,59 +855,28 @@ export default function MiddlePastTab({ student }: { student: any }) {
 
       {/* ==================== AI 꼬리질문 모달 ==================== */}
       {showAiTailModal && (
-        <div
-          onClick={() => setShowAiTailModal(false)}
-          className="fixed inset-0 z-[200] flex items-center justify-center"
-          style={{ background: "rgba(15, 23, 42, 0.55)", backdropFilter: "blur(4px)" }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl p-7 w-[500px] shadow-[0_20px_60px_rgba(0,0,0,0.25)]"
-          >
+        <div onClick={() => setShowAiTailModal(false)} className="fixed inset-0 z-[200] flex items-center justify-center" style={{ background: "rgba(15, 23, 42, 0.55)", backdropFilter: "blur(4px)" }}>
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl p-7 w-[500px] shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
             <div className="text-[18px] font-extrabold text-ink mb-1">✨ AI 꼬리질문 생성</div>
-            <div className="text-[12px] font-medium text-ink-secondary mb-5">
-              AI가 답변 내용을 분석해서 꼬리질문을 만들었어요. 전달할 것을 선택하세요.
-            </div>
+            <div className="text-[12px] font-medium text-ink-secondary mb-5">{selSchool} 평가 기준 기반 꼬리질문이에요. 전달할 것을 선택하세요.</div>
 
             {aiTailLoading ? (
               <div className="text-center py-10 text-ink-muted text-[13px] font-medium">
                 <div className="text-3xl mb-3 animate-pulse">✨</div>
                 AI가 꼬리질문을 생성 중이에요...
               </div>
+            ) : aiTails.length === 0 ? (
+              <div className="text-center py-10 text-ink-muted text-[13px]">꼬리질문이 없어요.</div>
             ) : (
               <div className="flex flex-col gap-2 mb-5">
                 {aiTails.map((t, i) => {
                   const isSelected = selectedAiTails.includes(i);
                   return (
-                    <button
-                      key={i}
-                      onClick={() =>
-                        setSelectedAiTails((prev) =>
-                          prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i],
-                        )
-                      }
-                      className="flex items-start gap-2.5 px-4 py-3 rounded-xl text-left transition-all"
-                      style={{
-                        border: `1px solid ${isSelected ? THEME.accent : "#E5E7EB"}`,
-                        background: isSelected ? THEME.accentBg : "#fff",
-                        boxShadow: isSelected ? `0 2px 8px ${THEME.accentShadow}` : "none",
-                      }}
-                    >
-                      <div
-                        className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 transition-all"
-                        style={{
-                          border: `1.5px solid ${isSelected ? THEME.accent : "#D1D5DB"}`,
-                          background: isSelected ? THEME.accent : "#fff",
-                        }}
-                      >
+                    <button key={i} onClick={() => setSelectedAiTails((prev) => prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i])} className="flex items-start gap-2.5 px-4 py-3 rounded-xl text-left transition-all" style={{ border: `1px solid ${isSelected ? THEME.accent : "#E5E7EB"}`, background: isSelected ? THEME.accentBg : "#fff" }}>
+                      <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5" style={{ border: `1.5px solid ${isSelected ? THEME.accent : "#D1D5DB"}`, background: isSelected ? THEME.accent : "#fff" }}>
                         {isSelected && <span className="text-[11px] text-white font-bold">✓</span>}
                       </div>
-                      <span
-                        className="text-[13px] font-medium leading-[1.6]"
-                        style={{ color: isSelected ? THEME.accentDark : "#1a1a1a" }}
-                      >
-                        {t}
-                      </span>
+                      <span className="text-[13px] font-medium leading-[1.6]" style={{ color: isSelected ? THEME.accentDark : "#1a1a1a" }}>{t}</span>
                     </button>
                   );
                 })}
@@ -1301,25 +884,8 @@ export default function MiddlePastTab({ student }: { student: any }) {
             )}
 
             <div className="flex gap-2">
-              <button
-                onClick={() => setShowAiTailModal(false)}
-                className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors"
-              >
-                취소
-              </button>
-              <button
-                onClick={deliverAiTails}
-                disabled={selectedAiTails.length === 0 || aiTailLoading || updateTails.isPending}
-                className="flex-1 h-11 text-white rounded-lg text-[13px] font-bold transition-all disabled:cursor-not-allowed hover:-translate-y-px"
-                style={{
-                  background: selectedAiTails.length > 0 && !updateTails.isPending ? THEME.accent : "#E5E7EB",
-                  color: selectedAiTails.length > 0 && !updateTails.isPending ? "#fff" : "#9CA3AF",
-                  boxShadow:
-                    selectedAiTails.length > 0 && !updateTails.isPending
-                      ? `0 4px 12px ${THEME.accentShadow}`
-                      : "none",
-                }}
-              >
+              <button onClick={() => setShowAiTailModal(false)} className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50">취소</button>
+              <button onClick={deliverAiTails} disabled={selectedAiTails.length === 0 || aiTailLoading || updateTails.isPending} className="flex-1 h-11 text-white rounded-lg text-[13px] font-bold transition-all disabled:cursor-not-allowed hover:-translate-y-px" style={{ background: selectedAiTails.length > 0 && !updateTails.isPending ? THEME.accent : "#E5E7EB", color: selectedAiTails.length > 0 && !updateTails.isPending ? "#fff" : "#9CA3AF" }}>
                 {updateTails.isPending ? "전달 중..." : `📤 ${selectedAiTails.length}개 전달`}
               </button>
             </div>

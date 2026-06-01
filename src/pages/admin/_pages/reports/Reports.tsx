@@ -66,6 +66,86 @@ function useAcademyMonthlySummary(
   })
 }
 
+// 🆕 학생 1명의 한 달 상세 활동 데이터 (제목, 본문, 답변 등)
+interface StudentMonthlyDetail {
+  essays?: Array<{
+    id: string
+    school: string | null
+    content_preview: string
+    content_length: number
+    completed: boolean
+    created_at: string
+  }>
+  past_answers?: Array<{
+    id: string
+    question_id: string | null
+    answer_preview: string
+    upgraded_answer_preview?: string
+    status?: string
+    created_at: string
+  }>
+  simulations?: Array<{
+    id: string
+    question_type: string | null
+    question_type_label?: string | null
+    school: string | null
+    questions: any
+    transcript_preview: string
+    created_at: string
+  }>
+  interviews?: Array<{ id: string; created_at: string }>
+  readings?: Array<{
+    id: string
+    book_title?: string
+    author?: string
+    reason?: string
+    notes_preview?: string
+    status?: string
+    created_at: string
+  }>
+  homework_submissions?: Array<{
+    id: string
+    assignment_id?: string
+    answer_preview: string
+    transcript_preview: string
+    feedback_preview: string
+    feedback_status?: string
+    submitted_at: string | null
+  }>
+  suhaeng?: Array<{
+    id: string
+    question_title?: string
+    question_subject?: string
+    question_school_name?: string
+    question_category?: string
+    answer_preview: string
+    status?: string
+    submitted_at: string | null
+  }>
+  major_answers?: Array<{ id: string; created_at: string }>
+  research?: Array<{ id: string; created_at: string }>
+}
+
+function useStudentMonthlyDetail(
+  studentId: string | null,
+  yearMonth: string,
+  gradeLevel: 'high' | 'middle'
+) {
+  return useQuery({
+    queryKey: ['student-monthly-detail', studentId, yearMonth, gradeLevel],
+    enabled: !!studentId,
+    queryFn: async (): Promise<StudentMonthlyDetail> => {
+      const { data, error } = await supabase.rpc('get_student_monthly_detail', {
+        p_student_id: studentId,
+        p_year_month: yearMonth,
+        p_grade_level: gradeLevel,
+      })
+      if (error) throw error
+      return (data as StudentMonthlyDetail) || {}
+    },
+  })
+}
+
 // 보고서 저장 (임시 저장)
 function useSaveReport() {
   const queryClient = useQueryClient()
@@ -372,7 +452,78 @@ export default function Reports() {
   }
 
   const handleDownloadPDF = () => {
-    alert('📄 PDF 다운로드는 다음 단계에서 연결할 예정이에요')
+    const reportEl = document.getElementById('parent-report-content')
+    if (!reportEl) {
+      alert('보고서 영역을 찾을 수 없어요')
+      return
+    }
+
+    // 새 iframe 생성해서 그 안에서 print
+    const iframe = document.createElement('iframe')
+    iframe.style.position = 'fixed'
+    iframe.style.right = '0'
+    iframe.style.bottom = '0'
+    iframe.style.width = '0'
+    iframe.style.height = '0'
+    iframe.style.border = '0'
+    document.body.appendChild(iframe)
+
+    const iframeDoc = iframe.contentWindow?.document
+    if (!iframeDoc) return
+
+    // 프로젝트의 모든 CSS 가져와서 iframe에 적용
+    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map(el => el.outerHTML)
+      .join('\n')
+
+    iframeDoc.open()
+    iframeDoc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${selectedStudent?.student_name || ''} 학생 - ${selectedMonth} 월간 보고서</title>
+          ${styles}
+          <style>
+            body { 
+              margin: 0; 
+              padding: 20px; 
+              background: #F8FAFC; 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            @page { size: A4; margin: 10mm; }
+            @media print {
+              body { background: white; }
+              .no-print { display: none !important; }
+              * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          ${reportEl.innerHTML}
+        </body>
+      </html>
+    `)
+    iframeDoc.close()
+
+    // 폰트/이미지 로드 대기 후 print
+    setTimeout(() => {
+      iframe.contentWindow?.focus()
+      iframe.contentWindow?.print()
+      // print 다이얼로그 닫힌 후 iframe 제거
+      setTimeout(() => {
+        document.body.removeChild(iframe)
+      }, 1000)
+    }, 500)
   }
 
   // ===== 일괄 발행 =====
@@ -877,6 +1028,13 @@ function ReportEditView({
 }) {
   const monthLabel = `${month.split('-')[0]}년 ${parseInt(month.split('-')[1])}월`
 
+  // 🆕 학생의 한 달 상세 활동 데이터 가져오기
+  const { data: detail, isLoading: detailLoading } = useStudentMonthlyDetail(
+    student.student_id,
+    month,
+    gradeLevel
+  )
+
   return (
     <div className="px-8 py-7 min-h-full">
       <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
@@ -918,8 +1076,8 @@ function ReportEditView({
 
       <div className="grid grid-cols-[1fr_360px] max-lg:grid-cols-1 gap-4">
 
-        <div className="bg-white border border-line rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
-          <div className="px-5 py-3 border-b border-line-light flex items-center justify-between bg-gray-50">
+        <div id="parent-report-content" className="bg-white border border-line rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
+          <div className="px-5 py-3 border-b border-line-light flex items-center justify-between bg-gray-50 no-print">
             <div className="text-[13px] font-extrabold text-ink">📄 보고서 미리보기</div>
             <div className="text-[11px] font-medium text-ink-muted">부모님께 전달될 화면</div>
           </div>
@@ -947,25 +1105,109 @@ function ReportEditView({
           </div>
 
           <div className="p-6 space-y-4">
-            <ReportSection icon="📝" title="자기소개서 작성" meta={`${student.essay_count}건`} show={student.essay_count > 0} theme={theme} />
-            <ReportSection icon="🎓" title="기출문제 답변" meta={`${student.past_answer_count}건`} show={student.past_answer_count > 0} theme={theme} />
-            <ReportSection icon="🎙️" title="AI 면접 시뮬레이션" meta={`${student.simulation_count}회`} show={student.simulation_count > 0} theme={theme} />
-            <ReportSection icon="🎤" title="면접" meta={`${student.interview_count}회`} show={student.interview_count > 0} theme={theme} />
-            <ReportSection icon="📜" title="제시문 면접" meta={`${student.passage_count}회`} show={student.passage_count > 0} theme={theme} />
-            <ReportSection icon="📚" title="독서 활동" meta={`${student.reading_count}건`} show={student.reading_count > 0} theme={theme} />
+            <ReportRichSection
+              icon="📝" title="자기소개서 작성" theme={theme}
+              count={student.essay_count} unit="건"
+              loading={detailLoading}
+              items={detail?.essays?.map(e => ({
+                title: e.school ? `${e.school} 자기소개서` : '자기소개서',
+                badges: [
+                  e.completed ? '✓ 완성' : '작성 중',
+                  `${e.content_length}자`,
+                ],
+                preview: e.content_preview,
+              }))}
+            />
+            <ReportRichSection
+              icon="🎓" title="기출문제 답변" theme={theme}
+              count={student.past_answer_count} unit="건"
+              loading={detailLoading}
+              items={detail?.past_answers?.map((a, i) => ({
+                title: `기출 답변 ${i + 1}`,
+                badges: a.status ? [a.status] : [],
+                preview: a.answer_preview,
+              }))}
+            />
+            <ReportRichSection
+              icon="🎙️" title="AI 면접 시뮬레이션" theme={theme}
+              count={student.simulation_count} unit="회"
+              loading={detailLoading}
+              items={detail?.simulations?.map((s, i) => ({
+                title: s.school
+                  ? `${s.school} 면접 시뮬 ${i + 1}`
+                  : `면접 시뮬 ${i + 1}`,
+                badges: [s.question_type_label || s.question_type || ''].filter(Boolean),
+                preview: s.transcript_preview || '(답변 transcript 없음)',
+              }))}
+            />
+            <ReportRichSection
+              icon="🎤" title="면접" theme={theme}
+              count={student.interview_count} unit="회"
+              loading={detailLoading}
+              items={detail?.interviews?.map((_, i) => ({
+                title: `면접 ${i + 1}`,
+                badges: [],
+                preview: '',
+              }))}
+            />
+            <ReportRichSection
+              icon="📜" title="제시문 면접" theme={theme}
+              count={student.passage_count} unit="회"
+              loading={detailLoading}
+            />
+            <ReportRichSection
+              icon="📚" title="독서 활동" theme={theme}
+              count={student.reading_count} unit="건"
+              loading={detailLoading}
+              items={detail?.readings?.map(r => ({
+                title: r.book_title || '독서',
+                badges: [r.author, r.status].filter(Boolean) as string[],
+                preview: r.notes_preview || r.reason || '',
+              }))}
+            />
             {gradeLevel === 'middle' && (
               <>
-                <ReportSection icon="🎬" title="수업 영상 시청" meta={`${student.lessons_progress_count}건`} show={student.lessons_progress_count > 0} theme={theme} />
-                <ReportSection icon="📒" title="숙제 제출" meta={`${student.homework_submission_count}건`} show={student.homework_submission_count > 0} theme={theme} />
+                <ReportRichSection
+                  icon="🎬" title="수업 영상 시청" theme={theme}
+                  count={student.lessons_progress_count} unit="건"
+                  loading={detailLoading}
+                />
+                <ReportRichSection
+                  icon="📒" title="숙제 제출" theme={theme}
+                  count={student.homework_submission_count} unit="건"
+                  loading={detailLoading}
+                  items={detail?.homework_submissions?.map((h, i) => ({
+                    title: `숙제 ${i + 1}`,
+                    badges: [h.feedback_status].filter(Boolean) as string[],
+                    preview: h.answer_preview || h.transcript_preview || '',
+                  }))}
+                />
               </>
             )}
             {gradeLevel === 'high' && (
               <>
-                <ReportSection icon="🎯" title="전공 질문 답변" meta={`${student.major_answer_count}건`} show={student.major_answer_count > 0} theme={theme} />
-                <ReportSection icon="🔬" title="탐구 활동" meta={`${student.research_count}건`} show={student.research_count > 0} theme={theme} />
+                <ReportRichSection
+                  icon="🎯" title="전공 질문 답변" theme={theme}
+                  count={student.major_answer_count} unit="건"
+                  loading={detailLoading}
+                />
+                <ReportRichSection
+                  icon="🔬" title="탐구 활동" theme={theme}
+                  count={student.research_count} unit="건"
+                  loading={detailLoading}
+                />
               </>
             )}
-            <ReportSection icon="📝" title="수행평가" meta={`${student.suhaeng_count}건`} show={student.suhaeng_count > 0} theme={theme} />
+            <ReportRichSection
+              icon="📝" title="수행평가" theme={theme}
+              count={student.suhaeng_count} unit="건"
+              loading={detailLoading}
+              items={detail?.suhaeng?.map(s => ({
+                title: s.question_title || '수행평가',
+                badges: [s.question_subject, s.question_school_name, s.status].filter(Boolean) as string[],
+                preview: s.answer_preview,
+              }))}
+            />
 
             <div className="rounded-2xl p-5 border" style={{ background: '#FFFBEB', borderColor: '#FDE68A' }}>
               <div className="flex items-center gap-2 mb-3">
@@ -1074,6 +1316,108 @@ function ReportSection({ icon, title, meta, show, theme }: {
         <span className="text-[13px] font-extrabold" style={{ color: theme.accentDark }}>{title}</span>
         {meta && <span className="text-[10px] font-bold ml-auto px-2 py-0.5 rounded-full" style={{ background: theme.accentBg, color: theme.accent }}>{meta}</span>}
       </div>
+    </div>
+  )
+}
+
+// 🆕 풍부한 활동 섹션 - 각 활동의 실제 내용 표시
+function ReportRichSection({ icon, title, count, unit = '건', theme, items, loading }: {
+  icon: string
+  title: string
+  count: number
+  unit?: string
+  theme: typeof THEMES.high
+  items?: Array<{
+    title: string
+    badges?: string[]
+    preview?: string
+  }>
+  loading?: boolean
+}) {
+  // JSON 형태의 텍스트면 키-값 풀어서 표시
+  const formatPreview = (text: string): string => {
+    if (!text || text.trim() === '' || text === '{}') return ''
+    const trimmed = text.trim()
+    // JSON 객체로 시작하면 파싱 시도
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        if (typeof parsed === 'object' && parsed !== null) {
+          if (Array.isArray(parsed)) {
+            return parsed.map((v, i) => `${i + 1}. ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('\n')
+          }
+          const entries = Object.entries(parsed)
+            .filter(([_, v]) => v !== null && v !== undefined && String(v).trim() !== '' && String(v) !== '[]' && String(v) !== '{}')
+          if (entries.length === 0) return ''
+          return entries
+            .map(([k, v]) => {
+              const valStr = typeof v === 'object' ? JSON.stringify(v) : String(v)
+              return `【${k}】\n${valStr}`
+            })
+            .join('\n\n')
+        }
+      } catch {
+        // 파싱 실패하면 원본 텍스트 그대로
+      }
+    }
+    return text
+  }
+
+  if (count === 0) return null
+  return (
+    <div className="pl-4 py-2" style={{ borderLeft: `3px solid ${theme.accentBorder}` }}>
+      {/* 섹션 헤더 */}
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-base">{icon}</span>
+        <span className="text-[13px] font-extrabold" style={{ color: theme.accentDark }}>{title}</span>
+        <span className="text-[10px] font-bold ml-auto px-2 py-0.5 rounded-full" style={{ background: theme.accentBg, color: theme.accent }}>
+          {count}{unit}
+        </span>
+      </div>
+
+      {/* 로딩 */}
+      {loading && (
+        <div className="text-[11px] text-ink-muted italic pl-1">불러오는 중...</div>
+      )}
+
+      {/* 항목 리스트 */}
+      {!loading && items && items.length > 0 && (
+        <div className="space-y-2 pl-1">
+          {items.map((item, idx) => {
+            const formattedPreview = item.preview ? formatPreview(item.preview) : ''
+            const isEmpty = !formattedPreview || formattedPreview.trim() === ''
+            return (
+              <div key={idx} className="bg-gray-50 border border-line-light rounded-lg px-3 py-2">
+                <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                  <span className="text-[11px] font-bold" style={{ color: theme.accentDark }}>
+                    {idx + 1}. {item.title}
+                  </span>
+                  {item.badges?.filter(b => b).map((b, bi) => (
+                    <span key={bi} className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: theme.accentBg, color: theme.accent }}>
+                      {b}
+                    </span>
+                  ))}
+                </div>
+                {!isEmpty ? (
+                  <div className="text-[11px] text-ink-secondary leading-[1.7] mt-1 whitespace-pre-wrap">
+                    {formattedPreview}
+                    {item.preview && item.preview.length >= 200 && !formattedPreview.startsWith('【') && (
+                      <span className="text-ink-muted">...</span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-ink-muted italic mt-1">(내용 없음 또는 작성 전)</div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* 데이터 없음 */}
+      {!loading && (!items || items.length === 0) && count > 0 && (
+        <div className="text-[10px] text-ink-muted italic pl-1">총 {count}{unit} (상세 정보 없음)</div>
+      )}
     </div>
   )
 }
