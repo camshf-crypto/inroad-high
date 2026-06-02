@@ -1,9 +1,13 @@
-// supabase/functions/ai-interview-analysis/index.ts
+// supabase/functions/middle-interview-analysis/index.ts
 // 학생 면접 답변 + 학교 평가 기준 → AI 분석 결과
+// 🔥 캐시: answer_id 기준 DB 조회 → 있으면 캐시 반환, 없으면 GPT 호출 + 저장
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,12 +24,10 @@ interface SchoolCriteria {
   high_score_answer: string
   preferred_type: string
   evaluation_tone: string
-  // 외고/자사고/국제고 (외고형 4개)
   score_self_directed: number
   score_humanity: number
   score_motivation: number
   score_current_affairs: number
-  // 과학고/영재 (과고형 4개)
   score_research_depth: number
   score_research_process: number
   score_research_ethics: number
@@ -33,47 +35,40 @@ interface SchoolCriteria {
 }
 
 interface RequestBody {
-  // 분석 종류
-  analysisType: 'first' | 'second'  // 1차 (첫 답변) 또는 2차 (업그레이드)
-  
-  // 질문 + 답변
+  answerId: string
+  forceRegenerate?: boolean
+  analysisType: 'first' | 'second'
   questionText: string
-  questionType?: string  // 지원동기/자기주도/인성 등
+  questionType?: string
   studentAnswer: string
-  upgradedAnswer?: string  // 2차 분석일 때
-  
-  // 학교 평가 기준
+  upgradedAnswer?: string
   school: SchoolCriteria
-  
-  // 학생 정보 (선택)
   studentName?: string
   studentGrade?: string
 }
 
-// 학교 유형에 따라 외고형/과고형 점수 사용
-function isResearchType(schoolType: string): boolean {
-  return schoolType.includes('과학고') || schoolType.includes('영재')
-}
-
 function buildSystemPrompt(school: SchoolCriteria): string {
-  const isResearch = isResearchType(school.school_type)
+  const allFactors = [
+    { label: '자기주도학습', weight: school.score_self_directed },
+    { label: '인성·공동체', weight: school.score_humanity },
+    { label: '지원동기·학교이해', weight: school.score_motivation },
+    { label: '시사·사고력', weight: school.score_current_affairs },
+    { label: '탐구 심화', weight: school.score_research_depth },
+    { label: '탐구 과정·사고', weight: school.score_research_process },
+    { label: '연구윤리·인성', weight: school.score_research_ethics },
+    { label: '진로·전공 동기', weight: school.score_career_motivation },
+  ]
+  const activeFactors = allFactors.filter(f => f.weight > 0)
   
-  let scoringSection = ''
-  if (isResearch) {
-    scoringSection = `[${school.school_name} 점수 배분 - 과학고/영재형]
-- 탐구 심화: ${school.score_research_depth}점
-- 탐구 과정·사고: ${school.score_research_process}점
-- 연구윤리·인성: ${school.score_research_ethics}점
-- 진로·전공 동기: ${school.score_career_motivation}점
-(합계 100점)`
-  } else {
-    scoringSection = `[${school.school_name} 점수 배분 - 외고/국제고/자사고형]
-- 자기주도학습: ${school.score_self_directed}점
-- 인성·공동체: ${school.score_humanity}점
-- 지원동기·학교이해: ${school.score_motivation}점
-- 시사·사고력: ${school.score_current_affairs}점
-(합계 100점)`
-  }
+  const scoringSection = `[${school.school_name} 점수 배분]
+${activeFactors.map(f => `- ${f.label}: ${f.weight}점`).join('\n')}
+(합계 100점)
+
+⚠️ 위 항목들만 평가하고, 다른 항목은 절대 포함하지 마세요.`
+
+  const scoresFormat = activeFactors
+    .map(f => `    { "label": "${f.label}", "score": (0~${f.weight} 사이 정수), "max": ${f.weight}, "desc": "이 항목 평가 근거 한 줄" }`)
+    .join(',\n')
 
   return `당신은 한국의 입시 전문 학원 선생님으로, 중학생의 ${school.school_name} 면접 답변을 분석하는 AI입니다.
 
@@ -101,36 +96,42 @@ ${school.evaluation_tone}
 
 [당신의 임무]
 - 학생의 답변을 위 ${school.school_name}의 평가 기준에 맞춰 분석
-- 평가 항목별 점수 산출 (각 항목 비중 반영)
-- 강점과 개선점 도출
-- 선생님이 학생에게 줄 피드백 초안 작성 (따뜻한 어조, "○○ 학생은..." 톤)
+- 위에 명시된 평가 항목만 점수 산출 (다른 항목 절대 추가 금지)
+- 강점과 개선점 도출 (학생 답변 내용을 구체적으로 인용)
+- 학생이 답변을 더 깊게 만들 수 있도록 스스로 생각해볼 사유하는 질문 5개 제시
+- 선생님이 학생에게 줄 피드백 초안 작성 (따뜻한 어조, 길고 구체적으로)
+
+[teacherFeedback 작성 지침 - 반드시 따라야 함]
+- ★ 분량: 250자~400자 (절대 너무 짧으면 안 됨) ★
+- 학생 이름이 있으면 "○○님," 형태로 시작 (○○는 실제 이름 그대로 넣기. placeholder 사용 금지)
+- 학생 이름이 없으면 "학생, "으로 시작
+- "~예요/~해요" 따뜻한 톤
+- 구조: 
+  1. [총평] 2-3문장 - 답변 전체 느낌
+  2. [잘한 점] 2문장 - 학생 답변에서 구체적으로 잘한 부분 인용
+  3. [개선할 점] 2-3문장 - 부족한 부분 + 어떻게 보완할지 구체 제안
+  4. [다음 단계] 1-2문장 - 응원 + 다음 액션 제시
+- 마크다운 헤더(##, **) 사용 금지
+- 학생 답변 내용을 직접 인용하면서 평가
+- "구체적이지 않다" 같은 모호한 표현 금지 → "○○ 부분을 더 자세히 말해보면" 같이 구체적으로
 
 [응답 형식 - 반드시 아래 JSON 형식으로]
 {
   "evalCriteria": "이 학교의 핵심 평가 기준 설명 (1-2문장)",
   "scores": [
-    { "label": "평가 항목명", "score": 산출점수, "max": 최대점수, "desc": "이 점수의 근거" },
-    ...
+${scoresFormat}
   ],
   "summary": "전체 평가 요약 (1-2문장)",
-  "strengths": ["강점1", "강점2", "강점3"],
-  "improvements": ["개선점1", "개선점2", "개선점3"],
-  "teacherFeedback": "선생님이 학생에게 줄 피드백 초안 (3-5문장, 친근한 어조, ~했어요/~해요 톤, 구체적 사례 제시, '○○ 학생' 호칭, 응원 메시지 포함)"
+  "strengths": ["강점1 (학생 답변 인용)", "강점2", "강점3"],
+  "improvements": ["개선점1 (구체적 제안)", "개선점2", "개선점3"],
+  "reflectiveQuestions": ["학생 답변에서 ○○라고 했는데, 그 이유는?", "사유질문2", "사유질문3", "사유질문4", "사유질문5"],
+  "teacherFeedback": "250-400자의 따뜻하고 구체적인 피드백"
 }
 
-JSON 외 다른 텍스트는 절대 추가하지 마세요.`
+⚠️ scores 배열에는 위에 명시된 항목만 포함. teacherFeedback은 250-400자, 학생 답변 인용 필수. reflectiveQuestions는 학생 답변과 직접 연결된 사고 자극 질문. JSON 외 다른 텍스트 절대 추가 금지.`
 }
 
 function buildSecondAnalysisPrompt(school: SchoolCriteria): string {
-  const isResearch = isResearchType(school.school_type)
-  
-  let scoringFactors = ''
-  if (isResearch) {
-    scoringFactors = `자기주도학습, 인성·공동체, 지원동기·학교이해, 시사·사고력`
-  } else {
-    scoringFactors = `자기주도학습, 인성·공동체, 지원동기·학교이해, 시사·사고력`
-  }
-  
   return `당신은 ${school.school_name} 면접 평가 전문가입니다. 학생의 1차 답변과 업그레이드된 답변을 비교 분석해주세요.
 
 [응답 형식 - JSON]
@@ -149,16 +150,26 @@ JSON 외 다른 텍스트 절대 추가하지 마세요.`
 }
 
 function buildUserPrompt(body: RequestBody): string {
+  const nameSection = body.studentName 
+    ? `[학생 이름]\n${body.studentName}\n(이 이름을 teacherFeedback 첫 머리에 "${body.studentName}님,"으로 사용)\n\n` 
+    : '';
+
   if (body.analysisType === 'first') {
-    return `[질문]
+    return `${nameSection}[질문]
 ${body.questionText}
 
 [학생 답변]
 ${body.studentAnswer}
 
-위 답변을 ${body.school.school_name} 평가 기준에 맞춰 분석해주세요.`
+위 답변을 ${body.school.school_name} 평가 기준에 맞춰 분석해주세요.
+
+⚠️ 반드시 지킬 것:
+- teacherFeedback은 250-400자 (너무 짧으면 안 됨)
+- ${body.studentName ? `"${body.studentName}님,"으로 시작` : `"학생,"으로 시작`}
+- 학생 답변 내용을 구체적으로 인용하면서 평가
+- reflectiveQuestions도 학생 답변과 직접 연결된 질문`
   } else {
-    return `[질문]
+    return `${nameSection}[질문]
 ${body.questionText}
 
 [학생 1차 답변]
@@ -167,7 +178,9 @@ ${body.studentAnswer}
 [학생 업그레이드 답변]
 ${body.upgradedAnswer || '(없음)'}
 
-업그레이드된 답변이 1차에 비해 얼마나 발전했는지, 그리고 ${body.school.school_name} 평가 기준에 얼마나 부합하는지 분석해주세요.`
+업그레이드된 답변이 1차에 비해 얼마나 발전했는지, 그리고 ${body.school.school_name} 평가 기준에 얼마나 부합하는지 분석해주세요.
+
+⚠️ teacherFinalFeedback은 250-400자, ${body.studentName ? `"${body.studentName}님,"으로 시작` : ''}, 1차 → 2차 발전 부분 구체 인용.`
   }
 }
 
@@ -183,12 +196,43 @@ serve(async (req) => {
 
     const body = await req.json() as RequestBody
 
-    if (!body.questionText || !body.studentAnswer || !body.school) {
+    if (!body.answerId || !body.questionText || !body.studentAnswer || !body.school) {
       return new Response(
-        JSON.stringify({ error: '필수 필드 누락: questionText, studentAnswer, school' }),
+        JSON.stringify({ error: '필수 필드 누락: answerId, questionText, studentAnswer, school' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+    // ============================================
+    // 🔍 1️⃣ 캐시 조회 (강제 재생성 아니면)
+    // ============================================
+    if (!body.forceRegenerate) {
+      const { data: cached } = await supabase
+        .from('middle_interview_ai_analysis')
+        .select('analysis_data, created_at')
+        .eq('answer_id', body.answerId)
+        .eq('analysis_type', body.analysisType)
+        .maybeSingle()
+
+      if (cached?.analysis_data) {
+        console.log(`✅ 캐시 사용: ${body.answerId} ${body.analysisType}`)
+        return new Response(
+          JSON.stringify({
+            analysis: cached.analysis_data,
+            cached: true,
+            cachedAt: cached.created_at,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
+    // ============================================
+    // 🤖 2️⃣ GPT 호출
+    // ============================================
+    console.log(`🚀 GPT 호출: ${body.answerId} ${body.analysisType}`)
 
     const systemPrompt = body.analysisType === 'second'
       ? buildSecondAnalysisPrompt(body.school)
@@ -203,14 +247,14 @@ serve(async (req) => {
         'Authorization': `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        temperature: 0.7,
-        max_tokens: 1500,
-        response_format: { type: 'json_object' },  // JSON 강제
+        temperature: 0.3,
+        max_tokens: 2500,
+        response_format: { type: 'json_object' },
       }),
     })
 
@@ -237,9 +281,31 @@ serve(async (req) => {
       )
     }
 
+    // ============================================
+    // 💾 3️⃣ DB에 저장 (upsert)
+    // ============================================
+    const { error: saveError } = await supabase
+      .from('middle_interview_ai_analysis')
+      .upsert({
+        answer_id: body.answerId,
+        analysis_type: body.analysisType,
+        analysis_data: parsed,
+        school_name: body.school.school_name,
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'answer_id,analysis_type'
+      })
+
+    if (saveError) {
+      console.error('DB 저장 실패:', saveError)
+    } else {
+      console.log(`💾 캐시 저장 완료: ${body.answerId} ${body.analysisType}`)
+    }
+
     return new Response(
       JSON.stringify({
         analysis: parsed,
+        cached: false,
         usage: data.usage,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

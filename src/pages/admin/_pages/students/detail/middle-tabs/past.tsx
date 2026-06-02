@@ -76,23 +76,24 @@ const isResearchType = (type?: string): boolean => {
   return type.includes("과학고") || type.includes("영재");
 };
 
-// 학교의 점수 항목 4개 자동 분기
+// 학교의 점수 항목 - weight > 0 인 것만 (0점 항목 제외)
 function getScoringFactors(school: SchoolCriteria | null): Array<{ label: string; weight: number }> {
   if (!school) return [];
-  if (isResearchType(school.school_type)) {
-    return [
-      { label: "탐구 심화", weight: school.score_research_depth },
-      { label: "탐구 과정·사고", weight: school.score_research_process },
-      { label: "연구윤리·인성", weight: school.score_research_ethics },
-      { label: "진로·전공 동기", weight: school.score_career_motivation },
-    ];
-  }
-  return [
+  
+  // 외고/자사고/국제고형 4개 + 과학고/영재형 4개 = 8개 모두 확인
+  const allFactors = [
     { label: "자기주도학습", weight: school.score_self_directed },
     { label: "인성·공동체", weight: school.score_humanity },
     { label: "지원동기·학교이해", weight: school.score_motivation },
     { label: "시사·사고력", weight: school.score_current_affairs },
+    { label: "탐구 심화", weight: school.score_research_depth },
+    { label: "탐구 과정·사고", weight: school.score_research_process },
+    { label: "연구윤리·인성", weight: school.score_research_ethics },
+    { label: "진로·전공 동기", weight: school.score_career_motivation },
   ];
+  
+  // weight > 0 인 것만 (0점 항목 자동 제외)
+  return allFactors.filter(f => f.weight > 0);
 }
 
 const TYPE_COLOR: Record<string, any> = {
@@ -188,6 +189,51 @@ export default function MiddlePastTab({ student }: { student: any }) {
   // ════════════════════════════════════════════════════════
   // 🆕 진짜 AI 분석 (Edge Function 호출)
   // ════════════════════════════════════════════════════════
+  // 🔄 강제 재생성 (forceRegenerate=true)
+  const regenerateAnalysis = async (tab: "first" | "second") => {
+    if (!selAnswer || !selQ || !schoolCriteria) return;
+    
+    try {
+      if (tab === "first") {
+        setAiLoading(true);
+        const { data, error } = await supabase.functions.invoke("middle-interview-analysis", {
+          body: {
+            answerId: selAnswer.id,
+            forceRegenerate: true,
+            analysisType: "first",
+            questionText: selQ.text,
+            questionType: selQ.type,
+            studentAnswer: selAnswer.answer,
+            school: schoolCriteria,
+          },
+        });
+        if (error) throw error;
+        setAiData(data.analysis);
+        setAiLoading(false);
+      } else {
+        setSecondAiLoading(true);
+        const { data, error } = await supabase.functions.invoke("middle-interview-analysis", {
+          body: {
+            answerId: selAnswer.id,
+            forceRegenerate: true,
+            analysisType: "second",
+            questionText: selQ.text,
+            studentAnswer: selAnswer.answer,
+            upgradedAnswer: selAnswer.upgraded_answer,
+            school: schoolCriteria,
+          },
+        });
+        if (error) throw error;
+        setAiSecondData(data.analysis);
+        setSecondAiLoading(false);
+      }
+    } catch (e: any) {
+      setAiLoading(false);
+      setSecondAiLoading(false);
+      alert(`재생성 실패: ${e.message}`);
+    }
+  };
+
   const openAiAnalysis = async (tab: "first" | "second" = "first") => {
     if (!selAnswer || !selQ || !schoolCriteria) {
       alert("학교 평가 기준을 불러오지 못했어요");
@@ -204,6 +250,7 @@ export default function MiddlePastTab({ student }: { student: any }) {
 
         const { data, error } = await supabase.functions.invoke("middle-interview-analysis", {
           body: {
+            answerId: selAnswer.id,
             analysisType: "first",
             questionText: selQ.text,
             questionType: selQ.type,
@@ -223,6 +270,7 @@ export default function MiddlePastTab({ student }: { student: any }) {
 
         const { data, error } = await supabase.functions.invoke("middle-interview-analysis", {
           body: {
+            answerId: selAnswer.id,
             analysisType: "second",
             questionText: selQ.text,
             questionType: selQ.type,
@@ -246,15 +294,42 @@ export default function MiddlePastTab({ student }: { student: any }) {
   };
 
   // ════════════════════════════════════════════════════════
-  // AI 자동 피드백 작성
+  // AI 자동 피드백 작성 - 점수평가 + 사유질문 + 종합피드백 다 합쳐서
   // ════════════════════════════════════════════════════════
   const writeAiTeacherFeedback = (type: "first" | "final") => {
     if (!selAnswer) return;
     setAiWriting(type);
 
     if (type === "first") {
-      const aiFb = aiData?.teacherFeedback || "";
-      setFeedback((prev) => ({ ...prev, [String(selAnswer.id)]: aiFb }));
+      // 1. 답변 적합성 평가
+      let scoreText = "";
+      if (aiData?.scores && aiData.scores.length > 0) {
+        scoreText = "[답변 적합성 평가]\n";
+        scoreText += aiData.scores.map((s: any, i: number) => 
+          `${i + 1}. ${s.label} (${s.score}/${s.max}점): ${s.desc}`
+        ).join("\n");
+        scoreText += "\n\n";
+      }
+      
+      // 2. 사유하는 질문
+      let reflectText = "";
+      if (aiData?.reflectiveQuestions && aiData.reflectiveQuestions.length > 0) {
+        reflectText = "[사유하는 질문 - 더 깊이 생각해볼 부분]\n";
+        reflectText += aiData.reflectiveQuestions.map((q: string, i: number) => 
+          `${i + 1}. ${q}`
+        ).join("\n");
+        reflectText += "\n\n";
+      }
+      
+      // 3. 종합 피드백
+      const summaryText = aiData?.teacherFeedback 
+        ? `[종합 피드백]\n${aiData.teacherFeedback}` 
+        : "";
+      
+      // 합치기
+      const combined = (scoreText + reflectText + summaryText).trim();
+      
+      setFeedback((prev) => ({ ...prev, [String(selAnswer.id)]: combined }));
     } else {
       const aiFb = aiSecondData?.teacherFinalFeedback || "";
       setFeedback((prev) => ({ ...prev, [`${selAnswer.id}_final`]: aiFb }));
@@ -331,6 +406,7 @@ export default function MiddlePastTab({ student }: { student: any }) {
     try {
       const { data, error } = await supabase.functions.invoke("middle-interview-analysis", {
         body: {
+          answerId: selAnswer.id,
           analysisType: "second",
           questionText: selQ.text,
           studentAnswer: selAnswer.answer,
@@ -383,23 +459,21 @@ export default function MiddlePastTab({ student }: { student: any }) {
 
   // 🆕 진짜 학교 평가 기준으로 레이더 차트
   const getRadarData = () => {
-    const factors = getScoringFactors(schoolCriteria || null);
-    if (!aiData?.scores) {
-      return factors.map((f) => ({
-        subject: f.label,
-        standard: f.weight,
-        student: 0,
+    // AI 점수 있으면 그대로 사용 (label 매칭 X)
+    if (aiData?.scores && Array.isArray(aiData.scores) && aiData.scores.length > 0) {
+      return aiData.scores.map((s: any) => ({
+        subject: s.label,
+        standard: Number(s.max) || 0,
+        student: Number(s.score) || 0,
       }));
     }
-    return factors.map((f) => {
-      const aiScore = aiData.scores.find((s: any) => s.label === f.label);
-      const studentPct = aiScore ? Math.round((aiScore.score / aiScore.max) * f.weight) : 0;
-      return {
-        subject: f.label,
-        standard: f.weight,
-        student: studentPct,
-      };
-    });
+    // AI 점수 없으면 학교 기준만 표시 (weight > 0 항목만)
+    const factors = getScoringFactors(schoolCriteria || null).filter(f => f.weight > 0);
+    return factors.map((f) => ({
+      subject: f.label,
+      standard: f.weight,
+      student: 0,
+    }));
   };
 
   const getBarData = (analysis: any) => {
@@ -766,6 +840,21 @@ export default function MiddlePastTab({ student }: { student: any }) {
                   <div className="text-[12px] font-medium text-ink leading-[1.7]">{aiData.evalCriteria}</div>
                 </div>
 
+                {/* 🆕 답변 적합성 평가 - 항목별 점수 + 설명 */}
+                {aiData.scores && aiData.scores.length > 0 && (
+                  <div className="mb-3">
+                    <div className="text-[12px] font-extrabold text-ink mb-2">답변 적합성 평가</div>
+                    {aiData.scores.map((s: any, i: number) => (
+                      <div key={i} className="mb-2.5 last:mb-0">
+                        <div className="text-[12.5px] font-bold text-ink mb-1">
+                          {i + 1}. {s.label} <span className="font-medium" style={{ color: THEME.accent }}>({s.score}/{s.max}점)</span>
+                        </div>
+                        <div className="text-[11.5px] font-medium text-ink-secondary leading-[1.7]">{s.desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 py-2.5 mb-3">
                   <div className="text-[11px] font-bold text-orange-800 mb-1">📌 평가 요약</div>
                   <div className="text-[12px] font-medium text-orange-900 leading-[1.7]">{aiData.summary}</div>
@@ -785,6 +874,25 @@ export default function MiddlePastTab({ student }: { student: any }) {
                   ))}
                 </div>
               </div>
+
+              {/* 🆕 사유하는 질문 */}
+              {aiData.reflectiveQuestions && aiData.reflectiveQuestions.length > 0 && (
+                <div className="bg-white border border-line rounded-xl px-4 py-3.5">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-sm">💭</span>
+                    <div className="text-[13px] font-extrabold text-ink">사유하는 질문</div>
+                  </div>
+                  <div className="text-[11px] font-medium text-ink-secondary mb-3">AI가 분석한 답변의 핵심 역량과 개선 가이드예요.</div>
+                  <div className="flex flex-col gap-2">
+                    {aiData.reflectiveQuestions.map((q: string, i: number) => (
+                      <div key={i} className="flex items-start gap-2.5 bg-gray-50 border border-line rounded-xl px-3.5 py-3">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-extrabold" style={{ background: "#EFF6FF", color: "#2563EB", border: "1px solid #BFDBFE" }}>{i + 1}</div>
+                        <div className="text-[12.5px] font-medium text-ink leading-[1.6] flex-1">{q}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="bg-white rounded-xl px-4 py-3.5 border-2" style={{ borderColor: THEME.accent }}>
                 <div className="text-[11px] font-extrabold uppercase tracking-wider mb-1" style={{ color: THEME.accent }}>✨ AI 자동 작성</div>

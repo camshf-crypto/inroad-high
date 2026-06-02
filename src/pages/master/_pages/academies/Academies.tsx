@@ -211,7 +211,7 @@ export default function MasterAcademies() {
 
       if (academyErr) throw academyErr
 
-      alert(`${selectedAcademy.name} 학원 신청이 거부됐어요.\n원장님이 사유를 확인하고 다시 신청할 수 있어요.`)
+      alert(`❌ ${selectedAcademy.name} 학원 신청이 거부됐어요.\n원장님이 사유를 확인하고 다시 신청할 수 있어요.`)
 
       setShowApprovalModal(false)
       setSelectedAcademy(null)
