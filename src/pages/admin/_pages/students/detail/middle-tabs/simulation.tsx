@@ -1,9 +1,14 @@
 import { useState, useRef, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import {
   useStudentSimulations,
   useSaveSimulationFeedback,
   useDeleteStudentSimulation,
 } from "@/pages/admin/_hooks/middle/useStudentSimulation";
+import SimulationAnalysisCard, {
+  type QuestionMetric,
+} from "@/components/SimulationAnalysisCard";
+import { summarize } from "@/components/SimulationAnalysisCard";
 
 // 🌱 중등 초록 테마
 const THEME = {
@@ -13,28 +18,6 @@ const THEME = {
   accentBorder: "#6EE7B7",
   accentShadow: "rgba(16, 185, 129, 0.15)",
   gradient: "linear-gradient(135deg, #065F46, #10B981)",
-};
-
-// AI 피드백 시안 mock
-const AI_FEEDBACK_SUGGESTIONS = [
-  '답변 구조가 체계적이에요! "결론 → 근거 → 사례" 순서로 말하는 습관이 잘 잡혀있어요. 다만 "음..." 같은 습관어를 줄이면 더 전문적으로 들릴 거예요.',
-  "경험과 진로를 연결한 점이 좋아요! 면접관은 이런 연결성을 중요하게 봐요. 다음엔 답변 시간을 40초 이내로 조금 더 압축해보세요.",
-  '전반적으로 잘했지만 "학교 교육 철학"과의 연결이 약해요. 학교 홈페이지에서 찾은 구체적 내용을 1-2개 언급하면 훨씬 강력한 답변이 돼요.',
-];
-
-const AI_ANALYSIS_MOCK = {
-  speed: {
-    mine: 135,
-    avg: 170,
-    comment: "말의 속도가 평균보다 약간 느려요. 자신감 있게 말하는 연습을 해보세요.",
-  },
-  habits: ["음...", "그래서", "어..."],
-  pause: {
-    level: "양호",
-    comment: "답변 중간 공백이 거의 없었어요. 좋은 흐름이에요!",
-  },
-  structure:
-    '지원 동기를 명확히 밝혔고 본인 경험과 연결한 점이 좋습니다. 다만 "학교 교육 철학"에 대한 구체적 언급이 부족해요.',
 };
 
 // 시간 포맷
@@ -54,7 +37,7 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  const [aiFeedback, setAiFeedback] = useState<string>("");
   const [filterType, setFilterType] = useState<string>("all");
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -62,6 +45,7 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
   useEffect(() => {
     if (selSim) {
       setFeedback(selSim.teacher_feedback || "");
+      setAiFeedback(selSim.ai_feedback || ""); // DB에 저장된 AI 피드백 불러오기
     }
   }, [selSim?.id]);
 
@@ -76,6 +60,7 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
   const handleSelect = (sim: any) => {
     setSelSim(sim);
     setPlayingQNum(null);
+    setAiFeedback(sim.ai_feedback || ""); // DB에 저장된 피드백 있으면 불러오기
   };
 
   const handleDelete = async (id: string) => {
@@ -101,18 +86,72 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
     }
   };
 
-  const openAiModal = () => {
+  // ✨ AI 종합 피드백 생성 (답변 전체 + 음성 분석 → simulation-feedback Edge Function)
+  const openAiModal = async () => {
+    if (!selSim) return;
     setShowAiModal(true);
-    setAiLoading(true);
-    setAiSuggestions([]);
-    setTimeout(() => {
-      setAiSuggestions(AI_FEEDBACK_SUGGESTIONS);
+
+    // 이미 생성한 피드백이 있으면 재호출 안 하고 그대로 표시 (API 절약)
+    if (aiFeedback) {
       setAiLoading(false);
-    }, 1200);
+      return;
+    }
+
+    setAiLoading(true);
+
+    try {
+      // 1. 질문+답변 목록 구성 (꼬리질문 포함, 답변 텍스트 있는 것만)
+      const qaList = (selSim.questions || []).map((q: any) => ({
+        question: q.text,
+        answer: q.answer_transcript || "",
+        isTail: !Number.isInteger(q.num), // 소수 번호면 꼬리질문
+      }));
+
+      // 2. 음성 분석 요약 (ai_analysis 값들 합산)
+      const metrics = Object.values(selSim.ai_analysis || {}) as QuestionMetric[];
+      const s = summarize(metrics);
+      const voice = s
+        ? {
+            avgSpeed: s.avgSpeed,
+            speedLabel: s.speedLabel,
+            totalPause: s.totalPause,
+            fillerList: s.fillerList,
+            avgClarity: s.avgClarity,
+          }
+        : undefined;
+
+      // 3. Edge Function 호출
+      const { data, error } = await supabase.functions.invoke("simulation-feedback", {
+        body: {
+          qaList,
+          voice,
+          level: "middle",
+          school: selSim.school,
+        },
+      });
+
+      if (error) throw error;
+      const generated = data?.feedback || "";
+      setAiFeedback(generated);
+
+      // [추가] 생성한 피드백을 DB에 저장 → 다음부터 재생성 안 함 (AI 학습 데이터로도 활용)
+      if (generated) {
+        await supabase
+          .from("middle_simulations")
+          .update({ ai_feedback: generated })
+          .eq("id", selSim.id);
+      }
+    } catch (e: any) {
+      console.error("AI 피드백 생성 실패:", e);
+      setAiFeedback("");
+      alert(`AI 피드백 생성 실패: ${e.message}`);
+    } finally {
+      setAiLoading(false);
+    }
   };
 
-  const applyAiSuggestion = (s: string) => {
-    setFeedback(s);
+  const applyAiFeedback = () => {
+    if (aiFeedback) setFeedback(aiFeedback);
     setShowAiModal(false);
   };
 
@@ -170,9 +209,6 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
 
   const completedCount = simulations.filter((s) => s.teacher_feedback).length;
   const pendingCount = simulations.filter((s) => !s.teacher_feedback).length;
-
-  // 🎯 음성이 하나라도 있으면 AI 분석 영역 표시
-  const hasAnyAudio = (selSim?.questions || []).some((q: any) => q.answer_audio_url);
 
   return (
     <div className="flex gap-4 h-full overflow-hidden">
@@ -318,7 +354,7 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
           </div>
         ) : (
           <>
-            {/* 🎵 숨겨진 audio 태그 (onPause 핸들러 제거함!) */}
+            {/* 🎵 숨겨진 audio 태그 */}
             <audio
               ref={audioRef}
               onEnded={() => setPlayingQNum(null)}
@@ -362,13 +398,14 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
-              {/* 🎯 질문별 답변 + 음성 재생 (학생 화면과 동일한 구조) */}
+              {/* 🎯 질문별 답변 + 음성 재생 + 실제 분석 지표 */}
               <div className="bg-white border border-line rounded-xl px-5 py-4">
                 <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-3">
                   🎙️ 질문별 답변 ({(selSim.questions || []).length}개)
                 </div>
                 <div className="flex flex-col gap-3">
-                  {(selSim.questions || []).map((q: any) => (
+                  {(selSim.questions || []).map((q: any) => {
+                    return (
                     <div key={q.num} className="border border-line rounded-xl px-4 py-3 bg-gray-50">
                       {/* 질문 헤더 */}
                       <div className="flex items-start gap-2 mb-2.5">
@@ -426,76 +463,21 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
                         </div>
                       ) : null}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* AI 분석 (mock) */}
-              {hasAnyAudio && (
-                <div className="bg-white border border-line rounded-xl px-5 py-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="text-[12px] font-extrabold text-ink tracking-tight">✨ AI 분석 결과</div>
-                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                      Mock 데이터 (AI 통합 후 실제 분석)
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2.5 mb-2.5">
-                    <div className="bg-gray-50 border border-line rounded-xl px-3.5 py-3">
-                      <div className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-2">🗣️ 말의 빠르기</div>
-                      <div className="flex gap-3 mb-2">
-                        <div>
-                          <div className="text-[10px] font-medium text-ink-muted mb-0.5">내 속도</div>
-                          <div className="text-[20px] font-extrabold tracking-tight leading-none" style={{ color: "#059669" }}>
-                            {AI_ANALYSIS_MOCK.speed.mine}
-                            <span className="text-[10px] ml-0.5">wpm</span>
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] font-medium text-ink-muted mb-0.5">평균</div>
-                          <div className="text-[20px] font-extrabold text-ink-secondary tracking-tight leading-none">
-                            {AI_ANALYSIS_MOCK.speed.avg}
-                            <span className="text-[10px] ml-0.5">wpm</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-[11px] font-medium text-ink-secondary leading-[1.5]">
-                        {AI_ANALYSIS_MOCK.speed.comment}
-                      </div>
-                    </div>
-
-                    <div className="bg-gray-50 border border-line rounded-xl px-3.5 py-3">
-                      <div className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-2">⏸ 말의 공백</div>
-                      <div className="text-[20px] font-extrabold tracking-tight leading-none mb-1.5" style={{ color: "#059669" }}>
-                        {AI_ANALYSIS_MOCK.pause.level}
-                      </div>
-                      <div className="text-[11px] font-medium text-ink-secondary leading-[1.5]">
-                        {AI_ANALYSIS_MOCK.pause.comment}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 mb-2.5">
-                    <div className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-2">⚠️ 습관어</div>
-                    <div className="flex gap-1.5 flex-wrap">
-                      {AI_ANALYSIS_MOCK.habits.map((h: string, i: number) => (
-                        <span key={i} className="text-[12px] font-bold text-amber-800 bg-yellow-100 border border-yellow-300 px-2.5 py-1 rounded-full">
-                          "{h}"
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl px-4 py-3" style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}>
-                    <div className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: THEME.accent }}>
-                      🎯 답변 구성 분석
-                    </div>
-                    <div className="text-[13px] font-medium leading-[1.7]" style={{ color: THEME.accentDark }}>
-                      {AI_ANALYSIS_MOCK.structure}
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* [추가] 음성 분석 종합 카드 (ai_analysis 값들을 합산해 표시) */}
+              <SimulationAnalysisCard
+                metrics={
+                  Object.values(selSim.ai_analysis || {}) as QuestionMetric[]
+                }
+                accent="#059669"
+                accentDark="#065F46"
+                accentBg="#ECFDF5"
+                accentBorder="#6EE7B7"
+              />
 
               {/* 선생님 피드백 */}
               <div className="bg-white border border-line rounded-xl px-5 py-4">
@@ -513,7 +495,7 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
                 <textarea
                   value={feedback}
                   onChange={(e) => setFeedback(e.target.value)}
-                  placeholder="AI 분석 결과를 참고해서 피드백을 작성해주세요..."
+                  placeholder="분석 결과를 참고해서 피드백을 작성해주세요..."
                   rows={5}
                   className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] font-medium outline-none resize-y leading-[1.7] transition-all placeholder:text-ink-muted"
                   onFocus={handleTextareaFocus}
@@ -553,7 +535,7 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
             <div className="text-3xl mb-3">⚠️</div>
             <div className="text-[17px] font-extrabold text-ink mb-2">시뮬레이션을 삭제하시겠어요?</div>
             <div className="text-[13px] font-medium text-ink-secondary mb-6 leading-[1.6]">
-              삭제하면 녹음 파일과<br />AI 분석 결과가 모두 사라져요.
+              삭제하면 녹음 파일과<br />분석 결과가 모두 사라져요.
             </div>
             <div className="flex gap-2">
               <button
@@ -586,57 +568,45 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
             onClick={(e) => e.stopPropagation()}
             className="bg-white rounded-2xl p-7 w-[520px] shadow-[0_20px_60px_rgba(0,0,0,0.25)]"
           >
-            <div className="text-[18px] font-extrabold text-ink mb-1">✨ AI 피드백 제안</div>
+            <div className="text-[18px] font-extrabold text-ink mb-1">✨ AI 종합 피드백</div>
             <div className="text-[12px] font-medium text-ink-secondary mb-5">
-              학생의 답변과 AI 분석 결과를 바탕으로 피드백 시안을 만들었어요.
+              학생의 답변 전체와 음성 분석을 종합해서 피드백 초안을 만들었어요.
             </div>
 
             {aiLoading ? (
               <div className="text-center py-10 text-ink-muted text-[13px] font-medium">
                 <div className="text-3xl mb-3 animate-pulse">✨</div>
-                AI가 피드백을 생성 중이에요...
+                AI가 면접 전체를 분석 중이에요...
+              </div>
+            ) : !aiFeedback ? (
+              <div className="text-center py-10 text-ink-muted text-[13px] font-medium">
+                피드백을 생성하지 못했어요. 다시 시도해주세요.
               </div>
             ) : (
-              <div className="flex flex-col gap-2 mb-5">
-                {aiSuggestions.map((s, i) => (
-                  <button
-                    key={i}
-                    onClick={() => applyAiSuggestion(s)}
-                    className="text-left px-4 py-3 rounded-xl bg-white transition-all"
-                    style={{ border: "1px solid #E5E7EB" }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = THEME.accent;
-                      e.currentTarget.style.background = THEME.accentBg;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "#E5E7EB";
-                      e.currentTarget.style.background = "#fff";
-                    }}
-                  >
-                    <div className="flex items-start gap-2">
-                      <span
-                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 mt-0.5"
-                        style={{
-                          color: THEME.accentDark,
-                          background: THEME.accentBg,
-                          border: `1px solid ${THEME.accentBorder}60`,
-                        }}
-                      >
-                        시안 {i + 1}
-                      </span>
-                      <span className="text-[13px] font-medium text-ink leading-[1.6]">{s}</span>
-                    </div>
-                  </button>
-                ))}
+              <div
+                className="rounded-xl px-4 py-3.5 mb-5 text-[13px] font-medium leading-[1.8] whitespace-pre-wrap"
+                style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60`, color: THEME.accentDark }}
+              >
+                {aiFeedback}
               </div>
             )}
 
-            <button
-              onClick={() => setShowAiModal(false)}
-              className="w-full h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors"
-            >
-              취소
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowAiModal(false)}
+                className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={applyAiFeedback}
+                disabled={aiLoading || !aiFeedback}
+                className="flex-1 h-11 text-white rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
+              >
+                📝 이 내용으로 작성
+              </button>
+            </div>
           </div>
         </div>
       )}

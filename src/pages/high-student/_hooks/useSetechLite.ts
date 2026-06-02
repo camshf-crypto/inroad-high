@@ -48,16 +48,18 @@ export function useSetechLite(filters: Filters = {}) {
 }
 
 /**
- * 특정 계열+학년에서 실제 존재하는 과목 목록 (칩 UI용)
+ * 특정 학과+학년에서 실제 존재하는 과목 목록 (칩 UI용)
  * 건수 많은 순으로 정렬해서 반환
+ * ⚠️ 첫 번째 인자는 major(학과). 세특 목록과 동일하게 학과 부분일치(ilike)로 검색해야
+ *    목록에 뜨는 학과의 과목이 칩에도 정상 집계됨.
  */
-export function useSetechSubjects(field?: string, grade?: number) {
+export function useSetechSubjects(major?: string, grade?: number) {
   return useQuery({
-    queryKey: ['setech_subjects', field ?? null, grade ?? null],
-    enabled: !!field,
+    queryKey: ['setech_subjects', major ?? null, grade ?? null],
+    enabled: !!major,
     queryFn: async (): Promise<{ name: string; count: number }[]> => {
       let q = supabase.from('setech_lite').select('subject')
-      if (field) q = q.eq('field', field)
+      if (major) q = q.ilike('major', `%${major}%`)   // 학과 부분 일치 (목록과 동일)
       if (grade) q = q.eq('grade', grade)
       const { data, error } = await q
       if (error) throw error

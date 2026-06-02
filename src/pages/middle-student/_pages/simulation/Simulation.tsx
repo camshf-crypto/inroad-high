@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useAtomValue } from "jotai";
 import { studentState, academyState } from "@/lib/auth/atoms";
+import { supabase } from "@/lib/supabase";
+import { alignAudio, analyzeInterview } from "@/api/aligner";
 import {
   useMySimulations,
   useCreateSimulation,
@@ -124,9 +126,19 @@ export default function MiddleSimulation() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [interviewStartTime, setInterviewStartTime] = useState<number>(0);
   const [saving, setSaving] = useState(false);
+  // [추가] 꼬리질문 생성 중 표시 (답변 종료 → STT → AI 꼬리질문)
+  const [tailLoading, setTailLoading] = useState(false);
+  // [추가] 현재 질문이 꼬리질문인지 여부 (화면 표시용)
+  const [isTailQuestion, setIsTailQuestion] = useState(false);
 
   const [answers, setAnswers] = useState<SimulationAnswerInput[]>([]);
   const recordStartTimeRef = useRef<number>(0);
+  // [추가] finishInterview 중복 실행 방지 잠금
+  const finishingRef = useRef(false);
+  // [추가] 실제 녹음에 사용된 mime 타입 기억 (Blob 생성/재생 호환용)
+  const recordedMimeRef = useRef<string>("audio/webm");
+  // [추가] 마지막 본질문의 꼬리질문이면 true (꼬리질문 답변 후 종료 판단용)
+  const tailIsLastRef = useRef(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -192,7 +204,27 @@ export default function MiddleSimulation() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioStreamRef.current = stream;
-      const recorder = new MediaRecorder(stream);
+
+      // [수정] 브라우저가 재생 가능한 코덱을 골라서 녹음
+      //   webm/opus 우선, 안 되면 mp4, 그것도 안 되면 브라우저 기본
+      const candidates = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4",
+        "audio/ogg;codecs=opus",
+      ];
+      const mimeType =
+        candidates.find(
+          (t) =>
+            typeof MediaRecorder !== "undefined" &&
+            MediaRecorder.isTypeSupported &&
+            MediaRecorder.isTypeSupported(t),
+        ) || "";
+
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+      recordedMimeRef.current = recorder.mimeType || mimeType || "audio/webm";
       audioChunksRef.current = [];
 
       recorder.ondataavailable = (e) => {
@@ -219,7 +251,9 @@ export default function MiddleSimulation() {
       }
 
       recorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const blob = new Blob(audioChunksRef.current, {
+          type: recordedMimeRef.current || "audio/webm",
+        });
         const durationSec = Math.floor((Date.now() - recordStartTimeRef.current) / 1000);
         if (audioStreamRef.current) {
           audioStreamRef.current.getTracks().forEach((t) => t.stop());
@@ -230,6 +264,45 @@ export default function MiddleSimulation() {
 
       recorder.stop();
     });
+  };
+
+  // [추가] blob 1개를 즉시 STT (middle-stt-short Edge Function)
+  const sttOne = async (blob: Blob): Promise<string> => {
+    try {
+      const audioBase64: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      const { data, error } = await supabase.functions.invoke("middle-stt-short", {
+        body: { audioBase64 },
+      });
+      if (error) return "";
+      if (data?.success && data?.text) return data.text as string;
+      return "";
+    } catch (e) {
+      console.error("즉시 STT 실패:", e);
+      return "";
+    }
+  };
+
+  // [추가] 질문+답변 → 꼬리질문 1개 생성 (generate-tail-question Edge Function)
+  const makeTailQuestion = async (
+    questionText: string,
+    studentAnswer: string,
+  ): Promise<string> => {
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "generate-tail-question",
+        { body: { questionText, studentAnswer, level: "middle" } },
+      );
+      if (error) return "";
+      return (data?.tailQuestion as string) || "";
+    } catch (e) {
+      console.error("꼬리질문 생성 실패:", e);
+      return "";
+    }
   };
 
   const finishCurrentAnswer = async () => {
@@ -246,6 +319,52 @@ export default function MiddleSimulation() {
 
     const newAnswers = [...answers, newAnswer];
     setAnswers(newAnswers);
+
+    // [추가] 꼬리질문 ON + 방금 답변이 꼬리질문이 아니고 + 녹음이 있으면
+    //        → 즉시 STT → 꼬리질문 생성 → 다음 질문으로 꼬리질문 삽입
+    if (tailQ === true && !isTailQuestion && blob) {
+      setTimerRunning(false);
+      setTailLoading(true);
+      try {
+        const transcript = await sttOne(blob);
+        if (transcript) {
+          const tailText = await makeTailQuestion(curQ.text, transcript);
+          if (tailText) {
+            // 이 본질문이 마지막이었는지 기록 (꼬리질문 답변 후 종료 판단)
+            tailIsLastRef.current = curQIdx >= questions.length - 1;
+            // 다음 순번에 꼬리질문 삽입
+            const tailNum = curQ.num + 0.5; // 꼬리질문은 소수 번호 (1.5 = Q1의 꼬리)
+            const tailQuestionObj = { num: tailNum, text: tailText };
+            const newQuestions = [...questions];
+            newQuestions.splice(curQIdx + 1, 0, tailQuestionObj);
+            setQuestions(newQuestions);
+            setTailLoading(false);
+            setIsTailQuestion(true);
+            setCurQIdx((i) => i + 1);
+            setTimer(80);
+            setTimerRunning(true);
+            return;
+          }
+        }
+      } catch (e) {
+        console.error("꼬리질문 처리 실패:", e);
+      }
+      setTailLoading(false);
+    }
+
+    // 방금이 꼬리질문이었으면: 마지막 본질문의 꼬리였으면 종료
+    if (isTailQuestion) {
+      setIsTailQuestion(false);
+      if (tailIsLastRef.current) {
+        tailIsLastRef.current = false;
+        await finishInterview(newAnswers);
+        return;
+      }
+      setCurQIdx((i) => i + 1);
+      setTimer(80);
+      setTimerRunning(true);
+      return;
+    }
 
     if (curQIdx >= questions.length - 1) {
       await finishInterview(newAnswers);
@@ -284,7 +403,60 @@ export default function MiddleSimulation() {
     setTimerRunning(true);
   };
 
+  // ─────────────────────────────────────────────
+  // [추가] 저장된 sim의 답변들을 align 분석 → ai_analysis(jsonb)에 저장
+  //   - 화면엔 아무것도 안 보임. 어드민이 보도록 백그라운드 저장만 함
+  //   - 훅은 건드리지 않고, 저장된 middle_simulations 행을 직접 update
+  //   - 실패해도 전체 흐름은 막지 않음
+  // ─────────────────────────────────────────────
+  const runAnalysisForSim = async (
+    savedSim: any,
+    allAnswers: SimulationAnswerInput[],
+  ) => {
+    if (!savedSim?.id) return;
+
+    const analysisMap: Record<string, any> = {};
+
+    for (const a of allAnswers) {
+      if (!a.audio_blob) continue; // 녹음 없으면 분석 생략
+      try {
+        const raw = await alignAudio(a.audio_blob);
+        const analysis = analyzeInterview(raw);
+        analysisMap[String(a.num)] = {
+          speech_speed: analysis.syllablesPerMin,
+          speed_label: analysis.speedLabel,
+          filler_count: analysis.fillerCount,
+          filler_words: analysis.fillerWords,
+          pause_count: analysis.pauseCount,
+          longest_pause_sec: analysis.longestPauseSec,
+          pitch_variation: analysis.pitchVariation,
+          intonation_label: analysis.intonationLabel,
+          clarity_score: analysis.clarityScore,
+          low_conf_words: analysis.lowConfWords,
+        };
+      } catch (e: any) {
+        console.error(`음성 분석 실패 (num=${a.num}, 저장은 계속):`, e);
+      }
+    }
+
+    if (Object.keys(analysisMap).length === 0) return;
+
+    try {
+      const { supabase } = await import("@/lib/supabase");
+      await supabase
+        .from("middle_simulations")
+        .update({ ai_analysis: analysisMap })
+        .eq("id", savedSim.id);
+    } catch (e: any) {
+      console.error("ai_analysis 저장 실패:", e);
+    }
+  };
+
   const finishInterview = async (allAnswers: SimulationAnswerInput[]) => {
+    // [추가] 이미 저장 진행 중/완료면 두 번 실행 안 함 (중복 INSERT 방지)
+    if (finishingRef.current) return;
+    finishingRef.current = true;
+
     setSaving(true);
     setTimerRunning(false);
     if (interviewerRef.current) clearInterval(interviewerRef.current);
@@ -310,6 +482,12 @@ export default function MiddleSimulation() {
         answers: allAnswers,
         duration,
       });
+
+      // [추가] 백그라운드 분석 저장 (await 안 함 — 실패해도 면접 저장/화면전환 막지 않음)
+      runAnalysisForSim(newSim, allAnswers).catch((e) =>
+        console.error("분석 저장 실패(무시):", e),
+      );
+
       setSelSim(newSim);
       setStep("result");
     } catch (e: any) {
@@ -352,6 +530,10 @@ export default function MiddleSimulation() {
     setAnswers([]);
     setShowQuestion(questionMode !== "voice");
     setIsRecording(false);
+    finishingRef.current = false; // [추가] 새 면접 시작 → 잠금 해제
+    setIsTailQuestion(false); // [추가] 꼬리질문 플래그 초기화
+    setTailLoading(false);
+    tailIsLastRef.current = false;
   };
 
   const handleDeleteSim = async (id: string) => {
@@ -846,6 +1028,22 @@ export default function MiddleSimulation() {
 
     return (
       <div className="h-full bg-[#0a0a0a] flex flex-col overflow-hidden relative font-sans">
+        {/* [추가] 꼬리질문 생성 중 오버레이 */}
+        {tailLoading && (
+          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm gap-4">
+            <div className="text-5xl animate-pulse">🤔</div>
+            <div className="text-[18px] font-extrabold text-white tracking-tight">
+              면접관이 꼬리질문을 준비 중이에요...
+            </div>
+            <div className="text-[13px] text-white/60 font-medium">잠시만 기다려주세요</div>
+            <div className="flex gap-1.5 mt-1">
+              <div className="w-2 h-2 rounded-full bg-brand-middle-light animate-pulse" />
+              <div className="w-2 h-2 rounded-full bg-brand-middle-light animate-pulse" style={{ animationDelay: "0.2s" }} />
+              <div className="w-2 h-2 rounded-full bg-brand-middle-light animate-pulse" style={{ animationDelay: "0.4s" }} />
+            </div>
+          </div>
+        )}
+
         <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-5 py-3">
           <button
             onClick={async () => {
@@ -936,13 +1134,17 @@ export default function MiddleSimulation() {
             <div className="flex-1 min-w-0">
               {showQuestion ? (
                 <div className="text-[20px] font-extrabold text-white tracking-tight leading-[1.4]">
-                  <span className="text-brand-middle-light">질문 {curQIdx + 1}. </span>
+                  <span className="text-brand-middle-light">
+                    {isTailQuestion ? "🔗 꼬리질문. " : `질문 ${Math.floor(curQ.num)}. `}
+                  </span>
                   {curQ.text}
                 </div>
               ) : (
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <div className="text-[20px] font-extrabold text-white">
-                    <span className="text-brand-middle-light">질문 {curQIdx + 1}. </span>
+                    <span className="text-brand-middle-light">
+                      {isTailQuestion ? "🔗 꼬리질문. " : `질문 ${Math.floor(curQ.num)}. `}
+                    </span>
                     <span className="bg-white/10 backdrop-blur-sm rounded-md px-2 py-0.5 text-white/50 text-sm font-medium">음성으로 확인하세요</span>
                   </div>
                   <button onClick={() => setShowQuestion(true)} className="text-[11px] font-semibold text-brand-middle-light bg-brand-middle/20 border border-brand-middle/50 rounded-md px-2 py-1 hover:bg-brand-middle/30 transition-colors">

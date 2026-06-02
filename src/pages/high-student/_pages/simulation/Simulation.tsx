@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react"
 import { useAtomValue } from "jotai"
 import { studentState } from "@/lib/auth/atoms"
+import { supabase } from "@/lib/supabase"
+import { alignAudio, analyzeInterview } from "@/api/aligner"
 import {
   useMySimulations,
   useCreateSimulation,
@@ -166,6 +168,9 @@ export default function Simulation() {
   const [activeInterviewer, setActiveInterviewer] = useState(0)
   const [interviewStartTime, setInterviewStartTime] = useState(0)
   const [saving, setSaving] = useState(false)
+  // [추가] 꼬리질문 생성 중 표시 + 현재 질문이 꼬리질문인지
+  const [tailLoading, setTailLoading] = useState(false)
+  const [isTailQuestion, setIsTailQuestion] = useState(false)
 
   // 진행중 시뮬레이션 정보
   const [currentSimId, setCurrentSimId] = useState<string | null>(null)
@@ -181,6 +186,12 @@ export default function Simulation() {
   const audioChunksRef = useRef<Blob[]>([])
   const audioStreamRef = useRef<MediaStream | null>(null)
   const recordStartRef = useRef<number>(0)
+  // [추가] finishInterview 중복 실행 방지 잠금
+  const finishingRef = useRef(false)
+  // [추가] 실제 녹음에 사용된 mime 타입 기억 (Blob 생성/재생 호환용)
+  const recordedMimeRef = useRef<string>("audio/webm")
+  // [추가] 마지막 본질문의 꼬리질문이면 true (꼬리질문 답변 후 종료 판단용)
+  const tailIsLastRef = useRef(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const timerRef = useRef<any>(null)
   const interviewerRef = useRef<any>(null)
@@ -261,7 +272,26 @@ export default function Simulation() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       audioStreamRef.current = stream
-      const recorder = new MediaRecorder(stream)
+
+      // [수정] 브라우저가 재생 가능한 코덱을 골라서 녹음
+      const candidates = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4",
+        "audio/ogg;codecs=opus",
+      ]
+      const mimeType =
+        candidates.find(
+          (t) =>
+            typeof MediaRecorder !== "undefined" &&
+            MediaRecorder.isTypeSupported &&
+            MediaRecorder.isTypeSupported(t),
+        ) || ""
+
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream)
+      recordedMimeRef.current = recorder.mimeType || mimeType || "audio/webm"
       audioChunksRef.current = []
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data)
@@ -285,7 +315,9 @@ export default function Simulation() {
         return
       }
       rec.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" })
+        const blob = new Blob(audioChunksRef.current, {
+          type: recordedMimeRef.current || "audio/webm",
+        })
         const durationSec = Math.floor((Date.now() - recordStartRef.current) / 1000)
         audioStreamRef.current?.getTracks().forEach((t) => t.stop())
         audioStreamRef.current = null
@@ -293,6 +325,45 @@ export default function Simulation() {
       }
       rec.stop()
     })
+  }
+
+  // [추가] blob 1개를 즉시 STT (middle-stt-short Edge Function — 고등/중등 공용)
+  const sttOne = async (blob: Blob): Promise<string> => {
+    try {
+      const audioBase64: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve((reader.result as string).split(",")[1])
+        reader.onerror = reject
+        reader.readAsDataURL(blob)
+      })
+      const { data, error } = await supabase.functions.invoke("middle-stt-short", {
+        body: { audioBase64 },
+      })
+      if (error) return ""
+      if (data?.success && data?.text) return data.text as string
+      return ""
+    } catch (e) {
+      console.error("즉시 STT 실패:", e)
+      return ""
+    }
+  }
+
+  // [추가] 질문+답변 → 꼬리질문 1개 생성
+  const makeTailQuestion = async (
+    questionText: string,
+    studentAnswer: string,
+  ): Promise<string> => {
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "generate-tail-question",
+        { body: { questionText, studentAnswer, level: "high" } },
+      )
+      if (error) return ""
+      return (data?.tailQuestion as string) || ""
+    } catch (e) {
+      console.error("꼬리질문 생성 실패:", e)
+      return ""
+    }
   }
 
   const finishCurrentAnswer = async () => {
@@ -307,6 +378,53 @@ export default function Simulation() {
     }
     const newAnswers = [...answers, newAnswer]
     setAnswers(newAnswers)
+
+    // [추가] 꼬리질문 ON + 방금이 꼬리질문 아니고 + 녹음 있으면 → 꼬리질문 생성/삽입
+    if (tailQ === true && !isTailQuestion && blob) {
+      setTimerRunning(false)
+      setTailLoading(true)
+      try {
+        const transcript = await sttOne(blob)
+        if (transcript) {
+          const tailText = await makeTailQuestion(curQ.text, transcript)
+          if (tailText) {
+            // 이 본질문이 마지막이었는지 기록 (꼬리질문 답변 후 종료 판단)
+            tailIsLastRef.current = curQIdx >= questions.length - 1
+            const tailQuestionObj: PickedQuestion = {
+              order: curQ.order + 0.5, // 꼬리질문은 소수 order (1.5 = Q1의 꼬리)
+              text: tailText,
+            }
+            const newQuestions = [...questions]
+            newQuestions.splice(curQIdx + 1, 0, tailQuestionObj)
+            setQuestions(newQuestions)
+            setTailLoading(false)
+            setIsTailQuestion(true)
+            setCurQIdx((i) => i + 1)
+            setTimer(TIMER_SEC)
+            setTimerRunning(true)
+            return
+          }
+        }
+      } catch (e) {
+        console.error("꼬리질문 처리 실패:", e)
+      }
+      setTailLoading(false)
+    }
+
+    // 방금이 꼬리질문이었으면: 마지막 본질문의 꼬리였으면 종료
+    if (isTailQuestion) {
+      setIsTailQuestion(false)
+      if (tailIsLastRef.current) {
+        tailIsLastRef.current = false
+        await finishInterview(newAnswers)
+        return
+      }
+      // 마지막이 아니면 다음 본질문으로
+      setCurQIdx((i) => i + 1)
+      setTimer(TIMER_SEC)
+      setTimerRunning(true)
+      return
+    }
 
     if (curQIdx >= questions.length - 1) {
       await finishInterview(newAnswers)
@@ -338,6 +456,34 @@ export default function Simulation() {
     setTimerRunning(true)
   }
 
+  // [추가] blob 1개를 align 분석 → high_simulation_questions 행에 컬럼 저장
+  //   - 화면엔 안 보임. 어드민이 보도록 백그라운드 저장만 함
+  //   - 실패해도 전체 흐름은 막지 않음
+  const analyzeAndSaveQuestion = async (questionId: string, blob: Blob) => {
+    try {
+      const raw = await alignAudio(blob)
+      const a = analyzeInterview(raw)
+      const { supabase } = await import("@/lib/supabase")
+      await supabase
+        .from("high_simulation_questions")
+        .update({
+          speech_speed: a.syllablesPerMin,
+          speed_label: a.speedLabel,
+          filler_count: a.fillerCount,
+          filler_words: a.fillerWords,
+          pause_count: a.pauseCount,
+          longest_pause_sec: a.longestPauseSec,
+          pitch_variation: a.pitchVariation,
+          intonation_label: a.intonationLabel,
+          clarity_score: a.clarityScore,
+          low_conf_words: a.lowConfWords,
+        })
+        .eq("id", questionId)
+    } catch (e: any) {
+      console.error(`음성 분석/저장 실패 (questionId=${questionId}, 흐름은 계속):`, e)
+    }
+  }
+
   // ─── 시뮬레이션 종료: 답변 업로드 + 질문/답변 DB 저장 + complete ───
   const finishInterview = async (allAnswers: AnswerRecord[]) => {
     if (!currentSimId) {
@@ -345,6 +491,10 @@ export default function Simulation() {
       setStep("list")
       return
     }
+    // [추가] 이미 저장 진행 중/완료면 두 번 실행 안 함 (중복 저장 방지)
+    if (finishingRef.current) return
+    finishingRef.current = true
+
     setSaving(true)
     setTimerRunning(false)
     if (interviewerRef.current) clearInterval(interviewerRef.current)
@@ -353,13 +503,18 @@ export default function Simulation() {
 
     try {
       // 각 질문에 대해 1) 질문 행 INSERT 2) 녹음 업로드 3) answer UPDATE
+      let seq = 0 // DB에 저장할 정수 순번 (order 컬럼이 정수라 소수 불가)
       for (const a of allAnswers) {
+        seq += 1
+        // 원래 order가 소수(1.5 등)면 꼬리질문
+        const isTailAnswer = !Number.isInteger(a.order)
+
         // 1. 질문 행 생성
         const qRow = await addQuestion.mutateAsync({
           simulationId: currentSimId,
-          order: a.order,
+          order: seq, // 정수 순번 (1,2,3...)
           questionText: a.text,
-          isTail: false,
+          isTail: isTailAnswer,
         })
 
         // 2. 녹음 있으면 업로드
@@ -369,7 +524,7 @@ export default function Simulation() {
             recordingUrl = await uploadRecording(
               a.blob,
               currentSimId,
-              `q${a.order}-${Date.now()}.webm`,
+              `q${seq}-${Date.now()}.webm`,
             )
           } catch (e: any) {
             console.error("녹음 업로드 실패:", e)
@@ -384,6 +539,13 @@ export default function Simulation() {
             recordingUrl,
             durationSec: a.durationSec,
           })
+        }
+
+        // 4. [추가] 음성 분석 → 질문 행에 저장 (await 안 함 — 실패해도 면접 저장 막지 않음)
+        if (a.blob) {
+          analyzeAndSaveQuestion(qRow.id, a.blob).catch((e) =>
+            console.error("분석 저장 실패(무시):", e),
+          )
         }
       }
 
@@ -465,6 +627,10 @@ export default function Simulation() {
     setAnswers([])
     setShowQuestion(questionMode !== "voice")
     setIsRecording(false)
+    finishingRef.current = false // [추가] 중복 저장 잠금 해제
+    setIsTailQuestion(false) // [추가] 꼬리질문 상태 초기화
+    setTailLoading(false)
+    tailIsLastRef.current = false
     setStep("countdown")
   }
 
@@ -1270,6 +1436,21 @@ export default function Simulation() {
 
     return (
       <div className="h-full bg-[#0a0a0a] flex flex-col overflow-hidden relative font-sans">
+        {/* [추가] 꼬리질문 생성 중 오버레이 */}
+        {tailLoading && (
+          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm gap-4">
+            <div className="text-5xl animate-pulse">🤔</div>
+            <div className="text-[18px] font-extrabold text-white tracking-tight">
+              면접관이 꼬리질문을 준비 중이에요...
+            </div>
+            <div className="text-[13px] text-white/60 font-medium">잠시만 기다려주세요</div>
+            <div className="flex gap-1.5 mt-1">
+              <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: THEME.accentBorder }} />
+              <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: THEME.accentBorder, animationDelay: "0.2s" }} />
+              <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: THEME.accentBorder, animationDelay: "0.4s" }} />
+            </div>
+          </div>
+        )}
         {/* 상단 바 */}
         <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-5 py-3">
           <button
@@ -1397,7 +1578,7 @@ export default function Simulation() {
               {showQuestion ? (
                 <div className="text-[20px] font-extrabold text-white tracking-tight leading-[1.4]">
                   <span style={{ color: THEME.accentBorder }}>
-                    질문 {curQIdx + 1}.{" "}
+                    {isTailQuestion ? "🔗 꼬리질문. " : `질문 ${Math.floor(curQ.order)}. `}
                   </span>
                   {curQ.text}
                 </div>
@@ -1405,7 +1586,7 @@ export default function Simulation() {
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <div className="text-[20px] font-extrabold text-white">
                     <span style={{ color: THEME.accentBorder }}>
-                      질문 {curQIdx + 1}.{" "}
+                      {isTailQuestion ? "🔗 꼬리질문. " : `질문 ${Math.floor(curQ.order)}. `}
                     </span>
                     <span className="bg-white/10 backdrop-blur-sm rounded-md px-2 py-0.5 text-white/50 text-sm font-medium">
                       음성으로 확인하세요

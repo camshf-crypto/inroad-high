@@ -35,6 +35,17 @@ export interface AdminSimulationQuestion {
   transcript: string | null
   duration_sec: number | null
   created_at: string
+  // [추가] 음성 분석 지표 (align API 결과, 선택 필드)
+  speech_speed?: number | null
+  speed_label?: string | null
+  filler_count?: number | null
+  filler_words?: string[] | null
+  pause_count?: number | null
+  longest_pause_sec?: number | null
+  pitch_variation?: number | null
+  intonation_label?: string | null
+  clarity_score?: number | null
+  low_conf_words?: string[] | null
 }
 
 // ─────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 import {
   useStudentSimulations,
   useStudentSimulationQuestions,
@@ -8,6 +9,10 @@ import {
   formatSimDuration,
   type AdminSimulation,
 } from '../../../../_hooks/useStudentSimulation'
+import SimulationAnalysisCard, {
+  type QuestionMetric,
+  summarize,
+} from '@/components/SimulationAnalysisCard'
 
 // 파랑 테마
 const THEME = {
@@ -34,17 +39,24 @@ export default function SimulationTab({ student }: { student: any }) {
   const [feedback, setFeedback] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
+  // AI 피드백 상태
+  const [showAiModal, setShowAiModal] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiFeedback, setAiFeedback] = useState('')
+
   // 첫 로드 시 첫 시뮬레이션 자동 선택
   useEffect(() => {
     if (!selSim && simulations.length > 0) {
       setSelSim(simulations[0])
       setFeedback(simulations[0].teacher_feedback || '')
+      setAiFeedback((simulations[0] as any).ai_feedback || '')
     }
   }, [simulations, selSim])
 
   const handleSelect = (sim: AdminSimulation) => {
     setSelSim(sim)
     setFeedback(sim.teacher_feedback || '')
+    setAiFeedback((sim as any).ai_feedback || '') // DB 저장 피드백 불러오기
   }
 
   const handleDelete = async (id: string) => {
@@ -69,6 +81,74 @@ export default function SimulationTab({ student }: { student: any }) {
     } catch (e: any) {
       alert('저장 실패: ' + e.message)
     }
+  }
+
+  // ✨ AI 종합 피드백 생성 (답변 전체 + 음성 분석 → simulation-feedback Edge Function)
+  const openAiModal = async () => {
+    if (!selSim) return
+    setShowAiModal(true)
+
+    // 이미 생성한 피드백 있으면 재호출 안 함 (API 절약)
+    if (aiFeedback) {
+      setAiLoading(false)
+      return
+    }
+
+    setAiLoading(true)
+    try {
+      // 1. 질문+답변 목록 (꼬리질문 포함)
+      const qaList = questions.map((q: any) => ({
+        question: q.question_text,
+        answer: q.transcript || '',
+        isTail: !!q.is_tail,
+      }))
+
+      // 2. 음성 분석 요약 (질문 행들의 분석 컬럼 합산)
+      const metrics = questions as QuestionMetric[]
+      const s = summarize(metrics)
+      const voice = s
+        ? {
+            avgSpeed: s.avgSpeed,
+            speedLabel: s.speedLabel,
+            totalPause: s.totalPause,
+            fillerList: s.fillerList,
+            avgClarity: s.avgClarity,
+          }
+        : undefined
+
+      // 3. Edge Function 호출
+      const { data, error } = await supabase.functions.invoke('simulation-feedback', {
+        body: {
+          qaList,
+          voice,
+          level: 'high',
+          school: selSim.university || undefined,
+        },
+      })
+
+      if (error) throw error
+      const generated = data?.feedback || ''
+      setAiFeedback(generated)
+
+      // 4. DB 저장 → 다음부터 재생성 안 함 (AI 학습 데이터로도 활용)
+      if (generated) {
+        await supabase
+          .from('high_simulation')
+          .update({ ai_feedback: generated })
+          .eq('id', selSim.id)
+      }
+    } catch (e: any) {
+      console.error('AI 피드백 생성 실패:', e)
+      setAiFeedback('')
+      alert('AI 피드백 생성 실패: ' + e.message)
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const applyAiFeedback = () => {
+    if (aiFeedback) setFeedback(aiFeedback)
+    setShowAiModal(false)
   }
 
   // 시뮬레이션 제목
@@ -261,6 +341,15 @@ export default function SimulationTab({ student }: { student: any }) {
                 )}
               </div>
 
+              {/* [추가] 음성 분석 종합 카드 (질문 행들의 분석 컬럼을 합산해 표시) */}
+              <SimulationAnalysisCard
+                metrics={questions as QuestionMetric[]}
+                accent="#2563EB"
+                accentDark="#1E3A8A"
+                accentBg="#EFF6FF"
+                accentBorder="#93C5FD"
+              />
+
               {/* 전체 녹음 (있다면) */}
               {selSim.recording_url && (
                 <div className="bg-white border border-line rounded-xl px-5 py-4">
@@ -273,8 +362,17 @@ export default function SimulationTab({ student }: { student: any }) {
 
               {/* 선생님 피드백 */}
               <div className="bg-white border border-line rounded-xl px-5 py-4">
-                <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2.5">
-                  💬 선생님 피드백
+                <div className="flex items-center justify-between mb-2.5">
+                  <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider">
+                    💬 선생님 피드백
+                  </div>
+                  <button
+                    onClick={openAiModal}
+                    className="px-2.5 py-1 text-white rounded-md text-[11px] font-bold transition-all"
+                    style={{ background: THEME.accent, boxShadow: `0 2px 6px ${THEME.accentShadow}` }}
+                  >
+                    ✨ AI 피드백 제안
+                  </button>
                 </div>
                 <textarea
                   value={feedback}
@@ -338,6 +436,60 @@ export default function SimulationTab({ student }: { student: any }) {
                 style={{ boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)' }}
               >
                 {deleteSim.isPending ? '삭제 중...' : '🗑️ 삭제'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== AI 종합 피드백 모달 ==================== */}
+      {showAiModal && (
+        <div
+          onClick={() => setShowAiModal(false)}
+          className="fixed inset-0 z-[200] flex items-center justify-center"
+          style={{ background: 'rgba(15, 23, 42, 0.55)', backdropFilter: 'blur(4px)' }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-2xl p-7 w-[520px] shadow-[0_20px_60px_rgba(0,0,0,0.25)]"
+          >
+            <div className="text-[18px] font-extrabold text-ink mb-1">✨ AI 종합 피드백</div>
+            <div className="text-[12px] font-medium text-ink-secondary mb-5">
+              학생의 답변 전체와 음성 분석을 종합해서 피드백 초안을 만들었어요.
+            </div>
+
+            {aiLoading ? (
+              <div className="text-center py-10 text-ink-muted text-[13px] font-medium">
+                <div className="text-3xl mb-3 animate-pulse">✨</div>
+                AI가 면접 전체를 분석 중이에요...
+              </div>
+            ) : !aiFeedback ? (
+              <div className="text-center py-10 text-ink-muted text-[13px] font-medium">
+                피드백을 생성하지 못했어요. 다시 시도해주세요.
+              </div>
+            ) : (
+              <div
+                className="rounded-xl px-4 py-3.5 mb-5 text-[13px] font-medium leading-[1.8] whitespace-pre-wrap"
+                style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60`, color: THEME.accentDark }}
+              >
+                {aiFeedback}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowAiModal(false)}
+                className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={applyAiFeedback}
+                disabled={aiLoading || !aiFeedback}
+                className="flex-1 h-11 text-white rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
+              >
+                📝 이 내용으로 작성
               </button>
             </div>
           </div>
