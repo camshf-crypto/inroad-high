@@ -1,24 +1,50 @@
 // supabase/functions/middle-essay-analyze/index.ts
-// 중등 자소서 — 항목별 AI 분석 + 피드백
-//
-// 첫 분석: { evalCriteria, scores, summary, strengths, improvements, totalScore, teacherDraft }
-// 재분석:  { isComparison: true, improvedPoints, remainingIssues, comparisonSummary, teacherDraft }
+// 중등 자소서 항목별 분석 — 학교 특색 + 문항·배점을 반영해 채점
+//   · 학생용 feedback (완성도·항목별 충족도·문장별 진단)
+//   · 선생님용 coaching (단계별 코칭 질문)
+// 철학: 자소서 문장을 대신 쓰지 않는다. 진단 + 코칭 질문만 제공한다.
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { jsonResponse, jsonError, handleOptions } from "../_shared/cors.ts";
 import { callOpenAI } from "../_shared/openai.ts";
 
-interface RequestBody {
-  schoolName: string;       // 인천하늘고 등
-  sectionKey: "지원동기" | "활동계획" | "진로계획" | "인성";
-  sectionLabel: string;     // "지원동기 (건학이념 연계)" 등
-  answerText: string;       // 학생 답변
-  keywords?: string[];      // 1단계 키워드 5개
-  studentName?: string;
-  previousAnswer?: string;  // 재제출시 1차 답안
-  previousFeedback?: string;// 재제출시 1차 피드백
+interface SchoolProfile {
+  ideal_student: string;
+  eval_factors: string;
+  programs: string;
+  core_values: string;
+  notes: string;
 }
+interface RubricSection {
+  label: string;
+  max: number | null;
+  charLimit: number | null;
+  question: string;
+}
+interface RequestBody {
+  schoolName: string;
+  sectionKey: string;
+  sectionLabel: string;
+  answerText: string;
+  studentName?: string;
+  keywords?: string[];
+  previousAnswer?: string;
+  previousFeedback?: string;
+  // 학교 데이터 (클라이언트에서 주입)
+  schoolProfile?: SchoolProfile | null;
+  scoringMode?: "official" | "platform";
+  rubricSection?: RubricSection | null;
+}
+
+// 과학고 공통 권장 루브릭 (100점 환산, 공식 아님)
+const PLATFORM_RUBRIC = [
+  { label: "수학 탐구력", max: 25 },
+  { label: "과학 탐구력", max: 25 },
+  { label: "자기주도성/문제해결", max: 20 },
+  { label: "지원동기·진로계획", max: 15 },
+  { label: "인성·협업", max: 15 },
+];
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return handleOptions();
@@ -27,21 +53,14 @@ serve(async (req) => {
     const body: RequestBody = await req.json();
 
     if (!body.answerText || body.answerText.trim().length < 20) {
-      return jsonError("자소서 항목이 너무 짧아요. (최소 20자)", 400);
+      return jsonError("학생 답변이 너무 짧아요. (최소 20자)", 400);
     }
-    if (!body.sectionKey || !body.schoolName) {
-      return jsonError("학교명과 항목 정보가 필요해요.", 400);
-    }
+    if (!body.schoolName) return jsonError("학교명이 필요해요.", 400);
 
-    const isResubmission = !!(body.previousAnswer && body.previousFeedback);
-    const metrics = analyzeAnswer(body.answerText, body);
+    const maxScore = resolveMaxScore(body);
 
-    const systemPrompt = isResubmission
-      ? buildComparisonSystemPrompt(body.sectionKey)
-      : buildFullSystemPrompt(body.sectionKey);
-    const userPrompt = isResubmission
-      ? buildComparisonUserPrompt(body, metrics)
-      : buildFullUserPrompt(body, metrics);
+    const systemPrompt = buildSystemPrompt(body, maxScore);
+    const userPrompt = buildUserPrompt(body);
 
     const { feedback, tokensUsed, model } = await callOpenAI({
       systemPrompt,
@@ -50,14 +69,12 @@ serve(async (req) => {
       temperature: 0.3,
     });
 
-    const result = isResubmission
-      ? normalizeComparison(feedback)
-      : normalizeFullAnalysis(feedback);
+    const result = normalize(feedback, body, maxScore);
 
     return jsonResponse({
       success: true,
       analysis: result,
-      meta: { isResubmission, model, tokensUsed, metrics },
+      meta: { model, tokensUsed, scoringMode: body.scoringMode ?? "official" },
     });
   } catch (e) {
     console.error("[middle-essay-analyze]", e);
@@ -65,294 +82,193 @@ serve(async (req) => {
   }
 });
 
-// ============================================================
-// 응답 정규화
-// ============================================================
-function normalizeFullAnalysis(raw: any) {
-  const scores = Array.isArray(raw.scores) ? raw.scores : [];
-  const studentScores = scores.slice(0, 4).map((s: any) => Number(s.score) || 0);
-  while (studentScores.length < 4) studentScores.push(70);
+// 영역 만점 결정
+function resolveMaxScore(body: RequestBody): number {
+  if (body.scoringMode === "platform") return 100; // 과학고: 100점 환산
+  return body.rubricSection?.max ?? 100;            // 외고: 학교 공식 배점
+}
+
+function buildSystemPrompt(body: RequestBody, maxScore: number): string {
+  const isPlatform = body.scoringMode === "platform";
+
+  // 점수 기준 안내
+  const scoringGuide = isPlatform
+    ? `이 학교(과학고)는 자소서 문항별 공식 배점을 공개하지 않는다.
+아래 플랫폼 공통 권장 기준(100점 환산, 비공식 진단용)으로 평가하라.
+${PLATFORM_RUBRIC.map((r) => `- ${r.label}: ${r.max}점`).join("\n")}
+[중요] 점수는 "공식 입시 점수가 아니라 진단용 추정치"임을 summary에 반드시 명시하라.`
+    : `이 영역의 만점은 ${maxScore}점이며, 이는 학교가 공개한 공식 배점이다.
+totalScore는 0~${maxScore} 범위로 매겨라.`;
+
+  // 학교 특색 블록
+  const profileBlock = body.schoolProfile
+    ? `[학교 데이터]
+학교명: ${body.schoolName}
+인재상: ${body.schoolProfile.ideal_student}
+평가에서 중시하는 요소: ${body.schoolProfile.eval_factors}
+특색 프로그램: ${body.schoolProfile.programs}
+강조하는 가치: ${body.schoolProfile.core_values}`
+    : `[학교 데이터]
+학교명: ${body.schoolName}
+(이 학교의 상세 특색 데이터가 아직 없다. 문항·배점 기준으로만 평가하고, 학교 특색 연계는 일반적 수준에서만 언급하라.)`;
+
+  // 문항 블록
+  const questionBlock = body.rubricSection
+    ? `[이 영역의 평가 문항]
+영역: ${body.rubricSection.label}${body.rubricSection.max ? ` (배점 ${body.rubricSection.max}점)` : ""}${body.rubricSection.charLimit ? ` (${body.rubricSection.charLimit}자 이내)` : ""}
+학교 제시 문항: ${body.rubricSection.question}
+[중요] 이 문항이 요구하는 모든 요소를 학생이 충족했는지 항목별로 따져라.`
+    : `[이 영역의 평가 문항]
+영역: ${body.sectionLabel}
+(이 학교의 해당 영역 문항 데이터가 없다. 영역명 기준으로 일반적 평가를 하라.)`;
+
+  return `너는 고입 자기소개서 분석 전문가다. 보습학원 선생님이 학생을 지도할 수 있도록 돕는다.
+
+${profileBlock}
+
+${questionBlock}
+
+[채점 기준]
+${scoringGuide}
+점수는 후하게 주지 마라. 문항이 요구하는 요소가 빠지면 과감히 감점하라.
+
+[절대 규칙 — 가장 중요]
+1. 자소서 본문·첨삭문장·수정문장·완성문장을 절대 쓰지 마라. 학생이 그대로 베껴 쓸 수 있는 문장을 만들지 마라.
+2. 학교 내용은 위 [학교 데이터]에 있는 사실만 써라. 없는 건 지어내지 마라.
+3. 학생 경험은 [학생 답변]에 있는 것만 써라. 없는 활동을 만들지 마라.
+4. 대입·전공적합성·학생부·생기부·세특 같은 표현을 쓰지 마라. 중학생도 이해할 쉬운 말로.
+
+[출력 — 두 부분으로 나눠라]
+
+▶ feedback (학생이 보는 진단)
+- completeness: 현재 완성도 (0~100 정수). totalScore를 만점 대비 %로 환산하되, 동기를 주도록 "거의 다 왔다" 관점에서 너무 낮지 않게.
+- passLine: 80 고정.
+- statusLabel: 완성도에 맞는 한 줄 (예: "합격선 진입 직전", "기초는 갖춘 단계").
+- summary: 2문장. 강점을 먼저, 그다음 핵심 보완점. 학부모가 봐도 "전문가가 봤다"는 느낌.
+- criteria: 문항이 요구하는 항목별 충족도 3~5개. 각 {label, level(high|mid|low), ratio(0~100), desc}. 문항을 요소로 쪼개라(예: 목표·계획 / 실행 과정 / 결과 평가 / 학교 연계).
+- quotes: 학생 답변에서 실제 문장을 2~5개 그대로 인용. 각 {text(원문 그대로), type(strength|weak|missing), comment}. type=missing은 "빠진 내용"이므로 text에 빠진 요소를 적어라.
+
+▶ coaching (선생님이 보는 지도 가이드)
+- steps: 코칭 순서 2~3개. 가장 시급한 것부터. 각 {order, priority(urgent|normal), title, why(왜 중요한지 입시맥락 한 줄), askText(학생에게 던질 실제 질문 대사), followUp(학생이 답하면 어떻게 이어갈지)}.
+  · askText는 선생님이 그대로 읽으면 되는 질문이어야 한다. 자소서 문장이 아니라 "질문"이다.
+- expectedFrom: feedback.completeness와 동일.
+- expectedTo: 코칭을 다 반영하면 도달할 예상 완성도 %.
+- caution: "문장을 대신 써주지 말고 질문으로 학생의 답을 끌어내세요" 취지의 한 줄.
+
+[응답 형식 — 반드시 이 JSON만 출력. 마크다운 금지]
+{
+  "totalScore": 0,
+  "summary": "",
+  "feedback": {
+    "completeness": 0,
+    "passLine": 80,
+    "statusLabel": "",
+    "summary": "",
+    "criteria": [{ "label": "", "level": "high", "ratio": 0, "desc": "" }],
+    "quotes": [{ "text": "", "type": "strength", "comment": "" }]
+  },
+  "coaching": {
+    "steps": [{ "order": 1, "priority": "urgent", "title": "", "why": "", "askText": "", "followUp": "" }],
+    "expectedFrom": 0,
+    "expectedTo": 0,
+    "caution": ""
+  }
+}
+
+각 필드를 실제 분석 내용으로 채워서 JSON으로만 응답하라.`;
+}
+
+function buildUserPrompt(body: RequestBody): string {
+  const parts: string[] = [];
+  const meta: string[] = [`지원 학교: ${body.schoolName}`];
+  if (body.studentName) meta.push(`학생 이름: ${body.studentName}`);
+  parts.push(`[기본 정보]\n${meta.join("\n")}`);
+
+  if (body.keywords?.length) {
+    parts.push(`[학생 키워드]\n${body.keywords.join(", ")}`);
+  }
+  if (body.previousAnswer) {
+    parts.push(`[이전 답변]\n${body.previousAnswer}`);
+  }
+  if (body.previousFeedback) {
+    parts.push(`[이전 피드백]\n${body.previousFeedback}`);
+  }
+
+  parts.push(`[학생 답변 — ${body.sectionLabel}]\n${body.answerText}`);
+  parts.push(
+    "위 답변을 학교 문항·배점·인재상 기준으로 분석하고 반드시 JSON만 응답하라.\n" +
+    "- quotes의 text는 학생 답변의 실제 문장을 그대로 인용하라.\n" +
+    "- coaching.steps.askText는 자소서 문장이 아니라 '학생에게 물어볼 질문'이다.\n" +
+    "- 자소서 문장을 대신 쓰지 마라."
+  );
+  return parts.join("\n\n");
+}
+
+// 결과 정규화 + 하위호환 필드 채우기
+function normalize(raw: any, body: RequestBody, maxScore: number) {
+  const fb = raw.feedback ?? {};
+  const co = raw.coaching ?? {};
+  const criteria = Array.isArray(fb.criteria) ? fb.criteria : [];
+  const quotes = Array.isArray(fb.quotes) ? fb.quotes : [];
+  const steps = Array.isArray(co.steps) ? co.steps : [];
+
+  const completeness = clamp(Number(fb.completeness) || 0, 0, 100);
 
   return {
-    evalCriteria: raw.evalCriteria ?? "",
-    studentScores,
-    scores: scores.map((s: any) => ({
-      label: s.label ?? "",
-      score: Number(s.score) || 0,
-      max: Number(s.max) || 100,
-      desc: s.desc ?? "",
+    evalCriteria: body.rubricSection?.label ?? body.sectionLabel,
+    scoringMode: body.scoringMode ?? "official",
+    maxScore,
+    totalScore: clamp(Number(raw.totalScore) || 0, 0, maxScore),
+
+    feedback: {
+      completeness,
+      passLine: Number(fb.passLine) || 80,
+      statusLabel: fb.statusLabel ?? "",
+      summary: fb.summary ?? raw.summary ?? "",
+      criteria: criteria.map((c: any) => ({
+        label: c.label ?? "",
+        level: ["high", "mid", "low"].includes(c.level) ? c.level : "mid",
+        ratio: clamp(Number(c.ratio) || 0, 0, 100),
+        desc: c.desc ?? "",
+      })),
+      quotes: quotes.map((q: any) => ({
+        text: q.text ?? "",
+        type: ["strength", "weak", "missing"].includes(q.type) ? q.type : "weak",
+        comment: q.comment ?? "",
+      })),
+    },
+
+    coaching: {
+      steps: steps.map((s: any, i: number) => ({
+        order: Number(s.order) || i + 1,
+        priority: s.priority === "urgent" ? "urgent" : "normal",
+        title: s.title ?? "",
+        why: s.why ?? "",
+        askText: s.askText ?? "",
+        followUp: s.followUp ?? "",
+      })),
+      expectedFrom: Number(co.expectedFrom) || completeness,
+      expectedTo: clamp(Number(co.expectedTo) || completeness, 0, 100),
+      caution: co.caution ?? "문장을 대신 써주지 말고, 질문으로 학생의 답을 끌어내세요.",
+    },
+
+    // 하위호환 (기존 화면 필드)
+    scores: criteria.map((c: any) => ({
+      label: c.label ?? "",
+      score: Math.round(((Number(c.ratio) || 0) / 100) * maxScore),
+      max: maxScore,
+      desc: c.desc ?? "",
     })),
-    summary: raw.summary ?? "",
-    strengths: Array.isArray(raw.strengths) ? raw.strengths : [],
-    improvements: Array.isArray(raw.improvements) ? raw.improvements : [],
-    totalScore: Number(raw.totalScore) || 70,
-    keywordReflection: raw.keywordReflection ?? "",
-    teacherDraft: raw.teacherDraft ?? "",
+    studentScores: criteria.map((c: any) => Number(c.ratio) || 0),
+    summary: raw.summary ?? fb.summary ?? "",
+    strengths: quotes.filter((q: any) => q.type === "strength").map((q: any) => q.comment),
+    improvements: quotes.filter((q: any) => q.type !== "strength").map((q: any) => q.comment),
+    reflectiveQuestions: steps.map((s: any) => s.askText).filter(Boolean),
+    keywordReflection: "",
+    teacherDraft: "", // 철학상 더 이상 완성 문장 생성 안 함
   };
 }
 
-function normalizeComparison(raw: any) {
-  return {
-    isComparison: true,
-    improvedPoints: Array.isArray(raw.improvedPoints) ? raw.improvedPoints : [],
-    remainingIssues: Array.isArray(raw.remainingIssues) ? raw.remainingIssues : [],
-    comparisonSummary: raw.comparisonSummary ?? "",
-    teacherDraft: raw.teacherDraft ?? "",
-  };
-}
-
-// ============================================================
-// 메트릭
-// ============================================================
-interface Metrics {
-  charCount: number;
-  sentenceCount: number;
-  avgSentenceLength: number;
-  keywordHits: { keyword: string; count: number }[];
-  hasNumbers: boolean;
-  hasSpecificEvents: boolean;
-}
-
-function analyzeAnswer(text: string, body: RequestBody): Metrics {
-  const cleaned = text.trim();
-  const charCount = cleaned.replace(/\s/g, "").length;
-
-  const sentences = cleaned
-    .split(/[.!?。\n]+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-  const sentenceCount = sentences.length;
-  const avgSentenceLength =
-    sentenceCount > 0 ? Math.round(charCount / sentenceCount) : 0;
-
-  const keywordHits = (body.keywords ?? []).map((k) => ({
-    keyword: k,
-    count: (cleaned.match(new RegExp(k, "g")) ?? []).length,
-  }));
-
-  // 숫자 포함 여부 (구체성 지표)
-  const hasNumbers = /\d/.test(cleaned);
-  // 학년/시기 등 구체적 사건 표현 여부
-  const hasSpecificEvents = /[1-6]학년|초등|중[123]|작년|올해|지난|당시/.test(cleaned);
-
-  return { charCount, sentenceCount, avgSentenceLength, keywordHits, hasNumbers, hasSpecificEvents };
-}
-
-// ============================================================
-// 항목별 평가 기준
-// ============================================================
-const SECTION_RUBRICS: Record<string, string> = {
-  지원동기: `[1] 학교 이해도 (건학이념·교육과정 인지) (30%)
-[2] 동기의 진정성 (구체적 계기·경험) (30%)
-[3] 자기 가치관과의 연결 (25%)
-[4] 표현력·구체성 (15%)`,
-
-  활동계획: `[1] 활동의 구체성 (어떤 활동을 어떻게) (30%)
-[2] 자기주도성 (스스로 한 활동 vs 시켜서 한 활동) (25%)
-[3] 진로 연결성 (꿈/끼와의 연관) (30%)
-[4] 표현력·구체성 (15%)`,
-
-  진로계획: `[1] 진로의 구체성 (학과·분야·직업) (30%)
-[2] 단계적 계획성 (5년/10년 후) (25%)
-[3] 현재 노력의 구체성 (이미 한 일들) (30%)
-[4] 표현력·구체성 (15%)`,
-
-  인성: `[1] 경험의 구체성 (언제/누구와/어떻게) (30%)
-[2] 배움·성장의 깊이 (단순 행동 vs 깨달음) (35%)
-[3] 인성 가치 표현 (배려·협력·책임 등) (20%)
-[4] 표현력·구체성 (15%)`,
-};
-
-// ============================================================
-// 첫 제출 — 풀 분석 프롬프트
-// ============================================================
-function buildFullSystemPrompt(sectionKey: string): string {
-  const rubric = SECTION_RUBRICS[sectionKey] || SECTION_RUBRICS.지원동기;
-
-  return `당신은 중학생의 고등학교 자기소개서를 평가하는 전문 입시 컨설턴트입니다.
-학생이 작성한 "${sectionKey}" 항목을 분석해, 선생님이 검토 후 학생에게 그대로 전달할 수 있는
-피드백 초안을 작성합니다.
-
-═══════════════════════════════════════════
-[중요] 자소서 피드백의 목적
-═══════════════════════════════════════════
-- "다시 어떻게 쓰면 좋을지" 알려주는 것이 목적.
-- 따뜻하고 구체적이지만 모호한 칭찬 금지.
-- 학생이 다음 수정에 적용할 수 있는 명확한 액션 아이템 제시.
-- 자소서는 "구체성"이 핵심. 추상적 다짐("열심히 하겠다")보다 구체적 사건·숫자 강조.
-
-═══════════════════════════════════════════
-${sectionKey} 평가 4축 (반드시 이 순서로 scores 배열 작성)
-═══════════════════════════════════════════
-${rubric}
-
-═══════════════════════════════════════════
-점수 캘리브레이션 (모든 score는 0-100 정수)
-═══════════════════════════════════════════
-- 90+ : 또래 상위 5%
-- 80-89 : 상위 20%
-- 70-79 : 평범하지만 통과
-- 60-69 : 핵심은 전달됐으나 부족함 다수
-- 50-59 : 명백한 결함
-- 50 미만 : 미달
-
-대부분 60-80 사이.
-totalScore = 4축 평균 (0-100).
-
-═══════════════════════════════════════════
-키워드 반영 평가
-═══════════════════════════════════════════
-학생이 1단계에서 정한 키워드들이 답변에 자연스럽게 녹아있는지 확인.
-keywordReflection 필드에 한 문장으로 평가:
-- "키워드 OOO이 자연스럽게 녹아있어요"
-- "키워드를 더 적극적으로 활용해보세요"
-
-═══════════════════════════════════════════
-teacherDraft 작성 — 선생님이 학생에게 보낼 텍스트
-═══════════════════════════════════════════
-구조 (마크다운 헤더 X, 자연스러운 한국어 문단):
-
-[총평] 2-3문장
-[잘한 점] 강점 2-3개 (가능하면 학생 답안 인용)
-[개선할 점] 개선점 2-3개 (what + how)
-[다음 단계] 1-2문장
-
-** 톤 **
-- "~예요/~해요" 톤
-- 학생 이름 있으면 "○○님,"로 시작
-- 길이: 300-450자
-
-═══════════════════════════════════════════
-응답 형식 (반드시 이 JSON만)
-═══════════════════════════════════════════
-{
-  "evalCriteria": "<${sectionKey} 평가 핵심 기준 한 문장>",
-  "scores": [
-    { "label": "<1번 축>", "score": <0-100>, "max": 100, "desc": "<한 문장>" },
-    { "label": "<2번 축>", "score": <0-100>, "max": 100, "desc": "<한 문장>" },
-    { "label": "<3번 축>", "score": <0-100>, "max": 100, "desc": "<한 문장>" },
-    { "label": "<4번 축>", "score": <0-100>, "max": 100, "desc": "<한 문장>" }
-  ],
-  "totalScore": <0-100 평균>,
-  "summary": "<1-2문장>",
-  "strengths": ["...", "...", "..."],
-  "improvements": ["...", "...", "..."],
-  "keywordReflection": "<키워드 반영도 한 문장>",
-  "teacherDraft": "<300-450자>"
-}`;
-}
-
-function buildFullUserPrompt(body: RequestBody, m: Metrics): string {
-  const parts: string[] = [];
-
-  const meta: string[] = [];
-  meta.push(`지원 학교: ${body.schoolName}`);
-  meta.push(`자소서 항목: ${body.sectionLabel}`);
-  if (body.studentName) meta.push(`학생 이름: ${body.studentName}`);
-  if (body.keywords && body.keywords.length > 0) {
-    meta.push(`학생이 정한 키워드 5개: ${body.keywords.join(", ")}`);
-  }
-  parts.push(`[기본 정보]\n${meta.join("\n")}`);
-
-  const metricLines = [
-    `총 글자 수 (띄어쓰기 제외): ${m.charCount}자`,
-    `문장 수: ${m.sentenceCount}개`,
-    `평균 문장 길이: ${m.avgSentenceLength}자`,
-    `숫자 포함: ${m.hasNumbers ? "✓" : "✗"}`,
-    `구체적 시기 표현: ${m.hasSpecificEvents ? "✓" : "✗"}`,
-  ];
-  if (m.keywordHits.length > 0) {
-    const hits = m.keywordHits
-      .filter((kh) => kh.count > 0)
-      .map((kh) => `${kh.keyword}(${kh.count}회)`)
-      .join(", ") || "없음";
-    metricLines.push(`키워드 등장: ${hits}`);
-  }
-  parts.push(`[사전 분석 메트릭]\n${metricLines.join("\n")}`);
-
-  parts.push(`[학생 자소서 — ${body.sectionKey}]\n${body.answerText}`);
-
-  parts.push(
-    `위 자소서 항목을 분석하고 JSON 형식으로 응답하세요.\n` +
-      `1. 4개 축 각 0-100 점수와 한 문장 desc\n` +
-      `2. totalScore는 4축 평균 (0-100)\n` +
-      `3. keywordReflection: 키워드 반영도 한 문장\n` +
-      `4. teacherDraft 300-450자\n` +
-      `5. 반드시 JSON만 응답`
-  );
-
-  return parts.join("\n\n");
-}
-
-// ============================================================
-// 재제출 — 비교 프롬프트
-// ============================================================
-function buildComparisonSystemPrompt(sectionKey: string): string {
-  return `당신은 중학생의 고등학교 자기소개서를 평가하는 전문 입시 컨설턴트입니다.
-학생이 1차 자소서에 대한 피드백을 받고 ${sectionKey} 항목을 수정해서 재제출했습니다.
-1차 답안과 2차 답안을 비교해서, 무엇이 좋아졌고 무엇이 아직 부족한지 알려주는 피드백을 작성하세요.
-
-═══════════════════════════════════════════
-[중요] 비교 피드백의 핵심
-═══════════════════════════════════════════
-- 점수 산정 X. 강점/개선점 따로 나열 X. 오직 "1차 → 2차 변화"에 집중.
-- 학생이 1차 피드백을 어떻게 반영했는지 정직하게 평가.
-- 잘 반영했으면 잘 반영했다고, 거의 반영 안 됐으면 그렇게.
-- "노력 인정" 모호한 칭찬 금지.
-
-═══════════════════════════════════════════
-분석 관점
-═══════════════════════════════════════════
-1) 1차 피드백의 개선점이 2차 답안에 어떻게 반영됐는가
-2) 1차의 약점(추상성, 구체성 부족 등)이 2차에서 보완됐는가
-3) 2차에서 새로 추가된 내용이 자소서 품질을 높였는가
-4) 2차에서 여전히 부족한 부분 또는 새로 생긴 약점
-
-═══════════════════════════════════════════
-teacherDraft 작성 — 선생님이 학생에게 보낼 최종 피드백
-═══════════════════════════════════════════
-구조 (마크다운 헤더 X):
-
-[총평] 2-3문장 (1차 대비 발전 한 마디, 모호한 칭찬 X)
-[좋아진 점] 1차 → 2차 명확히 좋아진 부분 (구체적 인용)
-[아직 보완할 점] 여전히 부족하거나 새로 생긴 약점 (있으면)
-[격려] 짧은 한 문장
-
-** 톤 ** "~예요/~해요", 학생 이름 있으면 "○○님,"로 시작, 250-400자.
-
-═══════════════════════════════════════════
-응답 형식 (반드시 이 JSON만)
-═══════════════════════════════════════════
-{
-  "improvedPoints": ["<좋아진 점 1>", "<좋아진 점 2>"],
-  "remainingIssues": ["<아직 부족한 점 1>", "<아직 부족한 점 2>"],
-  "comparisonSummary": "<1차 대비 발전 1-2문장>",
-  "teacherDraft": "<250-400자>"
-}`;
-}
-
-function buildComparisonUserPrompt(body: RequestBody, m: Metrics): string {
-  const parts: string[] = [];
-
-  const meta: string[] = [];
-  meta.push(`지원 학교: ${body.schoolName}`);
-  meta.push(`자소서 항목: ${body.sectionLabel}`);
-  if (body.studentName) meta.push(`학생 이름: ${body.studentName}`);
-  parts.push(`[기본 정보]\n${meta.join("\n")}`);
-
-  parts.push(`[1차 답안]\n${body.previousAnswer}`);
-  parts.push(`[1차 피드백 — 학생이 반영해야 했던 내용]\n${body.previousFeedback}`);
-  parts.push(`[2차 답안 — 재제출본]\n${body.answerText}`);
-
-  parts.push(
-    `위 1차 답안과 2차 답안을 비교하세요.\n\n` +
-      `체크리스트:\n` +
-      `1. improvedPoints: 좋아진 점 2-3개 (구체적 인용)\n` +
-      `2. remainingIssues: 여전히 부족한 점 0-2개\n` +
-      `3. comparisonSummary: 1-2문장 요약\n` +
-      `4. teacherDraft: 250-400자, [총평]/[좋아진 점]/[아직 보완할 점]/[격려] 구조\n` +
-      `5. 반드시 JSON만 응답`
-  );
-
-  return parts.join("\n\n");
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, n));
 }

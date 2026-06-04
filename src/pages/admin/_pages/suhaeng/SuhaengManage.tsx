@@ -331,7 +331,7 @@ function MiddleAssignModal({ question, onClose }: { question: SuhaengQuestion; o
         <div className="flex-1 overflow-y-auto px-5 py-3">
           {loadingStudents || loadingAssignments ? <div className="text-center py-10 text-ink-muted text-[12px]">불러오는 중...</div>
             : filteredStudents.length === 0 ? <div className="text-center py-10 text-ink-muted text-[12px]">{(allStudents as AcademyStudent[]).length === 0 ? '등록된 학생이 없어요' : '해당 조건의 학생이 없어요'}</div>
-            : <div className="flex flex-col gap-1.5">{filteredStudents.map(s => { const isSelected = selectedIds.includes(s.id); const gc = GRADE_COLOR[s.grade] || GRADE_COLOR['전체']; return (<label key={s.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all border" style={{ background: isSelected ? '#EFF6FF' : '#fff', borderColor: isSelected ? '#93C5FD' : '#E5E7EB' }}><input type="checkbox" checked={isSelected} onChange={() => toggleStudent(s.id)} className="w-4 h-4 accent-blue-600 flex-shrink-0" /><div className="flex-1 min-w-0"><div className="flex items-center gap-2"><span className="text-[13px] font-bold text-ink">{s.name}</span><span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full border" style={{ background: gc.bg, color: gc.color, borderColor: gc.border }}>{s.grade}</span></div>{s.school && <div className="text-[11px] text-ink-muted mt-0.5">{s.school}</div>}</div></label>) })}</div>}
+              : <div className="flex flex-col gap-1.5">{filteredStudents.map(s => { const isSelected = selectedIds.includes(s.id); const gc = GRADE_COLOR[s.grade] || GRADE_COLOR['전체']; return (<label key={s.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all border" style={{ background: isSelected ? '#EFF6FF' : '#fff', borderColor: isSelected ? '#93C5FD' : '#E5E7EB' }}><input type="checkbox" checked={isSelected} onChange={() => toggleStudent(s.id)} className="w-4 h-4 accent-blue-600 flex-shrink-0" /><div className="flex-1 min-w-0"><div className="flex items-center gap-2"><span className="text-[13px] font-bold text-ink">{s.name}</span><span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full border" style={{ background: gc.bg, color: gc.color, borderColor: gc.border }}>{s.grade}</span></div>{s.school && <div className="text-[11px] text-ink-muted mt-0.5">{s.school}</div>}</div></label>) })}</div>}
         </div>
         <div className="px-6 py-4 border-t border-line flex-shrink-0 flex justify-between items-center">
           <div className="text-[11px] text-ink-muted">학년 전체 공개 설정과 별개로 적용돼요</div>
@@ -370,21 +370,23 @@ function MiddleQuestionTab() {
       </div>
       {isLoading ? <div className="text-center py-16 text-ink-muted"><div className="text-[13px]">불러오는 중...</div></div>
         : filtered.length === 0 ? <div className="text-center py-16 bg-white border border-line rounded-2xl"><div className="text-[14px] font-bold text-ink mb-2">{questions.length === 0 ? '아직 만든 문제가 없어요' : '해당 조건의 문제가 없어요'}</div>{questions.length === 0 && <button onClick={() => { setEditTarget(null); setShowForm(true) }} className="px-5 py-2.5 text-white rounded-xl text-[13px] font-bold mt-2" style={{ background: MIDDLE_THEME.accent }}>첫 문제 만들기</button>}</div>
-        : (
-          <div className="bg-white border border-line rounded-xl overflow-hidden">
-            <div className="flex px-4 py-2.5 bg-gray-50 border-b border-line text-[11px] font-bold text-ink-muted"><div className="w-[22%]">제목</div><div className="w-[10%]">과목</div><div className="w-[10%]">유형</div><div className="w-[8%]">학년</div><div className="w-[30%]">평가 요소</div><div className="w-[20%]"></div></div>
-            {filtered.map((q, idx) => { const gc = GRADE_COLOR[q.grade] || GRADE_COLOR['전체']; const evalCriteria = (q as any).eval_criteria || []; return (
-              <div key={q.id} className={`flex px-4 py-3 items-center transition-colors hover:bg-gray-50 ${idx !== filtered.length - 1 ? 'border-b border-line' : ''}`}>
-                <div className="w-[22%] min-w-0 pr-3"><div className="text-[13px] font-bold text-ink truncate flex items-center gap-1.5">{q.title}{q.is_draft && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0" style={{ background: '#FFF7ED', color: '#92400E', borderColor: '#FCD34D' }}>임시저장</span>}</div><div className="text-[11px] text-ink-muted mt-0.5">{new Date(q.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}</div></div>
-                <div className="w-[10%] text-[12px] font-semibold text-ink-secondary">{q.subject}</div>
-                <div className="w-[10%]"><span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: MIDDLE_THEME.accentBg, color: MIDDLE_THEME.accentDark, border: `1px solid ${MIDDLE_THEME.accentBorder}60` }}>{q.type}</span></div>
-                <div className="w-[8%]"><span className="text-[11px] font-bold px-2 py-0.5 rounded-full border" style={{ background: gc.bg, color: gc.color, borderColor: gc.border }}>{q.grade}</span></div>
-                <div className="w-[30%] flex items-center gap-1 overflow-hidden">{evalCriteria.length > 0 ? evalCriteria.map((e: EvalItem, i: number) => (<span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-ink-secondary whitespace-nowrap flex-shrink-0">{e.name} <span className="font-bold">{e.score}점</span></span>)) : <span className="text-[11px] text-ink-muted">-</span>}</div>
-                <div className="w-[20%] flex items-center gap-1.5 justify-end flex-shrink-0"><button onClick={() => setAssignTarget(q)} className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors whitespace-nowrap">학생 배정</button><button onClick={() => { setEditTarget(q); setShowForm(true) }} className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-line text-ink-secondary hover:bg-gray-50 transition-colors whitespace-nowrap">수정</button><button onClick={() => handleDelete(q)} className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-red-200 text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap">삭제</button></div>
-              </div>
-            ) })}
-          </div>
-        )}
+          : (
+            <div className="bg-white border border-line rounded-xl overflow-hidden">
+              <div className="flex px-4 py-2.5 bg-gray-50 border-b border-line text-[11px] font-bold text-ink-muted"><div className="w-[22%]">제목</div><div className="w-[10%]">과목</div><div className="w-[10%]">유형</div><div className="w-[8%]">학년</div><div className="w-[30%]">평가 요소</div><div className="w-[20%]"></div></div>
+              {filtered.map((q, idx) => {
+                const gc = GRADE_COLOR[q.grade] || GRADE_COLOR['전체']; const evalCriteria = (q as any).eval_criteria || []; return (
+                  <div key={q.id} className={`flex px-4 py-3 items-center transition-colors hover:bg-gray-50 ${idx !== filtered.length - 1 ? 'border-b border-line' : ''}`}>
+                    <div className="w-[22%] min-w-0 pr-3"><div className="text-[13px] font-bold text-ink truncate flex items-center gap-1.5">{q.title}{q.is_draft && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0" style={{ background: '#FFF7ED', color: '#92400E', borderColor: '#FCD34D' }}>임시저장</span>}</div><div className="text-[11px] text-ink-muted mt-0.5">{new Date(q.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}</div></div>
+                    <div className="w-[10%] text-[12px] font-semibold text-ink-secondary">{q.subject}</div>
+                    <div className="w-[10%]"><span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: MIDDLE_THEME.accentBg, color: MIDDLE_THEME.accentDark, border: `1px solid ${MIDDLE_THEME.accentBorder}60` }}>{q.type}</span></div>
+                    <div className="w-[8%]"><span className="text-[11px] font-bold px-2 py-0.5 rounded-full border" style={{ background: gc.bg, color: gc.color, borderColor: gc.border }}>{q.grade}</span></div>
+                    <div className="w-[30%] flex items-center gap-1 overflow-hidden">{evalCriteria.length > 0 ? evalCriteria.map((e: EvalItem, i: number) => (<span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-ink-secondary whitespace-nowrap flex-shrink-0">{e.name} <span className="font-bold">{e.score}점</span></span>)) : <span className="text-[11px] text-ink-muted">-</span>}</div>
+                    <div className="w-[20%] flex items-center gap-1.5 justify-end flex-shrink-0"><button onClick={() => setAssignTarget(q)} className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors whitespace-nowrap">학생 배정</button><button onClick={() => { setEditTarget(q); setShowForm(true) }} className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-line text-ink-secondary hover:bg-gray-50 transition-colors whitespace-nowrap">수정</button><button onClick={() => handleDelete(q)} className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-red-200 text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap">삭제</button></div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
       {showForm && <MiddleQuestionFormModal initial={editTarget} onClose={() => { setShowForm(false); setEditTarget(null) }} onSave={handleSave} saving={createQ.isPending || updateQ.isPending} />}
       {assignTarget && <MiddleAssignModal question={assignTarget} onClose={() => setAssignTarget(null)} />}
     </div>
@@ -598,7 +600,7 @@ function HighAssignModal({ question, onClose }: { question: HighSuhaengQuestion;
         <div className="flex-1 overflow-y-auto px-5 py-3">
           {loadingStudents || loadingAssignments ? <div className="text-center py-10 text-ink-muted text-[12px]">불러오는 중...</div>
             : filteredStudents.length === 0 ? <div className="text-center py-10 text-ink-muted text-[12px]">{allStudents.length === 0 ? '등록된 학생이 없어요' : '해당 조건의 학생이 없어요'}</div>
-            : <div className="flex flex-col gap-1.5">{filteredStudents.map(s => { const isSelected = selectedIds.includes(s.id); const gc = GRADE_COLOR[s.grade] || GRADE_COLOR['전체']; return (<label key={s.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all border" style={{ background: isSelected ? '#EFF6FF' : '#fff', borderColor: isSelected ? '#93C5FD' : '#E5E7EB' }}><input type="checkbox" checked={isSelected} onChange={() => toggleStudent(s.id)} className="w-4 h-4 accent-blue-600 flex-shrink-0" /><div className="flex-1 min-w-0"><div className="flex items-center gap-2"><span className="text-[13px] font-bold text-ink">{s.name}</span><span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full border" style={{ background: gc.bg, color: gc.color, borderColor: gc.border }}>{s.grade}</span></div>{s.school && <div className="text-[11px] text-ink-muted mt-0.5">{s.school}</div>}</div></label>) })}</div>}
+              : <div className="flex flex-col gap-1.5">{filteredStudents.map(s => { const isSelected = selectedIds.includes(s.id); const gc = GRADE_COLOR[s.grade] || GRADE_COLOR['전체']; return (<label key={s.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all border" style={{ background: isSelected ? '#EFF6FF' : '#fff', borderColor: isSelected ? '#93C5FD' : '#E5E7EB' }}><input type="checkbox" checked={isSelected} onChange={() => toggleStudent(s.id)} className="w-4 h-4 accent-blue-600 flex-shrink-0" /><div className="flex-1 min-w-0"><div className="flex items-center gap-2"><span className="text-[13px] font-bold text-ink">{s.name}</span><span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full border" style={{ background: gc.bg, color: gc.color, borderColor: gc.border }}>{s.grade}</span></div>{s.school && <div className="text-[11px] text-ink-muted mt-0.5">{s.school}</div>}</div></label>) })}</div>}
         </div>
         <div className="px-6 py-4 border-t border-line flex-shrink-0 flex justify-between items-center">
           <div className="text-[11px] text-ink-muted">학년 전체 공개 설정과 별개로 적용돼요</div>
@@ -637,32 +639,34 @@ function HighQuestionTab() {
       </div>
       {isLoading ? <div className="text-center py-16 text-ink-muted"><div className="text-[13px]">불러오는 중...</div></div>
         : filtered.length === 0 ? <div className="text-center py-16 bg-white border border-line rounded-2xl"><div className="text-[14px] font-bold text-ink mb-2">{questions.length === 0 ? '아직 만든 문제가 없어요' : '해당 조건의 문제가 없어요'}</div>{questions.length === 0 && <button onClick={() => { setEditTarget(null); setShowForm(true) }} className="px-5 py-2.5 text-white rounded-xl text-[13px] font-bold mt-2" style={{ background: HIGH_THEME.accent }}>첫 문제 만들기</button>}</div>
-        : (
-          <div className="bg-white border border-line rounded-xl overflow-hidden">
-            <div className="flex px-4 py-2.5 bg-gray-50 border-b border-line text-[11px] font-bold text-ink-muted">
-              <div className="w-[20%]">제목</div><div className="w-[10%]">과목</div><div className="w-[12%]">유형</div>
-              <div className="w-[7%]">학년</div><div className="w-[7%]">학기</div><div className="w-[24%]">평가 요소</div><div className="w-[20%]"></div>
-            </div>
-            {filtered.map((q, idx) => { const gc = GRADE_COLOR[q.grade] || GRADE_COLOR['전체']; const evalCriteria = q.eval_criteria || []; return (
-              <div key={q.id} className={`flex px-4 py-3 items-center transition-colors hover:bg-gray-50 ${idx !== filtered.length - 1 ? 'border-b border-line' : ''}`}>
-                <div className="w-[20%] min-w-0 pr-3">
-                  <div className="text-[13px] font-bold text-ink truncate flex items-center gap-1.5">{q.title}{q.is_draft && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0" style={{ background: '#FFF7ED', color: '#92400E', borderColor: '#FCD34D' }}>임시저장</span>}</div>
-                  <div className="text-[11px] text-ink-muted mt-0.5">{(q as any).topic && <span className="text-ink-secondary mr-1">#{(q as any).topic}</span>}{new Date(q.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}</div>
-                </div>
-                <div className="w-[10%] text-[12px] font-semibold text-ink-secondary">{q.subject}</div>
-                <div className="w-[12%]"><span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: HIGH_THEME.accentBg, color: HIGH_THEME.accentDark, border: `1px solid ${HIGH_THEME.accentBorder}60` }}>{q.type}</span></div>
-                <div className="w-[7%]"><span className="text-[11px] font-bold px-2 py-0.5 rounded-full border" style={{ background: gc.bg, color: gc.color, borderColor: gc.border }}>{q.grade}</span></div>
-                <div className="w-[7%] text-[11px] font-semibold text-ink-secondary">{(q as any).semester || '-'}</div>
-                <div className="w-[24%] flex items-center gap-1 overflow-hidden">{evalCriteria.length > 0 ? evalCriteria.map((e, i) => (<span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-ink-secondary whitespace-nowrap flex-shrink-0">{e.name} <span className="font-bold">{e.score}점</span></span>)) : <span className="text-[11px] text-ink-muted">-</span>}</div>
-                <div className="w-[20%] flex items-center gap-1.5 justify-end flex-shrink-0">
-                  <button onClick={() => setAssignTarget(q)} className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors whitespace-nowrap">학생 배정</button>
-                  <button onClick={() => { setEditTarget(q); setShowForm(true) }} className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-line text-ink-secondary hover:bg-gray-50 transition-colors whitespace-nowrap">수정</button>
-                  <button onClick={() => handleDelete(q)} className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-red-200 text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap">삭제</button>
-                </div>
+          : (
+            <div className="bg-white border border-line rounded-xl overflow-hidden">
+              <div className="flex px-4 py-2.5 bg-gray-50 border-b border-line text-[11px] font-bold text-ink-muted">
+                <div className="w-[20%]">제목</div><div className="w-[10%]">과목</div><div className="w-[12%]">유형</div>
+                <div className="w-[7%]">학년</div><div className="w-[7%]">학기</div><div className="w-[24%]">평가 요소</div><div className="w-[20%]"></div>
               </div>
-            ) })}
-          </div>
-        )}
+              {filtered.map((q, idx) => {
+                const gc = GRADE_COLOR[q.grade] || GRADE_COLOR['전체']; const evalCriteria = q.eval_criteria || []; return (
+                  <div key={q.id} className={`flex px-4 py-3 items-center transition-colors hover:bg-gray-50 ${idx !== filtered.length - 1 ? 'border-b border-line' : ''}`}>
+                    <div className="w-[20%] min-w-0 pr-3">
+                      <div className="text-[13px] font-bold text-ink truncate flex items-center gap-1.5">{q.title}{q.is_draft && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0" style={{ background: '#FFF7ED', color: '#92400E', borderColor: '#FCD34D' }}>임시저장</span>}</div>
+                      <div className="text-[11px] text-ink-muted mt-0.5">{(q as any).topic && <span className="text-ink-secondary mr-1">#{(q as any).topic}</span>}{new Date(q.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}</div>
+                    </div>
+                    <div className="w-[10%] text-[12px] font-semibold text-ink-secondary">{q.subject}</div>
+                    <div className="w-[12%]"><span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: HIGH_THEME.accentBg, color: HIGH_THEME.accentDark, border: `1px solid ${HIGH_THEME.accentBorder}60` }}>{q.type}</span></div>
+                    <div className="w-[7%]"><span className="text-[11px] font-bold px-2 py-0.5 rounded-full border" style={{ background: gc.bg, color: gc.color, borderColor: gc.border }}>{q.grade}</span></div>
+                    <div className="w-[7%] text-[11px] font-semibold text-ink-secondary">{(q as any).semester || '-'}</div>
+                    <div className="w-[24%] flex items-center gap-1 overflow-hidden">{evalCriteria.length > 0 ? evalCriteria.map((e, i) => (<span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-ink-secondary whitespace-nowrap flex-shrink-0">{e.name} <span className="font-bold">{e.score}점</span></span>)) : <span className="text-[11px] text-ink-muted">-</span>}</div>
+                    <div className="w-[20%] flex items-center gap-1.5 justify-end flex-shrink-0">
+                      <button onClick={() => setAssignTarget(q)} className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors whitespace-nowrap">학생 배정</button>
+                      <button onClick={() => { setEditTarget(q); setShowForm(true) }} className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-line text-ink-secondary hover:bg-gray-50 transition-colors whitespace-nowrap">수정</button>
+                      <button onClick={() => handleDelete(q)} className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-red-200 text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap">삭제</button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
       {showForm && <HighQuestionFormModal initial={editTarget} onClose={() => { setShowForm(false); setEditTarget(null) }} onSave={handleSave} saving={createQ.isPending || updateQ.isPending} />}
       {assignTarget && <HighAssignModal question={assignTarget} onClose={() => setAssignTarget(null)} />}
     </div>
@@ -674,17 +678,31 @@ function HighQuestionTab() {
 // ─────────────────────────────────────────────
 export default function SuhaengManage() {
   const academy = useAtomValue(academyState)
-  const [activeTab, setActiveTab] = useState<'middle' | 'high'>('middle')
+  const enabledMenus = academy.enabledMenus || []
+  const hasMiddle = enabledMenus.some(m => m.startsWith('middle.'))
+  const hasHigh = enabledMenus.some(m => m.startsWith('high.'))
+
+  const [activeTab, setActiveTab] = useState<'middle' | 'high'>(hasMiddle ? 'middle' : 'high')
+
+  useEffect(() => {
+    if (!hasMiddle && hasHigh) setActiveTab('high')
+    else if (hasMiddle && !hasHigh) setActiveTab('middle')
+  }, [hasMiddle, hasHigh])
+
+  const showBothTabs = hasMiddle && hasHigh
+
   return (
     <div className="p-6 max-w-[1100px] mx-auto font-sans">
       <div className="mb-6">
         <div className="text-[22px] font-extrabold text-ink tracking-tight">수행평가 관리</div>
         <div className="text-[13px] text-ink-secondary mt-1">{academy.academyName} · 문제를 만들고 학생들에게 공개해보세요</div>
       </div>
-      <div className="flex gap-2 mb-6 bg-gray-100 rounded-2xl p-1.5">
-        <button onClick={() => setActiveTab('middle')} className="flex-1 py-3 rounded-xl text-[14px] font-extrabold transition-all flex items-center justify-center gap-2" style={{ background: activeTab === 'middle' ? '#fff' : 'transparent', color: activeTab === 'middle' ? MIDDLE_THEME.accentDark : '#9CA3AF', boxShadow: activeTab === 'middle' ? '0 2px 8px rgba(15,23,42,0.08)' : 'none' }}>중등 수행평가</button>
-        <button onClick={() => setActiveTab('high')} className="flex-1 py-3 rounded-xl text-[14px] font-extrabold transition-all flex items-center justify-center gap-2" style={{ background: activeTab === 'high' ? '#fff' : 'transparent', color: activeTab === 'high' ? HIGH_THEME.accentDark : '#9CA3AF', boxShadow: activeTab === 'high' ? '0 2px 8px rgba(15,23,42,0.08)' : 'none' }}>고등 수행평가</button>
-      </div>
+      {showBothTabs && (
+        <div className="flex gap-2 mb-6 bg-gray-100 rounded-2xl p-1.5">
+          <button onClick={() => setActiveTab('middle')} className="flex-1 py-3 rounded-xl text-[14px] font-extrabold transition-all flex items-center justify-center gap-2" style={{ background: activeTab === 'middle' ? '#fff' : 'transparent', color: activeTab === 'middle' ? MIDDLE_THEME.accentDark : '#9CA3AF', boxShadow: activeTab === 'middle' ? '0 2px 8px rgba(15,23,42,0.08)' : 'none' }}>중등 수행평가</button>
+          <button onClick={() => setActiveTab('high')} className="flex-1 py-3 rounded-xl text-[14px] font-extrabold transition-all flex items-center justify-center gap-2" style={{ background: activeTab === 'high' ? '#fff' : 'transparent', color: activeTab === 'high' ? HIGH_THEME.accentDark : '#9CA3AF', boxShadow: activeTab === 'high' ? '0 2px 8px rgba(15,23,42,0.08)' : 'none' }}>고등 수행평가</button>
+        </div>
+      )}
       {activeTab === 'middle' ? <MiddleQuestionTab /> : <HighQuestionTab />}
     </div>
   )

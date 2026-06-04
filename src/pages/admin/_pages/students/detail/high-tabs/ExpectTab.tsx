@@ -1183,7 +1183,7 @@ export default function ExpectTab({ student }: { student: any }) {
                 style={{ flex: 1, height: 42, background: '#fff', color: '#6B7280', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>취소</button>
               <button onClick={submitTail} disabled={!tailInput.trim() || addTail.isPending}
                 style={{ flex: 1, height: 42, background: tailInput.trim() ? THEME.accent : '#E5E7EB', color: tailInput.trim() ? '#fff' : '#9CA3AF', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: tailInput.trim() ? 'pointer' : 'not-allowed' }}>
-                {addTail.isPending ? '추가중...' : '추가하고 게시'}
+                {addTail.isPending ? '추가중...' : ' 게시'}
               </button>
             </div>
           </div>

@@ -93,7 +93,7 @@ export default function Layout() {
     { path: '/admin', label: '대시보드', icon: '⊞', type: 'default' as const, show: true },
     hasHighMenu && { path: '/admin/students', label: '고등 관리', icon: '🌊', type: 'default' as const, show: true },
     hasMiddleMenu && { path: '/admin/middle-students', label: '중등 관리', icon: '🌱', type: 'middle' as const, show: true },
-    hasMiddleMenu && { path: '/admin/middle-suhaeng', label: '수행평가 관리', icon: '📋', type: 'middle' as const, show: true },
+    (hasMiddleMenu || hasHighMenu) && { path: '/admin/middle-suhaeng', label: '수행평가 관리', icon: '📋', type: 'middle' as const, show: true },
     (hasHighMenu || hasMiddleMenu) && { path: '/admin/reports', label: '월간 보고서', icon: '📊', type: 'default' as const, show: true },
     { path: '/admin/student-approval', label: '학생 승인', icon: '✋', type: 'default' as const, show: true },
     ...(isOwner ? [{ path: '/admin/teachers', label: '선생님 관리', icon: '👨‍🏫', type: 'default' as const, show: true }] : []),

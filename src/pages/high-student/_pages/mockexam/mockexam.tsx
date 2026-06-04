@@ -19,6 +19,8 @@ import {
   getTypeColor,
   type MockExamQuestion,
 } from '../../_hooks/useMyHighMockExam'
+import { useAtomValue } from 'jotai'
+import { academyState } from '@/lib/auth/atoms'
 
 // 내 프로필 조회 (이름, 학년 등)
 function useMyProfile() {
@@ -91,6 +93,10 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
   const { data: myProfile } = useMyProfile()
   const student = myProfile || studentProp || {}
   const queryClient = useQueryClient()
+
+  // 로그인한 학원명 (없으면 B-KURS로 폴백)
+  const academy = useAtomValue(academyState)
+  const academyName = academy?.academyName || 'B-KURS'
 
   const studentGrade = student?.grade || '고1'
   const [selGrade, setSelGrade] = useState(studentGrade)
@@ -1321,7 +1327,7 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
                                 <div className="flex items-center gap-3 mb-8">
                                   <div className="w-10 h-0.5" style={{ background: '#FCD34D' }} />
                                   <div className="text-[10px] font-bold tracking-[6px]" style={{ color: '#FCD34D' }}>
-                                    B-KURS · PREMIUM REPORT
+                                    {academyName} · PREMIUM REPORT
                                   </div>
                                 </div>
                                 <div className="text-[11px] font-bold tracking-[3px] opacity-70 mb-4">
@@ -1439,23 +1445,6 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
                                   <Tooltip />
                                   <Bar dataKey="score" fill={THEME.accent} radius={[8, 8, 0, 0]} />
                                 </BarChart>
-                              </div>
-                            </div>
-                          )}
-
-                          {report.summary_for_parents && (
-                            <div className="rounded-3xl p-10 mb-8 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 50%, #FBBF24 100%)', boxShadow: '0 20px 60px rgba(251, 191, 36, 0.25)' }}>
-                              <div className="absolute top-8 right-10 text-8xl opacity-15" style={{ fontFamily: 'Georgia, serif' }}>"</div>
-                              <div className="absolute bottom-8 left-10 text-8xl opacity-15 rotate-180" style={{ fontFamily: 'Georgia, serif' }}>"</div>
-                              <div className="relative z-10 max-w-2xl mx-auto">
-                                <div className="flex items-center gap-3 mb-6 justify-center">
-                                  <div className="w-12 h-0.5" style={{ background: '#92400E' }} />
-                                  <div className="text-[10px] font-bold tracking-[4px]" style={{ color: '#92400E' }}>LETTER TO PARENTS</div>
-                                  <div className="w-12 h-0.5" style={{ background: '#92400E' }} />
-                                </div>
-                                <div className="text-[24px] font-extrabold text-center mb-6" style={{ color: '#78350F', fontFamily: 'Georgia, serif' }}>학부모님께 드리는 메시지</div>
-                                <div className="text-[15px] leading-[2.2] text-center font-medium" style={{ color: '#78350F', fontFamily: 'Georgia, serif' }}>{report.summary_for_parents}</div>
-                                <div className="text-right mt-8 text-[12px] font-bold" style={{ color: '#92400E', fontFamily: 'Georgia, serif' }}>— B-KURS 입시 컨설팅 드림</div>
                               </div>
                             </div>
                           )}
@@ -1625,16 +1614,32 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
                             </div>
                           )}
 
+                          {report.summary_for_parents && (
+                            <div className="rounded-3xl p-10 mb-8 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 50%, #FBBF24 100%)', boxShadow: '0 20px 60px rgba(251, 191, 36, 0.25)' }}>
+                              <div className="absolute top-8 right-10 text-8xl opacity-15" style={{ fontFamily: 'Georgia, serif' }}>"</div>
+                              <div className="absolute bottom-8 left-10 text-8xl opacity-15 rotate-180" style={{ fontFamily: 'Georgia, serif' }}>"</div>
+                              <div className="relative z-10 max-w-2xl mx-auto">
+                                <div className="flex items-center gap-3 mb-6 justify-center">
+                                  <div className="w-12 h-0.5" style={{ background: '#92400E' }} />
+                                  <div className="text-[10px] font-bold tracking-[4px]" style={{ color: '#92400E' }}>LETTER TO PARENTS</div>
+                                  <div className="w-12 h-0.5" style={{ background: '#92400E' }} />
+                                </div>
+                                <div className="text-[24px] font-extrabold text-center mb-6" style={{ color: '#78350F', fontFamily: 'Georgia, serif' }}>학부모님께 드리는 메시지</div>
+                                <div className="text-[15px] leading-[2.2] text-center font-medium" style={{ color: '#78350F', fontFamily: 'Georgia, serif' }}>{report.summary_for_parents}</div>
+                                <div className="text-right mt-8 text-[12px] font-bold" style={{ color: '#92400E', fontFamily: 'Georgia, serif' }}>— {academyName} 입시 컨설팅 드림</div>
+                              </div>
+                            </div>
+                          )}
+
                           <div className="bg-white rounded-3xl p-8 text-center shadow-sm border border-slate-100">
                             <div className="flex items-center justify-center gap-3 mb-4">
                               <div className="w-12 h-0.5" style={{ background: THEME.accent }} />
-                              <div className="text-[24px] font-black tracking-[4px]" style={{ color: THEME.accent, fontFamily: 'Georgia, serif' }}>B-KURS</div>
+                              <div className="text-[24px] font-black tracking-[4px]" style={{ color: THEME.accent, fontFamily: 'Georgia, serif' }}>{academyName}</div>
                               <div className="w-12 h-0.5" style={{ background: THEME.accent }} />
                             </div>
-                            <div className="text-[11px] font-bold text-slate-600 tracking-[3px] uppercase mb-2">AI Premium College Admission Consulting</div>
                             <div className="text-[10px] text-slate-400 leading-[1.8] max-w-lg mx-auto">
                               본 리포트는 AI 분석과 담당 선생님의 전문 코멘트를 바탕으로 작성되었습니다.<br />
-                              © 2026 B-KURS · Powered by 마스터웨이학원
+                              © 2026 {academyName}
                             </div>
                           </div>
 
