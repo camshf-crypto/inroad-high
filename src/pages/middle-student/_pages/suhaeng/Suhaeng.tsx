@@ -481,17 +481,27 @@ function ResearchPractice({ q, onBack, onSubmit, submitting }: any) {
 function FeedbackView({ submission, onBack }: any) {
   const { data: feedback } = useMyFeedback(submission.id)
   const resubmit = useResubmitAnswer()
-  const [isResubmitting, setIsResubmitting] = useState(false)
   const [resubmitText, setResubmitText] = useState("")
   const status = submission.status
   const studentAnswerDisplay = submission.answer_text || (submission.answer_sections ? formatSectionsToText(submission.answer_sections) : "")
+  const alreadyResubmitted = !!submission.resubmitted_text
+
+  // 재제출 영역을 띄울지: 1차 피드백 왔고 최종 완료 전
+  const showResubmit = !!feedback?.teacher_first_feedback && status !== "completed"
+  // 검색 사이드바: 1차 피드백 왔고 최종 완료 전이면 재제출 후에도 계속 노출
+  const showSidebar = showResubmit
+
+  // 사이드바에 넘길 최소 객체 (검색창 + 과목 키워드)
+  const sidebarQ = {
+    keywords: submission.question_subject ? [submission.question_subject] : [],
+  }
 
   const handleResubmit = async () => {
     if (!resubmitText.trim()) { alert("답안을 작성해주세요."); return }
     try {
       await resubmit.mutateAsync({ submission_id: submission.id, resubmitted_text: resubmitText })
-      alert("✅ 재제출 완료!")
-      setIsResubmitting(false); setResubmitText("")
+      alert("✅ 재제출 완료! 선생님이 최종 확인할 거예요.")
+      onBack()
     } catch (e: any) { alert(`재제출 실패: ${e.message}`) }
   }
 
@@ -507,36 +517,88 @@ function FeedbackView({ submission, onBack }: any) {
           </div>
         </div>
         <span className="px-3 py-1.5 rounded-lg text-[12px] font-bold border bg-amber-50 text-amber-800 border-amber-200">
-          {status === "pending" ? "⏳ 피드백 대기 중" : status === "completed" ? "✓ 최종 완료" : "📩 처리 중"}
+          {status === "pending" ? "⏳ 피드백 대기 중" : status === "completed" ? "✓ 최종 완료" : status === "resubmitted" ? "📩 재제출 완료" : "📩 처리 중"}
         </span>
       </div>
-      <div className="flex-1 overflow-y-auto pr-1 space-y-3">
-        <div className="bg-gray-50 border border-line rounded-xl px-4 py-3">
-          <div className="text-[10px] font-bold text-ink-muted mb-1.5">출제 문제</div>
-          <div className="text-[13px] text-ink leading-[1.7]">{submission.question_content}</div>
-        </div>
-        <div className="bg-white border border-line rounded-xl overflow-hidden">
-          <div className="px-4 py-2.5 bg-gray-50 border-b border-line">
-            <span className="text-[12px] font-bold text-ink">내 답안</span>
+
+      {/* 좌우 2단: 왼쪽 본문 / 오른쪽 검색 사이드바(재제출 가능 시) */}
+      <div className="flex-1 flex gap-3 min-h-0">
+        <div className="flex-1 h-full overflow-y-auto pr-1 space-y-3">
+          <div className="bg-gray-50 border border-line rounded-xl px-4 py-3">
+            <div className="text-[10px] font-bold text-ink-muted mb-1.5">출제 문제</div>
+            <div className="text-[13px] text-ink leading-[1.7]">{submission.question_content}</div>
           </div>
-          <div className="p-4 text-[13px] text-ink leading-[1.8] whitespace-pre-wrap">{studentAnswerDisplay}</div>
-        </div>
-        {feedback?.teacher_first_feedback && (
+
           <div className="bg-white border border-line rounded-xl overflow-hidden">
-            <div className="px-4 py-2.5 bg-amber-50 border-b border-line">
-              <span className="text-[12px] font-bold text-ink">선생님 1차 피드백</span>
+            <div className="px-4 py-2.5 bg-gray-50 border-b border-line">
+              <span className="text-[12px] font-bold text-ink">내 답안</span>
             </div>
-            <div className="p-4 text-[13px] text-ink leading-[1.8] whitespace-pre-wrap">{feedback.teacher_first_feedback}</div>
+            <div className="p-4 text-[13px] text-ink leading-[1.8] whitespace-pre-wrap">{studentAnswerDisplay}</div>
           </div>
-        )}
-        {feedback?.teacher_final_feedback && (
-          <div className="bg-white border border-line rounded-xl overflow-hidden">
-            <div className="px-4 py-2.5 bg-emerald-50 border-b border-line">
-              <span className="text-[12px] font-bold text-ink">🎉 선생님 최종 피드백</span>
+
+          {feedback?.teacher_first_feedback && (
+            <div className="bg-white border border-line rounded-xl overflow-hidden">
+              <div className="px-4 py-2.5 bg-amber-50 border-b border-line">
+                <span className="text-[12px] font-bold text-ink">선생님 1차 피드백</span>
+              </div>
+              <div className="p-4 text-[13px] text-ink leading-[1.8] whitespace-pre-wrap">{feedback.teacher_first_feedback}</div>
             </div>
-            <div className="p-4 text-[13px] text-ink leading-[1.8] whitespace-pre-wrap">{feedback.teacher_final_feedback}</div>
-          </div>
-        )}
+          )}
+
+          {showResubmit && (
+            <div className="bg-white border border-line rounded-xl overflow-hidden">
+              <div className="px-4 py-2.5 bg-brand-middle-bg border-b border-line flex items-center justify-between">
+                <span className="text-[12px] font-bold text-ink">✏️ 피드백 반영해서 다시 제출하기</span>
+                {alreadyResubmitted && (
+                  <span className="text-[10px] text-ink-muted">재제출 완료 · 선생님 최종 확인 대기 중</span>
+                )}
+              </div>
+              <div className="p-4 space-y-3">
+                {alreadyResubmitted ? (
+                  <div className="text-[13px] text-ink leading-[1.8] whitespace-pre-wrap bg-gray-50 border border-line rounded-lg p-3">
+                    {submission.resubmitted_text}
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-[11px] text-ink-muted leading-relaxed">
+                      선생님의 1차 피드백을 반영해서 답안을 수정한 뒤 다시 제출하세요. 한 번 재제출하면 수정할 수 없어요. (오른쪽 검색으로 자료를 찾을 수 있어요)
+                    </div>
+                    <textarea
+                      value={resubmitText}
+                      onChange={(e) => setResubmitText(e.target.value)}
+                      placeholder="피드백을 반영해 수정한 답안을 작성하세요."
+                      className="w-full h-[280px] p-3 text-[13px] leading-[1.8] text-ink border border-line rounded-lg resize-none focus:outline-none focus:border-brand-middle"
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <span className="text-[11px] text-ink-muted tabular-nums mr-auto">{resubmitText.length}자</span>
+                      <button
+                        onClick={handleResubmit}
+                        disabled={resubmit.isPending || !resubmitText.trim()}
+                        className={`h-9 px-5 text-[12px] font-semibold rounded-md transition-all ${resubmit.isPending || !resubmitText.trim()
+                          ? "bg-gray-100 text-ink-muted cursor-not-allowed"
+                          : "bg-brand-middle hover:bg-brand-middle-hover text-white"
+                          }`}
+                      >
+                        {resubmit.isPending ? "제출 중..." : "📤 재제출하기"}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {feedback?.teacher_final_feedback && (
+            <div className="bg-white border border-line rounded-xl overflow-hidden">
+              <div className="px-4 py-2.5 bg-emerald-50 border-b border-line">
+                <span className="text-[12px] font-bold text-ink">🎉 선생님 최종 피드백</span>
+              </div>
+              <div className="p-4 text-[13px] text-ink leading-[1.8] whitespace-pre-wrap">{feedback.teacher_final_feedback}</div>
+            </div>
+          )}
+        </div>
+
+        {showSidebar && <PracticeSidebar q={sidebarQ} />}
       </div>
     </div>
   )
