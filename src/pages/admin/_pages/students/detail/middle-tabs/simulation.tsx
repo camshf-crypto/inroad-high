@@ -32,20 +32,31 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
   const deleteSim = useDeleteStudentSimulation();
 
   const [selSim, setSelSim] = useState<any>(null);
-  const [feedback, setFeedback] = useState("");
   const [playingQNum, setPlayingQNum] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [showAiModal, setShowAiModal] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiFeedback, setAiFeedback] = useState<string>("");
   const [filterType, setFilterType] = useState<string>("all");
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // 선택한 시뮬레이션 변경 시 피드백 textarea 초기값 세팅
+  // 🆕 질문 캐러셀 인덱스
+  const [qIdx, setQIdx] = useState(0);
+  // 🆕 질문별 피드백 맵 { [num]: feedback }
+  const [perQFeedback, setPerQFeedback] = useState<Record<string, string>>({});
+  const [savingPerQ, setSavingPerQ] = useState(false);
+
+  const questions: any[] = selSim?.questions || [];
+  const curQ = questions[qIdx];
+
+  // 선택한 시뮬레이션 변경 시 초기값 세팅
   useEffect(() => {
     if (selSim) {
-      setFeedback(selSim.teacher_feedback || "");
-      setAiFeedback(selSim.ai_feedback || ""); // DB에 저장된 AI 피드백 불러오기
+      setQIdx(0);
+      // questions 안에 저장된 질문별 피드백 불러오기
+      const map: Record<string, string> = {};
+      (selSim.questions || []).forEach((q: any) => {
+        if (q.teacher_feedback) map[String(q.num)] = q.teacher_feedback;
+      });
+      setPerQFeedback(map);
     }
   }, [selSim?.id]);
 
@@ -60,7 +71,7 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
   const handleSelect = (sim: any) => {
     setSelSim(sim);
     setPlayingQNum(null);
-    setAiFeedback(sim.ai_feedback || ""); // DB에 저장된 피드백 있으면 불러오기
+    setQIdx(0);
   };
 
   const handleDelete = async (id: string) => {
@@ -73,41 +84,21 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
     }
   };
 
-  const handleSendFeedback = async () => {
-    if (!feedback.trim() || !selSim) return;
-    try {
-      await saveFeedback.mutateAsync({
-        sim_id: selSim.id,
-        teacher_feedback: feedback,
-      });
-      alert("✅ 피드백이 학생에게 전달되었어요!");
-    } catch (e: any) {
-      alert(`저장 실패: ${e.message}`);
-    }
-  };
-
-  // ✨ AI 종합 피드백 생성 (답변 전체 + 음성 분석 → simulation-feedback Edge Function)
-  const openAiModal = async () => {
+  // ✨ AI 질문별 + 종합 피드백 생성
+  const generateAiFeedback = async () => {
     if (!selSim) return;
-    setShowAiModal(true);
-
-    // 이미 생성한 피드백이 있으면 재호출 안 하고 그대로 표시 (API 절약)
-    if (aiFeedback) {
-      setAiLoading(false);
-      return;
-    }
-
     setAiLoading(true);
 
     try {
-      // 1. 질문+답변 목록 구성 (꼬리질문 포함, 답변 텍스트 있는 것만)
+      // 1. 질문+답변 목록 (num 포함, 답변 있는 것만 Edge에서 거름)
       const qaList = (selSim.questions || []).map((q: any) => ({
+        num: q.num,
         question: q.text,
         answer: q.answer_transcript || "",
-        isTail: !Number.isInteger(q.num), // 소수 번호면 꼬리질문
+        isTail: !Number.isInteger(q.num),
       }));
 
-      // 2. 음성 분석 요약 (ai_analysis 값들 합산)
+      // 2. 음성 분석 요약
       const metrics = Object.values(selSim.ai_analysis || {}) as QuestionMetric[];
       const s = summarize(metrics);
       const voice = s
@@ -127,35 +118,76 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
           voice,
           level: "middle",
           school: selSim.school,
+          studentName: student?.name,
         },
       });
 
       if (error) throw error;
-      const generated = data?.feedback || "";
-      setAiFeedback(generated);
 
-      // [추가] 생성한 피드백을 DB에 저장 → 다음부터 재생성 안 함 (AI 학습 데이터로도 활용)
-      if (generated) {
-        await supabase
-          .from("middle_simulations")
-          .update({ ai_feedback: generated })
-          .eq("id", selSim.id);
-      }
+      // 4. 질문별 피드백 맵 구성
+      const perQ: Record<string, string> = { ...perQFeedback };
+      (data?.perQuestion || []).forEach((p: any) => {
+        perQ[String(p.num)] = p.feedback || "";
+      });
+      setPerQFeedback(perQ);
+
+      // 5. 질문별 피드백을 questions JSON에 저장 (재생성 방지 + 학생 활용)
+      const updatedQuestions = (selSim.questions || []).map((q: any) => ({
+        ...q,
+        teacher_feedback: perQ[String(q.num)] ?? q.teacher_feedback ?? "",
+      }));
+      await supabase
+        .from("middle_simulations")
+        .update({ questions: updatedQuestions })
+        .eq("id", selSim.id);
+
     } catch (e: any) {
       console.error("AI 피드백 생성 실패:", e);
-      setAiFeedback("");
       alert(`AI 피드백 생성 실패: ${e.message}`);
     } finally {
       setAiLoading(false);
     }
   };
 
-  const applyAiFeedback = () => {
-    if (aiFeedback) setFeedback(aiFeedback);
-    setShowAiModal(false);
+  // 현재 질문의 피드백 수정
+  const updateCurrentQFeedback = (val: string) => {
+    if (!curQ) return;
+    setPerQFeedback((prev) => ({ ...prev, [String(curQ.num)]: val }));
   };
 
-  // 🎵 질문별 음성 재생 (학생 화면과 동일한 안정성 강화 로직)
+  // 질문별 피드백 저장 (questions JSON 업데이트)
+  const savePerQuestionFeedback = async () => {
+    if (!selSim) return;
+    setSavingPerQ(true);
+    try {
+      const updatedQuestions = (selSim.questions || []).map((q: any) => ({
+        ...q,
+        teacher_feedback: perQFeedback[String(q.num)] ?? q.teacher_feedback ?? "",
+      }));
+      // 질문별 피드백이 하나라도 있으면 시뮬레이션을 "피드백 완료"로 표시
+      const hasAnyFeedback = updatedQuestions.some((q: any) => (q.teacher_feedback || "").trim());
+      const { error } = await supabase
+        .from("middle_simulations")
+        .update({
+          questions: updatedQuestions,
+          teacher_feedback: hasAnyFeedback ? "질문별 피드백 작성됨" : null,
+        })
+        .eq("id", selSim.id);
+      if (error) throw error;
+      setSelSim({
+        ...selSim,
+        questions: updatedQuestions,
+        teacher_feedback: hasAnyFeedback ? "질문별 피드백 작성됨" : null,
+      });
+      alert("✅ 질문별 피드백이 학생에게 전달되었어요!");
+    } catch (e: any) {
+      alert(`저장 실패: ${e.message}`);
+    } finally {
+      setSavingPerQ(false);
+    }
+  };
+
+  // 🎵 질문별 음성 재생
   const playQuestionAudio = async (qNum: number, audioUrl: string) => {
     if (!audioRef.current) return;
     const audio = audioRef.current;
@@ -209,6 +241,10 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
 
   const completedCount = simulations.filter((s) => s.teacher_feedback).length;
   const pendingCount = simulations.filter((s) => !s.teacher_feedback).length;
+
+  // 캐러셀 이동
+  const goPrev = () => { setQIdx((i) => Math.max(0, i - 1)); setPlayingQNum(null); };
+  const goNext = () => { setQIdx((i) => Math.min(questions.length - 1, i + 1)); setPlayingQNum(null); };
 
   return (
     <div className="flex gap-4 h-full overflow-hidden">
@@ -355,11 +391,7 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
         ) : (
           <>
             {/* 🎵 숨겨진 audio 태그 */}
-            <audio
-              ref={audioRef}
-              onEnded={() => setPlayingQNum(null)}
-              className="hidden"
-            />
+            <audio ref={audioRef} onEnded={() => setPlayingQNum(null)} className="hidden" />
 
             {/* 헤더 */}
             <div className="px-5 py-4 border-b border-line flex-shrink-0">
@@ -391,34 +423,76 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
                   {selSim.teacher_feedback ? "✓ 피드백완료" : "⏳ 피드백대기"}
                 </span>
               </div>
-              <div className="text-[16px] font-extrabold text-ink tracking-tight">🎬 시뮬레이션</div>
-              <div className="text-[11px] font-semibold text-ink-secondary mt-0.5">
-                📅 {new Date(selSim.created_at).toLocaleDateString("ko-KR")} · ⏱ {selSim.duration || "-"} · 📋 {(selSim.questions || []).length}문항
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                  <div className="text-[16px] font-extrabold text-ink tracking-tight">🎬 시뮬레이션</div>
+                  <div className="text-[11px] font-semibold text-ink-secondary mt-0.5">
+                    📅 {new Date(selSim.created_at).toLocaleDateString("ko-KR")} · ⏱ {selSim.duration || "-"} · 📋 {questions.length}문항
+                  </div>
+                </div>
+                <button
+                  onClick={generateAiFeedback}
+                  disabled={aiLoading}
+                  className="px-3 py-2 text-white rounded-lg text-[12px] font-bold transition-all disabled:opacity-50 flex items-center gap-1.5"
+                  style={{ background: THEME.accent, boxShadow: `0 2px 6px ${THEME.accentShadow}` }}
+                >
+                  {aiLoading ? (
+                    <><div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />AI 분석 중...</>
+                  ) : (
+                    "✨ AI 질문별 피드백 생성"
+                  )}
+                </button>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
-              {/* 🎯 질문별 답변 + 음성 재생 + 실제 분석 지표 */}
-              <div className="bg-white border border-line rounded-xl px-5 py-4">
-                <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-3">
-                  🎙️ 질문별 답변 ({(selSim.questions || []).length}개)
-                </div>
-                <div className="flex flex-col gap-3">
-                  {(selSim.questions || []).map((q: any) => {
-                    return (
-                    <div key={q.num} className="border border-line rounded-xl px-4 py-3 bg-gray-50">
+              {questions.length === 0 ? (
+                <div className="text-center py-10 text-ink-muted text-[13px]">질문 기록이 없어요.</div>
+              ) : (
+                <>
+                  {/* 🆕 질문 캐러셀 네비게이션 */}
+                  <div className="flex items-center justify-between bg-white border border-line rounded-xl px-3 py-2.5">
+                    <button
+                      onClick={goPrev}
+                      disabled={qIdx === 0}
+                      className="w-9 h-9 rounded-lg flex items-center justify-center text-[16px] font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                      style={{ background: qIdx === 0 ? "#F3F4F6" : THEME.accentBg, color: THEME.accentDark }}
+                    >
+                      ◀
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] font-extrabold text-ink">
+                        {Number.isInteger(curQ?.num) ? `Q${curQ?.num}` : `꼬리질문 (Q${curQ?.num})`}
+                      </span>
+                      <span className="text-[11px] font-bold text-ink-muted">
+                        {qIdx + 1} / {questions.length}
+                      </span>
+                    </div>
+                    <button
+                      onClick={goNext}
+                      disabled={qIdx === questions.length - 1}
+                      className="w-9 h-9 rounded-lg flex items-center justify-center text-[16px] font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                      style={{ background: qIdx === questions.length - 1 ? "#F3F4F6" : THEME.accentBg, color: THEME.accentDark }}
+                    >
+                      ▶
+                    </button>
+                  </div>
+
+                  {/* 🆕 현재 질문 1개만 표시 */}
+                  {curQ && (
+                    <div className="border border-line rounded-xl px-5 py-4 bg-gray-50">
                       {/* 질문 헤더 */}
-                      <div className="flex items-start gap-2 mb-2.5">
+                      <div className="flex items-start gap-2 mb-3">
                         <span
-                          className="w-6 h-6 rounded-full text-white text-[11px] font-extrabold flex items-center justify-center flex-shrink-0"
+                          className="px-2.5 h-6 rounded-full text-white text-[11px] font-extrabold flex items-center justify-center flex-shrink-0"
                           style={{ background: THEME.accent }}
                         >
-                          Q{q.num}
+                          Q{curQ.num}
                         </span>
-                        <span className="text-[13px] font-semibold text-ink leading-[1.5] flex-1">
-                          {q.text}
+                        <span className="text-[14px] font-semibold text-ink leading-[1.5] flex-1">
+                          {curQ.text}
                         </span>
-                        {q.answered ? (
+                        {curQ.answered ? (
                           <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex-shrink-0">
                             답변완료
                           </span>
@@ -429,93 +503,149 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
                         )}
                       </div>
 
-                      {/* 음성 재생 버튼 */}
-                      {q.answer_audio_url && (
+                      {/* 음성 재생 */}
+                      {curQ.answer_audio_url && (
                         <div className="bg-white border border-line rounded-lg px-3 py-2 mb-2 flex items-center gap-2.5">
                           <button
-                            onClick={() => playQuestionAudio(q.num, q.answer_audio_url)}
+                            onClick={() => playQuestionAudio(curQ.num, curQ.answer_audio_url)}
                             className="w-9 h-9 rounded-full text-white flex items-center justify-center text-xs flex-shrink-0 transition-all hover:scale-105"
-                            style={{
-                              background: THEME.accent,
-                              boxShadow: `0 4px 12px ${THEME.accentShadow}`,
-                            }}
+                            style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
                           >
-                            {playingQNum === q.num ? "⏸" : "▶"}
+                            {playingQNum === curQ.num ? "⏸" : "▶"}
                           </button>
                           <div className="flex-1 text-[11px] text-ink-secondary font-medium">
-                            {playingQNum === q.num ? "재생 중..." : "재생하려면 클릭"}
+                            {playingQNum === curQ.num ? "재생 중..." : "재생하려면 클릭"}
                             <div className="text-[10px] text-ink-muted">
-                              길이: {formatTime(q.answer_duration_sec || 0)}
+                              길이: {formatTime(curQ.answer_duration_sec || 0)}
                             </div>
                           </div>
                         </div>
                       )}
 
-                      {/* 음성 → 텍스트 변환 결과 */}
-                      {q.answer_transcript ? (
+                      {/* 음성 텍스트 */}
+                      {curQ.answer_transcript ? (
                         <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-[12.5px] text-ink leading-[1.7] whitespace-pre-wrap">
                           <div className="text-[10px] font-bold text-emerald-700 mb-1">📝 음성 텍스트</div>
-                          {q.answer_transcript}
+                          {curQ.answer_transcript}
                         </div>
-                      ) : q.answered ? (
+                      ) : curQ.answered ? (
                         <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[11px] text-amber-800 text-center">
                           ⚠️ 텍스트 변환 실패 (음성은 재생 가능)
                         </div>
-                      ) : null}
+                      ) : (
+                        <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-[11px] text-gray-400 text-center">
+                          답변하지 않은 질문이에요
+                        </div>
+                      )}
+
+                      {/* 🆕 이 질문의 음성 분석 (속도/군말/멈춤/명료도) */}
+                      {(() => {
+                        const a = (selSim.ai_analysis || {})[String(curQ.num)];
+                        if (!a) return null;
+                        const speedColor =
+                          a.speed_label === "적정" ? "#059669" :
+                          a.speed_label === "빠름" ? "#DC2626" : "#D97706";
+                        return (
+                          <div className="mt-2 bg-white border border-line rounded-lg px-3 py-2.5">
+                            <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">
+                              🎙️ 이 답변 음성 분석
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              {/* 말 속도 */}
+                              <div className="rounded-lg px-2.5 py-1.5" style={{ background: "#F9FAFB" }}>
+                                <div className="text-[9px] font-bold text-ink-muted mb-0.5">말 속도</div>
+                                <div className="flex items-baseline gap-1">
+                                  <span className="text-[15px] font-extrabold" style={{ color: speedColor }}>
+                                    {a.speech_speed ?? "-"}
+                                  </span>
+                                  <span className="text-[9px] text-ink-muted">음절/분</span>
+                                  <span className="text-[10px] font-bold ml-auto" style={{ color: speedColor }}>
+                                    {a.speed_label || ""}
+                                  </span>
+                                </div>
+                              </div>
+                              {/* 명료도 */}
+                              <div className="rounded-lg px-2.5 py-1.5" style={{ background: "#F9FAFB" }}>
+                                <div className="text-[9px] font-bold text-ink-muted mb-0.5">발음 명료도</div>
+                                <div className="flex items-baseline gap-1">
+                                  <span className="text-[15px] font-extrabold" style={{ color: THEME.accent }}>
+                                    {a.clarity_score ?? "-"}
+                                  </span>
+                                  <span className="text-[9px] text-ink-muted">/100</span>
+                                </div>
+                              </div>
+                              {/* 군말 */}
+                              <div className="rounded-lg px-2.5 py-1.5" style={{ background: "#F9FAFB" }}>
+                                <div className="text-[9px] font-bold text-ink-muted mb-0.5">군말</div>
+                                {a.filler_count > 0 ? (
+                                  <div className="flex items-center gap-1 flex-wrap">
+                                    <span className="text-[13px] font-extrabold text-amber-600">{a.filler_count}회</span>
+                                    {(a.filler_words || []).length > 0 && (
+                                      <span className="text-[10px] text-ink-secondary">
+                                        ({(a.filler_words || []).join(", ")})
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-[12px] font-bold text-emerald-600">없음 ✓</span>
+                                )}
+                              </div>
+                              {/* 멈칫 */}
+                              <div className="rounded-lg px-2.5 py-1.5" style={{ background: "#F9FAFB" }}>
+                                <div className="text-[9px] font-bold text-ink-muted mb-0.5">멈칫 (긴 공백)</div>
+                                <div className="flex items-baseline gap-1">
+                                  <span className="text-[13px] font-extrabold" style={{ color: a.pause_count > 2 ? "#D97706" : "#059669" }}>
+                                    {a.pause_count ?? 0}회
+                                  </span>
+                                  {a.longest_pause_sec != null && (
+                                    <span className="text-[9px] text-ink-muted">최대 {a.longest_pause_sec}초</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* 🆕 이 질문에 대한 AI 피드백 (수정 가능) */}
+                      <div className="mt-3 pt-3 border-t border-line">
+                        <div className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: THEME.accentDark }}>
+                          ✨ 이 질문 피드백
+                        </div>
+                        <textarea
+                          value={perQFeedback[String(curQ.num)] || ""}
+                          onChange={(e) => updateCurrentQFeedback(e.target.value)}
+                          placeholder={curQ.answered ? "AI 피드백 생성 버튼을 누르거나 직접 작성하세요..." : "미답변 질문이에요."}
+                          rows={4}
+                          disabled={!curQ.answered}
+                          className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] font-medium outline-none resize-y leading-[1.7] transition-all placeholder:text-ink-muted disabled:bg-gray-50 disabled:text-gray-400"
+                          onFocus={handleTextareaFocus}
+                          onBlur={handleTextareaBlur}
+                        />
+                      </div>
                     </div>
-                    );
-                  })}
-                </div>
-              </div>
+                  )}
 
-              {/* [추가] 음성 분석 종합 카드 (ai_analysis 값들을 합산해 표시) */}
-              <SimulationAnalysisCard
-                metrics={
-                  Object.values(selSim.ai_analysis || {}) as QuestionMetric[]
-                }
-                accent="#059669"
-                accentDark="#065F46"
-                accentBg="#ECFDF5"
-                accentBorder="#6EE7B7"
-              />
-
-              {/* 선생님 피드백 */}
-              <div className="bg-white border border-line rounded-xl px-5 py-4">
-                <div className="flex items-center justify-between mb-2.5">
-                  <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider">💬 선생님 피드백</div>
+                  {/* 질문별 피드백 저장 버튼 */}
                   <button
-                    onClick={openAiModal}
-                    className="px-2.5 py-1 text-white rounded-md text-[11px] font-bold transition-all"
-                    style={{ background: THEME.accent, boxShadow: `0 2px 6px ${THEME.accentShadow}` }}
+                    onClick={savePerQuestionFeedback}
+                    disabled={savingPerQ}
+                    className="px-4 py-2 text-white rounded-lg text-[12px] font-bold transition-all disabled:opacity-50 self-end"
+                    style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
                   >
-                    ✨ AI 피드백 제안
+                    {savingPerQ ? "전달 중..." : "📤 질문별 피드백 학생에게 전달"}
                   </button>
-                </div>
 
-                <textarea
-                  value={feedback}
-                  onChange={(e) => setFeedback(e.target.value)}
-                  placeholder="분석 결과를 참고해서 피드백을 작성해주세요..."
-                  rows={5}
-                  className="w-full border border-line rounded-lg px-3 py-2.5 text-[13px] font-medium outline-none resize-y leading-[1.7] transition-all placeholder:text-ink-muted"
-                  onFocus={handleTextareaFocus}
-                  onBlur={handleTextareaBlur}
-                />
-                <div className="flex gap-2 mt-2">
-                  <button
-                    onClick={handleSendFeedback}
-                    disabled={!feedback.trim() || saveFeedback.isPending}
-                    className="px-4 py-2 text-white rounded-lg text-[12px] font-bold transition-all disabled:cursor-not-allowed hover:-translate-y-px"
-                    style={{
-                      background: feedback.trim() && !saveFeedback.isPending ? THEME.accent : "#E5E7EB",
-                      color: feedback.trim() && !saveFeedback.isPending ? "#fff" : "#9CA3AF",
-                      boxShadow: feedback.trim() && !saveFeedback.isPending ? `0 4px 12px ${THEME.accentShadow}` : "none",
-                    }}
-                  >
-                    {saveFeedback.isPending ? "전달 중..." : selSim.teacher_feedback ? "💾 피드백 업데이트" : "📤 피드백 전달"}
-                  </button>
-                </div>
-              </div>
+                  {/* 음성 분석 종합 카드 */}
+                  <SimulationAnalysisCard
+                    metrics={Object.values(selSim.ai_analysis || {}) as QuestionMetric[]}
+                    accent="#059669"
+                    accentDark="#065F46"
+                    accentBg="#ECFDF5"
+                    accentBorder="#6EE7B7"
+                  />
+                </>
+              )}
             </div>
           </>
         )}
@@ -551,60 +681,6 @@ export default function MiddleSimulationTab({ student }: { student: any }) {
                 style={{ boxShadow: "0 4px 12px rgba(220, 38, 38, 0.3)" }}
               >
                 {deleteSim.isPending ? "삭제 중..." : "🗑️ 삭제"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ==================== AI 피드백 제안 모달 ==================== */}
-      {showAiModal && (
-        <div
-          onClick={() => setShowAiModal(false)}
-          className="fixed inset-0 z-[200] flex items-center justify-center"
-          style={{ background: "rgba(15, 23, 42, 0.55)", backdropFilter: "blur(4px)" }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl p-7 w-[520px] shadow-[0_20px_60px_rgba(0,0,0,0.25)]"
-          >
-            <div className="text-[18px] font-extrabold text-ink mb-1">✨ AI 종합 피드백</div>
-            <div className="text-[12px] font-medium text-ink-secondary mb-5">
-              학생의 답변 전체와 음성 분석을 종합해서 피드백 초안을 만들었어요.
-            </div>
-
-            {aiLoading ? (
-              <div className="text-center py-10 text-ink-muted text-[13px] font-medium">
-                <div className="text-3xl mb-3 animate-pulse">✨</div>
-                AI가 면접 전체를 분석 중이에요...
-              </div>
-            ) : !aiFeedback ? (
-              <div className="text-center py-10 text-ink-muted text-[13px] font-medium">
-                피드백을 생성하지 못했어요. 다시 시도해주세요.
-              </div>
-            ) : (
-              <div
-                className="rounded-xl px-4 py-3.5 mb-5 text-[13px] font-medium leading-[1.8] whitespace-pre-wrap"
-                style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60`, color: THEME.accentDark }}
-              >
-                {aiFeedback}
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowAiModal(false)}
-                className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-colors"
-              >
-                취소
-              </button>
-              <button
-                onClick={applyAiFeedback}
-                disabled={aiLoading || !aiFeedback}
-                className="flex-1 h-11 text-white rounded-lg text-[13px] font-bold transition-all hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ background: THEME.accent, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
-              >
-                📝 이 내용으로 작성
               </button>
             </div>
           </div>

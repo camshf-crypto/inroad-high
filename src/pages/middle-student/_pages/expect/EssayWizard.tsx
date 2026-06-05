@@ -441,7 +441,7 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
             return (
               <div key={s.num} className="flex items-center flex-1 last:flex-initial">
                 <div onClick={() => setCurrentStep(s.num)} className="flex items-center gap-2 cursor-pointer flex-shrink-0">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold transition-all ${isActive ? "bg-brand-middle text-white shadow-[0_4px_12px_rgba(16,185,129,0.3)] scale-110 ring-4 ring-brand-middle-pale" : isPast ? "bg-brand-middle-dark text-white" : "bg-white text-ink-muted border border-line"}`}>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold transition-all ${isActive ? "bg-brand-middle text-white shadow-[0_2px_8px_rgba(16,185,129,0.3)] ring-2 ring-brand-middle-pale" : isPast ? "bg-brand-middle-dark text-white" : "bg-white text-ink-muted border border-line"}`}>
                     {isPast ? "✓" : s.num}
                   </div>
                   <div className={`text-[11px] font-semibold whitespace-nowrap ${isActive ? "text-brand-middle-dark" : isPast ? "text-brand-middle-dark" : "text-ink-muted"}`}>{s.label}</div>
