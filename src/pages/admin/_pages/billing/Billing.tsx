@@ -107,14 +107,16 @@ const PLANS: Record<AcademyType, Plan[]> = {
   ],
 }
 
-// 인원수 할인율 (랜딩과 동일)
+// 인원수 할인율 (수정 추천 가격표 기준)
+// 1~29명: 기본가 / 30~49명: 5% / 50~99명: 8% / 100명 이상: 별도 협의
 const DISCOUNT_TIERS = [
-  { min: 1, max: 9, discount: 0, label: '기본' },
-  { min: 10, max: 19, discount: 0.04, label: '4% 할인' },
-  { min: 20, max: 29, discount: 0.08, label: '8% 할인' },
-  { min: 30, max: 39, discount: 0.12, label: '12% 할인' },
-  { min: 40, max: 59, discount: 0.16, label: '16% 할인' },
+  { min: 1, max: 29, discount: 0, label: '기본' },
+  { min: 30, max: 49, discount: 0.05, label: '5% 할인' },
+  { min: 50, max: 99, discount: 0.08, label: '8% 할인' },
 ]
+
+// 별도 협의 기준 인원
+const NEGOTIATION_MIN = 100
 
 // 결제 스케줄 제한
 const MIN_ACTIVE_MONTHS = 5
@@ -123,9 +125,9 @@ const MAX_ACTIVE_MONTHS = 12
 const DEFAULT_ACTIVE_MONTHS = [1, 2, 3, 5, 7, 8, 10, 12]
 
 const PAYMENT_HISTORY = [
-  { month: '2025-03', plan: 'all' as PlanId, count: 28, unitPrice: 46000, total: 1288000, status: '완료', date: '2025-03-01', card: '신한카드 **** 1234', receiptNo: 'RCP-20250301-001' },
-  { month: '2025-02', plan: 'all' as PlanId, count: 28, unitPrice: 46000, total: 1288000, status: '완료', date: '2025-02-01', card: '신한카드 **** 1234', receiptNo: 'RCP-20250201-001' },
-  { month: '2025-01', plan: 'interview' as PlanId, count: 25, unitPrice: 32200, total: 805000, status: '완료', date: '2025-01-01', card: '신한카드 **** 1234', receiptNo: 'RCP-20250101-001' },
+  { month: '2025-03', plan: 'all' as PlanId, count: 28, unitPrice: 50000, total: 1400000, status: '완료', date: '2025-03-01', card: '신한카드 **** 1234', receiptNo: 'RCP-20250301-001' },
+  { month: '2025-02', plan: 'all' as PlanId, count: 28, unitPrice: 50000, total: 1400000, status: '완료', date: '2025-02-01', card: '신한카드 **** 1234', receiptNo: 'RCP-20250201-001' },
+  { month: '2025-01', plan: 'interview' as PlanId, count: 25, unitPrice: 35000, total: 875000, status: '완료', date: '2025-01-01', card: '신한카드 **** 1234', receiptNo: 'RCP-20250101-001' },
 ]
 
 const THEME = {
@@ -149,7 +151,7 @@ const Modal = ({ children, onClose }: { children: React.ReactNode, onClose: () =
 
 // 인원수에 따른 할인율
 function getDiscount(count: number): number {
-  if (count >= 60) return 0.16
+  if (count >= NEGOTIATION_MIN) return 0 // 100명 이상은 별도 협의
   for (const t of DISCOUNT_TIERS) {
     if (count >= t.min && count <= t.max) return t.discount
   }
@@ -157,8 +159,9 @@ function getDiscount(count: number): number {
 }
 
 // 1인당 단가 계산 (플랜 기본가 × (1-할인율))
+// 모든 플랜(컨설팅·면접 35,000 / 올인원 50,000)에 동일한 할인율 적용
 function getUnitPrice(planId: PlanId, academyType: AcademyType, count: number): number | null {
-  if (count >= 60) return null // 별도 협의
+  if (count >= NEGOTIATION_MIN) return null // 별도 협의
   const plan = PLANS[academyType].find(p => p.id === planId)
   if (!plan) return null
   return Math.round(plan.basePrice * (1 - getDiscount(count)))
@@ -572,7 +575,7 @@ export default function Billing() {
                     <span className="text-ink-secondary font-medium">학생 수</span>
                     <span className="text-ink font-bold">{savedCount}명</span>
                   </div>
-                  {discount > 0 && savedCount < 60 && (
+                  {discount > 0 && savedCount < NEGOTIATION_MIN && (
                     <div className="flex justify-between text-[12px] mb-2">
                       <span className="text-ink-secondary font-medium">할인</span>
                       <span className="font-bold text-emerald-600">
@@ -583,7 +586,7 @@ export default function Billing() {
                   <div className="flex justify-between text-[12px] mb-2">
                     <span className="text-ink-secondary font-medium">적용 단가</span>
                     <span className="font-bold" style={{ color: THEME.accent }}>
-                      {unitPrice ? `1인당 ${formatPrice(unitPrice)}원` : '60명 이상 · 별도 협의'}
+                      {unitPrice ? `1인당 ${formatPrice(unitPrice)}원` : `${NEGOTIATION_MIN}명 이상 · 별도 협의`}
                     </span>
                   </div>
                   <div className="h-px my-3" style={{ background: `${THEME.accentBorder}60` }} />
@@ -591,7 +594,7 @@ export default function Billing() {
                     <span className="text-[14px] font-bold text-ink">이번 달 청구액</span>
                     <span
                       className="text-[22px] font-extrabold"
-                      style={{ color: savedCount >= 60 ? '#6B7280' : THEME.accentDark }}
+                      style={{ color: savedCount >= NEGOTIATION_MIN ? '#6B7280' : THEME.accentDark }}
                     >
                       {totalPrice ? `${formatPrice(totalPrice)}원` : '협의 후 결정'}
                     </span>
@@ -603,7 +606,7 @@ export default function Billing() {
                   <span className="text-ink font-semibold">{nextBillingDate}</span>
                 </div>
 
-                {savedCount >= 60 ? (
+                {savedCount >= NEGOTIATION_MIN ? (
                   <button
                     className="w-full h-12 rounded-lg text-[13px] font-bold text-white transition-all hover:-translate-y-px"
                     style={{
@@ -611,7 +614,7 @@ export default function Billing() {
                       boxShadow: `0 4px 12px ${THEME.accentShadow}`,
                     }}
                   >
-                    도입 문의하기 (60명 이상)
+                    도입 문의하기 ({NEGOTIATION_MIN}명 이상)
                   </button>
                 ) : (
                   <button
@@ -770,29 +773,29 @@ export default function Billing() {
               <div
                 className="flex items-center justify-between px-4 py-2.5 rounded-lg"
                 style={{
-                  background: savedCount >= 60 ? THEME.accentBg : '#F8FAFC',
-                  border: `1px solid ${savedCount >= 60 ? THEME.accentBorder : '#E5E7EB'}`,
+                  background: savedCount >= NEGOTIATION_MIN ? THEME.accentBg : '#F8FAFC',
+                  border: `1px solid ${savedCount >= NEGOTIATION_MIN ? THEME.accentBorder : '#E5E7EB'}`,
                 }}
               >
                 <div className="flex items-center gap-2">
-                  {savedCount >= 60 && (
+                  {savedCount >= NEGOTIATION_MIN && (
                     <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: THEME.accent }} />
                   )}
                   <span
                     className="text-[12px]"
                     style={{
-                      fontWeight: savedCount >= 60 ? 700 : 500,
-                      color: savedCount >= 60 ? THEME.accentDark : '#6B7280',
+                      fontWeight: savedCount >= NEGOTIATION_MIN ? 700 : 500,
+                      color: savedCount >= NEGOTIATION_MIN ? THEME.accentDark : '#6B7280',
                     }}
                   >
-                    60명 이상
+                    {NEGOTIATION_MIN}명 이상
                   </span>
                 </div>
                 <span
                   className="text-[12px]"
                   style={{
-                    fontWeight: savedCount >= 60 ? 700 : 500,
-                    color: savedCount >= 60 ? THEME.accentDark : '#6B7280',
+                    fontWeight: savedCount >= NEGOTIATION_MIN ? 700 : 500,
+                    color: savedCount >= NEGOTIATION_MIN ? THEME.accentDark : '#6B7280',
                   }}
                 >
                   별도 협의
@@ -804,7 +807,7 @@ export default function Billing() {
                 • 위 캘린더에서 설정한 결제 월의 1일에 자동 결제돼요.<br />
                 • 휴무 달은 결제되지 않아요. (현재 휴무: {Array.from({ length: 12 }, (_, i) => i + 1).filter(m => !activeMonths.includes(m)).map(m => `${m}월`).join('·') || '없음'})<br />
                 • 결제 월은 언제든 위 캘린더에서 변경할 수 있어요. (최소 {MIN_ACTIVE_MONTHS}개월)<br />
-                • 60명 이상은 별도 문의가 필요합니다.<br />
+                • {NEGOTIATION_MIN}명 이상은 별도 문의가 필요합니다.<br />
                 • 문의: <span className="font-semibold" style={{ color: THEME.accent }}>company@seumlearning.com</span>
               </div>
             </div>
