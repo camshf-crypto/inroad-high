@@ -40,7 +40,7 @@ export interface PastAnalysis {
   revised_answer: string | null
   teacher_feedback: string | null
   ai_analysis: any
-  ai_call_count: number  // ⭐ 추가
+  ai_call_count: number
   status: string | null
   published_at: string | null
   created_at: string
@@ -417,7 +417,16 @@ export function useDeleteFollowup() {
 
 // ─────────────────────────────────────────────
 // 11. AI 분석 데이터 타입 + Mock
+// 🔥 conceptCheck 필드 추가
 // ─────────────────────────────────────────────
+
+export interface ConceptCheck {
+  isAligned: boolean
+  matchLevel: '높음' | '보통' | '낮음'
+  alignmentReason: string
+  misalignment: string
+  improvement: string
+}
 
 export interface AIAnalysisData {
   evalCriteria: string
@@ -426,6 +435,7 @@ export interface AIAnalysisData {
   strengths: string[]
   improvements: string[]
   tailSuggestions: string[]
+  conceptCheck?: ConceptCheck  // 🔥 추가
   second?: {
     beforeDistribution: Array<{ factorCode: string; factorName: string; distribution: number; evidence: string }>
     afterDistribution: Array<{ factorCode: string; factorName: string; distribution: number; evidence: string }>
@@ -450,7 +460,7 @@ export function getMockAIAnalysis(_questionText: string, _studentAnswer: string 
 }
 
 // ─────────────────────────────────────────────
-// ⭐ 호출 횟수 가져오기
+// 호출 횟수 가져오기
 // ─────────────────────────────────────────────
 
 async function getAICallCount(answerId: string, round: number): Promise<number> {
@@ -464,7 +474,7 @@ async function getAICallCount(answerId: string, round: number): Promise<number> 
 }
 
 // ─────────────────────────────────────────────
-// 12. ⭐ AI 1차 답변 분석 (호출수 제한 추가)
+// 12. 🔥 AI 1차 답변 분석 - studentId 추가
 // ─────────────────────────────────────────────
 
 export function useAIAnalyzePastAnswer() {
@@ -476,14 +486,16 @@ export function useAIAnalyzePastAnswer() {
       question,
       studentAnswer,
       answerId,
+      studentId,    // 🔥 추가
     }: {
       university: string
       department: string
       question: string
       studentAnswer: string
       answerId?: string
+      studentId?: string   // 🔥 추가
     }) => {
-      // ⭐ 1차 호출수 체크
+      // 1차 호출수 체크
       if (answerId) {
         const currentCount = await getAICallCount(answerId, 1)
         if (currentCount >= AI_CALL_LIMITS.ROUND_1) {
@@ -491,12 +503,14 @@ export function useAIAnalyzePastAnswer() {
         }
       }
 
+      // 🔥 body에 studentId 추가
       const { data, error } = await supabase.functions.invoke('past-analyze', {
         body: {
           university,
           department,
           question,
           studentAnswer,
+          studentId,   // 🔥 추가
         },
       })
 
@@ -509,7 +523,7 @@ export function useAIAnalyzePastAnswer() {
 
       const analysis = data.analysis as AIAnalysisData
 
-      // ⭐ DB에 저장 + 카운트 +1
+      // DB 저장 + 카운트 +1
       if (answerId) {
         const { data: existing } = await supabase
           .from('high_questions_analysis')
@@ -527,7 +541,6 @@ export function useAIAnalyzePastAnswer() {
             })
             .eq('id', existing.id)
         } else {
-          // 처음 호출이면 row 만들고 count = 1
           const { data: answerData } = await supabase
             .from('high_questions_answer')
             .select('student_id')
@@ -560,7 +573,7 @@ export function useAIAnalyzePastAnswer() {
 }
 
 // ─────────────────────────────────────────────
-// 13. ⭐ AI 1차/2차 비교 분석 (호출수 제한)
+// 13. AI 1차/2차 비교 분석
 // ─────────────────────────────────────────────
 
 export function useAIGeneratePastFeedback() {
@@ -585,7 +598,6 @@ export function useAIGeneratePastFeedback() {
       speechStructure?: string
       answerId?: string
     }) => {
-      // ⭐ 2차 호출수 체크
       if (answerId) {
         const currentCount = await getAICallCount(answerId, 2)
         if (currentCount >= AI_CALL_LIMITS.ROUND_2) {
@@ -619,7 +631,6 @@ export function useAIGeneratePastFeedback() {
         practiceAnswer: string
       }
 
-      // ⭐ DB에 저장 + 카운트 +1
       if (answerId) {
         const { data: existing } = await supabase
           .from('high_questions_analysis')
@@ -669,7 +680,7 @@ export function useAIGeneratePastFeedback() {
 }
 
 // ─────────────────────────────────────────────
-// 14. AI 선생님 말투 피드백 (호출 제한 없음 - 분석 결과 변환만)
+// 14. AI 선생님 말투 피드백
 // ─────────────────────────────────────────────
 
 export function useAISuggestTeacherFeedback() {

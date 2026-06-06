@@ -121,11 +121,10 @@ function MicSTTBtn({ onTranscript }: { onTranscript: (text: string) => void }) {
   return (
     <button onClick={recording ? stopRecording : startRecording} disabled={processing}
       title={recording ? '녹음 종료' : processing ? '변환 중...' : '음성으로 답변 (1분 이내)'}
-      className={`w-9 h-9 rounded-lg border flex items-center justify-center flex-shrink-0 text-base transition-all ${
-        recording ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100 animate-pulse'
-          : processing ? 'bg-amber-50 border-amber-200 text-amber-600 cursor-wait'
+      className={`w-9 h-9 rounded-lg border flex items-center justify-center flex-shrink-0 text-base transition-all ${recording ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100 animate-pulse'
+        : processing ? 'bg-amber-50 border-amber-200 text-amber-600 cursor-wait'
           : 'bg-brand-high-pale border-brand-high-light text-brand-high-dark hover:bg-brand-high-pale'
-      }`}>
+        }`}>
       {recording ? '⏹' : processing ? '⏳' : '🎙️'}
     </button>
   )
@@ -259,6 +258,9 @@ export default function Past() {
   const [editingStep1, setEditingStep1] = useState(false)
   const [editingStep3, setEditingStep3] = useState(false)
 
+  // 🔥 진로 컨셉 state
+  const [concept, setConcept] = useState<any>(null)
+
   const { data: myTargets = [] } = useMyTargetUniversities()
   const { data: allTargets = [] } = useMyTargetUniversitiesAll()
   const { data: allUnivs = [] } = useAllUniversities()
@@ -273,6 +275,23 @@ export default function Past() {
   const submitFirst = useSubmitFirstAnswer()
   const submitUpgrade = useSubmitUpgradedAnswer()
   const submitFollowup = useSubmitFollowupAnswer()
+
+  // 🔥 진로 컨셉 조회
+  useEffect(() => {
+    if (!studentId) return
+    supabase
+      .from('student_concept')
+      .select('type_code, type_name, major, career, keywords, custom_goal')
+      .eq('student_id', studentId)
+      .eq('status', 'approved')
+      .order('created_at', { ascending: false })   // ← 추가
+      .limit(1)                                      // ← 추가
+      .maybeSingle()
+      .then(({ data, error }) => {
+        console.log('🎯 CONCEPT:', { data, error, studentId })  // ← 디버깅용
+        setConcept(data)
+      })
+  }, [studentId])
 
   useEffect(() => {
     if (myTargets.length > 0 && !selUnivName) {
@@ -369,6 +388,41 @@ ${answeredQs.map((q, i) => `<div class="block"><div class="q-text">Q${i + 1}. ${
 
   return (
     <div className="flex flex-col gap-3 h-full overflow-hidden px-6 py-5 font-sans text-ink">
+
+      {/* 🔥 진로 컨셉 카드 */}
+      {concept && (
+        <div className="flex items-center gap-3 bg-gradient-to-r from-brand-high-pale via-purple-50 to-pink-50 border border-brand-high-light rounded-xl px-4 py-2.5 flex-shrink-0 shadow-[0_2px_8px_rgba(37,99,235,0.06)]">
+          <span className="text-2xl">🎯</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] font-bold text-brand-high-dark uppercase tracking-wider mb-1">
+              내 진로 컨셉
+            </div>
+            <div className="flex items-center gap-2 flex-wrap text-[12px]">
+              <span className="font-bold text-ink bg-white px-2 py-0.5 rounded-full border border-brand-high-light">
+                {concept.type_name}
+                {concept.type_code && <span className="text-ink-muted ml-1">({concept.type_code}형)</span>}
+              </span>
+              <span className="text-ink-muted">·</span>
+              <span className="font-semibold text-ink">📚 {concept.major}</span>
+              <span className="text-ink-muted">→</span>
+              <span className="text-ink-secondary">💼 {concept.career}</span>
+              {Array.isArray(concept.keywords) && concept.keywords.length > 0 && (
+                <>
+                  <span className="text-ink-muted">·</span>
+                  <span className="text-brand-high font-semibold">
+                    {concept.keywords.map((k: string) => `#${k}`).join(' ')}
+                  </span>
+                </>
+              )}
+            </div>
+            {concept.custom_goal && (
+              <div className="text-[11px] text-ink-secondary mt-1 italic">
+                📝 {concept.custom_goal}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 상단 학교 탭 */}
       <div className="flex flex-col gap-2 flex-shrink-0">

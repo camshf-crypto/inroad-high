@@ -18,12 +18,11 @@ import {
   getMockAIAnalysis,
   getPastStep,
   inferQuestionType,
-  AI_CALL_LIMITS,    // ⭐ 추가
+  AI_CALL_LIMITS,
   type QuestionWithAnswer,
   type AIAnalysisData,
 } from '../../../../_hooks/useHighQuestions'
 
-// 파랑 테마
 const THEME = {
   accent: '#2563EB',
   accentDark: '#1E3A8A',
@@ -40,7 +39,6 @@ const TYPE_COLOR: Record<string, any> = {
 
 const STEP_LABELS = ['첫 답변', '1차 피드백', '업그레이드', '최종 피드백', '꼬리질문']
 
-// 우측 AI 패널 너비
 const AI_PANEL_WIDTH = 440
 
 export default function PastTab({ student }: { student: any }) {
@@ -68,7 +66,6 @@ export default function PastTab({ student }: { student: any }) {
 
   const [aiSuggestLoading, setAiSuggestLoading] = useState<'first' | 'final' | null>(null)
 
-  // DB 조회
   const { data: targetUniversities = [] } = useStudentTargetUniversities(studentId)
   const { data: curQuestions = [], isLoading: loadingQ } = usePastQuestionsWithAnswer(
     studentId,
@@ -80,7 +77,6 @@ export default function PastTab({ student }: { student: any }) {
   const { data: analyses = [] } = useAnswerAnalyses(selAnswerId)
   const { data: followups = [] } = useAnswerFollowups(selAnswerId)
 
-  // 뮤테이션
   const updateTargets = useUpdateStudentTargets()
   const sendFirst = useSendFirstFeedback()
   const sendFinal = useSendFinalFeedback()
@@ -108,11 +104,9 @@ export default function PastTab({ student }: { student: any }) {
   const round1 = analyses.find(a => a.round === 1)
   const round2 = analyses.find(a => a.round === 2)
 
-  // ⭐ 호출수
   const round1CallCount = round1?.ai_call_count || 0
   const round2CallCount = round2?.ai_call_count || 0
 
-  // AI 분석 호출
   const openAiAnalysis = async (tab: 'first' | 'second' = 'first') => {
     if (!selQ || !selUniv) return
 
@@ -125,7 +119,6 @@ export default function PastTab({ student }: { student: any }) {
         return
       }
 
-      // 이미 분석 결과 있으면 그냥 보여주기 (재호출 안 함)
       if (round1?.ai_analysis) {
         setAiData(prev => ({
           ...round1.ai_analysis,
@@ -142,6 +135,7 @@ export default function PastTab({ student }: { student: any }) {
           question: selQ.question,
           studentAnswer: selQ.answer.student_answer,
           answerId: selQ.answer.id,
+          studentId: studentId,   // 🔥 추가
         })
         setAiData(prev => ({
           ...result,
@@ -164,7 +158,6 @@ export default function PastTab({ student }: { student: any }) {
         return
       }
 
-      // 이미 분석 결과 있으면 그냥 보여주기
       if (round2?.ai_analysis) {
         setAiData(prev => {
           if (!prev) {
@@ -222,14 +215,11 @@ export default function PastTab({ student }: { student: any }) {
     }
   }
 
-  // ⭐ AI 답변 작성 (우측 패널 하단 버튼에서 호출)
-  // aiTab에 따라 자동으로 1차/2차 분기
   const generateAIFeedback = async () => {
     if (!selQ?.answer?.student_answer || !selUniv) return
 
     const type = aiTab === 'first' ? 'first' : 'final'
 
-    // 분석 결과 있는지 확인
     const hasAnalysis = aiTab === 'first' 
       ? !!(round1?.ai_analysis || aiData)
       : !!(round2?.ai_analysis || aiData?.second)
@@ -353,7 +343,6 @@ export default function PastTab({ student }: { student: any }) {
 
   const secondData = aiData?.second
 
-  // ⭐ 현재 탭의 분석 결과 + 피드백 작성 가능 여부
   const currentRoundHasAnalysis = aiTab === 'first' 
     ? !!(round1?.ai_analysis || (aiData && aiData.scores && aiData.scores.length > 0))
     : !!(round2?.ai_analysis || aiData?.second)
@@ -365,7 +354,6 @@ export default function PastTab({ student }: { student: any }) {
     <div 
       className="flex flex-col gap-3 h-full overflow-hidden"
       style={{
-        // ⭐ AI 패널 열렸을 때 우측 padding 추가
         paddingRight: showAiPanel ? AI_PANEL_WIDTH + 16 : 0,
         transition: 'padding-right 0.2s ease',
       }}
@@ -512,7 +500,6 @@ export default function PastTab({ student }: { student: any }) {
             </div>
           ) : (
             <>
-              {/* 헤더 */}
               <div className="px-5 py-4 border-b border-gray-200 flex-shrink-0">
                 <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
@@ -560,7 +547,6 @@ export default function PastTab({ student }: { student: any }) {
                   </div>
                 </div>
 
-                {/* 5단계 */}
                 <div className="flex">
                   {STEP_LABELS.map((label, i) => {
                     const stepNum = i + 1
@@ -599,21 +585,17 @@ export default function PastTab({ student }: { student: any }) {
                 </div>
               </div>
 
-              {/* 바디 */}
               <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
 
-                {/* 질문 */}
                 <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
                   <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">📌 기출 질문</div>
                   <div className="text-[14px] font-bold text-gray-900 leading-[1.6]">{selQ.question}</div>
                 </div>
 
-                {/* 히스토리 */}
                 <div className="bg-white border border-gray-200 rounded-xl px-4 py-4">
                   <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">💬 답변 · 피드백 히스토리</div>
                   <div className="flex flex-col gap-4">
 
-                    {/* Step 1 */}
                     <div>
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-[10px] font-extrabold text-white bg-gray-500 px-2 py-0.5 rounded-full">Step 1</span>
@@ -624,7 +606,6 @@ export default function PastTab({ student }: { student: any }) {
                       </div>
                     </div>
 
-                    {/* Step 2 - 1차 피드백 (⭐ AI 답변 작성 버튼 제거됨) */}
                     {selQ.answer?.student_answer && (
                       <div>
                         <div className="flex items-center gap-2 mb-2">
@@ -668,7 +649,6 @@ export default function PastTab({ student }: { student: any }) {
                       </div>
                     )}
 
-                    {/* Step 3 */}
                     {round1?.teacher_feedback && (
                       <div>
                         <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
@@ -699,7 +679,6 @@ export default function PastTab({ student }: { student: any }) {
                       </div>
                     )}
 
-                    {/* Step 4 - 최종 피드백 (⭐ AI 답변 작성 버튼 제거됨) */}
                     {round2?.revised_answer && (
                       <div>
                         <div className="flex items-center gap-2 mb-2">
@@ -733,7 +712,6 @@ export default function PastTab({ student }: { student: any }) {
                       </div>
                     )}
 
-                    {/* Step 5 꼬리질문 */}
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <span
@@ -803,7 +781,7 @@ export default function PastTab({ student }: { student: any }) {
         </div>
       </div>
 
-      {/* ⭐ 우측 AI 분석 패널 - position: fixed로 화면 우측 끝에 고정 */}
+      {/* 우측 AI 분석 패널 */}
       {showAiPanel && selQ && (
         <div 
           className="bg-white border-l border-gray-200 flex flex-col"
@@ -917,6 +895,61 @@ export default function PastTab({ student }: { student: any }) {
                     </div>
                   ))}
                 </div>
+
+                {/* 🔥 진로 컨셉 일치 검증 카드 (새로 추가!) */}
+                {aiData.conceptCheck && (
+                  <div className="bg-gradient-to-br from-violet-50 to-purple-50 border border-violet-200 rounded-xl p-4">
+                    <div className="text-[13px] font-extrabold text-violet-700 mb-1 flex items-center gap-1.5">
+                      🎯 진로 컨셉 일치 검증
+                    </div>
+                    <div className="text-[11px] text-gray-500 mb-3">
+                      학생의 진로 유형과 답변의 정합성을 분석했어요
+                    </div>
+
+                    {/* 일치도 배지 */}
+                    <div className="flex items-center gap-2 mb-3.5">
+                      <span className={`text-[11px] font-bold px-3 py-1.5 rounded-full ${
+                        aiData.conceptCheck.matchLevel === '높음' 
+                          ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' 
+                          : aiData.conceptCheck.matchLevel === '보통'
+                          ? 'bg-amber-100 text-amber-700 border border-amber-300'
+                          : 'bg-red-100 text-red-700 border border-red-300'
+                      }`}>
+                        {aiData.conceptCheck.isAligned ? '✓' : '✗'} 컨셉 일치도: {aiData.conceptCheck.matchLevel}
+                      </span>
+                    </div>
+
+                    {/* 일치하는 부분 */}
+                    <div className="mb-3">
+                      <div className="text-[11px] font-bold text-emerald-700 mb-1.5 flex items-center gap-1">
+                        💚 컨셉과 일치하는 부분
+                      </div>
+                      <div className="text-[12px] text-gray-900 leading-[1.7] px-3 py-2.5 bg-emerald-50 border border-emerald-200 rounded-md">
+                        {aiData.conceptCheck.alignmentReason}
+                      </div>
+                    </div>
+
+                    {/* 어긋나는 부분 */}
+                    <div className="mb-3">
+                      <div className="text-[11px] font-bold text-red-600 mb-1.5 flex items-center gap-1">
+                        ⚠️ 컨셉과 어긋나거나 부족한 부분
+                      </div>
+                      <div className="text-[12px] text-gray-900 leading-[1.7] px-3 py-2.5 bg-red-50 border border-red-200 rounded-md">
+                        {aiData.conceptCheck.misalignment}
+                      </div>
+                    </div>
+
+                    {/* 개선 제안 */}
+                    <div>
+                      <div className="text-[11px] font-bold text-violet-700 mb-1.5 flex items-center gap-1">
+                        💡 컨셉에 맞게 보완하는 방법
+                      </div>
+                      <div className="text-[12px] text-gray-900 leading-[1.7] px-3 py-2.5 bg-violet-50 border border-violet-200 rounded-md">
+                        {aiData.conceptCheck.improvement}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="bg-white border border-gray-200 rounded-xl p-4">
                   <div className="text-[13px] font-extrabold text-gray-900 mb-1">✅ 사유하는 질문</div>
@@ -1042,7 +1075,7 @@ export default function PastTab({ student }: { student: any }) {
             )
           )}
 
-          {/* ⭐ 하단 고정 영역 - "선생님 답변 작성하기" 큰 버튼 */}
+          {/* 하단 고정 영역 */}
           {currentRoundHasAnalysis && !currentRoundFeedbackDone && (
             <div 
               className="px-4 py-3 border-t border-gray-200 flex-shrink-0"
@@ -1062,7 +1095,6 @@ export default function PastTab({ student }: { student: any }) {
             </div>
           )}
 
-          {/* 이미 피드백 작성 완료된 경우 */}
           {currentRoundFeedbackDone && (
             <div 
               className="px-4 py-3 border-t border-gray-200 flex-shrink-0"
