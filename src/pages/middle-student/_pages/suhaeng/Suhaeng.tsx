@@ -74,7 +74,7 @@ function schoolSuhaengToUI(s: SchoolSuhaeng, schoolName: string): any {
     id: s.id, _isSchool: true, schoolName,
     schoolGrade: s.grade, semester: `${s.semester}학기`,
     subject: s.subject, type: s.display_type, evalType: s.eval_type,
-    title: s.task_title, content: s.unit_topic || s.task_title,
+    title: s.task_title, content: s.question_content || s.unit_topic || s.task_title,
     unitTopic: s.unit_topic, achievementStandard: s.achievement_standard,
     coreConcept: s.core_concept, ratio: s.score, scheduledAt: s.eval_period || '',
     minChars: s.min_chars, maxChars: s.max_chars, timeLimit: s.time_limit,
@@ -488,8 +488,8 @@ function FeedbackView({ submission, onBack }: any) {
 
   // 재제출 영역을 띄울지: 1차 피드백 왔고 최종 완료 전
   const showResubmit = !!feedback?.teacher_first_feedback && status !== "completed"
-  // 검색 사이드바: 1차 피드백 왔고 최종 완료 전이면 재제출 후에도 계속 노출
-  const showSidebar = showResubmit
+  // 검색 사이드바: 항상 고정 노출
+  const showSidebar = true
 
   // 사이드바에 넘길 최소 객체 (검색창 + 과목 키워드)
   const sidebarQ = {

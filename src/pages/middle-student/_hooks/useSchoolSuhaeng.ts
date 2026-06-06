@@ -39,6 +39,9 @@ export interface SchoolSuhaeng {
   hints: any[] | null
   checklist: string[] | null
   keywords: string[] | null
+  question_content?: string | null
+  question_status?: string | null
+  question_generated_at?: string | null
 }
 
 // 학교 목록 조회 (학교 선택용)
