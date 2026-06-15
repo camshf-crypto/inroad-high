@@ -1,4 +1,6 @@
 // src/pages/high-student/_pages/concept/questions.ts
+// (중등도 같은 코드 적용: src/pages/middle-student/_pages/concept/questions.ts)
+// 🔥 MBTI처럼 정밀한 알고리즘 + 점수 기반 학과 추천
 
 export interface Question {
   id: number
@@ -50,7 +52,7 @@ export const QUESTIONS: Question[] = [
   { id: 39, part: 1, text: "어릴 때부터 유지된 습관이나 관심은?", choices: ["① 분해조립, 실험, 관찰 일지 쓰기", "② 퍼즐, 전략 게임, 주식·경제 관심", "③ 일기, 편지 쓰기, 단체 활동 즐기기", "④ 그림, 레고, 스토리 창작, 코딩"] },
   { id: 40, part: 1, text: "인생에서 가장 오래 기억할 목표에 가까운 것은?", choices: ["① 인류 지식의 경계를 한 뼘이라도 넓히는 것", "② 전문성과 성취로 내 삶과 가족을 단단히 세우는 것", "③ 더 많은 사람들이 더 나은 삶을 살도록 돕는 것", "④ 세상에 없던 무언가를 남기는 것"] },
 
-  // ── PART 2. 심층 변별 Q.41~Q.120 ──
+  // ── PART 2. 심층 변별 Q.41~Q.100 ──
   { id: 41, part: 2, text: "연구를 할 때 가장 중요하게 생각하는 것은?", choices: ["① 원리 자체를 끝까지 밝혀내는 것", "② 연구 결과를 실제 비즈니스나 전략에 연결하는 것", "③ 연구가 사람들 삶에 어떤 변화를 줄 수 있는지", "④ 연구 결과로 새로운 것을 만들어내는 것"] },
   { id: 42, part: 2, text: "대학원 진학에 대한 생각은?", choices: ["① 연구 자체가 좋아서 적극적으로 원한다", "② 전문성을 쌓아 경쟁력을 높이기 위해 필요하다", "③ 현장에서 바로 사람들을 돕는 일을 하고 싶다", "④ 기술을 쌓은 뒤 독립 창작자나 창업을 하고 싶다"] },
   { id: 43, part: 2, text: "기술이나 지식을 배웠을 때 가장 하고 싶은 것은?", choices: ["① 그 원리를 더 깊이 탐구하고 연구한다", "② 이걸로 어떻게 수익이나 가치를 만들 수 있을지 생각한다", "③ 이 지식이 필요한 사람들에게 나눠준다", "④ 이걸로 뭔가 새로운 것을 만들어본다"] },
@@ -137,7 +139,7 @@ export const QUESTIONS: Question[] = [
   { id: 122, part: 3, text: "가장 의미 있는 하루를 보낸 기억은?", choices: ["① 새로운 것을 발견하거나 이해했을 때", "② 어려운 문제를 해결하고 성과를 냈을 때", "③ 누군가에게 진심으로 도움이 됐을 때", "④ 내가 만든 것이 완성됐을 때"] },
   { id: 123, part: 3, text: "힘든 일이 생겼을 때 극복하는 방법은?", choices: ["① 원인을 분석하고 체계적으로 해결책을 찾는다", "② 전략적으로 상황을 재정의하고 다시 계획한다", "③ 신뢰하는 사람과 이야기하며 힘을 얻는다", "④ 창작 활동이나 새로운 도전으로 에너지를 얻는다"] },
   { id: 124, part: 3, text: "남들과 다른 나만의 특별한 점은?", choices: ["① 어떤 것이든 끝까지 파고드는 집착과 탐구력", "② 복잡한 상황을 빠르게 구조화하는 능력", "③ 사람들의 마음을 빠르게 읽고 연결하는 능력", "④ 전혀 다른 것들을 연결하는 독창적 발상력"] },
-  { id: 125, part: 3, text: "가장 성취감을 느끼는 순간은?", choices: ["① 어렵다고 여겼던 것을 완전히 이해했을 때", "② 경쟁에서 이기거나 목표를 달성했을 때", "③ 다른 사람이 내 도움으로 성장했을 때", "④ 내가 만든 것이 많은 사람에게 인정받을 때"] },
+  { id: 125, part: 3, text: "가장 성취감을 느끼는 순간은?", choices: ["① 어렵다고 여겼던 것을 완전히 이해했을 때", "② 경쟁에서 이기거나 목표를 달성했을 때", "③ 다른 사람이 내 도움으로 성장했을 때", "④ 내가 만든 것이 많은 사람에게 인정받았을 때"] },
   { id: 126, part: 3, text: "배움에서 가장 중요한 것은?", choices: ["① 깊이 있는 이해와 원리 파악", "② 실용적으로 활용할 수 있는 지식", "③ 배운 것을 다른 사람에게 나누는 것", "④ 배운 것으로 무언가를 창조하는 것"] },
   { id: 127, part: 3, text: "가장 끌리는 여가 활동은?", choices: ["① 관련 분야 논문이나 책을 읽는 것", "② 경제·투자·비즈니스 공부를 하는 것", "③ 친구들과 의미 있는 시간을 보내는 것", "④ 취미 창작이나 사이드 프로젝트를 하는 것"] },
   { id: 128, part: 3, text: "나를 가장 행복하게 만드는 것은?", choices: ["① 새로운 지식을 발견하거나 이해하는 순간", "② 목표를 달성하고 인정받는 순간", "③ 소중한 사람들과 함께하는 순간", "④ 내가 만든 것이 완성되는 순간"] },
@@ -276,7 +278,84 @@ export const TYPE_DESC: Record<string, string> = {
   CD: '사회적 메시지와 창의적 표현을 결합하는 유형입니다. 언론·문학·미디어·문화 분야에서 탁월합니다.',
 }
 
-// 채점 함수
+
+// ═══════════════════════════════════════════════════════
+// 🔥 학과별 가중치 (A=탐구, B=논리, C=공감, D=창의)
+// 코사인 유사도로 학생 점수와 매칭
+// ═══════════════════════════════════════════════════════
+export const MAJOR_WEIGHTS: Record<string, [number, number, number, number]> = {
+  // 자연과학·공학 (A 강함)
+  '컴퓨터공학과':      [5, 4, 1, 3],
+  '소프트웨어학과':    [5, 4, 1, 3],
+  '인공지능학과':      [5, 4, 2, 3],
+  '데이터사이언스':    [5, 5, 2, 2],
+  '통계학과':          [4, 5, 2, 2],
+  '수학과':            [5, 5, 1, 2],
+  '물리학과':          [5, 4, 1, 2],
+  '화학공학과':        [5, 3, 2, 2],
+  '기계공학과':        [5, 3, 1, 4],
+  '전자공학과':        [5, 4, 1, 3],
+  '산업공학과':        [4, 5, 2, 3],
+  '생명과학과':        [5, 2, 3, 1],
+  '생명공학과':        [5, 3, 3, 2],
+  '환경공학과':        [4, 2, 4, 2],
+
+  // 의료·보건 (A+C)
+  '의예과':            [5, 2, 4, 1],
+  '치의예과':          [5, 2, 4, 1],
+  '약학과':            [5, 3, 3, 1],
+  '간호학과':          [4, 2, 5, 1],
+  '보건의료학과':      [4, 3, 5, 1],
+
+  // 경영·경제 (B 강함)
+  '경영학과':          [2, 5, 3, 3],
+  '경제학과':          [3, 5, 2, 1],
+  '회계학과':          [2, 5, 2, 1],
+  '금융학과':          [2, 5, 2, 2],
+  '무역학과':          [2, 5, 3, 2],
+  '창업학과':          [2, 5, 2, 4],
+
+  // 법·행정 (B+C)
+  '법학과':            [2, 5, 3, 1],
+  '행정학과':          [2, 5, 4, 1],
+  '정치외교학과':      [2, 4, 5, 2],
+  '국제학과':          [3, 4, 4, 2],
+  '경찰학과':          [2, 4, 4, 2],
+
+  // 사회·심리 (C 강함)
+  '심리학과':          [4, 2, 5, 2],
+  '상담심리학과':      [3, 1, 5, 2],
+  '사회학과':          [3, 4, 5, 2],
+  '사회복지학과':      [1, 2, 5, 2],
+  '교육학과':          [2, 2, 5, 2],
+  '문화인류학과':      [3, 2, 5, 3],
+
+  // 미디어·언론 (C+D)
+  '언론정보학과':      [2, 4, 5, 3],
+  '미디어커뮤니케이션학과': [1, 3, 4, 5],
+  '광고홍보학과':      [1, 4, 3, 5],
+
+  // 인문·문학 (C+D)
+  '국어국문학과':      [2, 2, 4, 5],
+  '국어교육과':        [2, 2, 5, 4],
+  '문예창작학과':      [1, 1, 4, 5],
+  '영어영문학과':      [2, 3, 4, 4],
+
+  // 디자인·예술 (D 강함)
+  '건축학과':          [3, 2, 2, 5],
+  '건축공학과':        [4, 3, 1, 5],
+  '산업·시각디자인전공': [2, 1, 2, 5],
+  '실내디자인학과':    [1, 1, 3, 5],
+  '패션학과':          [1, 2, 3, 5],
+  '연극영화학과':      [1, 1, 4, 5],
+  '게임학과':          [4, 2, 1, 5],
+  '로봇학과':          [5, 3, 1, 5],
+  'IT융합학과':        [5, 4, 2, 4],
+}
+
+// ═══════════════════════════════════════════════════════
+// 🔥 개선된 채점 알고리즘 - MBTI처럼 정밀하게
+// ═══════════════════════════════════════════════════════
 export function calculateType(answers: Record<number, string>): {
   typeCode: string
   typeName: string
@@ -295,7 +374,7 @@ export function calculateType(answers: Record<number, string>): {
     const w = WEIGHTS[q]?.[answer]
     if (w) {
       for (const [type, score] of Object.entries(w)) {
-        if (scores[type] !== undefined) scores[type] += score
+        if (scores[type] !== undefined) scores[type] += (score as number)
       }
     }
   }
@@ -303,27 +382,68 @@ export function calculateType(answers: Record<number, string>): {
   const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1])
   const top1 = sorted[0]
   const top2 = sorted[1]
-  const diff = top1[1] - top2[1]
+
+  // 🔥 차이를 절대값이 아닌 '비율'로 계산 (정밀화)
+  const diffRatio = (top1[1] - top2[1]) / top1[1]
+
+  const comboTypes = ['AB', 'AC', 'AD', 'BC', 'BD', 'CD']
+  const isTop1Single = !comboTypes.includes(top1[0])
+  const isTop2Combo = comboTypes.includes(top2[0])
 
   let typeCode: string
-  if (diff >= 30) {
+
+  if (diffRatio >= 0.25) {
+    // 압도적 1등 (35% 이상 차이) → 그대로
     typeCode = top1[0]
-  } else if (diff >= 10) {
-    typeCode = top1[0]
+  } else if (isTop1Single && isTop2Combo) {
+    // 🔥 1등 단일 + 2등 복합 + 가까움(35% 미만) → 복합형 선택!
+    const top2ContainsTop1 = top2[0].includes(top1[0])
+    typeCode = top2ContainsTop1 ? top2[0] : top1[0]
   } else {
-    const comboTypes = ['AB', 'AC', 'AD', 'BC', 'BD', 'CD']
-    const topCombo = sorted.find(s => comboTypes.includes(s[0]))
-    const topSingle = sorted.find(s => !comboTypes.includes(s[0]))
-    typeCode = (topCombo && topSingle && topCombo[1] >= topSingle[1] * 0.8)
-      ? topCombo[0]
-      : top1[0]
+    typeCode = top1[0]
   }
+
+  // 🔥 점수 기반 학과 추천
+  const recommendedMajors = getRecommendedMajors(typeCode, scores)
 
   return {
     typeCode,
     typeName: TYPE_NAMES[typeCode] || typeCode,
     typeDesc: TYPE_DESC[typeCode] || '',
     scores,
-    recommendedMajors: TYPE_MAJORS[typeCode] || [],
+    recommendedMajors,
   }
+}
+
+// ═══════════════════════════════════════════════════════
+// 🔥 코사인 유사도 기반 학과 추천
+// 학생 점수 (A, B, C, D) 와 각 학과 가중치의 코사인 유사도 계산
+// → 점수 패턴이 다르면 학과도 다르게 추천됨!
+// ═══════════════════════════════════════════════════════
+function getRecommendedMajors(typeCode: string, scores: Record<string, number>): string[] {
+  // 학생 점수 벡터 (A, B, C, D)
+  const studentVec: [number, number, number, number] = [
+    scores['A'] || 0,
+    scores['B'] || 0,
+    scores['C'] || 0,
+    scores['D'] || 0,
+  ]
+
+  // 벡터 크기
+  const studentMag = Math.sqrt(studentVec.reduce((s, v) => s + v * v, 0))
+
+  // 점수 없으면 기본 학과 반환
+  if (studentMag === 0) return TYPE_MAJORS[typeCode] || []
+
+  // 각 학과별 코사인 유사도 계산
+  const similarities: [string, number][] = Object.entries(MAJOR_WEIGHTS).map(([major, weights]) => {
+    const dotProduct = studentVec.reduce((s, v, i) => s + v * weights[i], 0)
+    const weightMag = Math.sqrt(weights.reduce((s, v) => s + v * v, 0))
+    const similarity = dotProduct / (studentMag * weightMag)
+    return [major, similarity]
+  })
+
+  // 유사도 순으로 정렬 후 상위 8개
+  similarities.sort((a, b) => b[1] - a[1])
+  return similarities.slice(0, 8).map(([major]) => major)
 }

@@ -24,6 +24,7 @@ const HIGH_MENUS = [
   { menuKey: 'high.topic', label: '탐구주제', icon: '🔬' },
   { menuKey: 'high.book', label: '독서리스트', icon: '📚' },
   { menuKey: 'high.record', label: '나의 생기부', icon: '📋' },
+    { menuKey: 'high.basic', label: '기본 인성질문', icon: '💎' }, // 🔥 NEW
   { menuKey: 'high.expect', label: '생기부 예상질문', icon: '💬' },
   { menuKey: 'high.past', label: '기출문제', icon: '🎓' },
   { menuKey: 'high.simulation', label: '면접 시뮬레이션', icon: '🎙️' },
@@ -40,11 +41,15 @@ const MIDDLE_MENUS = [
   { menuKey: 'middle.record', label: '내 생기부', icon: '📋' },
   { menuKey: 'middle.book', label: '독서리스트', icon: '📚' },
   { menuKey: 'middle.debate', label: 'AI 토론', icon: '🎤' },
+  { menuKey: 'middle.basic', label: '기본 인성질문', icon: '💎' }, // 🔥 NEW
+  { menuKey: 'middle.record_expect', label: '생기부 예상질문', icon: '📋' },
   { menuKey: 'middle.expect', label: '자소서·예상질문', icon: '💬' },
   { menuKey: 'middle.past', label: '기출문제', icon: '🎓' },
   { menuKey: 'middle.simulation', label: '면접 시뮬레이션', icon: '🎙️' },
   { menuKey: 'middle.presentation', label: '제시문 면접', icon: '📄' },
 ]
+
+const TOTAL_MENU_COUNT = HIGH_MENUS.length + MIDDLE_MENUS.length
 
 // Mock 학원 데이터
 const INIT_DETAILS: Record<string, any> = {
@@ -732,7 +737,7 @@ export default function MasterAcademyDetail() {
             { key: 'overview', label: '📋 개요', count: null },
             { key: 'growth', label: '📈 수강생 추이', count: null, highlight: true },
             { key: 'teachers', label: '👨‍🏫 선생님', count: academy.teachers.length },
-            { key: 'students', label: '🧑‍🎓 학생', count: null, highlight: true },  // ⭐ 실제 데이터!
+            { key: 'students', label: '🧑‍🎓 학생', count: null, highlight: true },
             { key: 'payments', label: '💳 결제', count: academy.payments.length },
             { key: 'activity', label: '📜 활동', count: academy.activity.length },
             { key: 'menus', label: '⚙️ 메뉴 관리', count: null, highlight: true },
@@ -1198,11 +1203,11 @@ export default function MasterAcademyDetail() {
                       <div className="grid grid-cols-3 gap-2">
                         <div className="bg-gray-50 rounded-lg px-4 py-2 text-center min-w-[80px]">
                           <div className="text-[10px] font-bold text-ink-muted mb-0.5">전체</div>
-                          <div className="text-[18px] font-extrabold" style={{ color: THEME.accent }}>{totalCount}/{HIGH_MENUS.length + MIDDLE_MENUS.length}</div>
+                          <div className="text-[18px] font-extrabold" style={{ color: THEME.accent }}>{totalCount}/{TOTAL_MENU_COUNT}</div>
                         </div>
                         <div className="rounded-lg px-4 py-2 text-center min-w-[80px]" style={{ background: '#EFF6FF' }}>
                           <div className="text-[10px] font-bold text-blue-700 mb-0.5">🎓 고등</div>
-                          <div className="text-[18px] font-extrabold text-blue-600">{highCount}/10</div>
+                          <div className="text-[18px] font-extrabold text-blue-600">{highCount}/{HIGH_MENUS.length}</div>
                         </div>
                         <div className="rounded-lg px-4 py-2 text-center min-w-[80px]" style={{ background: '#ECFDF5' }}>
                           <div className="text-[10px] font-bold text-green-700 mb-0.5">🌱 중등</div>
@@ -1216,7 +1221,7 @@ export default function MasterAcademyDetail() {
                     <div className="text-[12px] font-bold text-ink-secondary">⚡ 일괄 설정:</div>
                     <div className="flex gap-2 flex-wrap">
                       <button onClick={() => toggleAll(true)} className="h-9 px-3 bg-purple-50 border border-purple-200 text-purple-700 rounded-lg text-[11px] font-bold hover:bg-purple-100 transition-colors">
-                        ✓ 전체 ON (20개)
+                        ✓ 전체 ON ({TOTAL_MENU_COUNT}개)
                       </button>
                       <button onClick={() => toggleAll(false)} className="h-9 px-3 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg text-[11px] font-bold hover:bg-gray-100 transition-colors">
                         ✕ 전체 OFF
@@ -1243,7 +1248,7 @@ export default function MasterAcademyDetail() {
                       <div className="flex items-center gap-2">
                         <span className="text-lg">🎓</span>
                         <div className="text-[14px] font-extrabold text-blue-900">고등 메뉴</div>
-                        <span className="text-[11px] font-bold text-blue-700 bg-white px-2 py-0.5 rounded-full">{highCount}/10</span>
+                        <span className="text-[11px] font-bold text-blue-700 bg-white px-2 py-0.5 rounded-full">{highCount}/{HIGH_MENUS.length}</span>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 max-md:grid-cols-1 gap-2 p-4">

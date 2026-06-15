@@ -17,6 +17,7 @@ const MENUS = [
   { path: '/high-student/book', label: '독서리스트', icon: '📚', menuKey: 'high.book' },
   { path: '/high-student/suhaeng', label: '수행평가', icon: '✏️', menuKey: 'high.suhaeng' },
   { path: '/high-student/record', label: '나의 생기부', icon: '📋', menuKey: 'high.record' },
+  { path: '/high-student/basic', label: '기본 인성', icon: '💎', menuKey: 'high.basic' },
   { path: '/high-student/expect', label: '생기부 예상질문', icon: '💬', menuKey: 'high.expect' },
   { path: '/high-student/past', label: '기출문제', icon: '🎓', menuKey: 'high.past' },
   { path: '/high-student/simulation', label: '면접 시뮬레이션', icon: '🎙️', menuKey: 'high.simulation' },
@@ -40,6 +41,8 @@ export default function Layout() {
 
   const isAcademyConnected = !!academy.academyId
   const enabledMenus = academy.enabledMenus || []
+  // 🔥 항상 표시되는 핵심 메뉴 (학원 설정과 무관하게 노출)
+  // ⚠️ high.basic은 마스터에서 학원별로 켜고/끄게 하도록 제거됨!
   const ALWAYS_VISIBLE = ['high.concept', 'high.suhaeng']
   const visibleMenus = MENUS.filter(m => enabledMenus.includes(m.menuKey) || ALWAYS_VISIBLE.includes(m.menuKey))
 

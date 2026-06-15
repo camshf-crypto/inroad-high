@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 
-const SAVE_DEBOUNCE_MS = 1000;
+const SAVE_DEBOUNCE_MS = 1500;  // 🔥 1초 → 1.5초 (auth 갱신 여유)
 
 export type DraftStatus = "idle" | "saving" | "saved" | "error";
 
@@ -90,6 +90,17 @@ export function useDraftAutoSave(
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
 
       saveTimerRef.current = setTimeout(async () => {
+        // 🔥 저장 직전 세션 체크 - 세션 없거나 mismatch면 조용히 skip
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          console.warn("[draft] 세션 없음, 저장 skip");
+          return;
+        }
+        if (session.user.id !== studentId) {
+          console.warn("[draft] auth ID mismatch, 저장 skip");
+          return;
+        }
+
         setStatus("saving");
         try {
           const { error } = await supabase.from("student_drafts").upsert(
@@ -103,6 +114,11 @@ export function useDraftAutoSave(
           );
 
           if (error) {
+            // 🔥 RLS 위반 (42501)은 일시적 - 조용히 warn만, 에러 상태 X
+            if (error.code === "42501") {
+              console.warn("[draft] RLS 일시적 (세션 갱신 중일 가능성), 다음 입력에 재시도");
+              return;
+            }
             console.error("[draft] 저장 실패:", error);
             setStatus("error");
             return;

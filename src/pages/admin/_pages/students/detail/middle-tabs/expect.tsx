@@ -1,3 +1,6 @@
+// src/pages/admin/_pages/students/detail/middle-tabs/expect.tsx
+// 📄 자소서 + 자소서 예상질문 어드민 탭 (기존)
+
 import { useState, useEffect } from "react";
 import { useStudentEssays, useStudentQuestions } from "@/pages/admin/_hooks/middle/useStudentExpect";
 import ExpectEssayPanel from "./ExpectEssayPanel";
@@ -38,7 +41,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
   const filterEssay = essays.find((e) => e.school === selSchoolFilter);
   const { data: questions = [] } = useStudentQuestions(filterEssay?.id);
 
-  // 중복 학교 제거
   const schoolsWithQuestions = Array.from(
     new Set(essays.filter((e) => e.questions_generated).map((e) => e.school))
   );
@@ -48,7 +50,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
 
   return (
     <div className="flex gap-4 h-full overflow-hidden">
-      {/* 왼쪽 사이드바 */}
       <div className="w-[340px] flex-shrink-0 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
         <div className="flex border-b border-line flex-shrink-0">
           {[
@@ -73,7 +74,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
           })}
         </div>
 
-        {/* 자소서 탭 사이드바 */}
         {activeTab === "essay" && (
           <>
             <div className="px-4 py-2.5 border-b border-line flex-shrink-0">
@@ -147,7 +147,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
           </>
         )}
 
-        {/* 예상질문 탭 사이드바 */}
         {activeTab === "questions" && (
           <>
             <div className="px-3 py-2.5 border-b border-line flex-shrink-0">
@@ -242,7 +241,6 @@ export default function MiddleExpectTab({ student }: { student: any }) {
         )}
       </div>
 
-      {/* 메인 패널 */}
       <div className="flex-1 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_2px_8px_rgba(15,23,42,0.04)] min-w-0">
         {activeTab === "essay" && (
           <ExpectEssayPanel

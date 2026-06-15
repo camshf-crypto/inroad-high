@@ -1,12 +1,10 @@
+// src/pages/high-student/_pages/basic/Basic.tsx
+// 기본 인성질문 학생용 - Past.tsx와 동일한 구조 (학교 자동 고정)
+
 import { useState, useEffect, useRef } from 'react'
 import { useAtomValue } from 'jotai'
-import { studentState } from '@/lib/auth/atoms'
+import { studentState, academyState } from '@/lib/auth/atoms'
 import {
-  useMyTargetUniversities,
-  useMyTargetUniversitiesAll,
-  useUpdateMyTargets,
-  useAllUniversities,
-  useDepartmentsOfUniversity,
   useMyPastQuestions,
   useMyAnswerAnalyses,
   useMyAnswerFollowups,
@@ -20,7 +18,9 @@ import {
 import { useDraftAutoSave, type DraftStatus } from '../../_hooks/useDraftAutoSave'
 import { supabase } from '@/lib/supabase'
 
-const MAX_TARGETS = 6
+// 🔥 기본 인성질문 고정값
+const BASIC_UNIV = '기본 인성'
+const BASIC_DEPT = '공통'
 
 const TYPE_COLOR: Record<string, string> = {
   '공통': 'bg-brand-high-pale text-brand-high-dark border-brand-high-light',
@@ -132,7 +132,7 @@ function Step1Box({ studentId, questionId, existingAnswer, editingMode, onSubmit
 }) {
   const disabled = !!existingAnswer && !editingMode
   const initialValue = editingMode && existingAnswer ? existingAnswer : ''
-  const { text, setText, status, lastSavedAt, clearDraft } = useDraftAutoSave(studentId, `past:answer:${questionId}`, initialValue, disabled)
+  const { text, setText, status, lastSavedAt, clearDraft } = useDraftAutoSave(studentId, `basic:answer:${questionId}`, initialValue, disabled)
   return (
     <>
       <textarea value={text} onChange={e => setText(e.target.value)}
@@ -165,7 +165,7 @@ function Step3Box({ studentId, questionId, existingUpgrade, editingMode, onSubmi
 }) {
   const disabled = !!existingUpgrade && !editingMode
   const initialValue = editingMode && existingUpgrade ? existingUpgrade : ''
-  const { text, setText, status, lastSavedAt, clearDraft } = useDraftAutoSave(studentId, `past:upgraded:${questionId}`, initialValue, disabled)
+  const { text, setText, status, lastSavedAt, clearDraft } = useDraftAutoSave(studentId, `basic:upgraded:${questionId}`, initialValue, disabled)
   return (
     <>
       <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[12px] text-amber-800 font-medium mb-2">
@@ -197,7 +197,7 @@ function Step5TailBox({ studentId, questionId, tailIndex, onSubmit, isPending }:
   onSubmit: (text: string, clearDraft: () => Promise<void>) => Promise<void>
   isPending: boolean
 }) {
-  const { text, setText, status, lastSavedAt, clearDraft } = useDraftAutoSave(studentId, `past:tail:${questionId}:${tailIndex}`, '')
+  const { text, setText, status, lastSavedAt, clearDraft } = useDraftAutoSave(studentId, `basic:tail:${questionId}:${tailIndex}`, '')
   return (
     <div className="bg-gray-50 rounded-lg p-2.5 border border-line-light">
       <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">꼬리질문 답변</div>
@@ -219,40 +219,31 @@ function Step5TailBox({ studentId, questionId, tailIndex, onSubmit, isPending }:
   )
 }
 
-export default function Past() {
+// ─────────────────────────────────────────────
+// 메인
+// ─────────────────────────────────────────────
+export default function Basic() {
   const student = useAtomValue(studentState)
+  const academy = useAtomValue(academyState)
   const studentId = student?.id ? String(student.id) : undefined
-
-  const [selUnivName, setSelUnivName] = useState('')
-  const [selDeptName, setSelDeptName] = useState('')
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [univSearch, setUnivSearch] = useState('')
-  const [deptSearch, setDeptSearch] = useState('')
-  const [univDropOpen, setUnivDropOpen] = useState(false)
-  const [deptDropOpen, setDeptDropOpen] = useState(false)
-  const [pendingUniv, setPendingUniv] = useState('')
-  const [pendingDept, setPendingDept] = useState('')
 
   const [selQ, setSelQ] = useState<QuestionWithAnswer | null>(null)
   const [editingStep1, setEditingStep1] = useState(false)
   const [editingStep3, setEditingStep3] = useState(false)
   const [concept, setConcept] = useState<any>(null)
 
-  const { data: myTargets = [] } = useMyTargetUniversities()
-  const { data: allTargets = [] } = useMyTargetUniversitiesAll()
-  const { data: allUnivs = [] } = useAllUniversities()
-  const { data: allDepts = [] } = useDepartmentsOfUniversity(pendingUniv)
-  const { data: curQuestions = [], isLoading: loadingQ } = useMyPastQuestions(selUnivName, selDeptName)
+  // 🔥 학교/학과 자동 고정
+  const { data: curQuestions = [], isLoading: loadingQ } = useMyPastQuestions(BASIC_UNIV, BASIC_DEPT)
 
   const selAnswerId = selQ?.answer?.id
   const { data: analyses = [] } = useMyAnswerAnalyses(selAnswerId)
   const { data: followups = [] } = useMyAnswerFollowups(selAnswerId)
 
-  const updateTargets = useUpdateMyTargets()
   const submitFirst = useSubmitFirstAnswer()
   const submitUpgrade = useSubmitUpgradedAnswer()
   const submitFollowup = useSubmitFollowupAnswer()
 
+  // 🔥 진로 컨셉 조회
   useEffect(() => {
     if (!studentId) return
     supabase
@@ -267,59 +258,15 @@ export default function Past() {
   }, [studentId])
 
   useEffect(() => {
-    if (myTargets.length > 0 && !selUnivName) {
-      setSelUnivName(myTargets[0].university)
-      setSelDeptName(myTargets[0].department)
-    }
-  }, [myTargets])
-
-  useEffect(() => {
     if (selQ) {
       const updated = curQuestions.find(q => q.id === selQ.id)
       if (updated) setSelQ(updated)
     }
   }, [curQuestions])
 
-  const filteredUnivs = allUnivs.filter(u => u.includes(univSearch))
-  const filteredDepts = allDepts.filter(d => d.includes(deptSearch))
-
   const step = selQ ? getMyStep(selQ.answer, analyses) : 0
   const round1 = analyses.find(a => a.round === 1)
   const round2 = analyses.find(a => a.round === 2)
-
-  const addNewTarget = () => {
-    if (!pendingUniv || !pendingDept) { alert('학교와 학과를 모두 선택해주세요!'); return }
-    if (myTargets.length >= MAX_TARGETS) { alert(`지원 학교는 최대 ${MAX_TARGETS}개까지 등록 가능해요.`); return }
-    const exists = allTargets.find(t => t.university === pendingUniv && t.department === pendingDept)
-    if (exists && !exists.hidden) { alert('이미 등록된 학교/학과예요!'); return }
-    let newTargets
-    if (exists && exists.hidden) {
-      newTargets = allTargets.map(t => t.university === pendingUniv && t.department === pendingDept ? { ...t, hidden: false } : t)
-    } else {
-      newTargets = [...allTargets, { university: pendingUniv, department: pendingDept }]
-    }
-    updateTargets.mutate(newTargets, {
-      onSuccess: () => {
-        setSelUnivName(pendingUniv); setSelDeptName(pendingDept); setSelQ(null)
-        setPendingUniv(''); setPendingDept(''); setUnivSearch(''); setDeptSearch(''); setShowAddForm(false)
-      },
-    })
-  }
-
-  const removeTarget = (univ: string, dept: string) => {
-    if (!window.confirm(`"${univ} · ${dept}" 목록에서 숨길까요?\n\n⚠️ 답변/피드백은 모두 유지돼요.`)) return
-    const newTargets = allTargets.map(t => t.university === univ && t.department === dept ? { ...t, hidden: true } : t)
-    updateTargets.mutate(newTargets, {
-      onSuccess: () => {
-        if (selUnivName === univ && selDeptName === dept) {
-          const remaining = newTargets.filter(t => !t.hidden && !(t.university === univ && t.department === dept))
-          if (remaining.length > 0) { setSelUnivName(remaining[0].university); setSelDeptName(remaining[0].department) }
-          else { setSelUnivName(''); setSelDeptName('') }
-          setSelQ(null)
-        }
-      },
-    })
-  }
 
   const handleSubmitFirst = async (text: string, clearDraft: () => Promise<void>) => {
     if (!text.trim() || !selQ) return
@@ -371,7 +318,7 @@ export default function Past() {
       followupMap.set(f.answer_id, list)
     })
 
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>기출문제 최종 답변집</title>
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>기본 인성질문 최종 답변집</title>
 <style>
 body{font-family:'Malgun Gothic',sans-serif;padding:16px 24px;color:#1a1a1a;max-width:800px;margin:0 auto;font-size:11px;}
 h1{font-size:15px;font-weight:700;margin-bottom:2px;}
@@ -391,8 +338,8 @@ h1{font-size:15px;font-weight:700;margin-bottom:2px;}
 .footer{text-align:center;font-size:10px;color:#9CA3AF;margin-top:12px;padding-top:8px;border-top:0.5px solid #E5E7EB;}
 @media print{body{padding:10px 16px;}.block{page-break-inside:avoid;}}
 </style></head><body>
-<h1>기출문제 최종 답변집</h1>
-<div class="sub">${selUnivName} · ${selDeptName}</div>
+<h1>기본 인성질문 최종 답변집</h1>
+<div class="sub">기본 인성질문 · 30개</div>
 ${answeredQs.map((q, i) => {
   const answerId = q.answer!.id
   const upgradeAnswer = upgradeMap.get(answerId)
@@ -419,19 +366,18 @@ ${answeredQs.map((q, i) => {
     ` : ''}
   </div>`
 }).join('')}
-<div class="footer">비커스 · ${selUnivName} ${selDeptName} 기출문제 답변집</div>
+<div class="footer">비커스 · 기본 인성질문 답변집</div>
 <script>window.onload=()=>{window.print()}</script></body></html>`
 
     const w = window.open('', '_blank')
     if (w) { w.document.write(html); w.document.close() }
   }
 
-  const canAddMore = myTargets.length < MAX_TARGETS
-
   return (
     <div className="flex flex-col gap-3 h-full overflow-hidden px-6 py-5 font-sans text-ink">
 
-      {concept && (
+      {/* 진로 컨셉 카드 */}
+      {concept && concept.type_name && (
         <div className="flex items-center gap-3 bg-gradient-to-r from-brand-high-pale via-purple-50 to-pink-50 border border-brand-high-light rounded-xl px-4 py-2.5 flex-shrink-0 shadow-[0_2px_8px_rgba(37,99,235,0.06)]">
           <span className="text-2xl">🎯</span>
           <div className="flex-1 min-w-0">
@@ -465,137 +411,51 @@ ${answeredQs.map((q, i) => {
         </div>
       )}
 
-      <div className="flex flex-col gap-2 flex-shrink-0">
-        <div className="flex gap-1.5 items-center flex-wrap">
-          <span className="text-[11px] text-ink-muted font-semibold mr-1">내 지원 학교 ({myTargets.length}/{MAX_TARGETS}):</span>
-          {myTargets.map((t, i) => {
-            const isSelected = selUnivName === t.university && selDeptName === t.department
-            return (
-              <div key={`${t.university}-${t.department}-${i}`}
-                className={`inline-flex items-center gap-1 rounded-full border transition-all ${isSelected ? 'bg-brand-high border-brand-high' : 'bg-white border-line hover:border-brand-high-light'}`}>
-                <button onClick={() => { setSelUnivName(t.university); setSelDeptName(t.department); setSelQ(null) }}
-                  className={`px-3 py-1.5 text-[11px] ${isSelected ? 'text-white font-bold' : 'text-brand-high-dark font-semibold hover:text-brand-high'}`}>
-                  🎓 {t.university} · {t.department}
-                </button>
-                <button onClick={() => removeTarget(t.university, t.department)}
-                  className={`pr-2.5 text-[11px] leading-none ${isSelected ? 'text-white/70 hover:text-white' : 'text-red-400 hover:text-red-600'}`}
-                  title="목록에서 숨김">✕</button>
-              </div>
-            )
-          })}
-          {canAddMore && !showAddForm && (
-            <button onClick={() => setShowAddForm(true)}
-              className="px-3 py-1.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100 transition-all">
-              + 학교 추가
-            </button>
-          )}
-          {!canAddMore && <div className="text-[10px] text-amber-600 font-medium px-2">⚠️ 최대 {MAX_TARGETS}개까지 등록 가능</div>}
+      {/* 🔥 큰 헤더 */}
+      <div className="flex items-center justify-between flex-shrink-0">
+        <div>
+          <div className="text-[18px] font-extrabold text-ink tracking-tight">💎 기본 인성질문</div>
+          <div className="text-[12px] text-ink-muted mt-0.5">
+            {student?.name} · {academy?.academyName}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="bg-brand-high-pale text-brand-high-dark text-[12px] font-bold px-3.5 py-1.5 rounded-full border border-brand-high-light">
+            {curQuestions.filter(q => q.answer?.student_answer).length}/{curQuestions.length} 답변완료
+          </div>
           <button onClick={printAnswers}
-            className="ml-auto px-4 py-1.5 bg-white text-brand-high-dark border border-brand-high-light rounded-full text-[12px] font-semibold hover:bg-brand-high-pale flex items-center gap-1.5 transition-all">
+            className="px-4 py-1.5 bg-white text-brand-high-dark border border-brand-high-light rounded-full text-[12px] font-semibold hover:bg-brand-high-pale flex items-center gap-1.5 transition-all">
             🖨️ 최종 답변집 인쇄
           </button>
         </div>
+      </div>
 
-        {showAddForm && (
-          <div className="flex gap-2 items-center flex-wrap bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5">
-            <span className="text-[11px] font-bold text-emerald-700">지원 학교:</span>
-            <div className="relative w-[200px]">
-              <div onClick={() => setUnivDropOpen(true)}
-                className={`flex items-center gap-2 border rounded-lg px-3 py-2 bg-white h-9 transition-colors cursor-text ${univDropOpen ? 'border-brand-high' : 'border-line hover:border-brand-high-light'}`}>
-                <span className="text-[14px] flex-shrink-0">🏫</span>
-                <input value={univDropOpen ? univSearch : pendingUniv}
-                  onChange={e => { setUnivSearch(e.target.value); setUnivDropOpen(true) }}
-                  onFocus={() => setUnivDropOpen(true)}
-                  placeholder="학교 검색"
-                  className="flex-1 border-none outline-none text-[12px] font-sans bg-transparent text-ink min-w-0" />
-                {pendingUniv ? (
-                  <button onClick={e => { e.stopPropagation(); setPendingUniv(''); setPendingDept(''); setUnivSearch('') }} className="text-[10px] text-ink-muted hover:text-ink">✕</button>
-                ) : <span className="text-[10px] text-ink-muted">▼</span>}
-              </div>
-              {univDropOpen && (
-                <>
-                  <div onClick={() => setUnivDropOpen(false)} className="fixed inset-0 z-10" />
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-line rounded-lg z-20 max-h-[200px] overflow-y-auto shadow-lg">
-                    {filteredUnivs.length === 0
-                      ? <div className="px-3 py-2.5 text-[12px] text-ink-muted text-center">검색 결과 없음</div>
-                      : filteredUnivs.map((u, i) => (
-                        <div key={i} onClick={() => { setPendingUniv(u); setPendingDept(''); setUnivSearch(''); setDeptSearch(''); setUnivDropOpen(false) }}
-                          className={`px-3 py-2 text-[12px] cursor-pointer transition-colors ${pendingUniv === u ? 'bg-brand-high-pale text-brand-high-dark font-semibold' : 'text-ink hover:bg-brand-high-pale/50'} ${i < filteredUnivs.length - 1 ? 'border-b border-line-light' : ''}`}>
-                          {u}
-                        </div>
-                      ))}
-                  </div>
-                </>
-              )}
-            </div>
-            <span className="text-[14px] text-ink-muted">›</span>
-            <div className="relative w-[200px]">
-              <div onClick={() => { if (pendingUniv) setDeptDropOpen(true) }}
-                className={`flex items-center gap-2 border rounded-lg px-3 py-2 h-9 transition-colors ${deptDropOpen ? 'border-brand-high bg-white' : pendingUniv ? 'border-line bg-white cursor-text hover:border-brand-high-light' : 'border-line-light bg-gray-50 cursor-not-allowed'}`}>
-                <span className="text-[14px] flex-shrink-0">📚</span>
-                <input value={deptDropOpen ? deptSearch : pendingDept}
-                  onChange={e => { if (!pendingUniv) return; setDeptSearch(e.target.value); setDeptDropOpen(true) }}
-                  onFocus={() => { if (pendingUniv) setDeptDropOpen(true) }}
-                  placeholder={pendingUniv ? '학과 검색' : '학교 먼저 선택'}
-                  disabled={!pendingUniv}
-                  className="flex-1 border-none outline-none text-[12px] font-sans bg-transparent text-ink min-w-0 disabled:cursor-not-allowed" />
-                {pendingDept
-                  ? <button onClick={e => { e.stopPropagation(); setPendingDept(''); setDeptSearch('') }} className="text-[10px] text-ink-muted hover:text-ink">✕</button>
-                  : <span className={`text-[10px] ${pendingUniv ? 'text-ink-muted' : 'text-gray-300'}`}>▼</span>}
-              </div>
-              {deptDropOpen && pendingUniv && (
-                <>
-                  <div onClick={() => setDeptDropOpen(false)} className="fixed inset-0 z-10" />
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-line rounded-lg z-20 max-h-[200px] overflow-y-auto shadow-lg">
-                    {filteredDepts.length === 0
-                      ? <div className="px-3 py-2.5 text-[12px] text-ink-muted text-center">검색 결과 없음</div>
-                      : filteredDepts.map((d, i) => (
-                        <div key={i} onClick={() => { setPendingDept(d); setDeptSearch(''); setDeptDropOpen(false) }}
-                          className={`px-3 py-2 text-[12px] cursor-pointer transition-colors ${pendingDept === d ? 'bg-brand-high-pale text-brand-high-dark font-semibold' : 'text-ink hover:bg-brand-high-pale/50'} ${i < filteredDepts.length - 1 ? 'border-b border-line-light' : ''}`}>
-                          {d}
-                        </div>
-                      ))}
-                  </div>
-                </>
-              )}
-            </div>
-            <button onClick={addNewTarget} disabled={!pendingUniv || !pendingDept || updateTargets.isPending}
-              className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-              {updateTargets.isPending ? '추가중...' : '✓ 추가'}
-            </button>
-            <button onClick={() => { setShowAddForm(false); setPendingUniv(''); setPendingDept(''); setUnivSearch(''); setDeptSearch('') }}
-              className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-white text-ink-secondary border border-line hover:bg-gray-50 transition-all">
-              취소
-            </button>
-          </div>
-        )}
+      {/* 🔥 작은 알약 헤더 */}
+      <div className="flex gap-1.5 flex-shrink-0 items-center">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold text-white bg-brand-high">
+          💎 기본 인성질문 · 30개
+        </span>
+        <span className="text-[10px] text-gray-400 font-medium">모든 대학 공통</span>
       </div>
 
       <div className="flex gap-4 flex-1 overflow-hidden">
 
+        {/* 왼쪽 질문 목록 */}
         <div className="w-[360px] flex-shrink-0 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
           <div className="px-4 py-3 border-b border-line-light flex-shrink-0">
-            {selUnivName && selDeptName ? (
-              <>
-                <div className="text-[13px] font-bold text-ink tracking-tight">{selUnivName}</div>
-                <div className="text-[11px] text-ink-secondary mt-0.5 font-medium">{selDeptName}</div>
-                <div className="text-[11px] text-ink-secondary mt-1.5 font-medium leading-[1.7]">
-                  총 <span className="text-brand-high-dark font-bold">{curQuestions.length}개</span><br />
-                  답변완료 <span className="text-emerald-600 font-bold">{curQuestions.filter(q => q.answer?.student_answer).length}개</span> ·
-                  미답변 <span className="text-amber-600 font-bold">{curQuestions.filter(q => !q.answer?.student_answer).length}개</span>
-                </div>
-              </>
-            ) : (
-              <div className="text-[12px] text-ink-muted font-medium">위에서 학교를 선택하거나 추가해주세요</div>
-            )}
+            <div className="text-[13px] font-bold text-ink tracking-tight">💎 기본 인성질문</div>
+            <div className="text-[11px] text-ink-secondary mt-0.5 font-medium">모든 대학 공통</div>
+            <div className="text-[11px] text-ink-secondary mt-1.5 font-medium leading-[1.7]">
+              총 <span className="text-brand-high-dark font-bold">{curQuestions.length}개</span><br />
+              답변완료 <span className="text-emerald-600 font-bold">{curQuestions.filter(q => q.answer?.student_answer).length}개</span> ·
+              미답변 <span className="text-amber-600 font-bold">{curQuestions.filter(q => !q.answer?.student_answer).length}개</span>
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto p-3">
-            {!selUnivName || !selDeptName ? (
-              <div className="text-center py-10 text-ink-muted"><div className="text-3xl mb-2">🏫</div><div className="text-[12px]">위에서 지원 학교를 선택해주세요</div></div>
-            ) : loadingQ ? (
+            {loadingQ ? (
               <div className="text-center py-10 text-ink-muted text-[12px]">불러오는 중...</div>
             ) : curQuestions.length === 0 ? (
-              <div className="text-center py-10 text-ink-muted"><div className="text-3xl mb-2">📝</div><div className="text-[12px]">기출문제가 없어요.</div></div>
+              <div className="text-center py-10 text-ink-muted"><div className="text-3xl mb-2">📝</div><div className="text-[12px]">기본 인성질문이 없어요.</div></div>
             ) : curQuestions.map((q, i) => {
               const qType = inferQuestionType(q.question)
               const isAnswered = !!q.answer?.student_answer
@@ -617,12 +477,13 @@ ${answeredQs.map((q, i) => {
           </div>
         </div>
 
+        {/* 오른쪽 상세 */}
         <div className="flex-1 bg-white border border-line rounded-2xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
           {!selQ ? (
             <div className="flex-1 flex flex-col items-center justify-center text-ink-muted gap-2">
-              <div className="text-4xl">🎓</div>
+              <div className="text-4xl">💎</div>
               <div className="text-[14px] font-semibold text-ink-secondary">질문을 선택해주세요</div>
-              <div className="text-[12px]">왼쪽에서 기출문제를 클릭하면 답변을 작성할 수 있어요</div>
+              <div className="text-[12px]">왼쪽에서 기본 인성질문을 클릭하면 답변을 작성할 수 있어요</div>
             </div>
           ) : (
             <>
@@ -659,7 +520,7 @@ ${answeredQs.map((q, i) => {
               <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-gray-50">
 
                 <div className="bg-white border border-line rounded-xl px-4 py-3">
-                  <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">기출 질문</div>
+                  <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">기본 인성 질문</div>
                   <div className="text-[14px] font-bold text-ink leading-relaxed">{selQ.question}</div>
                 </div>
 

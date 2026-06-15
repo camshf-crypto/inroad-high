@@ -501,7 +501,7 @@ export default function TopicList() {
                               </div>
                             </div>
                             <button onClick={() => selectSetech(s)} className="w-full h-10 bg-brand-high text-white rounded-lg text-[13px] font-bold hover:bg-brand-high-dark transition-all shadow-[0_2px_8px_rgba(37,99,235,0.2)]">
-                              이걸로 탐구주제 작성하기 →
+                              이걸로 탐구주제 정하기 →
                             </button>
                           </div>
                         )}
@@ -569,7 +569,7 @@ export default function TopicList() {
                   <button onClick={closeModal} className="flex-1 h-11 bg-white text-ink-secondary border border-line rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-all">취소</button>
                   <button onClick={addTopic} disabled={!newTopic.title.trim() || !newTopic.content.trim() || createResearch.isPending}
                     className={`flex-1 h-11 rounded-lg text-[13px] font-bold transition-all ${newTopic.title && newTopic.content && !createResearch.isPending ? 'bg-brand-high text-white hover:bg-brand-high-dark shadow-[0_2px_8px_rgba(37,99,235,0.2)]' : 'bg-gray-200 text-ink-muted cursor-not-allowed'}`}>
-                    {createResearch.isPending ? '저장 중...' : '작성하기'}
+                    {createResearch.isPending ? '저장 중...' : '선택하기'}
                   </button>
                 </div>
               </div>

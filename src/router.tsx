@@ -35,6 +35,7 @@ import Major from '@/pages/high-student/_pages/major/Major'
 import Record from '@/pages/high-student/_pages/record/record'
 import MockExam from '@/pages/high-student/_pages/mockexam/mockexam'
 import CareerConcept from '@/pages/high-student/_pages/concept/CareerConcept'
+import Basic from '@/pages/high-student/_pages/basic/Basic'
 
 // Middle Student
 import MiddleLayout from '@/pages/middle-student/_layout/Layout'
@@ -47,6 +48,8 @@ import MiddleHomework from '@/pages/middle-student/_pages/homework/Homework'
 import MiddleBookList from '@/pages/middle-student/_pages/book/BookList'
 import MiddleExpect from '@/pages/middle-student/_pages/expect/Expect'
 import MiddlePast from '@/pages/middle-student/_pages/past/Past'
+import MiddleBasic from '@/pages/middle-student/_pages/basic/MiddleBasic'
+import MiddleRecordExpect from '@/pages/middle-student/_pages/record-expect/RecordExpect'   // 🔥 추가
 import MiddleSimulation from '@/pages/middle-student/_pages/simulation/Simulation'
 import MiddlePresentation from '@/pages/middle-student/_pages/presentation/Presentation'
 import MiddleSuhaeng from '@/pages/middle-student/_pages/suhaeng/Suhaeng'
@@ -125,6 +128,7 @@ const router = createBrowserRouter([
           { path: 'connect', element: <Connect /> },
           { path: 'expect', element: <Expect /> },
           { path: 'past', element: <Past /> },
+          { path: 'basic', element: <Basic /> },
           { path: 'simulation', element: <Simulation /> },
           { path: 'presentation', element: <Presentation /> },
           { path: 'major', element: <Major /> },
@@ -155,7 +159,9 @@ const router = createBrowserRouter([
           { path: 'connect', element: <MiddleConnect /> },
           { path: 'book', element: <MiddleBookList /> },
           { path: 'expect', element: <MiddleExpect /> },
+          { path: 'record-expect', element: <MiddleRecordExpect /> },   // 🔥 추가 (생기부 예상질문)
           { path: 'past', element: <MiddlePast /> },
+          { path: 'basic', element: <MiddleBasic /> },
           { path: 'simulation', element: <MiddleSimulation /> },
           { path: 'presentation', element: <MiddlePresentation /> },
           { path: 'debate', element: <MiddleDebate /> },

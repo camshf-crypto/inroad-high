@@ -20,11 +20,17 @@ const MENUS = [
   { path: '/middle-student/record', label: '내 생기부', icon: '📋', menuKey: 'middle.record' },
   { path: '/middle-student/book', label: '독서리스트', icon: '📚', menuKey: 'middle.book' },
   { path: '/middle-student/debate', label: 'AI 토론', icon: '🎤', menuKey: 'middle.debate', customBadge: '6월' },
+  { path: '/middle-student/record-expect', label: '생기부 예상질문', icon: '📋', menuKey: 'middle.record_expect' },
   { path: '/middle-student/expect', label: '자소서 · 예상질문', icon: '💬', menuKey: 'middle.expect' },
   { path: '/middle-student/past', label: '기출문제', icon: '🎓', menuKey: 'middle.past' },
+  { path: '/middle-student/basic', label: '기본 인성', icon: '💎', menuKey: 'middle.basic' },   // 🔥 추가
   { path: '/middle-student/simulation', label: '면접 시뮬레이션', icon: '🎙️', menuKey: 'middle.simulation' },
   { path: '/middle-student/presentation', label: '제시문 면접', icon: '📄', menuKey: 'middle.presentation' },
 ]
+
+// 🔥 항상 표시되는 핵심 메뉴 (학원 설정과 무관하게 노출)
+// ⚠️ middle.basic은 마스터에서 학원별로 켜고/끄게 하도록 제거됨!
+const ALWAYS_VISIBLE_MIDDLE = ['middle.concept', 'middle.suhaeng']
 
 const MIDDLE_GRADES = ['중1', '중2', '중3'] as const
 
@@ -52,7 +58,10 @@ export default function MiddleLayout() {
 
   const isAcademyConnected = !!academy.academyId
   const enabledMenus = academy.enabledMenus || []
-  const visibleMenus = MENUS.filter(m => enabledMenus.includes(m.menuKey))
+  // 🔥 ALWAYS_VISIBLE 포함해서 필터링
+  const visibleMenus = MENUS.filter(m =>
+    enabledMenus.includes(m.menuKey) || ALWAYS_VISIBLE_MIDDLE.includes(m.menuKey)
+  )
 
   useStudentRealtime({
     studentId: student?.id,

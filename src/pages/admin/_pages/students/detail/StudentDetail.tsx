@@ -14,6 +14,7 @@ import RecordTab from './high-tabs/Record'
 import SuhaengTab from './high-tabs/SuhaengTab'
 import ExpectTab from './high-tabs/ExpectTab'
 import PastTab from './high-tabs/PastTab'
+import BasicTab from './high-tabs/BasicTab'
 import SimulationTab from './high-tabs/SimulationTab'
 import PresentationTab from './high-tabs/PresentationTab'
 import MajorTab from './high-tabs/MajorTab'
@@ -29,11 +30,11 @@ import MiddleRecordTab from './middle-tabs/Record'
 import MiddleBookTab from './middle-tabs/booklist'
 import MiddleExpectTab from './middle-tabs/expect'
 import MiddlePastTab from './middle-tabs/past'
+import MiddleBasicTab from './middle-tabs/MiddleBasicTab'   // 🔥 추가
 import MiddleSimulationTab from './middle-tabs/simulation'
 import MiddlePresentationTab from './middle-tabs/presentation'
 import MiddleConceptTab from './middle-tabs/ConceptTab'
 
-// ⭐ 탭에 menuKey 매핑 추가 (학원의 enabled_menus와 매치)
 const HIGH_TABS = [
   { key: 'roadmap', label: '로드맵', menuKey: 'high.roadmap' },
   { key: 'concept', label: '진로 계열 검사', menuKey: 'high.concept' },
@@ -41,6 +42,7 @@ const HIGH_TABS = [
   { key: 'book', label: '독서리스트', menuKey: 'high.book' },
   { key: 'record', label: '생기부', menuKey: 'high.record' },
   { key: 'suhaeng', label: '수행평가', menuKey: 'high.suhaeng' },
+  { key: 'basic', label: '기본 인성', menuKey: 'high.basic' },
   { key: 'expect', label: '생기부 예상질문', menuKey: 'high.expect' },
   { key: 'past', label: '기출문제', menuKey: 'high.past' },
   { key: 'mockexam', label: '면접 모의고사', menuKey: 'high.mockexam' },
@@ -57,20 +59,20 @@ const MIDDLE_TABS = [
   { key: 'suhaeng', label: '수행평가', menuKey: 'middle.suhaeng' },
   { key: 'record', label: '생기부', menuKey: 'middle.record' },
   { key: 'book', label: '독서리스트', menuKey: 'middle.book' },
+  { key: 'basic', label: '기본 인성', menuKey: 'middle.basic' },   // 🔥 추가
   { key: 'expect', label: '자소서·예상질문', menuKey: 'middle.expect' },
   { key: 'past', label: '기출문제', menuKey: 'middle.past' },
   { key: 'simulation', label: '면접 시뮬레이션', menuKey: 'middle.simulation' },
   { key: 'presentation', label: '제시문 면접', menuKey: 'middle.presentation' },
 ]
 
-// ⭐ 항상 표시되는 핵심 메뉴 (학원 설정과 무관하게 노출)
-const ALWAYS_VISIBLE_HIGH = ['high.concept', 'high.suhaeng']
-const ALWAYS_VISIBLE_MIDDLE = ['middle.concept', 'middle.suhaeng']
+const ALWAYS_VISIBLE_HIGH = ['high.concept', 'high.suhaeng', 'high.basic']
+const ALWAYS_VISIBLE_MIDDLE = ['middle.concept', 'middle.suhaeng', 'middle.basic']   // 🔥 추가
 
 const ALL_GRADES: GradeKey[] = ['고1', '고2', '고3']
 
-type HighTabType = 'roadmap' | 'concept' | 'topic' | 'book' | 'record' | 'suhaeng' | 'expect' | 'past' | 'mockexam' | 'simulation' | 'presentation' | 'major'
-type MiddleTabType = 'roadmap' | 'concept' | 'lesson' | 'homework' | 'suhaeng' | 'record' | 'book' | 'expect' | 'past' | 'simulation' | 'presentation'
+type HighTabType = 'roadmap' | 'concept' | 'topic' | 'book' | 'record' | 'suhaeng' | 'expect' | 'past' | 'basic' | 'mockexam' | 'simulation' | 'presentation' | 'major'
+type MiddleTabType = 'roadmap' | 'concept' | 'lesson' | 'homework' | 'suhaeng' | 'record' | 'book' | 'expect' | 'past' | 'basic' | 'simulation' | 'presentation'   // 🔥 'basic' 추가
 
 const THEME = {
   accent: '#2563EB',
@@ -111,7 +113,6 @@ export default function StudentDetail() {
 
   const visibleHighTabs = useMemo(() => {
     if (enabledMenus.length === 0) return HIGH_TABS
-    // concept, suhaeng은 항상 포함 (핵심 메뉴)
     return HIGH_TABS.filter(t =>
       enabledMenus.includes(t.menuKey) || ALWAYS_VISIBLE_HIGH.includes(t.menuKey)
     )
@@ -119,7 +120,6 @@ export default function StudentDetail() {
 
   const visibleMiddleTabs = useMemo(() => {
     if (enabledMenus.length === 0) return MIDDLE_TABS
-    // concept, suhaeng은 항상 포함 (핵심 메뉴)
     return MIDDLE_TABS.filter(t =>
       enabledMenus.includes(t.menuKey) || ALWAYS_VISIBLE_MIDDLE.includes(t.menuKey)
     )
@@ -238,18 +238,18 @@ export default function StudentDetail() {
       {/* 메인 영역 */}
       <div className="flex-1 flex flex-col min-w-0">
 
-        {/* 헤더 */}
-        <div className="px-8 pt-7 pb-0 flex-shrink-0">
-          <div className="flex items-center gap-3 mb-5">
+        {/* 헤더 - 중간 사이즈 */}
+        <div className="px-7 pt-5 pb-0 flex-shrink-0">
+          <div className="flex items-center gap-3 mb-4">
             <button
               onClick={() => navigate(isMiddle ? '/admin/middle-students' : '/admin/students')}
-              className="w-9 h-9 rounded-lg bg-white border border-line flex items-center justify-center cursor-pointer text-base text-ink-secondary hover:bg-gray-50 transition-colors"
+              className="w-8 h-8 rounded-lg bg-white border border-line flex items-center justify-center cursor-pointer text-sm text-ink-secondary hover:bg-gray-50 transition-colors"
             >
               ←
             </button>
             <div>
-              <div className="text-[20px] font-extrabold text-ink tracking-tight">{student.name}</div>
-              <div className="text-[12px] font-medium text-ink-secondary mt-0.5">
+              <div className="text-[18px] font-extrabold text-ink tracking-tight">{student.name}</div>
+              <div className="text-[11px] font-medium text-ink-secondary mt-0.5">
                 {student.grade} · 가입일 {student.joinDate}
               </div>
             </div>
@@ -264,7 +264,7 @@ export default function StudentDetail() {
                       <button
                         key={g}
                         onClick={() => setViewGrade(g)}
-                        className="px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-all flex items-center gap-1"
+                        className="px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all flex items-center gap-1"
                         style={{
                           background: isActive ? THEME.accent : '#fff',
                           color: isActive ? '#fff' : '#6B7280',
@@ -273,7 +273,7 @@ export default function StudentDetail() {
                       >
                         {g}
                         {isStudentGrade && (
-                          <span className="text-[8px] font-bold px-1 py-0.5 rounded-full"
+                          <span className="text-[8px] font-bold px-1 py-0 rounded-full"
                             style={{
                               background: isActive ? 'rgba(255,255,255,0.25)' : '#FEF3C7',
                               color: isActive ? '#fff' : '#92400E',
@@ -285,19 +285,19 @@ export default function StudentDetail() {
                     )
                   })}
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="rounded-xl px-4 py-2" style={{ background: THEME.gradient, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}>
-                    <div className="text-[10px] text-white/80 mb-0.5 font-medium">{currentViewGrade} 진행률</div>
-                    <div className="text-[15px] font-extrabold text-white">{overallPct}%</div>
+                <div className="flex items-center gap-1.5">
+                  <div className="rounded-lg px-3 py-1.5" style={{ background: THEME.gradient, boxShadow: `0 3px 10px ${THEME.accentShadow}` }}>
+                    <div className="text-[10px] text-white/80 mb-0 font-medium leading-tight">{currentViewGrade} 진행률</div>
+                    <div className="text-[13px] font-extrabold text-white leading-tight">{overallPct}%</div>
                   </div>
                   {[
                     { label: '완료 미션', val: `${doneMissions}/${totalMissions}` },
                     { label: '현재 월', val: curMonth },
                     { label: '학생 학년', val: studentGrade },
                   ].map((s, i) => (
-                    <div key={i} className="bg-white border border-line rounded-xl px-4 py-2">
-                      <div className="text-[10px] text-ink-secondary mb-0.5 font-medium">{s.label}</div>
-                      <div className="text-[15px] font-extrabold text-ink">{s.val}</div>
+                    <div key={i} className="bg-white border border-line rounded-lg px-3 py-1.5">
+                      <div className="text-[10px] text-ink-secondary mb-0 font-medium leading-tight">{s.label}</div>
+                      <div className="text-[13px] font-extrabold text-ink leading-tight">{s.val}</div>
                     </div>
                   ))}
                 </div>
@@ -305,13 +305,13 @@ export default function StudentDetail() {
             )}
 
             {isMiddle && (
-              <div className="ml-auto flex items-center gap-3">
+              <div className="ml-auto flex items-center gap-2">
                 <span className="text-[12px] font-semibold text-ink-secondary bg-gray-100 px-3 py-1 rounded-full">{student.grade}</span>
               </div>
             )}
           </div>
 
-          {/* 탭 */}
+          {/* 탭 - 중간 사이즈 */}
           {currentTabs.length === 0 ? (
             <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-3">
               <div className="text-[12px] font-bold text-amber-800">⚠️ 현재 학원에서 활성화된 메뉴가 없어요. 본사에 문의해주세요.</div>
@@ -324,7 +324,7 @@ export default function StudentDetail() {
                   <button
                     key={t.key}
                     onClick={() => setCurrentTab(t.key)}
-                    className="px-4 py-2 rounded-full text-[12.5px] transition-all border whitespace-nowrap flex-shrink-0"
+                    className="px-3 py-1.5 rounded-full text-[12px] transition-all border whitespace-nowrap flex-shrink-0"
                     style={{
                       background: isActive ? accentColor : '#fff',
                       color: isActive ? '#fff' : '#6B7280',
@@ -342,7 +342,7 @@ export default function StudentDetail() {
         </div>
 
         {/* 탭 콘텐츠 */}
-        <div className="flex-1 px-8 pb-7 pt-1">
+        <div className="flex-1 px-7 pb-6 pt-1">
           {!isMiddle && (
             <>
               {highTab === 'roadmap'      && visibleHighTabs.find(t => t.key === 'roadmap')      && <RoadmapTab student={student} viewGrade={currentViewGrade} />}
@@ -353,6 +353,7 @@ export default function StudentDetail() {
               {highTab === 'suhaeng'      && visibleHighTabs.find(t => t.key === 'suhaeng')      && <SuhaengTab student={student} />}
               {highTab === 'expect'       && visibleHighTabs.find(t => t.key === 'expect')       && <ExpectTab student={student} />}
               {highTab === 'past'         && visibleHighTabs.find(t => t.key === 'past')         && <PastTab student={student} />}
+              {highTab === 'basic'        && visibleHighTabs.find(t => t.key === 'basic')        && <BasicTab student={student} />}
               {highTab === 'mockexam'     && visibleHighTabs.find(t => t.key === 'mockexam')     && <MockExam student={student} />}
               {highTab === 'simulation'   && visibleHighTabs.find(t => t.key === 'simulation')   && <SimulationTab student={student} />}
               {highTab === 'presentation' && visibleHighTabs.find(t => t.key === 'presentation') && <PresentationTab student={student} />}
@@ -371,6 +372,7 @@ export default function StudentDetail() {
               {middleTab === 'book'         && visibleMiddleTabs.find(t => t.key === 'book')         && <MiddleBookTab student={student} />}
               {middleTab === 'expect'       && visibleMiddleTabs.find(t => t.key === 'expect')       && <MiddleExpectTab student={student} />}
               {middleTab === 'past'         && visibleMiddleTabs.find(t => t.key === 'past')         && <MiddlePastTab student={student} />}
+              {middleTab === 'basic'        && visibleMiddleTabs.find(t => t.key === 'basic')        && <MiddleBasicTab student={student} />}{/* 🔥 추가 */}
               {middleTab === 'simulation'   && visibleMiddleTabs.find(t => t.key === 'simulation')   && <MiddleSimulationTab student={student} />}
               {middleTab === 'presentation' && visibleMiddleTabs.find(t => t.key === 'presentation') && <MiddlePresentationTab student={student} />}
             </>
