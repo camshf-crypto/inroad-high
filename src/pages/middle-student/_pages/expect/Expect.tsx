@@ -28,11 +28,6 @@ const SCHOOLS = [
   "직접입력",
 ];
 
-// ════════════════════════════════════════════════════════════
-// 🎯 학교별 동적 문항 (방식 A: 학교 sections의 key를 content 키로 사용)
-// 명덕외고 → { selfStudy, reason, character } (3칸)
-// 한성과학고 → { sciInquiry, mathInquiry, character, reason } (4칸)
-// ════════════════════════════════════════════════════════════
 type SectionDef = {
   key: string;
   label: string;
@@ -77,7 +72,6 @@ function makeEmptyContent(schoolName: string): Record<string, string> {
 
 const MIN_CHARS = 100;
 
-// ── 헬퍼 ──
 async function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -97,15 +91,11 @@ function checkAllCompleted(content: any, schoolName: string): boolean {
   );
 }
 
-// 첫 작성 여부 판단 (어떤 키든 내용이 있으면 작성된 것)
 function hasAnyContent(content: any): boolean {
   if (!content) return false;
   return Object.values(content).some((v) => typeof v === "string" && v.trim().length > 0);
 }
 
-// ─────────────────────────────────────────────
-// ⭐ 자동저장 상태 표시
-// ─────────────────────────────────────────────
 function DraftStatusIndicator({ status, lastSavedAt }: { status: DraftStatus; lastSavedAt: Date | null }) {
   if (status === "idle") return null;
   if (status === "saving") {
@@ -137,9 +127,6 @@ function DraftStatusIndicator({ status, lastSavedAt }: { status: DraftStatus; la
   );
 }
 
-// ─────────────────────────────────────────────
-// ⭐ STT 마이크 버튼
-// ─────────────────────────────────────────────
 interface MicSTTBtnProps {
   studentId: string | undefined;
   onTranscript: (text: string) => void;
@@ -255,9 +242,6 @@ const SubmitBtn = ({ label, onClick, disabled }: { label: string; onClick: () =>
   </button>
 );
 
-// ─────────────────────────────────────────────
-// ⭐ Step 1 답변
-// ─────────────────────────────────────────────
 function Step1AnswerBox({
   studentId, questionId, existingAnswer, editingMode, onSubmit, onCancel, isPending,
 }: {
@@ -304,9 +288,6 @@ function Step1AnswerBox({
   );
 }
 
-// ─────────────────────────────────────────────
-// ⭐ Step 3 업그레이드 답변
-// ─────────────────────────────────────────────
 function Step3UpgradeBox({
   studentId, questionId, existingUpgrade, editingMode, onSubmit, onCancel, isPending,
 }: {
@@ -356,9 +337,6 @@ function Step3UpgradeBox({
   );
 }
 
-// ─────────────────────────────────────────────
-// ⭐ Step 5 꼬리질문 답변
-// ─────────────────────────────────────────────
 function Step5TailBox({
   studentId, questionId, tailIndex, onSubmit, isPending,
 }: {
@@ -402,9 +380,6 @@ function Step5TailBox({
   );
 }
 
-// ─────────────────────────────────────────────
-// 메인 페이지
-// ─────────────────────────────────────────────
 export default function MiddleExpect() {
   const student = useAtomValue(studentState);
   const academy = useAtomValue(academyState);
@@ -477,7 +452,6 @@ export default function MiddleExpect() {
   const requestDelete = useRequestDeleteEssay();
   const cancelDelete = useCancelDeleteRequest();
 
-  // 🎯 현재 선택된 자소서의 학교 문항들
   const sectionsForCurrent: SectionDef[] = selEssay
     ? getSectionsForSchool(selEssay.school)
     : DEFAULT_SECTIONS;
@@ -675,7 +649,7 @@ export default function MiddleExpect() {
   }
 
   return (
-    <div className="flex flex-col gap-3 h-full overflow-hidden px-6 py-5 font-sans text-ink">
+    <div className="flex flex-col gap-3 px-6 py-5 font-sans text-ink h-full overflow-y-auto">
       <div className="flex items-center justify-between flex-shrink-0">
         <div>
           <div className="text-[18px] font-extrabold text-ink tracking-tight">자소서 · 예상질문</div>
@@ -691,7 +665,7 @@ export default function MiddleExpect() {
         </div>
       </div>
 
-      <div className="flex gap-4 flex-1 overflow-hidden">
+      <div className="flex gap-4 items-start">
         <div className="w-[360px] flex-shrink-0 bg-white border border-line rounded-xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
           <div className="flex border-b border-line flex-shrink-0">
             {[
@@ -904,7 +878,7 @@ export default function MiddleExpect() {
           )}
         </div>
 
-        <div className="flex-1 bg-white border border-line rounded-xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
+        <div className="flex-1 bg-white border border-line rounded-xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)] sticky top-0" style={{ height: "calc(100vh - 120px)" }}>
           {activeTab === "essay" && (
             <>
               {!selEssay ? (

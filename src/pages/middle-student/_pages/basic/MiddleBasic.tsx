@@ -1,5 +1,6 @@
 // src/pages/middle-student/_pages/basic/MiddleBasic.tsx
 // 중등 기본 인성질문 학생용 - MiddlePast.tsx 구조 + 학교 자동 고정
+// 진로 컨셉 카드 접기/펼치기 토글
 
 import { useState, useEffect, useRef } from "react";
 import { useAtomValue } from "jotai";
@@ -219,6 +220,7 @@ export default function MiddleBasic() {
     const { data: answers = [] } = useMyPastAnswers(studentId, BASIC_SCHOOL);
 
     const [concept, setConcept] = useState<any>(null);
+    const [conceptOpen, setConceptOpen] = useState(false); // 진로 컨셉 접기/펼치기
 
     // 🔥 진로 컨셉 조회 (middle_student_concept)
     useEffect(() => {
@@ -368,37 +370,53 @@ ${answeredQs.map((q, i) => {
     };
 
     return (
-        <div className="flex flex-col gap-3 h-full overflow-hidden px-6 py-5 font-sans text-ink">
+        <div className="flex flex-col gap-3 px-6 py-5 font-sans text-ink h-full overflow-y-auto">
 
-            {/* 🔥 진로 컨셉 카드 */}
+            {/* 🔥 진로 컨셉 카드 (접기/펼치기) */}
             {concept && (
-                <div className="flex items-center gap-3 bg-gradient-to-r from-brand-middle-pale via-purple-50 to-pink-50 border border-brand-middle-light rounded-xl px-4 py-2.5 flex-shrink-0 shadow-[0_2px_8px_rgba(16,185,129,0.06)]">
-                    <span className="text-2xl">🎯</span>
-                    <div className="flex-1 min-w-0">
-                        <div className="text-[10px] font-bold text-brand-middle-dark uppercase tracking-wider mb-1">내 진로 컨셉</div>
-                        <div className="flex items-center gap-2 flex-wrap text-[12px]">
-                            <span className="font-bold text-ink bg-white px-2 py-0.5 rounded-full border border-brand-middle-light">
-                                {concept.type_name}
-                                {concept.type_code && <span className="text-ink-muted ml-1">({concept.type_code}형)</span>}
-                            </span>
-                            <span className="text-ink-muted">·</span>
-                            <span className="font-semibold text-ink">📚 {concept.major}</span>
-                            <span className="text-ink-muted">→</span>
-                            <span className="text-ink-secondary">💼 {concept.career}</span>
-                            {Array.isArray(concept.keywords) && concept.keywords.length > 0 && (
-                                <>
-                                    <span className="text-ink-muted">·</span>
-                                    <span className="text-brand-middle font-semibold">
-                                        {concept.keywords.map((k: string) => `#${k}`).join(" ")}
+                conceptOpen ? (
+                    <div className="bg-gradient-to-r from-brand-middle-pale via-purple-50 to-pink-50 border border-brand-middle-light rounded-xl px-4 py-2.5 flex-shrink-0 shadow-[0_2px_8px_rgba(16,185,129,0.06)]">
+                        <div className="flex items-center gap-3">
+                            <span className="text-2xl">🎯</span>
+                            <div className="flex-1 min-w-0">
+                                <div className="text-[10px] font-bold text-brand-middle-dark uppercase tracking-wider mb-1">내 진로 컨셉</div>
+                                <div className="flex items-center gap-2 flex-wrap text-[12px]">
+                                    <span className="font-bold text-ink bg-white px-2 py-0.5 rounded-full border border-brand-middle-light">
+                                        {concept.type_name}
+                                        {concept.type_code && <span className="text-ink-muted ml-1">({concept.type_code}형)</span>}
                                     </span>
-                                </>
-                            )}
+                                    <span className="text-ink-muted">·</span>
+                                    <span className="font-semibold text-ink">📚 {concept.major}</span>
+                                    <span className="text-ink-muted">→</span>
+                                    <span className="text-ink-secondary">💼 {concept.career}</span>
+                                    {Array.isArray(concept.keywords) && concept.keywords.length > 0 && (
+                                        <>
+                                            <span className="text-ink-muted">·</span>
+                                            <span className="text-brand-middle font-semibold">
+                                                {concept.keywords.map((k: string) => `#${k}`).join(" ")}
+                                            </span>
+                                        </>
+                                    )}
+                                </div>
+                                {concept.custom_goal && (
+                                    <div className="text-[11px] text-ink-secondary mt-1 italic">📝 {concept.custom_goal}</div>
+                                )}
+                            </div>
+                            <button onClick={() => setConceptOpen(false)}
+                                className="text-[11px] font-semibold text-brand-middle-dark bg-white border border-brand-middle-light rounded-full px-2.5 py-1 hover:bg-brand-middle-bg flex-shrink-0 transition-all self-start">
+                                접기 ▲
+                            </button>
                         </div>
-                        {concept.custom_goal && (
-                            <div className="text-[11px] text-ink-secondary mt-1 italic">📝 {concept.custom_goal}</div>
-                        )}
                     </div>
-                </div>
+                ) : (
+                    <button onClick={() => setConceptOpen(true)}
+                        className="flex items-center gap-2 bg-gradient-to-r from-brand-middle-pale to-purple-50 border border-brand-middle-light rounded-full px-3.5 py-1.5 flex-shrink-0 self-start hover:shadow-sm transition-all">
+                        <span className="text-base">🎯</span>
+                        <span className="text-[11px] font-bold text-brand-middle-dark">내 진로 컨셉</span>
+                        <span className="text-[11px] text-ink-secondary">{concept.type_name}{concept.major ? ` · ${concept.major}` : ""}</span>
+                        <span className="text-[11px] text-brand-middle-dark font-semibold">펼치기 ▼</span>
+                    </button>
+                )
             )}
 
             {/* 헤더 */}
@@ -423,12 +441,12 @@ ${answeredQs.map((q, i) => {
             {/* 학교 탭 자리 - 작은 알약 */}
             <div className="flex gap-1.5 flex-shrink-0 items-center">
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold text-white bg-brand-middle">
-                    💎 기본 인성질문 · 30개
+                    💎 기본 인성질문 · {questions.length}개
                 </span>
                 <span className="text-[10px] text-gray-400 font-medium">모든 학교 공통</span>
             </div>
 
-            <div className="flex gap-4 flex-1 overflow-hidden">
+            <div className="flex gap-4 items-start">
                 {/* 왼쪽: 질문 목록 */}
                 <div className="w-[360px] flex-shrink-0 bg-white border border-line rounded-xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
                     <div className="px-3.5 py-3 border-b border-line flex-shrink-0">
@@ -439,7 +457,7 @@ ${answeredQs.map((q, i) => {
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto px-3 py-2.5">
+                    <div className="px-3 py-2.5">
                         {questions.length === 0 ? (
                             <div className="text-center py-10 text-ink-muted text-[12px]">
                                 <div className="text-3xl mb-2">📝</div>기본 인성질문이 없어요.
@@ -470,7 +488,7 @@ ${answeredQs.map((q, i) => {
                 </div>
 
                 {/* 오른쪽: 상세 */}
-                <div className="flex-1 bg-white border border-line rounded-xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
+                <div className="flex-1 bg-white border border-line rounded-xl flex flex-col overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)] sticky top-0" style={{ height: "calc(100vh - 160px)" }}>
                     {!selQ ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-ink-muted gap-2">
                             <div className="text-4xl">💎</div>

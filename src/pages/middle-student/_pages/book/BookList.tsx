@@ -655,6 +655,35 @@ const CATEGORY_MAP: Record<string, { label: string; keyword: string }[]> = {
 };
 const FIELDS = Object.keys(CATEGORY_MAP);
 
+// ── 📚 추천 도서 더미 (나중에 DB로 교체) ──────────────────────
+// 형식: { 분야: { 기초: [...20권], 중급: [...20권], 심화: [...20권] } }
+// 책 클릭 → 제목으로 카카오 자동 검색 → 기존 등록 흐름 재사용
+type RecBook = { title: string; author: string };
+type RecLevel = "기초" | "중급" | "심화";
+const REC_LEVELS: RecLevel[] = ["기초", "중급", "심화"];
+
+const RECOMMEND_BOOKS: Record<string, Record<RecLevel, RecBook[]>> = {
+  // ⬇️ 샘플(의학) — 디자인 확인용 더미. 나중에 DB 데이터로 교체.
+  "🩺 의학": {
+    기초: [
+      { title: "아픔이 길이 되려면", author: "김승섭" },
+      { title: "골든아워", author: "이국종" },
+      { title: "이토록 평범한 미래", author: "김연수" },
+      { title: "닥터 차정숙", author: "예시 저자" },
+      { title: "의사의 일", author: "예시 저자" },
+    ],
+    중급: [
+      { title: "질병이 바꾼 세계의 역사", author: "로날트 D. 게르슈테" },
+      { title: "사피엔스", author: "유발 하라리" },
+      { title: "암: 만병의 황제의 역사", author: "싯다르타 무케르지" },
+    ],
+    심화: [
+      { title: "이기적 유전자", author: "리처드 도킨스" },
+      { title: "유전자의 내밀한 역사", author: "싯다르타 무케르지" },
+    ],
+  },
+};
+
 const EMPTY_RECORD = { summary: "", quote: "", feeling: "", careerLink: "" };
 const PAGE_SIZE = 10;
 
@@ -703,6 +732,9 @@ export default function MiddleBookList() {
   const [selSubCategory, setSelSubCategory] = useState<string | null>(null);
   const [customCategory, setCustomCategory] = useState("");
   const [showCustomInput, setShowCustomInput] = useState(false);
+
+  // ★ 추천 도서 난이도 탭 상태
+  const [selLevel, setSelLevel] = useState<RecLevel>("기초");
 
   const searchListRef = useRef<HTMLDivElement>(null);
 
@@ -758,6 +790,7 @@ export default function MiddleBookList() {
     } else {
       setSelField(field);
       setSelSubCategory(null);
+      setSelLevel("기초");
       setSearchResults([]);
       setSearchInput("");
     }
@@ -768,6 +801,16 @@ export default function MiddleBookList() {
     setSelSubCategory(sub.label);
     setSelCategory(`${field} > ${sub.label}`);
     setSearchInput(sub.keyword);
+    setShowCustomInput(false);
+    setCustomCategory("");
+  };
+
+  // ★ 추천 도서 클릭 → 제목으로 카카오 검색
+  const handleRecBookClick = (book: RecBook) => {
+    if (!selField) return;
+    setSearchInput(book.title);
+    setSelCategory(`${selField} > ${selLevel}`);
+    setSelSubCategory(null);
     setShowCustomInput(false);
     setCustomCategory("");
   };
@@ -838,6 +881,7 @@ export default function MiddleBookList() {
     setSelSubCategory(null);
     setCustomCategory("");
     setShowCustomInput(false);
+    setSelLevel("기초");
   };
 
   const saveRecord = async () => {
@@ -875,9 +919,13 @@ export default function MiddleBookList() {
 
   const modalTitle = modalStep === 1 ? "📚 책 추가하기" : modalStep === 2 ? "도서 상세" : "도서 등록";
   const modalDesc =
-    modalStep === 1 ? "관심 분야 → 세부 카테고리 → 검색 순서로 찾아보세요"
+    modalStep === 1 ? "관심 분야 → 추천 도서 / 세부 카테고리 → 검색 순서로 찾아보세요"
       : modalStep === 2 ? "책 정보를 확인하고 등록할지 결정해주세요"
         : "이 책으로 등록할까요?";
+
+  // ★ 현재 분야의 추천 도서 (없으면 빈 객체)
+  const recBooksForField = selField ? RECOMMEND_BOOKS[selField] : undefined;
+  const recBooksForLevel = recBooksForField ? recBooksForField[selLevel] || [] : [];
 
   return (
     <div className="flex h-full overflow-hidden font-sans text-ink">
@@ -1147,8 +1195,61 @@ export default function MiddleBookList() {
                   ))}
                 </div>
 
-                {/* 오른쪽: 카테고리 + 검색 결과 */}
+                {/* 오른쪽: 추천도서 + 카테고리 + 검색 결과 */}
                 <div ref={searchListRef} className="flex-1 overflow-y-auto">
+
+                  {/* ★ 추천 도서 (분야에 추천 데이터 있을 때만) */}
+                  {selField && recBooksForField && (
+                    <div className="px-4 pt-4 pb-3 border-b border-line-light bg-brand-middle-pale/20">
+                      <div className="flex items-center justify-between mb-2.5">
+                        <div className="text-[11px] font-bold text-brand-middle-dark">
+                          📚 {selField} 추천 도서
+                        </div>
+                        {/* 난이도 탭 */}
+                        <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
+                          {REC_LEVELS.map((lv) => (
+                            <button
+                              key={lv}
+                              onClick={() => setSelLevel(lv)}
+                              className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all ${selLevel === lv
+                                ? "bg-brand-middle text-white shadow-sm"
+                                : "text-ink-secondary hover:text-ink"
+                                }`}
+                            >
+                              {lv}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5 max-h-[260px] overflow-y-auto pr-0.5">
+                        {recBooksForLevel.length === 0 ? (
+                          <div className="text-center py-6 text-[12px] text-ink-muted">
+                            아직 등록된 추천 도서가 없어요.
+                          </div>
+                        ) : (
+                          recBooksForLevel.map((book, i) => (
+                            <button
+                              key={i}
+                              onClick={() => handleRecBookClick(book)}
+                              className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-line bg-white hover:border-brand-middle hover:bg-brand-middle-pale/50 transition-all text-left group"
+                            >
+                              <span className="w-5 h-5 rounded-full bg-brand-middle-bg text-brand-middle-dark text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                                {i + 1}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[12px] font-semibold text-ink truncate">{book.title}</div>
+                                <div className="text-[10px] text-ink-muted truncate">{book.author}</div>
+                              </div>
+                              <span className="text-[10px] text-brand-middle-dark font-bold flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                검색 →
+                              </span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* 세부 카테고리 */}
                   {selField && (
@@ -1254,12 +1355,12 @@ export default function MiddleBookList() {
                         <div className="text-center py-12 bg-gray-50 rounded-xl">
                           <div className="text-4xl mb-3">📚</div>
                           <div className="text-[13px] font-medium text-ink-secondary mb-1">관심 있는 분야를 선택해보세요!</div>
-                          <div className="text-[11px] text-ink-muted">왼쪽에서 분야를 고르면 세부 카테고리가 나타나요</div>
+                          <div className="text-[11px] text-ink-muted">왼쪽에서 분야를 고르면 추천 도서와 세부 카테고리가 나타나요</div>
                         </div>
                       ) : (
                         <div className="text-center py-8 bg-brand-middle-pale/40 rounded-xl border border-brand-middle-light/50">
                           <div className="text-3xl mb-2">☝️</div>
-                          <div className="text-[13px] font-medium text-brand-middle-dark mb-1">위에서 카테고리를 선택하세요</div>
+                          <div className="text-[13px] font-medium text-brand-middle-dark mb-1">추천 도서나 카테고리를 선택하세요</div>
                           <div className="text-[11px] text-ink-muted">또는 직접 검색해도 돼요</div>
                         </div>
                       )}

@@ -509,7 +509,7 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
   };
 
   // 학교 수행평가 AI 결과 (간소화된 등급/점수 표시)
-  const isSchoolAnalysis = selSub?.category === "school" && selSub?.aiAnalysis?.grade;
+  const isSchoolAnalysis = selSub?.category === "school" && (selSub?.aiAnalysis?.grade || selSub?.aiAnalysis?.score != null);
 
   return (
     <>
@@ -591,8 +591,8 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
                         {categoryTab === "school" ? "🏫" : "📋"}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-[13px] font-extrabold leading-[1.35] mb-0.5" style={{ color: isSelected ? THEME.accentDark : "#1a1a1a" }}>
-                          {sub.title}
+                        <div className="text-[13px] font-extrabold leading-[1.35] mb-0.5 line-clamp-2" style={{ color: isSelected ? THEME.accentDark : "#1a1a1a" }}>
+                          {sub.questionContent || sub.title}
                         </div>
                         <div className="text-[11px] font-medium text-ink-muted mb-1.5">{sub.subject}</div>
                         <div className="flex items-center gap-1 flex-wrap">
@@ -683,8 +683,11 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
 
                 <div className="flex items-center justify-between gap-2 pt-3 border-t border-gray-100">
                   <div>
-                    <div className="text-[15px] font-extrabold text-ink tracking-tight">{selSub.title}</div>
-                    <div className="text-[11px] font-medium text-ink-muted mt-0.5 flex items-center gap-2">
+                    <div className="text-[15px] font-extrabold text-ink tracking-tight leading-[1.5]">{selSub.questionContent || selSub.title}</div>
+                    {selSub.title && selSub.title !== selSub.questionContent && (
+                      <div className="text-[11px] text-ink-secondary mt-1 leading-[1.6]">📋 수행과제: {selSub.title}</div>
+                    )}
+                    <div className="text-[11px] font-medium text-ink-muted mt-1 flex items-center gap-2">
                       <span className="bg-gray-100 px-2 py-0.5 rounded-full">{selSub.subject}</span>
                       {selSub.ratio > 0 && <span>배점 {selSub.ratio}%</span>}
                       <span>· 📅 제출 {selSub.submittedAt}</span>
@@ -695,8 +698,8 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
 
               <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
                 <div className="bg-gray-50 border border-line rounded-xl px-4 py-3">
-                  <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">📌 출제 문제</div>
-                  <div className="text-[13px] font-medium text-ink leading-[1.7]">{selSub.questionContent}</div>
+                  <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">📌 문항</div>
+                  <div className="text-[13px] font-medium text-ink leading-[1.7]">{selSub.questionContent || selSub.title}</div>
                   {selSub.minChars && <div className="text-[10px] text-ink-muted mt-2 font-medium">조건: {selSub.minChars}~{selSub.maxChars}자</div>}
                 </div>
 
@@ -836,7 +839,7 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
           <div className="px-4 py-4 border-b border-line flex-shrink-0 flex items-center justify-between">
             <div>
               <div className="text-[14px] font-extrabold text-ink tracking-tight">✨ AI 분석</div>
-              <div className="text-[11px] font-medium text-ink-secondary mt-0.5">{selSub.title}</div>
+              <div className="text-[11px] font-medium text-ink-secondary mt-0.5 line-clamp-1">{selSub.questionContent || selSub.title}</div>
             </div>
             <button onClick={() => setShowAiPanel(false)} className="text-ink-muted hover:text-ink text-base w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors">✕</button>
           </div>
@@ -861,23 +864,27 @@ export default function MiddleSuhaengTab({ student }: { student: any }) {
               {/* ⭐ 학교 수행평가 분석 (등급/점수/잘한점/개선점) */}
               {isSchoolAnalysis ? (
                 <>
-                  {/* 등급 + 점수 */}
+                  {/* 점수 (+ 등급은 있을 때만) */}
                   <div className="rounded-xl px-5 py-5 text-center" style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}>
                     <div className="text-[11px] font-bold text-ink-muted uppercase tracking-wider mb-2">학교 채점 결과</div>
                     <div className="flex items-center justify-center gap-4">
-                      <div>
-                        <div className="text-[10px] font-bold text-ink-muted mb-1">등급</div>
-                        <div className="text-[48px] font-black leading-none" style={{ color: THEME.accentDark }}>
-                          {selSub.aiAnalysis?.grade}
-                        </div>
-                      </div>
-                      <div className="w-px h-16 bg-line" />
+                      {selSub.aiAnalysis?.grade && (
+                        <>
+                          <div>
+                            <div className="text-[10px] font-bold text-ink-muted mb-1">등급</div>
+                            <div className="text-[44px] font-black leading-none" style={{ color: THEME.accentDark }}>
+                              {selSub.aiAnalysis?.grade}
+                            </div>
+                          </div>
+                          <div className="w-px h-16 bg-line" />
+                        </>
+                      )}
                       <div>
                         <div className="text-[10px] font-bold text-ink-muted mb-1">점수</div>
                         <div className="text-[36px] font-black leading-none" style={{ color: THEME.accentDark }}>
                           {selSub.aiAnalysis?.score}
                           <span className="text-[16px] font-bold text-ink-muted ml-1">
-                            / {selSub.aiAnalysis?.maxScore}
+                            / {selSub.aiAnalysis?.maxScore || 100}
                           </span>
                         </div>
                       </div>

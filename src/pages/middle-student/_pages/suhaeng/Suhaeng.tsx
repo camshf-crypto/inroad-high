@@ -324,19 +324,29 @@ function QuestionCard({ q }: { q: any }) {
   return (
     <div className="bg-white border border-line rounded-xl px-4 py-3.5 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
       <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
-        <span className="text-[10px] font-bold text-white bg-brand-middle px-2 py-0.5 rounded">문제</span>
+        <span className="text-[10px] font-bold text-white bg-brand-middle px-2 py-0.5 rounded">문항</span>
         <span className="text-[10px] text-ink-muted font-semibold">
           {q._isAcademy ? `🏫 학원 수행평가` : q._isSchool ? `🏫 ${q.schoolName} · ${q.schoolGrade}학년 ${q.semester}` : `우리 학교`}
         </span>
         {q.ratio && <span className="text-[10px] text-ink-muted">· 배점 {q.ratio}%</span>}
         {q.scheduledAt && <span className="text-[10px] text-ink-muted">· {q.scheduledAt}</span>}
       </div>
-      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+      <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
         {q.subject && <span className="text-[10px] font-bold px-2 py-0.5 bg-brand-middle-pale text-brand-middle-dark rounded-full border border-brand-middle-light">{q.subject}</span>}
         {q.evalType && <span className="text-[10px] font-semibold text-ink-secondary">{q.evalType}</span>}
         {q.unitTopic && <span className="text-[10px] text-ink-muted">· {q.unitTopic}</span>}
       </div>
-      <p className="text-[13px] text-ink leading-[1.8]">{q.content}</p>
+
+      {/* 문항 = 메인 (크게) */}
+      <p className="text-[15px] font-bold text-ink leading-[1.7]">{q.content || q.title}</p>
+
+      {/* 수행과제 = 참고용 (작게, 문항과 다를 때만) */}
+      {q.title && q.title !== q.content && (
+        <div className="mt-3 pt-3 border-t border-line-light">
+          <div className="text-[10px] font-bold text-ink-muted mb-1">📋 수행과제 (참고)</div>
+          <div className="text-[11.5px] text-ink-secondary leading-[1.7] whitespace-pre-wrap">{q.title}</div>
+        </div>
+      )}
     </div>
   )
 }
@@ -352,8 +362,7 @@ function PracticeHeader({ q, secondsLeft, onBack, onSubmit, onSaveDraft, canSubm
         <button onClick={onBack} className="text-[12px] font-semibold text-ink-secondary hover:text-ink transition-colors">← 목록으로</button>
         <div className="w-px h-4 bg-line" />
         <div>
-          <div className="text-[11px] text-ink-muted font-semibold">{q._isAcademy ? "학원 수행평가" : q.schoolName || "우리 학교"} · {q.subject} {q.evalType || q.type} {q.ratio && `(배점 ${q.ratio}%)`}</div>
-          <div className="text-[14px] font-bold text-ink">{q.title}</div>
+          <div className="text-[12px] text-ink-secondary font-semibold">{q._isAcademy ? "학원 수행평가" : q.schoolName || "우리 학교"} · {q.subject} · {q.evalType || q.type} {q.ratio && `(배점 ${q.ratio}%)`}</div>
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -608,6 +617,7 @@ export default function Suhaeng() {
   const student = useAtomValue(studentState)
   const academy = useAtomValue(academyState)
   const [mode, setMode] = useState<Mode>("list")
+  const [selectedSemester, setSelectedSemester] = useState<'1' | '2'>('1')
   const [selectedQuestion, setSelectedQuestion] = useState<any>(null)
   const [showAllModal, setShowAllModal] = useState(false)
   const [showChangeModal, setShowChangeModal] = useState(false)
@@ -625,7 +635,7 @@ export default function Suhaeng() {
 
   const { data: studentSchool } = useStudentSchool(studentId)
   const { data: schoolSuhaengList = [], isLoading: loadingSchool } = useSchoolSuhaeng(
-    studentSchool?.school_id, studentGrade, '1',
+    studentSchool?.school_id, studentGrade, selectedSemester,
   )
 
   const mySchoolSuhaeng = schoolSuhaengList.map(s => schoolSuhaengToUI(s, studentSchool?.school_name || '우리 학교'))
@@ -703,11 +713,20 @@ export default function Suhaeng() {
                 <div className="text-[14px] font-extrabold text-ink tracking-tight">🏫 우리 학교 수행평가</div>
                 <div className="text-[11px] text-ink-muted mt-0.5">
                   {studentSchool?.school_name ? (
-                    <>{studentSchool.school_name} · {student?.grade} · 2026학년도 1학기</>
+                    <>{studentSchool.school_name} · {student?.grade} · 2026학년도 {selectedSemester}학기</>
                   ) : (
                     <>학교 정보가 없어요</>
                   )}
                 </div>
+              </div>
+              {/* 학기 전환 버튼 (1학기 / 2학기) */}
+              <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
+                {(['1', '2'] as const).map((sem) => (
+                  <button key={sem} onClick={() => setSelectedSemester(sem)}
+                    className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all ${selectedSemester === sem ? "bg-brand-middle text-white shadow-sm" : "text-ink-secondary hover:text-ink"}`}>
+                    {sem}학기
+                  </button>
+                ))}
               </div>
               {/* ⭐ 1회 변경 가능 (school_change_count < 2) */}
               {studentId && canChangeSchool && (
@@ -735,8 +754,8 @@ export default function Suhaeng() {
           ) : mySchoolSuhaeng.length === 0 ? (
             <div className="px-4 py-10 text-center text-ink-muted">
               <div className="text-3xl mb-2">📚</div>
-              <div className="text-[12px] font-medium mb-1">아직 등록된 수행평가가 없어요</div>
-              <div className="text-[11px]">학원에 문의해주세요</div>
+              <div className="text-[12px] font-medium mb-1">{selectedSemester}학기에 등록된 수행평가가 없어요</div>
+              <div className="text-[11px]">다른 학기를 선택하거나 학원에 문의해주세요</div>
             </div>
           ) : (
             <div className="grid grid-cols-4 gap-2.5 p-3">
@@ -749,7 +768,7 @@ export default function Suhaeng() {
                       <span className="text-[10px] font-bold text-ink-secondary bg-white border border-line px-1.5 py-0.5 rounded">{t.subject}</span>
                       <span className="text-[10px] font-semibold text-brand-middle-dark">{t.evalType}</span>
                     </div>
-                    <div className="text-[12px] font-bold text-ink leading-tight mb-2 line-clamp-2 min-h-[30px]">{t.title}</div>
+                    <div className="text-[12px] font-bold text-ink leading-tight mb-2 line-clamp-2 min-h-[30px]">{t.content || t.title}</div>
                     {t.unitTopic && <div className="text-[10px] text-ink-muted line-clamp-1 mb-1">{t.unitTopic}</div>}
                     <div className="flex items-center justify-between text-[10px] pt-2 border-t border-line">
                       <span className="text-ink-muted">{t.scheduledAt}</span>
@@ -803,7 +822,7 @@ export default function Suhaeng() {
             <div className="flex items-center justify-between px-5 py-4 border-b border-line">
               <div>
                 <div className="text-[16px] font-extrabold text-ink tracking-tight">🏫 {studentSchool?.school_name} 수행평가 전체</div>
-                <div className="text-[11px] text-ink-muted mt-0.5">{student?.grade} · 2026학년도 1학기 ({mySchoolSuhaeng.length}건)</div>
+                <div className="text-[11px] text-ink-muted mt-0.5">{student?.grade} · 2026학년도 {selectedSemester}학기 ({mySchoolSuhaeng.length}건)</div>
               </div>
               <button onClick={() => setShowAllModal(false)} className="text-ink-muted hover:text-ink text-xl">✕</button>
             </div>
@@ -817,7 +836,7 @@ export default function Suhaeng() {
                       {s.ratio && <span className="text-[10px] text-ink-muted">· 배점 {s.ratio}%</span>}
                       <span className="ml-auto text-[10px] text-ink-muted">{s.scheduledAt}</span>
                     </div>
-                    <div className="text-[13px] font-bold text-ink">{s.title}</div>
+                    <div className="text-[13px] font-bold text-ink">{s.content || s.title}</div>
                     {s.unitTopic && <div className="text-[10.5px] text-ink-muted mt-0.5">{s.unitTopic}</div>}
                   </div>
                 ))}

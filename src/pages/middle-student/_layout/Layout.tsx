@@ -20,12 +20,12 @@ const MENUS = [
   { path: '/middle-student/record', label: '내 생기부', icon: '📋', menuKey: 'middle.record' },
   { path: '/middle-student/book', label: '독서리스트', icon: '📚', menuKey: 'middle.book' },
   { path: '/middle-student/debate', label: 'AI 토론', icon: '🎤', menuKey: 'middle.debate', customBadge: '6월' },
-  { path: '/middle-student/record-expect', label: '생기부 예상질문', icon: '📋', menuKey: 'middle.record_expect' },
+  { path: '/middle-student/basic', label: '기본 인성', icon: '💎', menuKey: 'middle.basic' },
   { path: '/middle-student/expect', label: '자소서 · 예상질문', icon: '💬', menuKey: 'middle.expect' },
   { path: '/middle-student/past', label: '기출문제', icon: '🎓', menuKey: 'middle.past' },
-  { path: '/middle-student/basic', label: '기본 인성', icon: '💎', menuKey: 'middle.basic' },   // 🔥 추가
   { path: '/middle-student/simulation', label: '면접 시뮬레이션', icon: '🎙️', menuKey: 'middle.simulation' },
   { path: '/middle-student/presentation', label: '제시문 면접', icon: '📄', menuKey: 'middle.presentation' },
+  { path: '/middle-student/record-expect', label: '생기부 예상질문', icon: '📋', menuKey: 'middle.record_expect' },
 ]
 
 // 🔥 항상 표시되는 핵심 메뉴 (학원 설정과 무관하게 노출)
@@ -82,14 +82,14 @@ export default function MiddleLayout() {
   return (
     <div className="flex h-screen bg-[#F8FAFC] font-sans">
       <aside className="w-[220px] bg-white border-r border-line flex flex-col flex-shrink-0">
-        <div className="px-5 pt-4 pb-3 border-b border-line-light flex-shrink-0">
-          <div className="flex items-center gap-2 mb-2.5">
-            <div className="font-extrabold text-[17px] text-ink tracking-tight">비커스</div>
+        <div className="px-5 pt-3 pb-2.5 border-b border-line-light flex-shrink-0">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="font-extrabold text-[16px] text-ink tracking-tight">비커스</div>
           </div>
           {academy.academyName ? (
-            <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg p-2.5">
-              <div className="text-[13px] font-bold text-brand-middle-dark">{academy.academyCode}</div>
-              <div className="text-[11px] text-ink-secondary mt-0.5">{academy.academyName}</div>
+            <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg p-2">
+              <div className="text-[12px] font-bold text-brand-middle-dark">{academy.academyCode}</div>
+              <div className="text-[10px] text-ink-secondary mt-0.5">{academy.academyName}</div>
             </div>
           ) : (
             <div className="flex items-center justify-center">
@@ -101,7 +101,7 @@ export default function MiddleLayout() {
           )}
         </div>
 
-        <nav className="flex-1 px-2.5 py-2 overflow-hidden">
+        <nav className="flex-1 px-2.5 py-1.5 overflow-hidden">
           {visibleMenus.length === 0 && isAcademyConnected ? (
             <div className="px-3 py-6 text-center">
               <div className="text-[12px] text-ink-muted font-medium">
@@ -116,11 +116,11 @@ export default function MiddleLayout() {
               return (
                 <button key={m.path} onClick={() => { if (isLocked) return; navigate(m.path) }} disabled={isLocked}
                   title={isLocked ? '학원 연결 후 사용 가능해요' : ''}
-                  className={`relative w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all text-[13px] ${isLocked ? 'text-ink-muted cursor-not-allowed opacity-50' : isActive ? 'bg-brand-middle-pale text-brand-middle-dark font-semibold' : 'text-ink-secondary hover:bg-gray-50 hover:text-ink font-medium'}`}>
-                  <span className="text-[15px]">{m.icon}</span>
+                  className={`relative w-full flex items-center gap-2 px-2.5 py-1.5 mb-0.5 rounded-lg transition-all text-[12px] ${isLocked ? 'text-ink-muted cursor-not-allowed opacity-50' : isActive ? 'bg-brand-middle-pale text-brand-middle-dark font-semibold' : 'text-ink-secondary hover:bg-gray-50 hover:text-ink font-medium'}`}>
+                  <span className="text-[14px]">{m.icon}</span>
                   <span className="flex-1 text-left">{m.label}</span>
-                  {m.isNew && !isLocked && <span className="text-[10px] font-extrabold text-white bg-rose-500 px-2 py-1 rounded-full leading-none">NEW</span>}
-                  {m.customBadge && !isLocked && <span className="text-[10px] font-extrabold text-white bg-amber-500 px-2 py-1 rounded-full leading-none">{m.customBadge}</span>}
+                  {m.isNew && !isLocked && <span className="text-[9px] font-extrabold text-white bg-rose-500 px-1.5 py-0.5 rounded-full leading-none">NEW</span>}
+                  {m.customBadge && !isLocked && <span className="text-[9px] font-extrabold text-white bg-amber-500 px-1.5 py-0.5 rounded-full leading-none">{m.customBadge}</span>}
                 </button>
               )
             })
