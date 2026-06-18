@@ -34,6 +34,7 @@ import MiddleBasicTab from './middle-tabs/MiddleBasicTab'   // 🔥 추가
 import MiddleSimulationTab from './middle-tabs/simulation'
 import MiddlePresentationTab from './middle-tabs/presentation'
 import MiddleConceptTab from './middle-tabs/ConceptTab'
+import MiddleDebateTab from './middle-tabs/MiddleDebateTab'   // 🔥 AI 토론 추가
 
 const HIGH_TABS = [
   { key: 'roadmap', label: '로드맵', menuKey: 'high.roadmap' },
@@ -59,6 +60,7 @@ const MIDDLE_TABS = [
   { key: 'suhaeng', label: '수행평가', menuKey: 'middle.suhaeng' },
   { key: 'record', label: '생기부', menuKey: 'middle.record' },
   { key: 'book', label: '독서리스트', menuKey: 'middle.book' },
+  { key: 'debate', label: 'AI 토론', menuKey: 'middle.debate' },   // 🔥 독서리스트 다음 AI 토론
   { key: 'basic', label: '기본 인성', menuKey: 'middle.basic' },   // 🔥 추가
   { key: 'expect', label: '자소서·예상질문', menuKey: 'middle.expect' },
   { key: 'past', label: '기출문제', menuKey: 'middle.past' },
@@ -67,12 +69,12 @@ const MIDDLE_TABS = [
 ]
 
 const ALWAYS_VISIBLE_HIGH = ['high.concept', 'high.suhaeng', 'high.basic']
-const ALWAYS_VISIBLE_MIDDLE = ['middle.concept', 'middle.suhaeng', 'middle.basic']   // 🔥 추가
+const ALWAYS_VISIBLE_MIDDLE = ['middle.concept', 'middle.suhaeng', 'middle.basic', 'middle.debate']   // 🔥 debate 추가
 
 const ALL_GRADES: GradeKey[] = ['고1', '고2', '고3']
 
 type HighTabType = 'roadmap' | 'concept' | 'topic' | 'book' | 'record' | 'suhaeng' | 'expect' | 'past' | 'basic' | 'mockexam' | 'simulation' | 'presentation' | 'major'
-type MiddleTabType = 'roadmap' | 'concept' | 'lesson' | 'homework' | 'suhaeng' | 'record' | 'book' | 'expect' | 'past' | 'basic' | 'simulation' | 'presentation'   // 🔥 'basic' 추가
+type MiddleTabType = 'roadmap' | 'concept' | 'lesson' | 'homework' | 'suhaeng' | 'record' | 'book' | 'debate' | 'expect' | 'past' | 'basic' | 'simulation' | 'presentation'   // 🔥 'debate' 추가
 
 const THEME = {
   accent: '#2563EB',
@@ -370,6 +372,7 @@ export default function StudentDetail() {
               {middleTab === 'suhaeng'      && visibleMiddleTabs.find(t => t.key === 'suhaeng')      && <MiddleSuhaengTab student={student} />}
               {middleTab === 'record'       && visibleMiddleTabs.find(t => t.key === 'record')       && <MiddleRecordTab student={student} />}
               {middleTab === 'book'         && visibleMiddleTabs.find(t => t.key === 'book')         && <MiddleBookTab student={student} />}
+              {middleTab === 'debate'       && visibleMiddleTabs.find(t => t.key === 'debate')       && <MiddleDebateTab student={student} />}{/* 🔥 AI 토론 추가 */}
               {middleTab === 'expect'       && visibleMiddleTabs.find(t => t.key === 'expect')       && <MiddleExpectTab student={student} />}
               {middleTab === 'past'         && visibleMiddleTabs.find(t => t.key === 'past')         && <MiddlePastTab student={student} />}
               {middleTab === 'basic'        && visibleMiddleTabs.find(t => t.key === 'basic')        && <MiddleBasicTab student={student} />}{/* 🔥 추가 */}

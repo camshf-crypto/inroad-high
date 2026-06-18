@@ -17,6 +17,8 @@ export interface Research {
   status: string | null
   created_at: string
   updated_at: string
+  grade: number | null
+  semester: number | null
 }
 
 export interface ResearchAnalysis {

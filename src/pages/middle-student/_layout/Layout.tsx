@@ -19,7 +19,7 @@ const MENUS = [
   { path: '/middle-student/suhaeng', label: '수행평가', icon: '🎯', menuKey: 'middle.suhaeng' },
   { path: '/middle-student/record', label: '내 생기부', icon: '📋', menuKey: 'middle.record' },
   { path: '/middle-student/book', label: '독서리스트', icon: '📚', menuKey: 'middle.book' },
-  { path: '/middle-student/debate', label: 'AI 토론', icon: '🎤', menuKey: 'middle.debate', customBadge: '6월' },
+  { path: '/middle-student/debate', label: 'AI 토론', icon: '🎤', menuKey: 'middle.debate', isNew: true },
   { path: '/middle-student/basic', label: '기본 인성', icon: '💎', menuKey: 'middle.basic' },
   { path: '/middle-student/expect', label: '자소서 · 예상질문', icon: '💬', menuKey: 'middle.expect' },
   { path: '/middle-student/past', label: '기출문제', icon: '🎓', menuKey: 'middle.past' },
@@ -30,7 +30,7 @@ const MENUS = [
 
 // 🔥 항상 표시되는 핵심 메뉴 (학원 설정과 무관하게 노출)
 // ⚠️ middle.basic은 마스터에서 학원별로 켜고/끄게 하도록 제거됨!
-const ALWAYS_VISIBLE_MIDDLE = ['middle.concept', 'middle.suhaeng']
+const ALWAYS_VISIBLE_MIDDLE = ['middle.concept', 'middle.suhaeng', 'middle.debate']
 
 const MIDDLE_GRADES = ['중1', '중2', '중3'] as const
 
@@ -42,9 +42,8 @@ const MIDDLE_STUDENT_TABLES = [
   'middle_essay_wizard', 'middle_student_target_schools', 'middle_past_answers',
   'middle_simulations', 'middle_interview', 'middle_interview_analysis',
   'middle_interview_followups', 'middle_passage', 'middle_passage_answers',
-  'middle_passage_analysis', 'middle_passage_followups', 'middle_debate_sessions',
-  'middle_debate_turns', 'middle_debate_feedbacks', 'middle_saenggibu_item',
-  'middle_semester_lock', 'middle_student_concept',
+  'middle_passage_analysis', 'middle_passage_followups', 'debate_sessions',
+  'middle_saenggibu_item', 'middle_semester_lock', 'middle_student_concept',
 ]
 
 export default function MiddleLayout() {
@@ -120,7 +119,6 @@ export default function MiddleLayout() {
                   <span className="text-[14px]">{m.icon}</span>
                   <span className="flex-1 text-left">{m.label}</span>
                   {m.isNew && !isLocked && <span className="text-[9px] font-extrabold text-white bg-rose-500 px-1.5 py-0.5 rounded-full leading-none">NEW</span>}
-                  {m.customBadge && !isLocked && <span className="text-[9px] font-extrabold text-white bg-amber-500 px-1.5 py-0.5 rounded-full leading-none">{m.customBadge}</span>}
                 </button>
               )
             })

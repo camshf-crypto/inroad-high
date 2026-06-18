@@ -8,6 +8,7 @@ import {
   buildMessages,
   type Research,
 } from '../../../../_hooks/useHighResearch'
+import ResearchCoachPanel from './ResearchCoachPanel'
 
 const THEME = {
   accent: '#2563EB',
@@ -17,9 +18,9 @@ const THEME = {
   accentShadow: 'rgba(37, 99, 235, 0.15)',
 }
 
-export default function TopicTab({ student, onOpenChat }: {
+export default function TopicTab({ student }: {
   student: any
-  onOpenChat: (type: 'topic' | 'book', context: string) => void
+  onOpenChat?: (type: 'topic' | 'book', context: string) => void
   openId?: number | null
   onClearOpenId?: () => void
 }) {
@@ -28,6 +29,7 @@ export default function TopicTab({ student, onOpenChat }: {
   const [selResearchId, setSelResearchId] = useState<string | null>(null)
   const [feedbackInput, setFeedbackInput] = useState('')
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false)
+  const [isCoachOpen, setIsCoachOpen] = useState(false)   // ← 고도화 챗봇 패널 상태
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -47,6 +49,7 @@ export default function TopicTab({ student, onOpenChat }: {
   useEffect(() => {
     setIsFeedbackOpen(false)
     setFeedbackInput('')
+    setIsCoachOpen(false)   // 다른 탐구 선택하면 챗봇 닫기
   }, [selResearchId])
 
   const chatEndRef = useRef<HTMLDivElement>(null)
@@ -99,9 +102,17 @@ export default function TopicTab({ student, onOpenChat }: {
     }
   }
 
+  // 챗봇 답변을 피드백 입력창에 붙여넣기
+  const handleUseAsFeedback = (text: string) => {
+    setIsFeedbackOpen(true)
+    setFeedbackInput(prev => (prev ? prev + '\n\n' : '') + text)
+    setTimeout(() => textareaRef.current?.focus(), 100)
+  }
+
   return (
     <div className="flex gap-4 h-full overflow-hidden font-sans text-ink">
 
+      {/* ── 좌: 탐구주제 리스트 ── */}
       <div
         className="w-[280px] flex-shrink-0 bg-white border border-line rounded-2xl flex flex-col overflow-hidden"
         style={{ boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)' }}
@@ -148,6 +159,7 @@ export default function TopicTab({ student, onOpenChat }: {
         </div>
       </div>
 
+      {/* ── 중: 탐구 대화 ── */}
       <div
         className="flex-1 bg-white border border-line rounded-2xl flex flex-col overflow-hidden min-w-0"
         style={{ boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)' }}
@@ -192,9 +204,13 @@ export default function TopicTab({ student, onOpenChat }: {
 
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
-                  onClick={() => onOpenChat('topic', selected.topic)}
-                  className="px-3 py-1.5 bg-white border rounded-lg text-[11.5px] font-bold transition-all hover:-translate-y-px"
-                  style={{ color: THEME.accent, borderColor: THEME.accentBorder }}
+                  onClick={() => setIsCoachOpen(v => !v)}
+                  className="px-3 py-1.5 border rounded-lg text-[11.5px] font-bold transition-all hover:-translate-y-px"
+                  style={{
+                    color: isCoachOpen ? '#fff' : THEME.accent,
+                    background: isCoachOpen ? THEME.accent : '#fff',
+                    borderColor: THEME.accentBorder,
+                  }}
                   title="챗봇으로 피드백 아이디어 얻기"
                 >
                   ✨ 챗봇
@@ -338,6 +354,17 @@ export default function TopicTab({ student, onOpenChat }: {
           </>
         )}
       </div>
+
+      {/* ── 우: 고도화 챗봇 패널 (열렸을 때만) ── */}
+      {isCoachOpen && selected && (
+        <ResearchCoachPanel
+          key={selected.id}
+          student={student}
+          research={selected}
+          onClose={() => setIsCoachOpen(false)}
+          onUseAsFeedback={isCompleted ? undefined : handleUseAsFeedback}
+        />
+      )}
     </div>
   )
 }

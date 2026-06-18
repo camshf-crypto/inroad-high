@@ -195,7 +195,7 @@ const CATEGORY_MAP: Record<string, { label: string; keyword: string }[]> = {
     { label: "시민사회", keyword: "시민사회" },
     { label: "공공정책", keyword: "공공정책" },
     { label: "국제분쟁", keyword: "국제분쟁" },
-    { label: "난민과 이주", keyword: "난민 이주" },
+    { label: "난민 이주", keyword: "난민 이주" },
     { label: "기후외교", keyword: "기후외교" },
     { label: "핵·군비통제", keyword: "핵군비통제" },
     { label: "사이버 안보", keyword: "사이버 안보" },
@@ -205,7 +205,7 @@ const CATEGORY_MAP: Record<string, { label: string; keyword: string }[]> = {
     { label: "평화학", keyword: "평화학" },
   ],
   "💻 컴퓨터/IT": [
-    { label: "컴퓨터 과학 입문", keyword: "컴퓨터과학 입문" },
+    { label: "컴퓨터과학 입문", keyword: "컴퓨터과학 입문" },
     { label: "프로그래밍 기초", keyword: "프로그래밍 기초" },
     { label: "파이썬", keyword: "파이썬 Python" },
     { label: "자바", keyword: "자바 Java" },
@@ -291,10 +291,10 @@ const CATEGORY_MAP: Record<string, { label: string; keyword: string }[]> = {
     { label: "건축 법규", keyword: "건축 법규" },
     { label: "건축 경제", keyword: "건축 경제" },
     { label: "공간 심리학", keyword: "공간 심리학" },
-    { label: "건축 에세이", keyword: "건축가 에세이" },
-    { label: "미니멀 건축", keyword: "미니멀리즘 건축" },
+    { label: "건축가 에세이", keyword: "건축가 에세이" },
+    { label: "미니멀리즘 건축", keyword: "미니멀리즘 건축" },
     { label: "유니버설 디자인", keyword: "유니버설 디자인" },
-    { label: "재난 방재 건축", keyword: "방재 건축" },
+    { label: "방재 건축", keyword: "방재 건축" },
     { label: "수중 건축", keyword: "수중 건축" },
     { label: "우주 건축", keyword: "우주 건축" },
     { label: "건축과 예술", keyword: "건축 예술" },
@@ -330,7 +330,7 @@ const CATEGORY_MAP: Record<string, { label: string; keyword: string }[]> = {
     { label: "고객 경험", keyword: "고객 경험 CX" },
     { label: "데이터 경영", keyword: "데이터 경영" },
     { label: "린 스타트업", keyword: "린 스타트업" },
-    { label: "경영과 윤리", keyword: "경영 윤리" },
+    { label: "경영 윤리", keyword: "경영 윤리" },
   ],
   "📈 경제": [
     { label: "경제학 입문", keyword: "경제학 입문" },
@@ -356,8 +356,8 @@ const CATEGORY_MAP: Record<string, { label: string; keyword: string }[]> = {
     { label: "플랫폼 경제", keyword: "플랫폼 경제" },
     { label: "디지털 경제", keyword: "디지털 경제" },
     { label: "AI와 경제", keyword: "인공지능 경제" },
-    { label: "경제 에세이", keyword: "경제학자 에세이" },
-    { label: "경제학자 열전", keyword: "경제학자" },
+    { label: "경제학자 에세이", keyword: "경제학자 에세이" },
+    { label: "경제학자", keyword: "경제학자" },
     { label: "한국 경제", keyword: "한국 경제" },
     { label: "자본주의 비판", keyword: "자본주의" },
     { label: "공유경제", keyword: "공유경제" },
@@ -394,7 +394,7 @@ const CATEGORY_MAP: Record<string, { label: string; keyword: string }[]> = {
     { label: "중앙은행", keyword: "중앙은행" },
     { label: "금융 규제", keyword: "금융 규제" },
     { label: "개인 재무", keyword: "개인 재무 관리" },
-    { label: "금융 에세이", keyword: "금융인 에세이" },
+    { label: "금융인 에세이", keyword: "금융인 에세이" },
   ],
   "🎓 교육": [
     { label: "교육학 입문", keyword: "교육학 입문" },
@@ -477,7 +477,7 @@ const CATEGORY_MAP: Record<string, { label: string; keyword: string }[]> = {
     { label: "의료 사회복지", keyword: "의료 사회복지" },
     { label: "학교 사회복지", keyword: "학교 사회복지" },
     { label: "정신건강 복지", keyword: "정신건강 복지" },
-    { label: "인권과 복지", keyword: "인권 복지" },
+    { label: "인권 복지", keyword: "인권 복지" },
     { label: "NGO와 시민사회", keyword: "NGO 시민사회" },
     { label: "자원봉사론", keyword: "자원봉사론" },
     { label: "사회적 경제", keyword: "사회적 경제" },
@@ -488,9 +488,9 @@ const CATEGORY_MAP: Record<string, { label: string; keyword: string }[]> = {
     { label: "홈리스 복지", keyword: "홈리스 복지" },
     { label: "재난 복지", keyword: "재난 복지" },
     { label: "커뮤니티 케어", keyword: "커뮤니티 케어" },
-    { label: "사회복지 에세이", keyword: "사회복지사 에세이" },
+    { label: "사회복지사 에세이", keyword: "사회복지사 에세이" },
     { label: "사회문제론", keyword: "사회문제론" },
-    { label: "공정과 복지", keyword: "공정 복지" },
+    { label: "공정 복지", keyword: "공정 복지" },
   ],
   "✍️ 문학": [
     { label: "한국 현대소설", keyword: "한국 현대소설" },
@@ -583,7 +583,7 @@ const CATEGORY_MAP: Record<string, { label: string; keyword: string }[]> = {
     { label: "지질학", keyword: "지질학" },
     { label: "해양학", keyword: "해양학" },
     { label: "기상학", keyword: "기상학" },
-    { label: "과학 에세이", keyword: "과학자 에세이" },
+    { label: "과학자 에세이", keyword: "과학자 에세이" },
     { label: "노벨상 과학", keyword: "노벨상 과학" },
     { label: "미래과학", keyword: "미래과학" },
     { label: "과학과 윤리", keyword: "과학 윤리" },
@@ -616,7 +616,7 @@ const CATEGORY_MAP: Record<string, { label: string; keyword: string }[]> = {
     { label: "뇌과학", keyword: "뇌과학" },
     { label: "노화 과학", keyword: "노화 과학" },
     { label: "영양과학", keyword: "영양과학" },
-    { label: "생명 에세이", keyword: "생물학자 에세이" },
+    { label: "생물학자 에세이", keyword: "생물학자 에세이" },
     { label: "생명 철학", keyword: "생명 철학" },
     { label: "자연과 인간", keyword: "자연 인간" },
   ],
@@ -649,12 +649,11 @@ const CATEGORY_MAP: Record<string, { label: string; keyword: string }[]> = {
     { label: "음식과 문화", keyword: "음식 문화" },
     { label: "언어학", keyword: "언어학" },
     { label: "젠더 연구", keyword: "젠더 연구" },
-    { label: "통계와 데이터", keyword: "통계 데이터" },
+    { label: "통계 데이터", keyword: "통계 데이터" },
     { label: "리더십 에세이", keyword: "리더십 에세이" },
   ],
 };
 const FIELDS = Object.keys(CATEGORY_MAP);
-
 // ── 📚 추천 도서 더미 (나중에 DB로 교체) ──────────────────────
 // 형식: { 분야: { 기초: [...20권], 중급: [...20권], 심화: [...20권] } }
 // 책 클릭 → 제목으로 카카오 자동 검색 → 기존 등록 흐름 재사용
@@ -736,6 +735,9 @@ export default function MiddleBookList() {
   // ★ 추천 도서 난이도 탭 상태
   const [selLevel, setSelLevel] = useState<RecLevel>("기초");
 
+  // ★ 모달 상단 탭 (추천도서 / 검색도서)
+  const [modalTab, setModalTab] = useState<"recommend" | "search">("recommend");
+
   const searchListRef = useRef<HTMLDivElement>(null);
 
   const selBook = books.find((b) => b.id === selBookId) ?? null;
@@ -805,9 +807,10 @@ export default function MiddleBookList() {
     setCustomCategory("");
   };
 
-  // ★ 추천 도서 클릭 → 제목으로 카카오 검색
+  // ★ 추천 도서 클릭 → 검색 탭으로 전환하면서 제목으로 카카오 검색
   const handleRecBookClick = (book: RecBook) => {
     if (!selField) return;
+    setModalTab("search");
     setSearchInput(book.title);
     setSelCategory(`${selField} > ${selLevel}`);
     setSelSubCategory(null);
@@ -882,6 +885,7 @@ export default function MiddleBookList() {
     setCustomCategory("");
     setShowCustomInput(false);
     setSelLevel("기초");
+    setModalTab("recommend");
   };
 
   const saveRecord = async () => {
@@ -919,7 +923,7 @@ export default function MiddleBookList() {
 
   const modalTitle = modalStep === 1 ? "📚 책 추가하기" : modalStep === 2 ? "도서 상세" : "도서 등록";
   const modalDesc =
-    modalStep === 1 ? "관심 분야 → 추천 도서 / 세부 카테고리 → 검색 순서로 찾아보세요"
+    modalStep === 1 ? "추천도서 또는 검색으로 책을 찾아보세요"
       : modalStep === 2 ? "책 정보를 확인하고 등록할지 결정해주세요"
         : "이 책으로 등록할까요?";
 
@@ -1157,6 +1161,7 @@ export default function MiddleBookList() {
                       <button
                         key={kw}
                         onClick={() => {
+                          setModalTab("search");
                           setSearchInput(kw);
                           setSelCategory(`내 진로 > ${kw}`);
                           setSelField(null);
@@ -1173,253 +1178,298 @@ export default function MiddleBookList() {
               </div>
             )}
 
-            {/* Step 1: 분야 → 카테고리 → 검색 */}
+            {/* Step 1: 추천도서 / 검색도서 탭 */}
             {modalStep === 1 && (
-              <div className="flex flex-1 overflow-hidden">
+              <div className="flex flex-col flex-1 overflow-hidden">
 
-                {/* 왼쪽: 분야 목록 */}
-                <div className="w-[180px] flex-shrink-0 border-r border-line overflow-y-auto py-3">
-                  <div className="text-[11px] font-bold text-ink-muted px-4 mb-2">📂 분야 선택</div>
-                  {FIELDS.map((field) => (
-                    <button
-                      key={field}
-                      onClick={() => handleFieldClick(field)}
-                      className={`w-full text-left px-4 py-2.5 text-[12px] font-medium transition-all flex items-center justify-between ${selField === field
-                        ? "bg-brand-middle-pale text-brand-middle-dark font-bold border-r-2 border-brand-middle"
-                        : "text-ink-secondary hover:bg-gray-50 hover:text-ink"
-                        }`}
-                    >
-                      <span>{field}</span>
-                      {selField === field && <span className="text-brand-middle text-[10px]">›</span>}
-                    </button>
-                  ))}
+                {/* ★ 상단 탭 */}
+                <div className="flex flex-shrink-0 px-4 pt-3 gap-1 border-b border-line">
+                  <button
+                    onClick={() => setModalTab("recommend")}
+                    className={`px-5 py-2.5 text-[13px] font-bold rounded-t-lg transition-all -mb-px border-b-2 ${modalTab === "recommend"
+                      ? "text-brand-middle-dark border-brand-middle bg-brand-middle-pale/40"
+                      : "text-ink-muted border-transparent hover:text-ink"
+                      }`}
+                  >
+                    📚 추천도서
+                  </button>
+                  <button
+                    onClick={() => setModalTab("search")}
+                    className={`px-5 py-2.5 text-[13px] font-bold rounded-t-lg transition-all -mb-px border-b-2 ${modalTab === "search"
+                      ? "text-brand-middle-dark border-brand-middle bg-brand-middle-pale/40"
+                      : "text-ink-muted border-transparent hover:text-ink"
+                      }`}
+                  >
+                    🔍 검색도서
+                  </button>
                 </div>
 
-                {/* 오른쪽: 추천도서 + 카테고리 + 검색 결과 */}
-                <div ref={searchListRef} className="flex-1 overflow-y-auto">
+                <div className="flex flex-1 overflow-hidden">
 
-                  {/* ★ 추천 도서 (분야에 추천 데이터 있을 때만) */}
-                  {selField && recBooksForField && (
-                    <div className="px-4 pt-4 pb-3 border-b border-line-light bg-brand-middle-pale/20">
-                      <div className="flex items-center justify-between mb-2.5">
-                        <div className="text-[11px] font-bold text-brand-middle-dark">
-                          📚 {selField} 추천 도서
-                        </div>
-                        {/* 난이도 탭 */}
-                        <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
-                          {REC_LEVELS.map((lv) => (
-                            <button
-                              key={lv}
-                              onClick={() => setSelLevel(lv)}
-                              className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all ${selLevel === lv
-                                ? "bg-brand-middle text-white shadow-sm"
-                                : "text-ink-secondary hover:text-ink"
-                                }`}
-                            >
-                              {lv}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col gap-1.5 max-h-[260px] overflow-y-auto pr-0.5">
-                        {recBooksForLevel.length === 0 ? (
-                          <div className="text-center py-6 text-[12px] text-ink-muted">
-                            아직 등록된 추천 도서가 없어요.
-                          </div>
-                        ) : (
-                          recBooksForLevel.map((book, i) => (
-                            <button
-                              key={i}
-                              onClick={() => handleRecBookClick(book)}
-                              className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-line bg-white hover:border-brand-middle hover:bg-brand-middle-pale/50 transition-all text-left group"
-                            >
-                              <span className="w-5 h-5 rounded-full bg-brand-middle-bg text-brand-middle-dark text-[10px] font-bold flex items-center justify-center flex-shrink-0">
-                                {i + 1}
-                              </span>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-[12px] font-semibold text-ink truncate">{book.title}</div>
-                                <div className="text-[10px] text-ink-muted truncate">{book.author}</div>
-                              </div>
-                              <span className="text-[10px] text-brand-middle-dark font-bold flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                검색 →
-                              </span>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 세부 카테고리 */}
-                  {selField && (
-                    <div className="px-4 pt-4 pb-3 border-b border-line-light">
-                      <div className="text-[11px] font-bold text-ink-muted mb-2">
-                        {selField} · 세부 카테고리
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {CATEGORY_MAP[selField].map((sub) => (
-                          <button
-                            key={sub.label}
-                            onClick={() => handleSubCategoryClick(selField, sub)}
-                            disabled={searching}
-                            className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border disabled:opacity-50 ${selSubCategory === sub.label
-                              ? "bg-brand-middle text-white border-brand-middle shadow-[0_2px_6px_rgba(16,185,129,0.25)]"
-                              : "bg-white text-ink-secondary border-line hover:border-brand-middle-light hover:bg-brand-middle-pale hover:text-brand-middle-dark"
-                              }`}
-                          >
-                            {sub.label}
-                          </button>
-                        ))}
-                        {/* ★ 직접 입력 버튼 */}
-                        <button
-                          onClick={() => { setShowCustomInput(true); setSelSubCategory(null); setSearchInput(""); setCustomCategory(""); }}
-                          className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border ${showCustomInput
-                            ? "bg-amber-500 text-white border-amber-500"
-                            : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
-                            }`}
-                        >
-                          ✏️ 직접 입력
-                        </button>
-                      </div>
-                      {/* ★ 직접 입력 칸 */}
-                      {showCustomInput && (
-                        <div className="mt-2 flex gap-2 items-center">
-                          <input
-                            type="text"
-                            value={customCategory}
-                            onChange={e => setCustomCategory(e.target.value)}
-                            onKeyDown={e => e.key === "Enter" && handleCustomConfirm()}
-                            placeholder="카테고리를 직접 입력하세요 (예: 스포츠 의학)"
-                            autoFocus
-                            className="flex-1 h-9 px-3 text-[12px] border border-amber-200 rounded-lg focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200/50 placeholder:text-ink-muted"
-                          />
-                          <button
-                            onClick={handleCustomConfirm}
-                            disabled={!customCategory.trim()}
-                            className="h-9 px-3 bg-amber-500 text-white text-[12px] font-bold rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-40"
-                          >
-                            확인
-                          </button>
-                          <button
-                            onClick={() => { setShowCustomInput(false); setCustomCategory(""); }}
-                            className="h-9 px-3 bg-white text-ink-secondary text-[12px] border border-line rounded-lg hover:bg-gray-50 transition-colors"
-                          >
-                            취소
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* 직접 검색 */}
-                  <div className="px-4 pt-3 pb-3">
-                    {!selField && (
-                      <div className="text-[11px] font-medium text-ink-muted mb-1.5">
-                        👈 왼쪽에서 분야를 선택하거나 직접 검색해보세요
-                      </div>
-                    )}
-                    {selField && (
-                      <div className="text-[11px] font-medium text-ink-muted mb-1.5">
-                        또는 직접 검색
-                      </div>
-                    )}
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted">🔍</span>
-                      <input
-                        id="book-search-input"
-                        value={searchInput}
-                        onChange={(e) => {
-                          setSearchInput(e.target.value);
-                          if (e.target.value !== searchInput) setSelSubCategory(null);
-                        }}
-                        placeholder="책 제목, 저자, 키워드로 검색"
-                        className="w-full h-10 border border-line rounded-lg pl-10 pr-10 text-[13px] outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-colors font-sans"
-                      />
-                      {searching && (
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                          <div className="w-4 h-4 border-2 border-gray-200 border-t-brand-middle rounded-full animate-spin" />
-                        </div>
-                      )}
-                      {searchInput && !searching && (
-                        <button onClick={() => { setSearchInput(""); setSelSubCategory(null); }}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink text-[16px]">×</button>
-                      )}
-                    </div>
+                  {/* 왼쪽: 분야 목록 (공통) */}
+                  <div className="w-[180px] flex-shrink-0 border-r border-line overflow-y-auto py-3">
+                    <div className="text-[11px] font-bold text-ink-muted px-4 mb-2">📂 분야 선택</div>
+                    {FIELDS.map((field) => (
+                      <button
+                        key={field}
+                        onClick={() => handleFieldClick(field)}
+                        className={`w-full text-left px-4 py-2.5 text-[12px] font-medium transition-all flex items-center justify-between ${selField === field
+                          ? "bg-brand-middle-pale text-brand-middle-dark font-bold border-r-2 border-brand-middle"
+                          : "text-ink-secondary hover:bg-gray-50 hover:text-ink"
+                          }`}
+                      >
+                        <span>{field}</span>
+                        {selField === field && <span className="text-brand-middle text-[10px]">›</span>}
+                      </button>
+                    ))}
                   </div>
 
-                  {/* 안내 화면 */}
-                  {!searchInput && searchResults.length === 0 && (
-                    <div className="px-4 pb-4">
-                      {!selField ? (
-                        <div className="text-center py-12 bg-gray-50 rounded-xl">
-                          <div className="text-4xl mb-3">📚</div>
-                          <div className="text-[13px] font-medium text-ink-secondary mb-1">관심 있는 분야를 선택해보세요!</div>
-                          <div className="text-[11px] text-ink-muted">왼쪽에서 분야를 고르면 추천 도서와 세부 카테고리가 나타나요</div>
-                        </div>
-                      ) : (
-                        <div className="text-center py-8 bg-brand-middle-pale/40 rounded-xl border border-brand-middle-light/50">
-                          <div className="text-3xl mb-2">☝️</div>
-                          <div className="text-[13px] font-medium text-brand-middle-dark mb-1">추천 도서나 카테고리를 선택하세요</div>
-                          <div className="text-[11px] text-ink-muted">또는 직접 검색해도 돼요</div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  {/* 오른쪽: 탭별 내용 */}
+                  <div ref={searchListRef} className="flex-1 overflow-y-auto">
 
-                  {/* 검색 결과 */}
-                  <div className="px-4 pb-4">
-                    {searchError && (
-                      <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-3">
-                        <div className="text-[12px] text-red-600 font-medium">⚠️ {searchError}</div>
-                      </div>
-                    )}
-
-                    {searchInput && !searching && !searchError && searchResults.length === 0 && (
-                      <div className="text-center py-10">
-                        <div className="text-3xl mb-2">🔍</div>
-                        <div className="text-[13px] text-ink-muted">검색 결과가 없어요.</div>
-                      </div>
-                    )}
-
-                    {searchResults.length > 0 && (
-                      <div className="text-[11px] text-ink-muted mb-2 font-medium">
-                        "<span className="text-brand-middle-dark font-bold">{searchQuery}</span>" 검색 결과 총{" "}
-                        <span className="text-brand-middle-dark font-bold">{totalCount.toLocaleString()}</span>건
-                        {totalCount > pageableCount && <span className="ml-1">· 상위 {pageableCount.toLocaleString()}건 노출</span>}
-                      </div>
-                    )}
-
-                    {searchResults.map((book, i) => (
-                      <div key={i} onClick={() => openBookDetail(book)}
-                        className="border border-line rounded-xl px-4 py-3 mb-2 cursor-pointer flex gap-3 items-start bg-white hover:bg-brand-middle-pale/50 hover:border-brand-middle-light transition-all">
-                        {book.thumbnail ? (
-                          <img src={book.thumbnail} alt={book.title} className="w-12 h-16 object-cover rounded flex-shrink-0 bg-gray-100" />
+                    {/* ───── 추천도서 탭 ───── */}
+                    {modalTab === "recommend" && (
+                      <>
+                        {!selField ? (
+                          <div className="px-4 py-12 text-center">
+                            <div className="text-4xl mb-3">📚</div>
+                            <div className="text-[13px] font-medium text-ink-secondary mb-1">관심 있는 분야를 선택해보세요!</div>
+                            <div className="text-[11px] text-ink-muted">왼쪽에서 분야를 고르면 추천 도서가 나타나요</div>
+                          </div>
+                        ) : !recBooksForField ? (
+                          <div className="px-4 py-12 text-center">
+                            <div className="text-4xl mb-3">🚧</div>
+                            <div className="text-[13px] font-medium text-ink-secondary mb-1">{selField} 추천 도서를 준비 중이에요</div>
+                            <div className="text-[11px] text-ink-muted">검색도서 탭에서 직접 찾아볼 수 있어요</div>
+                          </div>
                         ) : (
-                          <div className="w-12 h-16 bg-brand-middle-pale rounded flex-shrink-0 flex items-center justify-center text-xl">📖</div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[13px] font-semibold text-ink mb-0.5 line-clamp-1">{stripHtml(book.title)}</div>
-                          <div className="text-[11px] text-ink-secondary mb-1.5 font-medium">{book.author}{book.publisher && ` · ${book.publisher}`}</div>
-                          {book.description && <div className="text-[11px] text-ink-muted leading-relaxed line-clamp-2">{stripHtml(book.description)}</div>}
-                        </div>
-                        <div className="text-[11px] font-bold text-brand-middle-dark flex-shrink-0 mt-1">상세 →</div>
-                      </div>
-                    ))}
+                          <div className="px-4 pt-4 pb-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="text-[13px] font-bold text-brand-middle-dark">
+                                📚 {selField} 추천 도서
+                              </div>
+                              {/* 난이도 탭 */}
+                              <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
+                                {REC_LEVELS.map((lv) => (
+                                  <button
+                                    key={lv}
+                                    onClick={() => setSelLevel(lv)}
+                                    className={`px-3.5 py-1 rounded-md text-[11px] font-bold transition-all ${selLevel === lv
+                                      ? "bg-brand-middle text-white shadow-sm"
+                                      : "text-ink-secondary hover:text-ink"
+                                      }`}
+                                  >
+                                    {lv}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
 
-                    {searchResults.length > 0 && totalPages > 1 && (
-                      <div className="flex items-center justify-center gap-1 mt-4 pt-4 border-t border-line">
-                        <button onClick={() => goPage(1)} disabled={page === 1 || searching} className="w-8 h-8 rounded-lg text-[12px] font-semibold text-ink-secondary hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">«</button>
-                        <button onClick={() => goPage(page - 1)} disabled={page === 1 || searching} className="w-8 h-8 rounded-lg text-[12px] font-semibold text-ink-secondary hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">‹</button>
-                        {pageButtons.map((p) => (
-                          <button key={p} onClick={() => goPage(p)} disabled={searching}
-                            className={`w-8 h-8 rounded-lg text-[12px] font-bold transition-all disabled:opacity-50 ${p === page ? "bg-brand-middle text-white shadow-[0_2px_6px_rgba(16,185,129,0.25)]" : "text-ink hover:bg-gray-100"}`}>
-                            {p}
-                          </button>
-                        ))}
-                        <button onClick={() => goPage(page + 1)} disabled={isEnd || page >= totalPages || searching} className="w-8 h-8 rounded-lg text-[12px] font-semibold text-ink-secondary hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">›</button>
-                        <button onClick={() => goPage(totalPages)} disabled={page >= totalPages || searching} className="w-8 h-8 rounded-lg text-[12px] font-semibold text-ink-secondary hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">»</button>
-                      </div>
+                            <div className="flex flex-col gap-1.5">
+                              {recBooksForLevel.length === 0 ? (
+                                <div className="text-center py-10 text-[12px] text-ink-muted bg-gray-50 rounded-xl">
+                                  아직 {selLevel} 추천 도서가 없어요.
+                                </div>
+                              ) : (
+                                recBooksForLevel.map((book, i) => (
+                                  <button
+                                    key={i}
+                                    onClick={() => handleRecBookClick(book)}
+                                    className="flex items-center gap-3 px-3.5 py-2.5 rounded-lg border border-line bg-white hover:border-brand-middle hover:bg-brand-middle-pale/50 transition-all text-left group"
+                                  >
+                                    <span className="w-6 h-6 rounded-full bg-brand-middle-bg text-brand-middle-dark text-[11px] font-bold flex items-center justify-center flex-shrink-0">
+                                      {i + 1}
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-[13px] font-semibold text-ink truncate">{book.title}</div>
+                                      <div className="text-[11px] text-ink-muted truncate">{book.author}</div>
+                                    </div>
+                                    <span className="text-[11px] text-brand-middle-dark font-bold flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      검색 →
+                                    </span>
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* ───── 검색도서 탭 ───── */}
+                    {modalTab === "search" && (
+                      <>
+                        {/* 세부 카테고리 */}
+                        {selField && (
+                          <div className="px-4 pt-4 pb-3 border-b border-line-light">
+                            <div className="text-[11px] font-bold text-ink-muted mb-2">
+                              {selField} · 세부 카테고리
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {CATEGORY_MAP[selField].map((sub) => (
+                                <button
+                                  key={sub.label}
+                                  onClick={() => handleSubCategoryClick(selField, sub)}
+                                  disabled={searching}
+                                  className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border disabled:opacity-50 ${selSubCategory === sub.label
+                                    ? "bg-brand-middle text-white border-brand-middle shadow-[0_2px_6px_rgba(16,185,129,0.25)]"
+                                    : "bg-white text-ink-secondary border-line hover:border-brand-middle-light hover:bg-brand-middle-pale hover:text-brand-middle-dark"
+                                    }`}
+                                >
+                                  {sub.label}
+                                </button>
+                              ))}
+                              {/* ★ 직접 입력 버튼 */}
+                              <button
+                                onClick={() => { setShowCustomInput(true); setSelSubCategory(null); setSearchInput(""); setCustomCategory(""); }}
+                                className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border ${showCustomInput
+                                  ? "bg-amber-500 text-white border-amber-500"
+                                  : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                                  }`}
+                              >
+                                ✏️ 직접 입력
+                              </button>
+                            </div>
+                            {/* ★ 직접 입력 칸 */}
+                            {showCustomInput && (
+                              <div className="mt-2 flex gap-2 items-center">
+                                <input
+                                  type="text"
+                                  value={customCategory}
+                                  onChange={e => setCustomCategory(e.target.value)}
+                                  onKeyDown={e => e.key === "Enter" && handleCustomConfirm()}
+                                  placeholder="카테고리를 직접 입력하세요 (예: 스포츠 의학)"
+                                  autoFocus
+                                  className="flex-1 h-9 px-3 text-[12px] border border-amber-200 rounded-lg focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200/50 placeholder:text-ink-muted"
+                                />
+                                <button
+                                  onClick={handleCustomConfirm}
+                                  disabled={!customCategory.trim()}
+                                  className="h-9 px-3 bg-amber-500 text-white text-[12px] font-bold rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-40"
+                                >
+                                  확인
+                                </button>
+                                <button
+                                  onClick={() => { setShowCustomInput(false); setCustomCategory(""); }}
+                                  className="h-9 px-3 bg-white text-ink-secondary text-[12px] border border-line rounded-lg hover:bg-gray-50 transition-colors"
+                                >
+                                  취소
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 직접 검색 */}
+                        <div className="px-4 pt-3 pb-3">
+                          {!selField && (
+                            <div className="text-[11px] font-medium text-ink-muted mb-1.5">
+                              👈 왼쪽에서 분야를 선택하거나 직접 검색해보세요
+                            </div>
+                          )}
+                          {selField && (
+                            <div className="text-[11px] font-medium text-ink-muted mb-1.5">
+                              또는 직접 검색
+                            </div>
+                          )}
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted">🔍</span>
+                            <input
+                              id="book-search-input"
+                              value={searchInput}
+                              onChange={(e) => {
+                                setSearchInput(e.target.value);
+                                if (e.target.value !== searchInput) setSelSubCategory(null);
+                              }}
+                              placeholder="책 제목, 저자, 키워드로 검색"
+                              className="w-full h-10 border border-line rounded-lg pl-10 pr-10 text-[13px] outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-colors font-sans"
+                            />
+                            {searching && (
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                <div className="w-4 h-4 border-2 border-gray-200 border-t-brand-middle rounded-full animate-spin" />
+                              </div>
+                            )}
+                            {searchInput && !searching && (
+                              <button onClick={() => { setSearchInput(""); setSelSubCategory(null); }}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink text-[16px]">×</button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* 안내 화면 */}
+                        {!searchInput && searchResults.length === 0 && (
+                          <div className="px-4 pb-4">
+                            {!selField ? (
+                              <div className="text-center py-12 bg-gray-50 rounded-xl">
+                                <div className="text-4xl mb-3">🔍</div>
+                                <div className="text-[13px] font-medium text-ink-secondary mb-1">검색어를 입력하거나 분야를 선택하세요</div>
+                                <div className="text-[11px] text-ink-muted">세부 카테고리를 누르면 바로 검색돼요</div>
+                              </div>
+                            ) : (
+                              <div className="text-center py-8 bg-brand-middle-pale/40 rounded-xl border border-brand-middle-light/50">
+                                <div className="text-3xl mb-2">☝️</div>
+                                <div className="text-[13px] font-medium text-brand-middle-dark mb-1">카테고리를 선택하거나 검색하세요</div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 검색 결과 */}
+                        <div className="px-4 pb-4">
+                          {searchError && (
+                            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-3">
+                              <div className="text-[12px] text-red-600 font-medium">⚠️ {searchError}</div>
+                            </div>
+                          )}
+
+                          {searchInput && !searching && !searchError && searchResults.length === 0 && (
+                            <div className="text-center py-10">
+                              <div className="text-3xl mb-2">🔍</div>
+                              <div className="text-[13px] text-ink-muted">검색 결과가 없어요.</div>
+                            </div>
+                          )}
+
+                          {searchResults.length > 0 && (
+                            <div className="text-[11px] text-ink-muted mb-2 font-medium">
+                              "<span className="text-brand-middle-dark font-bold">{searchQuery}</span>" 검색 결과 총{" "}
+                              <span className="text-brand-middle-dark font-bold">{totalCount.toLocaleString()}</span>건
+                              {totalCount > pageableCount && <span className="ml-1">· 상위 {pageableCount.toLocaleString()}건 노출</span>}
+                            </div>
+                          )}
+
+                          {searchResults.map((book, i) => (
+                            <div key={i} onClick={() => openBookDetail(book)}
+                              className="border border-line rounded-xl px-4 py-3 mb-2 cursor-pointer flex gap-3 items-start bg-white hover:bg-brand-middle-pale/50 hover:border-brand-middle-light transition-all">
+                              {book.thumbnail ? (
+                                <img src={book.thumbnail} alt={book.title} className="w-12 h-16 object-cover rounded flex-shrink-0 bg-gray-100" />
+                              ) : (
+                                <div className="w-12 h-16 bg-brand-middle-pale rounded flex-shrink-0 flex items-center justify-center text-xl">📖</div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[13px] font-semibold text-ink mb-0.5 line-clamp-1">{stripHtml(book.title)}</div>
+                                <div className="text-[11px] text-ink-secondary mb-1.5 font-medium">{book.author}{book.publisher && ` · ${book.publisher}`}</div>
+                                {book.description && <div className="text-[11px] text-ink-muted leading-relaxed line-clamp-2">{stripHtml(book.description)}</div>}
+                              </div>
+                              <div className="text-[11px] font-bold text-brand-middle-dark flex-shrink-0 mt-1">상세 →</div>
+                            </div>
+                          ))}
+
+                          {searchResults.length > 0 && totalPages > 1 && (
+                            <div className="flex items-center justify-center gap-1 mt-4 pt-4 border-t border-line">
+                              <button onClick={() => goPage(1)} disabled={page === 1 || searching} className="w-8 h-8 rounded-lg text-[12px] font-semibold text-ink-secondary hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">«</button>
+                              <button onClick={() => goPage(page - 1)} disabled={page === 1 || searching} className="w-8 h-8 rounded-lg text-[12px] font-semibold text-ink-secondary hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">‹</button>
+                              {pageButtons.map((p) => (
+                                <button key={p} onClick={() => goPage(p)} disabled={searching}
+                                  className={`w-8 h-8 rounded-lg text-[12px] font-bold transition-all disabled:opacity-50 ${p === page ? "bg-brand-middle text-white shadow-[0_2px_6px_rgba(16,185,129,0.25)]" : "text-ink hover:bg-gray-100"}`}>
+                                  {p}
+                                </button>
+                              ))}
+                              <button onClick={() => goPage(page + 1)} disabled={isEnd || page >= totalPages || searching} className="w-8 h-8 rounded-lg text-[12px] font-semibold text-ink-secondary hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">›</button>
+                              <button onClick={() => goPage(totalPages)} disabled={page >= totalPages || searching} className="w-8 h-8 rounded-lg text-[12px] font-semibold text-ink-secondary hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">»</button>
+                            </div>
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>
