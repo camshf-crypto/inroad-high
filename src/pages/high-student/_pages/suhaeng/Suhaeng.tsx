@@ -13,33 +13,7 @@ import {
   type HighSuhaengSubmission,
 } from '@/pages/high-student/_hooks/useHighSuhaengSubmission'
 import { supabase } from '@/lib/supabase'
-
-const MY_SCHOOL_SUHAENG_HIGH: Record<string, any[]> = {
-  '고1': [
-    { id: 'h1-1', grade: '고1', subject: '국어', type: '글쓰기·논술', title: '현대 사회에서 독서의 의미', content: '디지털 시대에 독서의 중요성이 감소하고 있다는 주장에 대해 자신의 견해를 논술하시오.', ratio: 30, dueIn: 7, urgent: true, scheduledAt: '2026.05.20', minChars: 500, maxChars: 800 },
-    { id: 'h1-2', grade: '고1', subject: '통합과학', type: '탐구보고서', title: '생태계 내 먹이 사슬 탐구', content: '주변 생태계의 먹이 사슬을 조사하고, 특정 생물 개체수 변화가 생태계에 미치는 영향을 분석하는 탐구 보고서를 작성하시오.', ratio: 20, dueIn: 14, urgent: false, scheduledAt: '2026.05.27' },
-    { id: 'h1-3', grade: '고1', subject: '통합사회', type: '발표·토론', title: '기후 위기 대응 방안 토론', content: '기후 위기 해결을 위한 개인적 실천과 국가적 정책 중 어느 것이 더 효과적인지 토론하시오.', ratio: 25, dueIn: 21, urgent: false, scheduledAt: '2026.06.03' },
-    { id: 'h1-4', grade: '고1', subject: '수학', type: '프로젝트·산출물', title: '통계로 보는 우리 학교', content: '학교 생활과 관련된 주제를 선정하여 설문 조사를 실시하고, 통계 자료를 분석하여 결과물을 제작하시오.', ratio: 15, dueIn: 28, urgent: false, scheduledAt: '2026.06.10' },
-    { id: 'h1-5', grade: '고1', subject: '통합과학', type: '실험·실습', title: '산과 염기 반응 실험', content: '다양한 산과 염기 용액을 이용하여 중화 반응 실험을 수행하고, 결과를 분석하여 보고서를 작성하시오.', ratio: 20, dueIn: 35, urgent: false, scheduledAt: '2026.06.17' },
-    { id: 'h1-6', grade: '고1', subject: '영어', type: '독서기록', title: 'English Novel Reading Report', content: '제시된 영어 소설을 읽고 주요 내용 요약, 인상 깊은 구절, 나의 생각을 영어로 작성하시오.', ratio: 10, dueIn: 42, urgent: false, scheduledAt: '2026.06.24' },
-  ],
-  '고2': [
-    { id: 'h2-1', grade: '고2', subject: '문학', type: '글쓰기·논술', title: '현대시 감상 및 비평문 쓰기', content: '제시된 현대시 작품을 감상하고, 작품의 주제와 표현 기법을 분석하여 비평문을 작성하시오.', ratio: 30, dueIn: 5, urgent: true, scheduledAt: '2026.05.18', minChars: 600, maxChars: 1000 },
-    { id: 'h2-2', grade: '고2', subject: '생명과학Ⅰ', type: '탐구보고서', title: '효소의 작용과 환경 요인 탐구', content: '온도와 pH가 효소 활성에 미치는 영향을 실험을 통해 탐구하고 보고서를 작성하시오.', ratio: 20, dueIn: 12, urgent: false, scheduledAt: '2026.05.25' },
-    { id: 'h2-3', grade: '고2', subject: '사회문화', type: '발표·토론', title: '사회 불평등 해소 방안 발표', content: '우리 사회의 불평등 문제를 분석하고, 해소 방안을 제시하는 발표를 준비하시오.', ratio: 20, dueIn: 19, urgent: false, scheduledAt: '2026.06.01' },
-    { id: 'h2-4', grade: '고2', subject: '수학Ⅱ', type: '프로젝트·산출물', title: '미분을 활용한 최적화 문제 탐구', content: '실생활에서 미분을 활용한 최적화 문제를 찾아 수학적으로 해결하는 과정을 보고서로 작성하시오.', ratio: 15, dueIn: 26, urgent: false, scheduledAt: '2026.06.08' },
-    { id: 'h2-5', grade: '고2', subject: '화학Ⅰ', type: '실험·실습', title: '화학 반응 속도 측정 실험', content: '농도와 온도가 화학 반응 속도에 미치는 영향을 실험으로 확인하고 결과를 분석하시오.', ratio: 20, dueIn: 33, urgent: false, scheduledAt: '2026.06.15' },
-    { id: 'h2-6', grade: '고2', subject: '독서', type: '독서기록', title: '고전 산문 읽기와 독서 기록', content: '제시된 고전 산문을 읽고 내용 요약, 핵심 주제, 현대적 의미를 중심으로 독서 기록을 작성하시오.', ratio: 15, dueIn: 40, urgent: false, scheduledAt: '2026.06.22' },
-  ],
-  '고3': [
-    { id: 'h3-1', grade: '고3', subject: '화법과작문', type: '글쓰기·논술', title: '대학 입시와 공정성 논술', content: '현행 대학 입시 제도의 공정성에 대해 자신의 입장을 정하고, 구체적 근거를 들어 논술하시오.', ratio: 35, dueIn: 4, urgent: true, scheduledAt: '2026.05.17', minChars: 700, maxChars: 1200 },
-    { id: 'h3-2', grade: '고3', subject: '생명과학Ⅱ', type: '탐구보고서', title: '유전자 발현 조절 메커니즘 탐구', content: '원핵생물과 진핵생물의 유전자 발현 조절 방식을 비교·분석하는 탐구 보고서를 작성하시오.', ratio: 20, dueIn: 11, urgent: false, scheduledAt: '2026.05.24' },
-    { id: 'h3-3', grade: '고3', subject: '정치와법', type: '발표·토론', title: '헌법 가치와 기본권 제한 토론', content: '공공의 이익을 위한 기본권 제한의 정당성에 대해 찬반 입장을 정해 토론하시오.', ratio: 15, dueIn: 18, urgent: false, scheduledAt: '2026.05.31' },
-    { id: 'h3-4', grade: '고3', subject: '경제', type: '프로젝트·산출물', title: '국내외 경제 지표 분석 보고서', content: '최근 3년간의 주요 경제 지표를 분석하고 시사점을 도출하는 보고서를 작성하시오.', ratio: 15, dueIn: 25, urgent: false, scheduledAt: '2026.06.07' },
-    { id: 'h3-5', grade: '고3', subject: '물리학Ⅱ', type: '실험·실습', title: '전자기 유도 실험 및 분석', content: '패러데이 법칙을 검증하는 실험을 설계·수행하고, 측정 데이터를 분석하여 보고서를 작성하시오.', ratio: 20, dueIn: 32, urgent: false, scheduledAt: '2026.06.14' },
-    { id: 'h3-6', grade: '고3', subject: '고전읽기', type: '독서기록', title: '동서양 고전 비교 독서', content: '동양 고전과 서양 고전 각 1권씩 읽고, 두 작품의 인간관·세계관을 비교하는 독서 기록을 작성하시오.', ratio: 15, dueIn: 39, urgent: false, scheduledAt: '2026.06.21' },
-  ],
-}
+import { useHighSchoolSuhaeng, useHighSchool, useHighStudentSchool } from '@/pages/admin/_hooks/useHighSchoolSuhaeng'
 
 const TYPE_ICON: Record<string, string> = {
   '탐구보고서': '🔬', '독서기록': '📚', '발표·토론': '🎤',
@@ -240,8 +214,7 @@ function PracticeHeader({ q, onBack, onSubmit, onSaveDraft, canSubmit, submittin
         <button onClick={onBack} className="text-[12px] font-semibold text-ink-secondary hover:text-ink transition-colors">← 목록으로</button>
         <div className="w-px h-4 bg-line" />
         <div>
-          <div className="text-[11px] text-ink-muted font-semibold">{q._isSchool ? '우리 학교 수행평가' : '학원 수행평가'} · {q.subject} · {q.type}</div>
-          <div className="text-[14px] font-bold text-ink">{q.title}</div>
+          <div className="text-[12px] text-ink-secondary font-semibold">{q._isSchool ? '우리 학교' : '학원 수행평가'} · {q.subject} · {q.type}{q.ratio ? ` (배점 ${q.ratio}%)` : ''}</div>
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -262,25 +235,42 @@ function PracticeHeader({ q, onBack, onSubmit, onSaveDraft, canSubmit, submittin
   )
 }
 
-function QuestionCard({ q }: { q: HighAcademySuhaengQuestion }) {
+function QuestionCard({ q }: { q: any }) {
+  const isSchool = !!q._isSchool
   return (
     <div className="bg-white border border-line rounded-xl px-4 py-3.5 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
       <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
-        <span className="text-[10px] font-bold text-white bg-brand-high px-2 py-0.5 rounded">문제</span>
-        <span className="text-[10px] text-ink-muted font-semibold">학원 수행평가 · {q.subject} · {q.grade}</span>
+        <span className="text-[10px] font-bold text-white bg-brand-high px-2 py-0.5 rounded">문항</span>
+        <span className="text-[10px] text-ink-muted font-semibold">
+          {isSchool ? `🏫 우리 학교${q.grade ? ` · ${q.grade}` : ''}${q.semester ? ` ${q.semester}` : ''}` : `학원 수행평가 · ${q.subject} · ${q.grade}`}
+        </span>
+        {q.ratio ? <span className="text-[10px] text-ink-muted">· 배점 {q.ratio}%</span> : null}
+        {q.scheduledAt ? <span className="text-[10px] text-ink-muted">· {q.scheduledAt}</span> : null}
       </div>
-      {((q as any).semester || (q as any).topic) && (
-        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-          {(q as any).semester && <span className="text-[10px] font-bold px-2 py-0.5 bg-brand-high-pale text-brand-high-dark rounded-full border border-brand-high-light">{(q as any).semester}</span>}
-          {(q as any).topic && <span className="text-[10px] font-semibold text-ink-secondary">#{(q as any).topic}</span>}
+      <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
+        {q.subject && <span className="text-[10px] font-bold px-2 py-0.5 bg-brand-high-pale text-brand-high-dark rounded-full border border-brand-high-light">{q.subject}</span>}
+        {q.type && <span className="text-[10px] font-semibold text-ink-secondary">{q.type}</span>}
+        {q.coreConcept && <span className="text-[10px] text-ink-muted">· {q.coreConcept}</span>}
+        {!q.coreConcept && q.unitTopic && <span className="text-[10px] text-ink-muted">· {q.unitTopic}</span>}
+      </div>
+
+      {/* 문항 = 메인 (크게) */}
+      <p className="text-[15px] font-bold text-ink leading-[1.7]">{q.content || q.title}</p>
+
+      {/* 수행과제 = 참고용 (작게, 문항과 다를 때만) */}
+      {q.title && q.title !== q.content && (
+        <div className="mt-3 pt-3 border-t border-line">
+          <div className="text-[10px] font-bold text-ink-muted mb-1">📋 수행과제 (참고)</div>
+          <div className="text-[11.5px] text-ink-secondary leading-[1.7] whitespace-pre-wrap">{q.title}</div>
         </div>
       )}
-      <p className="text-[13px] text-ink leading-[1.8]">{q.content}</p>
-      {q.eval_criteria && q.eval_criteria.length > 0 && (
+
+      {/* 학원 문제일 때만: 평가 요소 */}
+      {!isSchool && q.eval_criteria && q.eval_criteria.length > 0 && (
         <div className="mt-3 pt-3 border-t border-line">
           <div className="text-[10px] font-bold text-ink-muted mb-1.5">평가 요소</div>
           <div className="flex flex-wrap gap-1.5">
-            {q.eval_criteria.map((e, i) => (
+            {q.eval_criteria.map((e: any, i: number) => (
               <span key={i} className="text-[10px] px-2 py-0.5 bg-brand-high-pale text-brand-high-dark rounded-full border border-brand-high-light font-semibold">{e.name} {e.score}점</span>
             ))}
           </div>
@@ -640,6 +630,9 @@ function FeedbackView({ submission, question, onBack }: { submission: HighSuhaen
   const [isResubmitting, setIsResubmitting] = useState(false)
   const [resubmitText, setResubmitText] = useState('')
 
+  const isSchool = !!(question as any)._isSchool
+  const ratio = (question as any).ratio
+
   const studentAnswerDisplay = submission.answer_text ||
     (submission.answer_sections ? Object.entries(submission.answer_sections).map(([k, v]) => `[${SECTION_LABEL_MAP[k] || k}]\n${v}`).join('\n\n') : '')
 
@@ -661,8 +654,7 @@ function FeedbackView({ submission, question, onBack }: { submission: HighSuhaen
           <button onClick={onBack} className="text-[12px] font-semibold text-ink-secondary hover:text-ink transition-colors">← 목록으로</button>
           <div className="w-px h-4 bg-line" />
           <div>
-            <div className="text-[11px] text-ink-muted font-semibold">학원 수행평가 · {question.subject} · {question.type}</div>
-            <div className="text-[14px] font-bold text-ink">{question.title}</div>
+            <div className="text-[12px] text-ink-secondary font-semibold">{isSchool ? '우리 학교' : '학원 수행평가'} · {question.subject} · {question.type}{ratio ? ` (배점 ${ratio}%)` : ''}</div>
           </div>
         </div>
         <span className="px-3 py-1.5 rounded-lg text-[12px] font-bold border"
@@ -774,6 +766,7 @@ export default function HighSuhaeng() {
   const grade = (student as any)?.grade ?? undefined
 
   const [mode, setMode] = useState<'list' | 'practice' | 'feedback'>('list')
+  const [selectedSemester, setSelectedSemester] = useState<'1' | '2'>('1')
   const [selectedQuestion, setSelectedQuestion] = useState<HighAcademySuhaengQuestion | null>(null)
   const [feedbackData, setFeedbackData] = useState<{ submission: HighSuhaengSubmission; question: HighAcademySuhaengQuestion } | null>(null)
   const [showAllModal, setShowAllModal] = useState(false)
@@ -782,6 +775,31 @@ export default function HighSuhaeng() {
   const submitAnswer = useSubmitHighAnswer()
   const { data: mySubmissions = [] } = useMyHighSubmissions(studentId)
   const { data: questions = [], isLoading } = useMyHighAcademyQuestions(studentId, academyId, grade)
+
+  // ===== 우리 학교 수행평가 (school_suhaeng DB 연결) =====
+  const { data: studentSchool } = useHighStudentSchool(studentId)
+  const schoolId = studentSchool?.school_id ?? undefined
+  const gradeNum = grade ? String(grade).replace(/[^0-9]/g, '') : undefined
+  const { data: schoolSuhaengRows = [] } = useHighSchoolSuhaeng(schoolId, gradeNum, selectedSemester)
+  const { data: mySchool } = useHighSchool(schoolId)
+  const myGradeSuhaeng = schoolSuhaengRows.map((r: any) => ({
+    id: r.id,
+    grade: grade,
+    semester: r.semester ? `${r.semester}학기` : '',
+    subject: r.subject,
+    type: r.eval_type || '수행평가',
+    title: r.task_title,
+    content: r.question_content || r.core_concept || r.task_title || '',
+    coreConcept: r.core_concept || '',
+    unitTopic: r.unit_topic || '',
+    ratio: r.score ?? 0,
+    dueIn: 0,
+    urgent: false,
+    scheduledAt: r.eval_period || '',
+    minChars: r.min_chars || null,
+    maxChars: r.max_chars || null,
+  }))
+  // =====================================================
 
   const getSubmission = (questionId: string) => mySubmissions.find(s => s.question_id === questionId)
 
@@ -822,9 +840,9 @@ export default function HighSuhaeng() {
     if (q.type === '발표·토론') return <PresentationPractice q={q} onBack={backToList} onSubmit={handleSubmit} submitting={submitting} studentId={studentId} />
     if (q.type === '프로젝트·산출물') return <SectionPractice q={q} onBack={backToList} onSubmit={handleSubmit} submitting={submitting} icon="🛠️" label="프로젝트 산출물" />
     if (q.type === '실험·실습') return <ExperimentPractice q={q} onBack={backToList} onSubmit={handleSubmit} submitting={submitting} studentId={studentId} />
+    // 그 외 eval_type(서술·논술, 프로젝트, 포트폴리오 등)은 기본 논술형으로 처리
+    return <EssayPractice q={q} onBack={backToList} onSubmit={handleSubmit} submitting={submitting} />
   }
-
-  const myGradeSuhaeng = MY_SCHOOL_SUHAENG_HIGH[grade] || []
 
   return (
     <div className="flex flex-col gap-3 h-[calc(100vh-90px)] overflow-hidden px-6 py-5 font-sans text-ink">
@@ -844,12 +862,29 @@ export default function HighSuhaeng() {
       <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4 min-h-0">
         <div className="bg-amber-50 border border-amber-200 rounded-xl shadow-[0_4px_16px_rgba(245,158,11,0.08)] flex-shrink-0">
           <div className="px-4 py-3 border-b border-amber-200 flex items-center justify-between">
-            <div>
-              <div className="text-[14px] font-extrabold text-amber-900 tracking-tight">🏫 우리 학교 수행평가</div>
-              <div className="text-[11px] text-amber-700 mt-0.5">{grade} · 2026학년도 1학기 평가 계획</div>
+            <div className="flex items-center gap-3">
+              <div>
+                <div className="text-[14px] font-extrabold text-amber-900 tracking-tight">🏫 우리 학교 수행평가</div>
+                <div className="text-[11px] text-amber-700 mt-0.5">{mySchool?.name || '우리 학교'} · {grade} · 2026학년도 {selectedSemester}학기 평가 계획</div>
+              </div>
+              {/* 학기 전환 버튼 (1학기 / 2학기) */}
+              <div className="flex gap-0.5 bg-amber-100 rounded-lg p-0.5">
+                {(['1', '2'] as const).map((sem) => (
+                  <button key={sem} onClick={() => setSelectedSemester(sem)}
+                    className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all ${selectedSemester === sem ? 'bg-amber-500 text-white shadow-sm' : 'text-amber-700 hover:text-amber-900'}`}>
+                    {sem}학기
+                  </button>
+                ))}
+              </div>
             </div>
             <button onClick={() => setShowAllModal(true)} className="text-[11px] font-semibold text-amber-700 hover:text-amber-900 transition-colors">전체 보기 ›</button>
           </div>
+          {myGradeSuhaeng.length === 0 ? (
+            <div className="px-4 py-10 text-center text-amber-700 text-[12px]">
+              <div className="text-3xl mb-2">📅</div>
+              <div className="font-medium">{selectedSemester}학기에 등록된 우리 학교 수행평가가 없어요</div>
+            </div>
+          ) : (
           <div className="grid grid-cols-3 gap-2.5 p-3">
             {myGradeSuhaeng.map((t: any) => {
               const schoolSubmitted = mySubmissions.find(s => (s as any).question_key === `school-${t.id}`)
@@ -862,20 +897,20 @@ export default function HighSuhaeng() {
                     'bg-white border-amber-200 hover:border-amber-400 hover:shadow-sm'
                   }`}>
                   {schoolSubmitted && <div className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-blue-500 text-white text-[9px] font-bold rounded-full">✓ 제출됨</div>}
-                  {!schoolSubmitted && t.urgent && <div className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full">D-{t.dueIn}</div>}
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded">{t.subject}</span>
                     <span className="text-[10px] font-semibold text-amber-700">{t.type}</span>
                   </div>
                   <div className="text-[12px] font-bold text-amber-900 leading-tight mb-2 line-clamp-2 min-h-[30px]">{t.title}</div>
                   <div className="flex items-center justify-between text-[10px] pt-2 border-t border-amber-200">
-                    <span className="text-amber-600">D-{t.dueIn} · {t.ratio}%</span>
+                    <span className="text-amber-600">배점 {t.ratio}점</span>
                     <span className="font-bold text-amber-700">{schoolSubmitted ? '제출 완료 ✓' : '바로 시작 →'}</span>
                   </div>
                 </div>
               )
             })}
           </div>
+          )}
         </div>
 
         <div className="bg-white border border-line rounded-xl shadow-[0_4px_16px_rgba(15,23,42,0.04)] flex-shrink-0">
@@ -926,31 +961,22 @@ export default function HighSuhaeng() {
             <div className="flex items-center justify-between px-5 py-4 border-b border-line">
               <div>
                 <div className="text-[16px] font-extrabold text-ink tracking-tight">🏫 우리 학교 수행평가 전체</div>
-                <div className="text-[11px] text-ink-muted mt-0.5">학년별 전체 수행평가 일정</div>
+                <div className="text-[11px] text-ink-muted mt-0.5">{mySchool?.name || '우리 학교'} · {grade} · 2026학년도 {selectedSemester}학기 ({myGradeSuhaeng.length}건)</div>
               </div>
               <button onClick={() => setShowAllModal(false)} className="text-ink-muted hover:text-ink text-xl transition-colors">✕</button>
             </div>
-            <div className="flex gap-1 px-5 py-3 border-b border-line">
-              {['고1', '고2', '고3'].map(g => (
-                <button key={g} onClick={() => setModalGrade(g)}
-                  className={`px-4 py-1.5 rounded-full text-[12px] font-bold border transition-all ${modalGrade === g ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-ink-secondary border-line hover:border-amber-300'}`}>
-                  {g} {g === grade && <span className="ml-1 text-[10px] opacity-80">(내 학년)</span>}
-                </button>
-              ))}
-            </div>
             <div className="flex-1 overflow-y-auto p-5">
-              {(MY_SCHOOL_SUHAENG_HIGH[modalGrade] || []).length === 0 ? (
-                <div className="text-center py-10 text-ink-muted text-[12px]"><div className="text-3xl mb-2">📅</div>{modalGrade} 수행평가 정보가 없어요</div>
+              {myGradeSuhaeng.length === 0 ? (
+                <div className="text-center py-10 text-ink-muted text-[12px]"><div className="text-3xl mb-2">📅</div>수행평가 정보가 없어요</div>
               ) : (
                 <div className="space-y-2">
-                  {(MY_SCHOOL_SUHAENG_HIGH[modalGrade] || []).map((s: any) => (
+                  {myGradeSuhaeng.map((s: any) => (
                     <div key={s.id} className="border border-line rounded-lg p-3 hover:border-brand-high-light hover:bg-brand-high-pale/20 cursor-pointer transition-all"
                       onClick={() => { setShowAllModal(false); setSelectedQuestion({ ...s, _isSchool: true, id: s.id, academy_id: '', teacher_id: null, is_active: true, is_draft: false, eval_criteria: null, min_chars: s.minChars || null, max_chars: s.maxChars || null, created_at: '', updated_at: '' }); setMode('practice') }}>
                       <div className="flex items-center gap-2 mb-1.5">
                         <span className="text-[10px] font-bold text-ink-secondary bg-white border border-line px-1.5 py-0.5 rounded">{s.subject}</span>
                         <span className="text-[10px] font-semibold text-brand-high-dark">{s.type}</span>
-                        <span className="text-[10px] text-ink-muted">· 배점 {s.ratio}%</span>
-                        {s.urgent && <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded">D-{s.dueIn}</span>}
+                        <span className="text-[10px] text-ink-muted">· 배점 {s.ratio}점</span>
                         <span className="ml-auto text-[10px] text-ink-muted">{s.scheduledAt}</span>
                       </div>
                       <div className="text-[13px] font-bold text-ink">{s.title}</div>
