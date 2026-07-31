@@ -8,6 +8,7 @@ import { useHighRoadmapProgress } from '../../../_hooks/useHighRoadmap'
 
 // 고등 (high-tabs)
 import RoadmapTab from './high-tabs/RoadmapTab'
+import RoadmapActivityTab from './high-tabs/RoadmapActivityTab'
 import TopicTab from './high-tabs/TopicTab'
 import BookTab from './high-tabs/BookTab'
 import RecordTab from './high-tabs/Record'
@@ -38,6 +39,7 @@ import MiddleDebateTab from './middle-tabs/MiddleDebateTab'   // 🔥 AI 토론 
 
 const HIGH_TABS = [
   { key: 'roadmap', label: '로드맵', menuKey: 'high.roadmap' },
+  { key: 'roadmap_activity', label: '로드맵 활동', menuKey: 'high.roadmap_v2' },
   { key: 'concept', label: '진로 계열 검사', menuKey: 'high.concept' },
   { key: 'topic', label: '탐구주제', menuKey: 'high.topic' },
   { key: 'book', label: '독서리스트', menuKey: 'high.book' },
@@ -73,7 +75,7 @@ const ALWAYS_VISIBLE_MIDDLE = ['middle.concept', 'middle.suhaeng', 'middle.basic
 
 const ALL_GRADES: GradeKey[] = ['고1', '고2', '고3']
 
-type HighTabType = 'roadmap' | 'concept' | 'topic' | 'book' | 'record' | 'suhaeng' | 'expect' | 'past' | 'basic' | 'mockexam' | 'simulation' | 'presentation' | 'major'
+type HighTabType = 'roadmap' | 'roadmap_activity' | 'concept' | 'topic' | 'book' | 'record' | 'suhaeng' | 'expect' | 'past' | 'basic' | 'mockexam' | 'simulation' | 'presentation' | 'major'
 type MiddleTabType = 'roadmap' | 'concept' | 'lesson' | 'homework' | 'suhaeng' | 'record' | 'book' | 'debate' | 'expect' | 'past' | 'basic' | 'simulation' | 'presentation'   // 🔥 'debate' 추가
 
 const THEME = {
@@ -348,6 +350,7 @@ export default function StudentDetail() {
           {!isMiddle && (
             <>
               {highTab === 'roadmap'      && visibleHighTabs.find(t => t.key === 'roadmap')      && <RoadmapTab student={student} viewGrade={currentViewGrade} />}
+              {highTab === 'roadmap_activity' && visibleHighTabs.find(t => t.key === 'roadmap_activity') && <RoadmapActivityTab student={student} viewGrade={currentViewGrade} />}
               {highTab === 'concept'      && visibleHighTabs.find(t => t.key === 'concept')      && <ConceptTab student={student} />}
               {highTab === 'topic'        && visibleHighTabs.find(t => t.key === 'topic')        && <TopicTab student={student} onOpenChat={openChat} openId={openTopicId} onClearOpenId={() => setOpenTopicId(null)} />}
               {highTab === 'book'         && visibleHighTabs.find(t => t.key === 'book')         && <BookTab student={student} onOpenChat={openChat} openId={openBookId} onClearOpenId={() => setOpenBookId(null)} />}

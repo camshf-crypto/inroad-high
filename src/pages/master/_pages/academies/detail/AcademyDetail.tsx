@@ -21,10 +21,11 @@ const PLAN_FEES: Record<string, number> = {
 // ⭐ 메뉴 정의 - 학원 사이드바와 동일
 const HIGH_MENUS = [
   { menuKey: 'high.roadmap', label: '내 로드맵', icon: '⊞' },
+  { menuKey: 'high.roadmap_v2', label: '입시 로드맵', icon: '🗺️' },
   { menuKey: 'high.topic', label: '탐구주제', icon: '🔬' },
   { menuKey: 'high.book', label: '독서리스트', icon: '📚' },
   { menuKey: 'high.record', label: '나의 생기부', icon: '📋' },
-    { menuKey: 'high.basic', label: '기본 인성질문', icon: '💎' }, // 🔥 NEW
+  { menuKey: 'high.basic', label: '기본 인성질문', icon: '💎' },
   { menuKey: 'high.expect', label: '생기부 예상질문', icon: '💬' },
   { menuKey: 'high.past', label: '기출문제', icon: '🎓' },
   { menuKey: 'high.simulation', label: '면접 시뮬레이션', icon: '🎙️' },

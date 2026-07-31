@@ -12,6 +12,7 @@ import { findOrCreateSchool } from '@/pages/middle-student/_hooks/useSchoolSuhae
 
 const MENUS = [
   { path: '/high-student/roadmap', label: '내 로드맵', icon: '⊞', menuKey: 'high.roadmap' },
+  { path: '/high-student/roadmap-v2', label: '입시 로드맵', icon: '🗺️', menuKey: 'high.roadmap_v2' },
   { path: '/high-student/concept', label: '진로 계열 검사', icon: '🧭', menuKey: 'high.concept' },
   { path: '/high-student/topic', label: '탐구주제', icon: '🔬', menuKey: 'high.topic' },
   { path: '/high-student/book', label: '독서리스트', icon: '📚', menuKey: 'high.book' },
@@ -102,7 +103,7 @@ export default function Layout() {
             </div>
           ) : (
             visibleMenus.map(m => {
-              const isActive = location.pathname === m.path || location.pathname.startsWith(m.path)
+              const isActive = location.pathname === m.path || location.pathname.startsWith(m.path + '/')
               const isLocked = !isAcademyConnected
               return (
                 <button key={m.path} onClick={() => { if (isLocked) return; navigate(m.path) }} disabled={isLocked}

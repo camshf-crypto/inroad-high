@@ -22,6 +22,10 @@ import Reports from '@/pages/admin/_pages/reports/Reports'
 import StudentLayout from '@/pages/high-student/_layout/Layout'
 import StudentLogin from '@/pages/high-student/_pages/login/Login'
 import Roadmap from '@/pages/high-student/_pages/roadmap/Roadmap'
+import RoadmapV2 from '@/pages/high-student/_pages/roadmap-v2/RoadmapV2'
+import NodeDetailPage from '@/pages/high-student/_pages/roadmap-v2/NodeDetailPage'
+import TopicWorkspace from '@/pages/high-student/_pages/roadmap-v2/TopicWorkspace'
+import TopicCreate from '@/pages/high-student/_pages/roadmap-v2/TopicCreate'
 import TopicList from '@/pages/high-student/_pages/topic/TopicList'
 import BookList from '@/pages/high-student/_pages/book/BookList'
 import Connect from '@/pages/high-student/_pages/connect/Connect'
@@ -120,6 +124,10 @@ const router = createBrowserRouter([
         element: <StudentLayout />,
         children: [
           { path: 'roadmap', element: <Roadmap /> },
+          { path: 'roadmap-v2', element: <RoadmapV2 /> },
+          { path: 'roadmap-v2/node/:nodeId', element: <NodeDetailPage /> },
+          { path: 'roadmap-v2/topic/:topicId', element: <TopicWorkspace /> },
+          { path: 'roadmap-v2/node/:nodeId/topic/:slot', element: <TopicCreate /> },
           { path: 'concept', element: <CareerConcept /> },
           { path: 'topic', element: <TopicList /> },
           { path: 'book', element: <BookList /> },
