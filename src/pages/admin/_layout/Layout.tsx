@@ -93,6 +93,8 @@ export default function Layout() {
     { path: '/admin', label: '대시보드', icon: '⊞', type: 'default' as const, show: true },
     hasHighMenu && { path: '/admin/students', label: '고등 관리', icon: '🌊', type: 'default' as const, show: true },
     hasMiddleMenu && { path: '/admin/middle-students', label: '중등 관리', icon: '🌱', type: 'middle' as const, show: true },
+    hasMiddleMenu && { path: '/admin/lesson-run', label: '수업 진행', icon: '🎓', type: 'middle' as const, show: true },
+    hasMiddleMenu && { path: '/admin/middle-lessons', label: '수업 영상 관리', icon: '🎬', type: 'middle' as const, show: true },
     (hasMiddleMenu || hasHighMenu) && { path: '/admin/middle-suhaeng', label: '수행평가 관리', icon: '📋', type: 'middle' as const, show: true },
     (hasHighMenu || hasMiddleMenu) && { path: '/admin/reports', label: '월간 보고서', icon: '📊', type: 'default' as const, show: true },
     { path: '/admin/student-approval', label: '학생 승인', icon: '✋', type: 'default' as const, show: true },
@@ -169,7 +171,7 @@ export default function Layout() {
           )}
         </div>
 
-        <nav className="flex-1 px-1.5 py-2 overflow-hidden">
+        <nav className="flex-1 px-1.5 py-2 overflow-y-auto">
           {menus.map(m => {
             const isActive = location.pathname === m.path || (m.path !== '/admin' && location.pathname.startsWith(m.path))
             const isMiddle = m.type === 'middle'

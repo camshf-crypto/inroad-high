@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
 import {
   MIDDLE_ROADMAP,
   toMiddleGradeKey,
@@ -27,6 +29,12 @@ interface Props {
   viewGrade?: MiddleGradeKey
 }
 
+// 워크북 작성칸 정의
+interface WbBlock {
+  id: string
+  label: string
+}
+
 export default function MiddleRoadmapTab({ student, viewGrade }: Props) {
   const studentId: string = student.id
   const studentGrade: MiddleGradeKey = toMiddleGradeKey(student?.grade)
@@ -35,6 +43,38 @@ export default function MiddleRoadmapTab({ student, viewGrade }: Props) {
 
   const [selMonth, setSelMonth] = useState<number | null>(null)
   const [memoDrafts, setMemoDrafts] = useState<Record<string, string>>({})
+  const [openWb, setOpenWb] = useState<string | null>(null)
+
+  // ── 이 학생의 워크북 답안 전체 (한 번에) ──
+  const { data: wbAnswers } = useQuery({
+    queryKey: ['middle-workbook-answers', studentId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('mission_workbook_answer')
+        .select('mission_key, answers, submitted_at, updated_at')
+        .eq('student_id', studentId)
+      if (error) throw error
+      const map = new Map<string, { answers: Record<string, string>; submitted_at: string | null; updated_at: string }>()
+      for (const r of data ?? []) map.set(r.mission_key, r as any)
+      return map
+    },
+  })
+
+  // ── 워크북 양식 (질문 라벨용) ──
+  const { data: wbForms } = useQuery({
+    queryKey: ['middle-workbook-forms'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('mission_workbook')
+        .select('mission_key, title, blocks')
+        .eq('level', 'middle')
+      if (error) throw error
+      const map = new Map<string, { title: string; blocks: WbBlock[] | null }>()
+      for (const r of data ?? []) map.set(r.mission_key, r as any)
+      return map
+    },
+    staleTime: 5 * 60 * 1000,
+  })
 
   const { data: progressMap, isLoading } = useMiddleRoadmapProgress(studentId)
   const toggleMutation = useToggleMiddleMissionComplete(studentId)
@@ -219,6 +259,10 @@ export default function MiddleRoadmapTab({ student, viewGrade }: Props) {
               const done = isDone(ms.key)
               const memo = getMemo(ms.key)
               const hasUnsavedMemo = memoDrafts[ms.key] !== undefined
+              const wb = wbAnswers?.get(ms.key)
+              const wbForm = wbForms?.get(ms.key)
+              const wbOpen = openWb === ms.key
+              const wbSubmitted = !!wb?.submitted_at
 
               return (
                 <div
@@ -259,6 +303,53 @@ export default function MiddleRoadmapTab({ student, viewGrade }: Props) {
                       {tc.label}
                     </span>
                   </div>
+
+                  {/* 워크북 제출 상태 */}
+                  <div className="mt-1.5 ml-6">
+                    {wb ? (
+                      <button
+                        onClick={() => setOpenWb(wbOpen ? null : ms.key)}
+                        className="text-[10px] font-bold px-2 py-1 rounded-md transition-colors"
+                        style={{
+                          background: wbSubmitted ? '#ECFDF5' : '#FFFBEB',
+                          color: wbSubmitted ? '#047857' : '#92400E',
+                          border: `1px solid ${wbSubmitted ? '#6EE7B7' : '#FDE68A'}`,
+                        }}
+                      >
+                        📄 워크북 {wbSubmitted ? '제출 완료' : '작성 중'} · {wbOpen ? '접기' : '보기'}
+                      </button>
+                    ) : (
+                      <span className="text-[10px] text-ink-muted">📄 워크북 미작성</span>
+                    )}
+                  </div>
+
+                  {/* 워크북 답안 */}
+                  {wbOpen && wb && (
+                    <div
+                      className="mt-2 ml-6 rounded-md border bg-white px-3 py-2.5"
+                      style={{ borderColor: THEME.accentBorder + '80' }}
+                    >
+                      <div className="text-[10px] font-bold mb-2" style={{ color: THEME.accentDark }}>
+                        ✏️ {wbForm?.title ?? '학생이 작성한 내용'}
+                      </div>
+                      {(wbForm?.blocks?.length
+                        ? wbForm.blocks
+                        : Object.keys(wb.answers ?? {}).map(k => ({ id: k, label: k }))
+                      ).map(b => (
+                        <div key={b.id} className="mb-2.5 last:mb-0">
+                          <div className="text-[10.5px] font-bold text-ink mb-0.5">{b.label}</div>
+                          <div className="text-[11px] text-ink-secondary whitespace-pre-wrap leading-[1.6]">
+                            {wb.answers?.[b.id]?.trim() || <span className="text-ink-muted">— 아직 안 썼어요</span>}
+                          </div>
+                        </div>
+                      ))}
+                      <div className="text-[9.5px] text-ink-muted mt-2 pt-2 border-t border-line">
+                        {wbSubmitted
+                          ? `제출 ${new Date(wb.submitted_at!).toLocaleDateString('ko-KR')}`
+                          : `마지막 작성 ${new Date(wb.updated_at).toLocaleDateString('ko-KR')}`}
+                      </div>
+                    </div>
+                  )}
 
                   {/* 메모 영역 */}
                   {canEdit ? (

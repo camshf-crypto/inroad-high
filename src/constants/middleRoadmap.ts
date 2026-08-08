@@ -1,7 +1,9 @@
 /**
  * 중등 로드맵 (본사 공통 커리큘럼)
  *
- * - 학년: 중1 / 중2 / 중3
+ * - 학년: 중1 / 중2 / 중3특목 / 중3일반
+ *   · 중3특목 — 자사고·외고·국제고 (자기주도학습전형: 자소서 + 면접)
+ *   · 중3일반 — 일반고 (PRE-BUILD: 고1 교과활동·탐구 선행)
  * - 월: 1, 2, 3, 4, 5, 6, 7, 8 (8개월)
  * - 미션 타입:
  *   - inAnswer: 비커스 서비스로 진행 (보라)
@@ -9,7 +11,9 @@
  *   - teacher: 선생님 오프라인 지도 (초록)
  *
  * mission_key 규칙: middle{학년}-{월번호 2자리}-{순서}
- *   예: middle2-03-1 = 중2 3월 1번째 미션
+ *   예: middle2-03-1  = 중2 3월 1번째 미션
+ *       middle3-03-1  = 중3 특목 트랙
+ *       middle3g-03-1 = 중3 일반고 트랙 (g = general)
  *
  * ⚠️ mission_key 는 절대 바꾸지 말 것 (바꾸면 기존 체크 데이터와 연결 끊어짐)
  *    미션 텍스트(t, theme, freq)는 자유롭게 수정 가능
@@ -24,16 +28,20 @@ export interface Mission {
   t: string
   type: MissionType
   tab?: string
+  /** 어느 과목 활동인지 (국어 / 수학 / 영어 / 사회 / 과학 / 정보 / 진로 / 발표 / 융합) */
+  subject?: string
 }
 
 export interface RoadmapMonth {
   m: string
   theme: string
   freq: string
+  /** 그 달에 남기는 결과물 */
+  output?: string
   missions: Mission[]
 }
 
-export type MiddleGradeKey = '중1' | '중2' | '중3'
+export type MiddleGradeKey = '중1' | '중2' | '중3특목' | '중3일반'
 
 // 고등의 GradeKey와 충돌 방지용 재export
 export type { HighGradeKey }
@@ -41,216 +49,336 @@ export type { HighGradeKey }
 export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
   '중1': [
     {
-      m: '1월', theme: '시작하기 (OT + 기초)', freq: '주 1회 (4주)', missions: [
-        { key: 'middle1-01-1', t: 'OT · 수행평가 이해 (1년 로드맵, 수행평가 구조)', type: 'teacher' },
-        { key: 'middle1-01-2', t: '자기소개 스피치 — 30초 자기PR 녹화', type: 'tab', tab: 'simulation' },
-        { key: 'middle1-01-3', t: '흥미·강점 진단 (홀랜드 검사)', type: 'inAnswer' },
-        { key: 'middle1-01-4', t: '직업 탐색 — 6대 직업군 조사', type: 'teacher' },
+      m: '1개월', theme: '나를 이해하기', freq: '주 1회 (4주)', output: '개인 관심·강점 지도',
+      missions: [
+        { key: 'middle1-01-1', subject: '국어', t: '나를 보여주는 경험 5개 찾기', type: 'teacher' },
+        { key: 'middle1-01-2', subject: '수학', t: '나의 하루·관심사를 데이터로 분석', type: 'teacher' },
+        { key: 'middle1-01-3', subject: '영어', t: 'My Future Self 작성·발표', type: 'teacher' },
+        { key: 'middle1-01-4', subject: '진로', t: '흥미·강점·관심 키워드 연결', type: 'inAnswer' },
       ],
     },
     {
-      m: '2월', theme: '논술·서술 기초', freq: '주 1회 (4주)', missions: [
-        { key: 'middle1-02-1', t: '답안 구조 이해 — 두괄식 구조 학습', type: 'teacher' },
-        { key: 'middle1-02-2', t: '문단 쓰기 — 200→400자 훈련', type: 'teacher' },
-        { key: 'middle1-02-3', t: '주장 글쓰기 — 근거 제시법', type: 'teacher' },
-        { key: 'middle1-02-4', t: '실전 논술 1차 — 첨삭·피드백', type: 'teacher' },
+      m: '2개월', theme: '직업 세계 탐색', freq: '주 1회 (4주)', output: '미래직업 탐색 리포트',
+      missions: [
+        { key: 'middle1-02-1', subject: '사회', t: '사회변화에 따라 사라지고 생기는 직업', type: 'teacher' },
+        { key: 'middle1-02-2', subject: '과학', t: '과학기술이 만든 새로운 직업', type: 'teacher' },
+        { key: 'middle1-02-3', subject: '정보·기가', t: 'AI 시대 미래직업 조사', type: 'teacher' },
+        { key: 'middle1-02-4', subject: '영어', t: '관심 직업 해외 자료 조사·소개', type: 'teacher' },
       ],
     },
     {
-      m: '3월', theme: '주제탐구 + 스피치', freq: '주 1회 (4주)', missions: [
-        { key: 'middle1-03-1', t: '주제 발굴 — 질문 만들기', type: 'teacher' },
-        { key: 'middle1-03-2', t: '자료 조사법 — 출처 표기', type: 'teacher' },
-        { key: 'middle1-03-3', t: '발성·호흡 — 복식 호흡', type: 'tab', tab: 'simulation' },
-        { key: 'middle1-03-4', t: '자세·제스처 — 눈 맞춤 훈련', type: 'tab', tab: 'simulation' },
+      m: '3개월', theme: '학과 탐색', freq: '주 1회 (4주)', output: '학과 탐색 카드',
+      missions: [
+        { key: 'middle1-03-1', subject: '국어', t: '대학 학과 소개 자료 읽고 핵심 요약', type: 'teacher' },
+        { key: 'middle1-03-2', subject: '사회', t: '직업과 대학 전공 연결', type: 'teacher' },
+        { key: 'middle1-03-3', subject: '과학', t: '이공계 학과가 실제로 배우는 것', type: 'teacher' },
+        { key: 'middle1-03-4', subject: '진로', t: '나에게 맞는 학과 TOP3 선정', type: 'inAnswer' },
       ],
     },
     {
-      m: '5월', theme: '수행평가 유형별 ①', freq: '주 1회 (4주)', missions: [
-        { key: 'middle1-04-1', t: '국어 수행평가 실전 — 실제 기출 연습', type: 'tab', tab: 'past' },
-        { key: 'middle1-04-2', t: '사회 수행평가 실전 — 실제 기출 연습', type: 'tab', tab: 'past' },
-        { key: 'middle1-04-3', t: '1분 스피치 — 즉흥 발표', type: 'tab', tab: 'simulation' },
-        { key: 'middle1-04-4', t: '발표 실전 — 과목별 시뮬', type: 'tab', tab: 'simulation' },
+      m: '4개월', theme: '탐구의 기초', freq: '주 1회 (4주)', output: '탐구주제 후보 5개',
+      missions: [
+        { key: 'middle1-04-1', subject: '과학', t: '관찰에서 질문 만들기', type: 'teacher' },
+        { key: 'middle1-04-2', subject: '사회', t: '생활 속 사회문제 발견', type: 'teacher' },
+        { key: 'middle1-04-3', subject: '국어', t: '단순 정보조사 vs 탐구 비교', type: 'teacher' },
+        { key: 'middle1-04-4', subject: '정보', t: '검색·출처·자료 신뢰도 판단', type: 'teacher' },
       ],
     },
     {
-      m: '7월', theme: '고교 탐색 시작', freq: '주 1회 (4주)', missions: [
-        { key: 'middle1-05-1', t: '고교 중요성 — 합격 사례 분석', type: 'teacher' },
-        { key: 'middle1-05-2', t: '자사고·특목고 이해 — 유형 비교', type: 'teacher' },
-        { key: 'middle1-05-3', t: '면접 맛보기 — 면접이란?', type: 'tab', tab: 'simulation' },
-        { key: 'middle1-05-4', t: '인성 면접 기초 — 기본 질문 대응', type: 'tab', tab: 'simulation' },
+      m: '5개월', theme: '좋은 질문 만들기', freq: '주 1회 (4주)', output: '나의 탐구질문 노트',
+      missions: [
+        { key: 'middle1-05-1', subject: '국어', t: '사실질문 → 생각질문 바꾸기', type: 'teacher' },
+        { key: 'middle1-05-2', subject: '사회', t: '하나의 이슈에서 쟁점질문 만들기', type: 'teacher' },
+        { key: 'middle1-05-3', subject: '과학', t: '가설형 질문 만들기', type: 'teacher' },
+        { key: 'middle1-05-4', subject: '수학', t: '숫자로 확인할 수 있는 질문 만들기', type: 'teacher' },
       ],
     },
     {
-      m: '8월', theme: '수행평가 유형별 ②', freq: '주 1회 (4주)', missions: [
-        { key: 'middle1-06-1', t: '과학 수행평가 — 실험 보고서 기초', type: 'tab', tab: 'past' },
-        { key: 'middle1-06-2', t: '역사 수행평가 — 주제탐구 연결', type: 'tab', tab: 'past' },
-        { key: 'middle1-06-3', t: '탐구 보고서 작성 — 보고서 구조', type: 'teacher' },
-        { key: 'middle1-06-4', t: '생기부 항목 이해 — 세특·활동', type: 'tab', tab: 'expect' },
+      m: '6개월', theme: '첫 탐구 프로젝트', freq: '주 1회 (4주)', output: '첫 탐구보고서',
+      missions: [
+        { key: 'middle1-06-1', subject: '융합', t: '개인 탐구주제 선정·계획', type: 'inAnswer' },
+        { key: 'middle1-06-2', subject: '정보', t: '자료검색·근거 수집', type: 'teacher' },
+        { key: 'middle1-06-3', subject: '국어', t: '자료를 분석해 탐구보고서 작성', type: 'teacher' },
+        { key: 'middle1-06-4', subject: '발표', t: '3분 탐구발표 + 질의응답', type: 'tab', tab: 'simulation' },
       ],
     },
     {
-      m: '10월', theme: '종합 실전', freq: '주 1회 (4주)', missions: [
-        { key: 'middle1-07-1', t: '실전 논술 2차 — 심화 첨삭', type: 'teacher' },
-        { key: 'middle1-07-2', t: '스토리텔링 스피치 — 경험 발표', type: 'tab', tab: 'simulation' },
-        { key: 'middle1-07-3', t: '생기부 작성법 — 항목별 글쓰기', type: 'tab', tab: 'expect' },
-        { key: 'middle1-07-4', t: '모의 면접 1차 — 1:1 면접', type: 'tab', tab: 'simulation' },
+      m: '7개월', theme: '생각을 설명하기', freq: '주 1회 (4주)', output: '발표자료 + 발표영상',
+      missions: [
+        { key: 'middle1-07-1', subject: '국어', t: '주장 - 근거 - 사례 구성', type: 'teacher' },
+        { key: 'middle1-07-2', subject: '사회', t: '찬반 토론 실습', type: 'tab', tab: 'debate' },
+        { key: 'middle1-07-3', subject: '영어', t: '1~2분 Mini Presentation', type: 'teacher' },
+        { key: 'middle1-07-4', subject: '발표', t: '연구내용 3분 발표 및 꼬리질문', type: 'tab', tab: 'simulation' },
       ],
     },
     {
-      m: '12월', theme: '마무리 + 포트폴리오', freq: '주 1회 (4주)', missions: [
-        { key: 'middle1-08-1', t: '실전 논술 3차 — 최종 완성본', type: 'teacher' },
-        { key: 'middle1-08-2', t: '자기소개서 기초 — 첫 초안 작성', type: 'tab', tab: 'expect' },
-        { key: 'middle1-08-3', t: '스피치 완성 — 녹화·피드백', type: 'tab', tab: 'simulation' },
-        { key: 'middle1-08-4', t: '학부모 발표회 — 1년 포트폴리오 발표', type: 'teacher' },
+      m: '8개월', theme: '1년 성장 정리', freq: '주 1회 (4주)', output: '중1 종합 Portfolio',
+      missions: [
+        { key: 'middle1-08-1', t: '과목별 결과물 정리', type: 'teacher' },
+        { key: 'middle1-08-2', t: '과목별 가상 활동기록 작성', type: 'teacher' },
+        { key: 'middle1-08-3', t: '관심학과와 활동 연결', type: 'inAnswer' },
+        { key: 'middle1-08-4', subject: 'Portfolio Day', t: '1년 성장 발표', type: 'tab', tab: 'simulation' },
       ],
     },
   ],
+
   '중2': [
     {
-      m: '1월', theme: '중2 전략 재설정', freq: '주 1회 (4주)', missions: [
-        { key: 'middle2-01-1', t: '중2 OT · 내신 전략 — 수행평가 50% 재설정', type: 'teacher' },
-        { key: 'middle2-01-2', t: '중1 리뷰 + 목표 TOP3 — 지망 고교 3개 선정', type: 'teacher' },
-        { key: 'middle2-01-3', t: '국어 논술 심화 — 기출 분석', type: 'tab', tab: 'past' },
-        { key: 'middle2-01-4', t: '사회 논술 심화 — 이슈 기반 글쓰기', type: 'teacher' },
+      m: '1개월', theme: '관심분야 재진단', freq: '주 1회 (4주)', output: '중2 탐구 관심지도',
+      missions: [
+        { key: 'middle2-01-1', subject: '국어', t: '중1 활동에서 흥미 있었던 주제 찾기', type: 'teacher' },
+        { key: 'middle2-01-2', subject: '사회', t: '관심 사회이슈 분석', type: 'teacher' },
+        { key: 'middle2-01-3', subject: '과학', t: '관심 과학기술 분야 탐색', type: 'teacher' },
+        { key: 'middle2-01-4', subject: '진로', t: '올해 탐구분야 2개 선정', type: 'inAnswer' },
       ],
     },
     {
-      m: '2월', theme: '논술·서술 심화', freq: '주 1회 (4주)', missions: [
-        { key: 'middle2-02-1', t: '역사 논술 — 연대·인과 구조', type: 'teacher' },
-        { key: 'middle2-02-2', t: '수학 서술 — 풀이 서술법', type: 'teacher' },
-        { key: 'middle2-02-3', t: '통합 논술 실전 — 3과목 통합', type: 'teacher' },
-        { key: 'middle2-02-4', t: '설득 스피치 — 설득 구조 훈련', type: 'tab', tab: 'simulation' },
+      m: '2개월', theme: '교과 × 진로 연결', freq: '주 1회 (4주)', output: '교과 × 진로 MAP',
+      missions: [
+        { key: 'middle2-02-1', subject: '국어', t: '진로 관련 읽기자료에서 주제 찾기', type: 'teacher' },
+        { key: 'middle2-02-2', subject: '수학', t: '관심분야 속 수학·통계 찾기', type: 'teacher' },
+        { key: 'middle2-02-3', subject: '사회', t: '진로와 사회문제 연결', type: 'teacher' },
+        { key: 'middle2-02-4', subject: '과학', t: '진로와 과학원리 연결', type: 'teacher' },
       ],
     },
     {
-      m: '3월', theme: '주제탐구 심화', freq: '주 1회 (4주)', missions: [
-        { key: 'middle2-03-1', t: '역사 탐구 — 주제 2개 선정', type: 'teacher' },
-        { key: 'middle2-03-2', t: '과학 탐구 — 실험·분석·결론', type: 'teacher' },
-        { key: 'middle2-03-3', t: '기가 보고서 — 탐구 활동 실무', type: 'teacher' },
-        { key: 'middle2-03-4', t: '토론 스피치 — 찬반 토론 기초', type: 'tab', tab: 'simulation' },
+      m: '3개월', theme: '탐구주제 만들기', freq: '주 1회 (4주)', output: '과목별 탐구주제 리스트',
+      missions: [
+        { key: 'middle2-03-1', subject: '국어', t: '넓은 주제를 좁히는 방법', type: 'teacher' },
+        { key: 'middle2-03-2', subject: '사회', t: '사회현상을 탐구질문으로 전환', type: 'teacher' },
+        { key: 'middle2-03-3', subject: '과학', t: '가설·변수 설정', type: 'teacher' },
+        { key: 'middle2-03-4', subject: '수학', t: '측정 가능한 데이터 질문 만들기', type: 'teacher' },
       ],
     },
     {
-      m: '5월', theme: '고입 전형 이해 + 내신 전략', freq: '주 1회 (4주)', missions: [
-        { key: 'middle2-04-1', t: '고입 전형 구조 — 1·2단계 이해', type: 'teacher' },
-        { key: 'middle2-04-2', t: '내신 반영 분석 — 학교별 비율', type: 'teacher' },
-        { key: 'middle2-04-3', t: '합격 내신 갭 분석 — 필요 등급', type: 'teacher' },
-        { key: 'middle2-04-4', t: '목표 전략서 작성 — 등급·계획', type: 'tab', tab: 'expect' },
+      m: '4개월', theme: '자료조사 능력', freq: '주 1회 (4주)', output: '탐구자료 분석표',
+      missions: [
+        { key: 'middle2-04-1', subject: '국어', t: '기사·칼럼 비교 읽기', type: 'teacher' },
+        { key: 'middle2-04-2', subject: '영어', t: '해외자료 찾아 핵심 내용 파악', type: 'teacher' },
+        { key: 'middle2-04-3', subject: '정보', t: '출처·검색·AI 자료 검증', type: 'teacher' },
+        { key: 'middle2-04-4', subject: '사회', t: '공공통계 읽고 해석하기', type: 'teacher' },
       ],
     },
     {
-      m: '7월', theme: '자기주도학습계획서 기초', freq: '주 1회 (4주)', missions: [
-        { key: 'middle2-05-1', t: '자소서 항목 이해 — 요구 포인트', type: 'tab', tab: 'expect' },
-        { key: 'middle2-05-2', t: 'STAR 경험 정리 — 구조화', type: 'tab', tab: 'expect' },
-        { key: 'middle2-05-3', t: '초안 작성 — 항목별 초안', type: 'tab', tab: 'expect' },
-        { key: 'middle2-05-4', t: '발표 스피치 심화 — 자세 완성', type: 'tab', tab: 'simulation' },
+      m: '5개월', theme: '탐구보고서 완성', freq: '주 1회 (4주)', output: '교과연계 탐구보고서',
+      missions: [
+        { key: 'middle2-05-1', t: '주제·문제의식 설정', type: 'inAnswer' },
+        { key: 'middle2-05-2', t: '자료·통계 분석', type: 'teacher' },
+        { key: 'middle2-05-3', subject: '국어', t: '서론 - 본론 - 결론 작성', type: 'teacher' },
+        { key: 'middle2-05-4', t: '발표 및 피드백', type: 'tab', tab: 'simulation' },
       ],
     },
     {
-      m: '8월', theme: '면접 기초 시작', freq: '주 1회 (4주)', missions: [
-        { key: 'middle2-06-1', t: '인성 면접 유형 — 공동체·리더십', type: 'tab', tab: 'simulation' },
-        { key: 'middle2-06-2', t: '두괄식 답변 구조 — 답변 훈련', type: 'tab', tab: 'simulation' },
-        { key: 'middle2-06-3', t: '답변집 20개 제작 — 녹화·피드백', type: 'tab', tab: 'simulation' },
-        { key: 'middle2-06-4', t: '스피치 실전 — 과목별 발표', type: 'tab', tab: 'simulation' },
+      m: '6개월', theme: '수행평가 실전', freq: '주 1회 (4주)', output: '수행평가 Portfolio',
+      missions: [
+        { key: 'middle2-06-1', subject: '국어형', t: '발표·논설·독서 수행', type: 'tab', tab: 'suhaeng' },
+        { key: 'middle2-06-2', subject: '사회형', t: '정책·토론·조사 수행', type: 'tab', tab: 'suhaeng' },
+        { key: 'middle2-06-3', subject: '과학·수학형', t: '탐구·데이터 수행', type: 'tab', tab: 'suhaeng' },
+        { key: 'middle2-06-4', subject: 'SCHOOL LAB', t: '학교별 수행평가 대비', type: 'teacher' },
       ],
     },
     {
-      m: '10월', theme: '면접 심화 + 학교별 기출', freq: '주 1회 (4주)', missions: [
-        { key: 'middle2-07-1', t: '지원동기 답변 — 학교+진로 연결', type: 'tab', tab: 'simulation' },
-        { key: 'middle2-07-2', t: '기출 분석 — 지망별 3년 기출', type: 'tab', tab: 'past' },
-        { key: 'middle2-07-3', t: '수행평가 종합 1 — 국·사·역 통합', type: 'teacher' },
-        { key: 'middle2-07-4', t: '수행평가 종합 2 — 과·기가 통합', type: 'teacher' },
+      m: '7개월', theme: '탐구 확장', freq: '주 1회 (4주)', output: '후속탐구 보고서',
+      missions: [
+        { key: 'middle2-07-1', t: '기존 탐구의 한계 찾기', type: 'teacher' },
+        { key: 'middle2-07-2', t: '새로운 후속질문 만들기', type: 'inAnswer' },
+        { key: 'middle2-07-3', t: '추가 자료·데이터 조사', type: 'teacher' },
+        { key: 'middle2-07-4', t: '1차 → 2차 탐구 비교발표', type: 'tab', tab: 'simulation' },
       ],
     },
     {
-      m: '12월', theme: '중간 점검 + 중3 준비', freq: '주 1회 (4주)', missions: [
-        { key: 'middle2-08-1', t: '성과 점검 발표회 — 1년 발표', type: 'teacher' },
-        { key: 'middle2-08-2', t: '취약점 진단 — 우선순위 재설정', type: 'teacher' },
-        { key: 'middle2-08-3', t: '중3 대비 계획 — 방학 플랜', type: 'teacher' },
-        { key: 'middle2-08-4', t: '중3 로드맵 발표 — 중간 리포트', type: 'teacher' },
+      m: '8개월', theme: '활동 연결', freq: '주 1회 (4주)', output: '중2 비교과 Portfolio',
+      missions: [
+        { key: 'middle2-08-1', t: '과목별 활동 분류', type: 'teacher' },
+        { key: 'middle2-08-2', t: '활동 간 연결성 찾기', type: 'inAnswer' },
+        { key: 'middle2-08-3', t: '가상 교과활동 기록 작성', type: 'teacher' },
+        { key: 'middle2-08-4', subject: 'Research Conference', t: '탐구 성과 발표', type: 'tab', tab: 'simulation' },
       ],
     },
   ],
-  '중3': [
+
+  // ───────────────────────────────────────────
+  // 중3 특목 트랙 — 자사고·외고·국제고 (자기주도학습전형)
+  // ───────────────────────────────────────────
+  '중3특목': [
     {
-      m: '1월', theme: '전형 완전 정복 + 개인 전략', freq: '주 1회 (4주)', missions: [
-        { key: 'middle3-01-1', t: 'OT · 개인 진단 — 개인 강점 분석', type: 'teacher' },
-        { key: 'middle3-01-2', t: '고입 전형 완전 이해 — 자사고·특목·영재', type: 'teacher' },
-        { key: 'middle3-01-3', t: '3지망 확정 — 1·2·3지망 분석', type: 'teacher' },
-        { key: 'middle3-01-4', t: '맞춤 합격 전략 — 합격 포지셔닝', type: 'teacher' },
+      m: '1개월', theme: '고교 선택·진로 설계', freq: '주 1회 (4주)', output: '고교 선택 분석표',
+      missions: [
+        { key: 'middle3-01-1', t: '고교 유형 이해', type: 'teacher' },
+        { key: 'middle3-01-2', t: '학교별 교육과정 분석', type: 'teacher' },
+        { key: 'middle3-01-3', t: '나의 진로와 학교 매칭', type: 'inAnswer' },
+        { key: 'middle3-01-4', t: '지원학교 비교·발표', type: 'tab', tab: 'simulation' },
       ],
     },
     {
-      m: '2월', theme: '자기주도학습계획서 완성', freq: '주 1회 (4주)', missions: [
-        { key: 'middle3-02-1', t: '항목 분석 — 평가 기준 파악', type: 'tab', tab: 'expect' },
-        { key: 'middle3-02-2', t: '3년 경험 정리 — STAR 구조', type: 'tab', tab: 'expect' },
-        { key: 'middle3-02-3', t: '항목별 초안 — 4개 문항', type: 'tab', tab: 'expect' },
-        { key: 'middle3-02-4', t: '완성본 제출 — 학교별 맞춤', type: 'tab', tab: 'expect' },
+      m: '2개월', theme: '고1 교과활동 Preview ①', freq: '주 1회 (4주)', output: '교과활동 Portfolio ①',
+      missions: [
+        { key: 'middle3-02-1', subject: '국어', t: '탐구', type: 'teacher' },
+        { key: 'middle3-02-2', subject: '영어', t: '탐구', type: 'teacher' },
+        { key: 'middle3-02-3', subject: '수학', t: '데이터 프로젝트', type: 'teacher' },
+        { key: 'middle3-02-4', subject: '통합사회', t: '프로젝트', type: 'teacher' },
       ],
     },
     {
-      m: '3월', theme: '독서 면접 대비', freq: '주 1회 (4주)', missions: [
-        { key: 'middle3-03-1', t: '독서 면접 유형 — 자사고 유형', type: 'tab', tab: 'simulation' },
-        { key: 'middle3-03-2', t: '전공별 독서 3권 — 계열별 선정', type: 'tab', tab: 'book' },
-        { key: 'middle3-03-3', t: '책 기반 질문 대비 — 답변 구조', type: 'tab', tab: 'simulation' },
-        { key: 'middle3-03-4', t: '심층 토론 연습 — 꼬리질문 대응', type: 'tab', tab: 'simulation' },
+      m: '3개월', theme: '고1 교과활동 Preview ②', freq: '주 1회 (4주)', output: '교과활동 Portfolio ②',
+      missions: [
+        { key: 'middle3-03-1', subject: '통합과학', t: '탐구', type: 'teacher' },
+        { key: 'middle3-03-2', subject: '정보·기술', t: '프로젝트', type: 'teacher' },
+        { key: 'middle3-03-3', t: '전공 연계 프로젝트', type: 'teacher' },
+        { key: 'middle3-03-4', t: '수행평가 Simulation', type: 'tab', tab: 'suhaeng' },
       ],
     },
     {
-      m: '5월', theme: '인성 면접 훈련', freq: '주 1회 (4주)', missions: [
-        { key: 'middle3-04-1', t: '인성 평가 요소 — 학교별 중시도', type: 'tab', tab: 'simulation' },
-        { key: 'middle3-04-2', t: '리더십 답변 (STAR) — 구조화', type: 'tab', tab: 'simulation' },
-        { key: 'middle3-04-3', t: '배려·성실성 답변 — 갈등 해결 사례', type: 'tab', tab: 'simulation' },
-        { key: 'middle3-04-4', t: '답변집 30개 제작 — 녹화 피드백', type: 'tab', tab: 'simulation' },
+      m: '4개월', theme: '고1 학생부 미리 설계하기', freq: '주 1회 (4주)', output: 'MY 학생부 Preview',
+      missions: [
+        { key: 'middle3-04-1', subject: '국·영', t: '활동기록', type: 'teacher' },
+        { key: 'middle3-04-2', subject: '수·과', t: '활동기록', type: 'teacher' },
+        { key: 'middle3-04-3', subject: '사회·정보', t: '활동기록', type: 'teacher' },
+        { key: 'middle3-04-4', t: '가상 고1 학생부 완성', type: 'inAnswer' },
       ],
     },
     {
-      m: '7월', theme: '전공·학업 면접', freq: '주 1회 (4주)', missions: [
-        { key: 'middle3-05-1', t: '지원동기 완성 — 학교+진로 연결', type: 'tab', tab: 'simulation' },
-        { key: 'middle3-05-2', t: '학업 계획 답변 — 입학 후 설계', type: 'tab', tab: 'simulation' },
-        { key: 'middle3-05-3', t: '전공 지식 대응 — 모르는 질문 대처', type: 'tab', tab: 'simulation' },
-        { key: 'middle3-05-4', t: '답변집 30개 완성 — 전공·학업', type: 'tab', tab: 'simulation' },
+      m: '5개월', theme: '고1 활동 로드맵 완성', freq: '주 1회 (4주)', output: '고1 MASTER PLAN',
+      missions: [
+        { key: 'middle3-05-1', t: '관심학과 핵심역량', type: 'inAnswer' },
+        { key: 'middle3-05-2', t: '과목별 후속탐구', type: 'teacher' },
+        { key: 'middle3-05-3', t: '동아리·진로활동 설계', type: 'teacher' },
+        { key: 'middle3-05-4', t: '고1 1년 계획 발표', type: 'tab', tab: 'simulation' },
       ],
     },
     {
-      m: '8월', theme: '학교별 기출 & 맞춤', freq: '주 1회 (4주)', missions: [
-        { key: 'middle3-06-1', t: '1지망 기출 5년 — 심층 분석', type: 'tab', tab: 'past' },
-        { key: 'middle3-06-2', t: '1지망 답변집 40개 — 학교 맞춤', type: 'tab', tab: 'simulation' },
-        { key: 'middle3-06-3', t: '2지망 답변집 30개 — 차별화', type: 'tab', tab: 'simulation' },
-        { key: 'middle3-06-4', t: '3지망 답변집 30개 — 안정성', type: 'tab', tab: 'simulation' },
+      m: '6개월', theme: '자소서 + 면접 BASIC', freq: '주 1회 (4주)', output: 'EXPERIENCE BANK + 자소서 초안',
+      missions: [
+        { key: 'middle3-06-1', t: '자소서 문항·소재 발굴', type: 'tab', tab: 'expect' },
+        { key: 'middle3-06-2', t: '자기주도학습 작성·답변', type: 'tab', tab: 'expect' },
+        { key: 'middle3-06-3', t: '지원동기·진로계획 작성·답변', type: 'tab', tab: 'expect' },
+        { key: 'middle3-06-4', t: '인성·공동체 작성·답변', type: 'tab', tab: 'basic' },
       ],
     },
     {
-      m: '10월', theme: 'AI 압박면접 & 실전', freq: '주 1회 (4주)', missions: [
-        { key: 'middle3-07-1', t: 'AI 모의면접 1차 — 전체 녹화·분석', type: 'tab', tab: 'simulation' },
-        { key: 'middle3-07-2', t: '꼬리질문 대응 — 압박 대응', type: 'tab', tab: 'simulation' },
-        { key: 'middle3-07-3', t: 'AI 모의면접 2차 — 난이도 상승', type: 'tab', tab: 'simulation' },
-        { key: 'middle3-07-4', t: '대면 모의 면접 — 실제 면접관 투입', type: 'teacher' },
+      m: '7개월', theme: '자소서 완성 + 서류면접', freq: '주 1회 (4주)', output: '최종 자소서 + 예상질문집',
+      missions: [
+        { key: 'middle3-07-1', t: '학교별 자소서 완성', type: 'tab', tab: 'expect' },
+        { key: 'middle3-07-2', t: '자소서 기반 질문', type: 'tab', tab: 'expect' },
+        { key: 'middle3-07-3', t: '활동·학생부 기반 질문', type: 'tab', tab: 'record' },
+        { key: 'middle3-07-4', t: '꼬리질문·검증질문', type: 'tab', tab: 'simulation' },
       ],
     },
     {
-      m: '12월', theme: '최종 리허설 & 파이널', freq: '주 1회 (4주)', missions: [
-        { key: 'middle3-08-1', t: '최종 점검 — 약점 보완', type: 'teacher' },
-        { key: 'middle3-08-2', t: '리허설 1차 (1·2지망) — 완전 실전', type: 'tab', tab: 'simulation' },
-        { key: 'middle3-08-3', t: '리허설 2차 (3지망) — 최종 피드백', type: 'tab', tab: 'simulation' },
-        { key: 'middle3-08-4', t: '파이널 · 1:1 면접 — D-day 직전', type: 'teacher' },
+      m: '8개월', theme: '학교별 실전면접', freq: '주 1회 (4주)', output: '고입 면접 Portfolio',
+      missions: [
+        { key: 'middle3-08-1', t: '학교별 기출', type: 'tab', tab: 'past' },
+        { key: 'middle3-08-2', t: '실전 모의면접 ①', type: 'tab', tab: 'simulation' },
+        { key: 'middle3-08-3', t: '영상 피드백·집중교정', type: 'tab', tab: 'simulation' },
+        { key: 'middle3-08-4', t: 'FINAL 모의면접', type: 'tab', tab: 'simulation' },
       ],
     },
   ],
+
+  // ───────────────────────────────────────────
+  // 중3 일반고 트랙 — PRE-BUILD "고1에서 처음 하지 않는다"
+  // ───────────────────────────────────────────
+  '중3일반': [
+    {
+      m: '1개월', theme: '고교 선택·진로 설계', freq: '주 1회 (4주)', output: '고교생활 방향표',
+      missions: [
+        { key: 'middle3g-01-1', t: '고교 유형 이해', type: 'teacher' },
+        { key: 'middle3g-01-2', t: '학교별 교육과정 비교', type: 'teacher' },
+        { key: 'middle3g-01-3', t: '관심 진로·계열 탐색', type: 'inAnswer' },
+        { key: 'middle3g-01-4', t: '나에게 맞는 고교생활 설계', type: 'inAnswer' },
+      ],
+    },
+    {
+      m: '2개월', theme: '고1 교과활동 미리보기 ①', freq: '주 1회 (4주)', output: '교과활동 Preview ①',
+      missions: [
+        { key: 'middle3g-02-1', subject: '국어', t: '국어형 활동', type: 'teacher' },
+        { key: 'middle3g-02-2', subject: '영어', t: '영어형 활동', type: 'teacher' },
+        { key: 'middle3g-02-3', subject: '수학', t: '수학·데이터형 활동', type: 'teacher' },
+        { key: 'middle3g-02-4', subject: '통합사회', t: '통합사회형 활동', type: 'teacher' },
+      ],
+    },
+    {
+      m: '3개월', theme: '고1 교과활동 미리보기 ②', freq: '주 1회 (4주)', output: '교과활동 Preview ②',
+      missions: [
+        { key: 'middle3g-03-1', subject: '통합과학', t: '통합과학형 활동', type: 'teacher' },
+        { key: 'middle3g-03-2', subject: '과학탐구실험', t: '과학탐구실험형 활동', type: 'teacher' },
+        { key: 'middle3g-03-3', subject: '정보·기술', t: '정보·기술 활용 활동', type: 'teacher' },
+        { key: 'middle3g-03-4', t: '수행평가 유형 미리보기', type: 'tab', tab: 'suhaeng' },
+      ],
+    },
+    {
+      m: '4개월', theme: '고1 활동기록 미리보기', freq: '주 1회 (4주)', output: '교육용 고1 활동 Preview',
+      missions: [
+        { key: 'middle3g-04-1', subject: '국·영', t: '활동 정리', type: 'teacher' },
+        { key: 'middle3g-04-2', subject: '수·과', t: '활동 정리', type: 'teacher' },
+        { key: 'middle3g-04-3', subject: '사회·정보', t: '활동 정리', type: 'teacher' },
+        { key: 'middle3g-04-4', t: '활동의 과정·성장 정리', type: 'inAnswer' },
+      ],
+    },
+    {
+      m: '5개월', theme: '고1 활동 로드맵', freq: '주 1회 (4주)', output: '고1 기본 로드맵',
+      missions: [
+        { key: 'middle3g-05-1', t: '관심학과 핵심역량', type: 'inAnswer' },
+        { key: 'middle3g-05-2', t: '고1 과목과 진로 연결', type: 'inAnswer' },
+        { key: 'middle3g-05-3', t: '과목별 탐구방향 설정', type: 'teacher' },
+        { key: 'middle3g-05-4', t: '고1 활동계획 발표', type: 'tab', tab: 'simulation' },
+      ],
+    },
+    {
+      m: '6개월', theme: '고1 탐구 선행 ①', freq: '주 1회 (4주)', output: '교과탐구 예행 2개',
+      missions: [
+        { key: 'middle3g-06-1', t: '교과 A 단원 분석', type: 'teacher' },
+        { key: 'middle3g-06-2', t: '교과 A 탐구 실습', type: 'teacher' },
+        { key: 'middle3g-06-3', t: '교과 B 단원 분석', type: 'teacher' },
+        { key: 'middle3g-06-4', t: '교과 B 탐구 실습', type: 'teacher' },
+      ],
+    },
+    {
+      m: '7개월', theme: '고1 탐구 선행 ②', freq: '주 1회 (4주)', output: '교과탐구 예행 2개',
+      missions: [
+        { key: 'middle3g-07-1', t: '교과 C 탐구 실습', type: 'teacher' },
+        { key: 'middle3g-07-2', t: '자료·데이터 활용', type: 'teacher' },
+        { key: 'middle3g-07-3', t: '교과 D 탐구 실습', type: 'teacher' },
+        { key: 'middle3g-07-4', t: '보고서·발표 완성', type: 'tab', tab: 'simulation' },
+      ],
+    },
+    {
+      m: '8개월', theme: '고1 입학 실전 선행', freq: '주 1회 (4주)', output: '고1 시작 지도',
+      missions: [
+        { key: 'middle3g-08-1', t: '탐구주제 선정 실습', type: 'teacher' },
+        { key: 'middle3g-08-2', t: '보고서형 활동', type: 'teacher' },
+        { key: 'middle3g-08-3', t: '발표·토론형 활동', type: 'tab', tab: 'simulation' },
+        { key: 'middle3g-08-4', t: '고1 첫 학기 탐구방향 완성', type: 'inAnswer' },
+      ],
+    },
+  ],
+
 }
 
 /**
- * month 문자열("3월")에서 숫자만 추출 → DB에 저장될 month 컬럼 값
+ * month 문자열("3개월")에서 숫자만 추출 → DB에 저장될 month 컬럼 값
  */
 export function parseMiddleMonth(m: string): number {
-  return parseInt(m.replace('월', ''), 10)
+  return parseInt(m.replace(/[^0-9]/g, ''), 10) || 0
 }
 
 /**
- * 학년 문자열을 '중1', '중2', '중3' 형태로 변환
+ * 학년 + 트랙 → 로드맵 키
+ * track: 'general' 이면 일반고, 그 외(null 포함)는 특목
  */
-export function toMiddleGradeKey(grade: string | null | undefined): MiddleGradeKey {
-  if (grade?.includes('3')) return '중3'
+export function toMiddleGradeKey(
+  grade: string | null | undefined,
+  track?: string | null,
+): MiddleGradeKey {
+  if (grade?.includes('3')) return track === 'general' ? '중3일반' : '중3특목'
   if (grade?.includes('2')) return '중2'
   return '중1'
+}
+
+/**
+ * 로드맵 키 → profiles.grade 에 저장된 값
+ * (DB에는 '중3' 하나로만 저장되므로 두 트랙 모두 '중3'으로 되돌림)
+ */
+export function toProfileGrade(key: MiddleGradeKey): string {
+  return key.startsWith('중3') ? '중3' : key
 }

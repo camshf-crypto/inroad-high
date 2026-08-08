@@ -180,6 +180,7 @@ export interface GradeCareer {
   grade: Grade
   series: string | null      // high_career_department에서 조인
   major: string | null
+  university: string | null
   career: string | null
   customGoal: string | null
   typeName: string | null
@@ -273,6 +274,7 @@ export function useMyCareerSeries() {
           grade: g,
           series: inherited.major ? seriesOf.get(inherited.major) ?? null : null,
           major: inherited.major ?? null,
+          university: (inherited as any).university ?? null,
           career: inherited.career ?? null,
           customGoal: inherited.custom_goal ?? null,
           typeName: inherited.type_name ?? null,

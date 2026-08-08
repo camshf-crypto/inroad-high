@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAtomValue } from 'jotai'
 import { studentState, academyState } from '@/lib/auth/atoms'
 import {
@@ -20,6 +21,7 @@ const THEME = {
 }
 
 export default function Roadmap() {
+  const navigate = useNavigate()
   const student = useAtomValue(studentState)
   const academy = useAtomValue(academyState)
   const [selMonth, setSelMonth] = useState<number | null>(null)
@@ -91,7 +93,7 @@ export default function Roadmap() {
         className="rounded-xl px-4 py-2.5 mb-4 text-[12px] font-medium flex items-center gap-2"
         style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60`, color: THEME.accentDark }}
       >
-        👁️ 로드맵은 <b className="mx-1">원장님이 체크</b>해주세요. 여기서는 현황 확인만 가능해요.
+        👁️ 로드맵 체크는 <b className="mx-1">원장님이</b> 해주세요. 미션을 누르면 워크북으로 이동해요.
       </div>
 
       {/* 로딩 */}
@@ -199,6 +201,14 @@ export default function Roadmap() {
               </button>
             </div>
 
+            {selected.output && (
+              <div className="rounded-lg px-3.5 py-2.5 mb-3 flex items-center gap-2 flex-wrap"
+                style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                <span className="text-[10px] font-bold text-amber-700">이 달에 남기는 것</span>
+                <span className="text-[12.5px] font-bold text-amber-900">{selected.output}</span>
+              </div>
+            )}
+
             <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-2">📋 미션 목록</div>
 
             {selected.missions.map((ms, mi) => {
@@ -209,7 +219,8 @@ export default function Roadmap() {
               return (
                 <div
                   key={mi}
-                  className="rounded-lg px-3 py-2.5 mb-1.5 transition-all"
+                  onClick={() => navigate(`/middle-student/workbook/${ms.key}`)}
+                  className="rounded-lg px-3 py-2.5 mb-1.5 transition-all cursor-pointer hover:shadow-md hover:-translate-y-px"
                   style={{
                     background: done ? '#ECFDF5' : '#F8FAFC',
                     border: `1px solid ${done ? '#6EE7B7' : '#E5E7EB'}`,
@@ -222,14 +233,24 @@ export default function Roadmap() {
                     >
                       {done ? '✓' : ''}
                     </div>
-                    <span
-                      className="text-[12px] flex-1 leading-[1.5]"
-                      style={{
-                        color: done ? '#059669' : '#1a1a1a',
-                        fontWeight: done ? 700 : 600,
-                      }}
-                    >
-                      {ms.t}
+                    <span className="flex-1 flex items-center gap-1.5 flex-wrap">
+                      {ms.subject && (
+                        <span
+                          className="text-[9.5px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
+                          style={{ background: '#EEF2FF', color: '#4338CA' }}
+                        >
+                          {ms.subject}
+                        </span>
+                      )}
+                      <span
+                        className="text-[12px] leading-[1.5]"
+                        style={{
+                          color: done ? '#059669' : '#1a1a1a',
+                          fontWeight: done ? 700 : 600,
+                        }}
+                      >
+                        {ms.t}
+                      </span>
                     </span>
                     <span
                       className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
@@ -237,6 +258,7 @@ export default function Roadmap() {
                     >
                       {tc.label}
                     </span>
+                    <span className="text-[13px] text-ink-muted flex-shrink-0 leading-none">›</span>
                   </div>
 
                   {/* 원장 메모 (있을 때만 표시, 읽기 전용) */}

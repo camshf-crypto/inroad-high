@@ -52,6 +52,14 @@ export default function TargetGoalSetup({ career, myGrade = 1, onDone }: Props) 
   const [pivot, setPivot] = useState<PivotResult | null>(null)
   const [grade, setGrade] = useState<Grade>(myGrade)
 
+  /** 현재 학년 +1 까지만 열림 (고1 → 고2까지, 고2 → 고3까지) */
+  const maxGrade = Math.min(3, myGrade + 1) as Grade
+
+  // 잠긴 학년을 보고 있으면 열린 마지막 학년으로 되돌림
+  useEffect(() => {
+    if (grade > maxGrade) setGrade(maxGrade)
+  }, [grade, maxGrade])
+
   // 이미 정한 최종 목표 (고3 행)
   const { data: target, isLoading } = useQuery({
     queryKey: ['my-target-goal', studentId, academyId, grade],
@@ -282,7 +290,7 @@ export default function TargetGoalSetup({ career, myGrade = 1, onDone }: Props) 
 
       // 진로가 바뀌었으면 승계 안내를 먼저 보여준다
       if (result) setPivot(result)
-      else if (grade < 3) setGrade((grade + 1) as Grade)
+      else if (grade < maxGrade) setGrade((grade + 1) as Grade)
       else onDone?.()
     },
   })
@@ -294,7 +302,7 @@ export default function TargetGoalSetup({ career, myGrade = 1, onDone }: Props) 
   // ── 진로를 바꾼 직후: 승계 안내 ──────────────────────────
   if (pivot) {
     const past = grade > 1 ? Array.from({ length: grade - 1 }, (_, i) => i + 1) : []
-    const ahead = ([1, 2, 3] as Grade[]).filter((g) => g >= grade)
+    const ahead = ([1, 2, 3] as Grade[]).filter((g) => g >= grade && g <= maxGrade)
 
     return (
       <div className="max-w-[680px]">
@@ -419,7 +427,7 @@ export default function TargetGoalSetup({ career, myGrade = 1, onDone }: Props) 
           <button
             onClick={() => {
               setPivot(null)
-              if (grade < 3) setGrade((grade + 1) as Grade)
+              if (grade < maxGrade) setGrade((grade + 1) as Grade)
               else onDone?.()
             }}
             className="h-12 bg-brand-high text-white rounded-xl text-[14px] font-bold hover:bg-brand-high-dark transition-all"
@@ -450,20 +458,25 @@ export default function TargetGoalSetup({ career, myGrade = 1, onDone }: Props) 
           const on = grade === g
           const c = career.byGrade.get(g)
           const filled = !!c?.isOwn
+          const locked = g > maxGrade
           return (
             <button
               key={g}
-              onClick={() => setGrade(g)}
+              onClick={() => !locked && setGrade(g)}
+              disabled={locked}
+              title={locked ? `고${maxGrade} 때 열려요` : undefined}
               className="px-3.5 py-1.5 rounded-full text-[12px] border transition-all flex items-center gap-1.5"
               style={{
-                background: on ? '#2563EB' : '#fff',
-                color: on ? '#fff' : '#6B7280',
-                borderColor: on ? '#2563EB' : filled ? '#A7F3D0' : '#E5E7EB',
+                background: on ? '#2563EB' : locked ? '#F8FAFC' : '#fff',
+                color: on ? '#fff' : locked ? '#CBD5E1' : '#6B7280',
+                borderColor: on ? '#2563EB' : locked ? '#E5E7EB' : filled ? '#A7F3D0' : '#E5E7EB',
                 fontWeight: on ? 700 : 500,
+                cursor: locked ? 'not-allowed' : 'pointer',
               }}
             >
               고{g}
-              {filled && !on && <span className="text-[10px] text-green-600">✓</span>}
+              {locked && <span className="text-[10px]">🔒</span>}
+              {!locked && filled && !on && <span className="text-[10px] text-green-600">✓</span>}
               {g === myGrade && (
                 <span
                   className="text-[9px] font-bold px-1.5 rounded-full"
@@ -479,6 +492,12 @@ export default function TargetGoalSetup({ career, myGrade = 1, onDone }: Props) 
           )
         })}
       </div>
+
+      {maxGrade < 3 && (
+        <div className="text-[11px] text-ink-muted mb-4 -mt-2">
+          고{maxGrade + 1}은 고{maxGrade}가 되면 열려요. 지금은 고{maxGrade}까지만 정하면 돼요.
+        </div>
+      )}
 
       {/* 이전 학년에 정한 것 */}
       {grade > 1 && (() => {
@@ -755,7 +774,7 @@ export default function TargetGoalSetup({ career, myGrade = 1, onDone }: Props) 
               ? '대학을 골라주세요'
               : !major.trim()
                 ? '희망 학과를 정해주세요'
-                : grade < 3
+                : grade < maxGrade
                   ? `고${grade} 저장하고 고${grade + 1} 정하기 →`
                   : '저장하고 다음 →'}
         </button>

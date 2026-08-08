@@ -1,18 +1,19 @@
 /**
  * 고등 로드맵 (본사 공통 커리큘럼)
  *
- * - 학년: 고1 / 고2 / 고3
- * - 월: 2, 3, 5, 7, 8, 10, 12 (8개월)
+ * - 학년: 고1 실행 / 고2 심화 / 고3 최종연구·대입
+ * - 월: 1월 ~ 8월 (8개월 과정, 월 4회차)
  * - 미션 타입:
  *   - inAnswer: 비커스 서비스로 진행 (보라)
  *   - tab: 특정 탭으로 이동 (파랑, tab 속성 참고)
  *   - teacher: 선생님 오프라인 지도 (초록)
  *
  * mission_key 규칙: high{학년}-{월번호 2자리}-{순서}
- *   예: high2-03-1 = 고2 3월 1번째 미션
+ *   예: high2-03-1 = 고2 3월 1회차
  *
  * ⚠️ mission_key 는 절대 바꾸지 말 것 (바꾸면 기존 체크 데이터와 연결 끊어짐)
- *    미션 텍스트(t, theme, freq)는 자유롭게 수정 가능
+ *    미션 텍스트(t, theme, freq, output)는 자유롭게 수정 가능
+ *
  */
 
 export type MissionType = 'inAnswer' | 'tab' | 'teacher'
@@ -22,12 +23,16 @@ export interface Mission {
   t: string                // 미션 텍스트 (자유롭게 수정 가능)
   type: MissionType
   tab?: string             // type === 'tab' 일 때 이동할 탭명
+  /** 어느 과목·영역 활동인지 (선택) */
+  subject?: string
 }
 
 export interface RoadmapMonth {
-  m: string                // '3월'
-  theme: string            // 월 주제
+  m: string                // '1월'
+  theme: string            // 월간 목표
   freq: string             // 진행 빈도
+  /** 그 달에 남기는 결과물 (핵심 OUTPUT) */
+  output?: string
   missions: Mission[]
 }
 
@@ -36,199 +41,225 @@ export type GradeKey = '고1' | '고2' | '고3'
 export const ROADMAP: Record<GradeKey, RoadmapMonth[]> = {
   '고1': [
     {
-      m: '1월', theme: '겨울방학 집중 - 방향 설정', freq: '주 2회 (2주)', missions: [
-        { key: 'high1-01-1', t: '학과 적합도 정밀진단 (200문항)', type: 'inAnswer' },
-        { key: 'high1-01-2', t: '진로진학 AI로 관심 계열 및 학과 탐색', type: 'inAnswer' },
-        { key: 'high1-01-3', t: '관심 학과 방향 결정', type: 'teacher' },
-        { key: 'high1-01-4', t: '고1 1년 로드맵 학부모 공유', type: 'teacher' },
+      m: '1월', theme: '고1 실전 계획', freq: '주 1회 (4주)', output: '고1 활동 지도',
+      missions: [
+        { key: 'high1-01-1', t: '중3 고1 미리보기 점검', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high1-01-2', t: '실제 학교 교과·수행평가 분석', type: 'teacher', tab: 'suhaeng' },
+        { key: 'high1-01-3', t: '우선관리 교과 선정', type: 'tab', tab: 'roadmap-v2?step=4' },
+        { key: 'high1-01-4', t: '고1 실제 활동계획 수정', type: 'inAnswer', tab: 'roadmap-v2' },
       ],
     },
     {
-      m: '2월', theme: '겨울방학 집중 - 탐구 설계', freq: '주 1회 (4주)', missions: [
-        { key: 'high1-02-1', t: '세특라이트로 1학기 탐구주제 미리 설계', type: 'tab', tab: 'topic' },
-        { key: 'high1-02-2', t: '전공특화문제 기초 전공 지식 첫 점검', type: 'tab', tab: 'major' },
-        { key: 'high1-02-3', t: '동아리 계열 연결 계획 수립', type: 'teacher' },
-        { key: 'high1-02-4', t: '진로진학 AI 독서 리스트 추천', type: 'tab', tab: 'book' },
+      m: '2월', theme: '교과탐구 ①', freq: '주 1회 (4주)', output: '교과탐구보고서 ① (2과목)',
+      missions: [
+        { key: 'high1-02-1', subject: '국어·영어', t: '수업내용에서 질문 찾기', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high1-02-2', subject: '국어·영어', t: '탐구주제 구체화', type: 'tab', tab: 'roadmap-v2' },
+        { key: 'high1-02-3', subject: '국어·영어', t: '자료조사·분석', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high1-02-4', subject: '국어·영어', t: '보고서·발표', type: 'tab', tab: 'roadmap-v2' },
       ],
     },
     {
-      m: '3월', theme: '방향 확정 + 탐구 실행 시작', freq: '주 2회 (2주)', missions: [
-        { key: 'high1-03-1', t: '겨울방학에 설계한 탐구주제 실행 시작', type: 'tab', tab: 'topic' },
-        { key: 'high1-03-2', t: '동아리 선택 - 계열 및 학과 연결', type: 'teacher' },
-        { key: 'high1-03-3', t: '수행평가 주제 입시 연결 전략', type: 'teacher' },
-        { key: 'high1-03-4', t: '예상 생기부 문구 확인', type: 'tab', tab: 'expect' },
+      m: '3월', theme: '데이터 탐구', freq: '주 1회 (4주)', output: '데이터 탐구보고서 (2과목)',
+      missions: [
+        { key: 'high1-03-1', subject: '수학·과학', t: '데이터형 질문 설정', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high1-03-2', subject: '수학·과학', t: '설문·자료수집', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high1-03-3', subject: '수학·과학', t: '그래프·분석', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high1-03-4', subject: '수학·과학', t: '데이터 기반 주장·발표', type: 'tab', tab: 'roadmap-v2' },
       ],
     },
     {
-      m: '5월', theme: '수행평가 + 탐구 병행', freq: '주 2회 (2주)', missions: [
-        { key: 'high1-05-1', t: '수행평가 주제 입시 연결 점검', type: 'teacher' },
-        { key: 'high1-05-2', t: '세특라이트 탐구활동 중간 점검', type: 'tab', tab: 'topic' },
-        { key: 'high1-05-3', t: '1학기 탐구 마무리 방향 설정', type: 'teacher' },
-        { key: 'high1-05-4', t: '2학기 탐구주제 미리 구상', type: 'tab', tab: 'topic' },
+      m: '4월', theme: '학교 수행평가 집중 훈련', freq: '주 1회 (4주)', output: '수행평가 모음집',
+      missions: [
+        { key: 'high1-04-1', t: '학교 수행평가 분석', type: 'tab', tab: 'suhaeng' },
+        { key: 'high1-04-2', t: '유사과제 실습 ①', type: 'tab', tab: 'suhaeng' },
+        { key: 'high1-04-3', t: '유사과제 실습 ②', type: 'tab', tab: 'suhaeng' },
+        { key: 'high1-04-4', t: '결과물·발표 피드백', type: 'teacher', tab: 'roadmap-v2' },
       ],
     },
     {
-      m: '7월', theme: '여름방학 집중 ① - 전공 + 스피치', freq: '주 2회 (2주)', missions: [
-        { key: 'high1-07-1', t: '전공특화문제 완성', type: 'tab', tab: 'major' },
-        { key: 'high1-07-2', t: '2학기 탐구주제 확정', type: 'tab', tab: 'topic' },
-        { key: 'high1-07-3', t: '스피치 훈련 시작 - 말하는 습관 교정', type: 'tab', tab: 'simulation' },
-        { key: 'high1-07-4', t: '자기소개 / 지원동기 답변 초안 작성', type: 'tab', tab: 'expect' },
+      m: '5월', theme: '교과탐구 ②', freq: '주 1회 (4주)', output: '교과탐구보고서 ② (2과목)',
+      missions: [
+        { key: 'high1-05-1', subject: '통합사회·한국사', t: '다른 교과에서 주제 찾기', type: 'tab', tab: 'roadmap-v2' },
+        { key: 'high1-05-2', subject: '통합사회·한국사', t: '자료·사례 비교', type: 'teacher', tab: 'book' },
+        { key: 'high1-05-3', subject: '통합사회·한국사', t: '탐구글쓰기', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high1-05-4', subject: '통합사회·한국사', t: '발표·질의응답', type: 'tab', tab: 'roadmap-v2' },
       ],
     },
     {
-      m: '8월', theme: '여름방학 집중 ② - 면접 기초', freq: '주 1회 (4주)', missions: [
-        { key: 'high1-08-1', t: '장단점 / 학과 선택 이유 답변 작성', type: 'tab', tab: 'expect' },
-        { key: 'high1-08-2', t: '실전 면접 시뮬레이션 1회 체험', type: 'tab', tab: 'simulation' },
-        { key: 'high1-08-3', t: '시뮬레이션 영상 분석 + 약점 파악', type: 'teacher' },
-        { key: 'high1-08-4', t: '9월 2학기 탐구주제 실행 준비', type: 'tab', tab: 'topic' },
+      m: '6월', theme: '교과 융합 프로젝트', freq: '주 1회 (4주)', output: '융합탐구보고서',
+      missions: [
+        { key: 'high1-06-1', subject: '앞 과목 중 2개', t: '두 교과 선정', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high1-06-2', t: '교과 연결 질문', type: 'tab', tab: 'roadmap-v2' },
+        { key: 'high1-06-3', t: '융합탐구 수행', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high1-06-4', t: '연구발표', type: 'tab', tab: 'roadmap-v2' },
       ],
     },
     {
-      m: '10월', theme: '기출 경험 + 꼬리질문', freq: '주 1회 (4주)', missions: [
-        { key: 'high1-10-1', t: '지원 희망 대학 기출문제 처음 접하기', type: 'tab', tab: 'past' },
-        { key: 'high1-10-2', t: '학과별 기출 내 학과 집중 풀기', type: 'tab', tab: 'past' },
-        { key: 'high1-10-3', t: '꼬리질문 어떤 게 나오는지 파악', type: 'tab', tab: 'expect' },
-        { key: 'high1-10-4', t: '스피치 훈련 심화', type: 'tab', tab: 'simulation' },
+      m: '7월', theme: '후속탐구 프로젝트', freq: '주 1회 (4주)', output: '후속탐구보고서',
+      missions: [
+        { key: 'high1-07-1', t: '기존 탐구 한계 찾기', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high1-07-2', t: '새로운 질문', type: 'tab', tab: 'roadmap-v2' },
+        { key: 'high1-07-3', t: '추가 조사·분석', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high1-07-4', t: '1차 ↔ 2차 비교 발표', type: 'tab', tab: 'roadmap-v2' },
       ],
     },
     {
-      m: '12월', theme: '1년 마무리 + 고2 준비', freq: '주 1회 (4주)', missions: [
-        { key: 'high1-12-1', t: '1년 탐구활동 정리 / 생기부 업로드 예상질문', type: 'tab', tab: 'expect' },
-        { key: 'high1-12-2', t: '꼬리질문 대비 연습', type: 'tab', tab: 'expect' },
-        { key: 'high1-12-3', t: '실전 면접 시뮬레이션 1회', type: 'tab', tab: 'simulation' },
-        { key: 'high1-12-4', t: '고2 겨울방학 커리큘럼 설계', type: 'teacher' },
+      m: '8월', theme: '고1 성장 점검', freq: '주 1회 (4주)', output: '고1 활동 모음집',
+      missions: [
+        { key: 'high1-08-1', t: '실제 활동 정리', type: 'teacher', tab: 'record' },
+        { key: 'high1-08-2', t: '교과별 강점 분석', type: 'tab', tab: 'expect' },
+        { key: 'high1-08-3', t: '부족역량·후속주제', type: 'inAnswer', tab: 'roadmap-v2' },
+        { key: 'high1-08-4', t: '고2 선택과목 방향 설계', type: 'inAnswer', tab: 'roadmap-v2?step=4' },
       ],
     },
   ],
+
   '고2': [
     {
-      m: '1월', theme: '고1 연결 점검 + 고2 전략 수립 ①', freq: '주 2회 (2주)', missions: [
-        { key: 'high2-01-1', t: '고1 생기부 업로드 → 현재 스토리 점검 및 갭 분석', type: 'tab', tab: 'expect' },
-        { key: 'high2-01-2', t: '학과 확정 후 고2 탐구 방향 재설계', type: 'teacher' },
-        { key: 'high2-01-3', t: '고1 활동과 연결고리 만들기', type: 'teacher' },
-        { key: 'high2-01-4', t: '고1-고2 연결 스토리 설계', type: 'teacher' },
+      m: '1월', theme: '고2 수행평가 선행', freq: '주 1회 (4주)', output: '고2 수행평가 대비 노트',
+      missions: [
+        { key: 'high2-01-1', t: '내 선택과목 확인 · 핵심 3과목 정하기', type: 'inAnswer', tab: 'roadmap-v2?step=4' },
+        { key: 'high2-01-2', t: '과목별 수행평가 유형 파악', type: 'tab', tab: 'suhaeng' },
+        { key: 'high2-01-3', t: '작년 수행평가 과제 분석 · 유사과제 실습', type: 'tab', tab: 'suhaeng' },
+        { key: 'high2-01-4', t: '1학기 수행평가 대비 계획', type: 'teacher', tab: 'suhaeng' },
       ],
     },
     {
-      m: '2월', theme: '고1 연결 점검 + 고2 전략 수립 ②', freq: '주 1회 (4주)', missions: [
-        { key: 'high2-02-1', t: '세특라이트로 학과 맞춤 심화 탐구주제 선택', type: 'tab', tab: 'topic' },
-        { key: 'high2-02-2', t: '전공특화문제 심화 — 고1 부족 부분 집중 보완', type: 'tab', tab: 'major' },
-        { key: 'high2-02-3', t: '생기부 예상문제로 현재 질문 확인', type: 'tab', tab: 'expect' },
-        { key: 'high2-02-4', t: '진로진학 AI로 독서 리스트 심화 추천', type: 'tab', tab: 'book' },
+      m: '2월', theme: '핵심과목 ① 탐구', freq: '주 1회 (4주)', output: '과목① 탐구보고서',
+      missions: [
+        { key: 'high2-02-1', t: '교과개념 분석', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high2-02-2', t: '탐구주제 선정', type: 'tab', tab: 'roadmap-v2' },
+        { key: 'high2-02-3', t: '수행평가형 탐구', type: 'tab', tab: 'suhaeng' },
+        { key: 'high2-02-4', t: '보고서·발표', type: 'tab', tab: 'roadmap-v2' },
       ],
     },
     {
-      m: '3월', theme: '심화 탐구 실행 시작', freq: '주 1회 (4주)', missions: [
-        { key: 'high2-03-1', t: '겨울방학에 설계한 심화 탐구주제 실행 시작', type: 'tab', tab: 'topic' },
-        { key: 'high2-03-2', t: '고1-고2 탐구 연결성 점검하며 진행', type: 'teacher' },
-        { key: 'high2-03-3', t: '생기부 예상문제로 현재 생기부 질문 미리 확인', type: 'tab', tab: 'expect' },
-        { key: 'high2-03-4', t: '진로진학 AI로 학과별 독서 리스트 심화 추천', type: 'tab', tab: 'book' },
+      m: '3월', theme: '핵심과목 ② 탐구', freq: '주 1회 (4주)', output: '과목② 탐구보고서',
+      missions: [
+        { key: 'high2-03-1', t: '교과개념 → 질문', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high2-03-2', t: '전공과 연결', type: 'tab', tab: 'major' },
+        { key: 'high2-03-3', t: '자료·데이터 분석', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high2-03-4', t: '결과 해석·발표', type: 'tab', tab: 'roadmap-v2' },
       ],
     },
     {
-      m: '5월', theme: '수행평가 심화 + 면접 답변 동시 준비', freq: '주 1회 (4주)', missions: [
-        { key: 'high2-05-1', t: '수행평가 주제를 학과 스토리와 연결 — 고1보다 심화', type: 'teacher' },
-        { key: 'high2-05-2', t: '전공특화문제로 수행평가 관련 전공 지식 보완', type: 'tab', tab: 'major' },
-        { key: 'high2-05-3', t: '수행평가 하면서 면접 답변 초안 동시 작성', type: 'tab', tab: 'expect' },
-        { key: 'high2-05-4', t: '꼬리질문 어떤 게 나올지 미리 파악 + 생기부 중간 점검', type: 'tab', tab: 'expect' },
+      m: '4월', theme: '핵심과목 ③ 탐구', freq: '주 1회 (4주)', output: '과목③ 탐구보고서',
+      missions: [
+        { key: 'high2-04-1', t: '교과 쟁점 찾기', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high2-04-2', t: '학술자료 비교', type: 'tab', tab: 'book' },
+        { key: 'high2-04-3', t: '주장·논증', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high2-04-4', t: '연구발표', type: 'tab', tab: 'roadmap-v2' },
       ],
     },
     {
-      m: '7월', theme: '면접 실전 본격화 ① — 생기부 + 기출 시작', freq: '주 2회 (2주)', missions: [
-        { key: 'high2-07-1', t: '1학기 생기부 업로드 → 예상 면접질문 전체 뽑기', type: 'tab', tab: 'expect' },
-        { key: 'high2-07-2', t: '지원 희망 대학 기출문제 집중 분석 시작', type: 'tab', tab: 'past' },
-        { key: 'high2-07-3', t: '생기부-기출 갭 파악 → 2학기 전략 수립', type: 'teacher' },
-        { key: 'high2-07-4', t: '지원 대학 범위 1차 확정', type: 'teacher' },
+      m: '5월', theme: '확장과목 탐구', freq: '주 1회 (4주)', output: '과목④ 탐구 결과물',
+      missions: [
+        { key: 'high2-05-1', t: '다른 관점 찾기', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high2-05-2', t: '주제 설계', type: 'tab', tab: 'roadmap-v2' },
+        { key: 'high2-05-3', t: '수행평가·프로젝트', type: 'tab', tab: 'suhaeng' },
+        { key: 'high2-05-4', t: '결과발표', type: 'tab', tab: 'roadmap-v2' },
       ],
     },
     {
-      m: '8월', theme: '면접 실전 본격화 ② — 시뮬레이션 + 제시문', freq: '주 2회 (2주)', missions: [
-        { key: 'high2-08-1', t: '생기부 예상질문 전체 답변 작성 + 대학별 분석', type: 'tab', tab: 'expect' },
-        { key: 'high2-08-2', t: '실전 면접 시뮬레이션 2~3회 반복 (영상 + 음성 분석)', type: 'tab', tab: 'simulation' },
-        { key: 'high2-08-3', t: 'SKY·교대 지원자 → 제시문 면접 준비 시작', type: 'tab', tab: 'presentation' },
-        { key: 'high2-08-4', t: '꼬리질문 집중 대비 — 학과 맞춤 심화', type: 'tab', tab: 'expect' },
+      m: '6월', theme: '교과 융합 프로젝트', freq: '주 1회 (4주)', output: '융합탐구보고서',
+      missions: [
+        { key: 'high2-06-1', t: '핵심과목 2개 선정', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high2-06-2', t: '융합질문', type: 'tab', tab: 'roadmap-v2' },
+        { key: 'high2-06-3', t: '연구·분석', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high2-06-4', t: '연구 발표', type: 'tab', tab: 'roadmap-v2' },
       ],
     },
     {
-      m: '10월', theme: '기출 완성 + 제시문 심화 + 2학기 탐구', freq: '주 1~2회', missions: [
-        { key: 'high2-10-1', t: '2학기 탐구활동 실행 — 고1-고2 연결성 완성', type: 'tab', tab: 'topic' },
-        { key: 'high2-10-2', t: '지원 대학 기출 2~3회차 반복 → 패턴 완전히 파악', type: 'tab', tab: 'past' },
-        { key: 'high2-10-3', t: 'SKY·교대 지원자 → 제시문 심화 답변 완성도 높이기', type: 'tab', tab: 'presentation' },
-        { key: 'high2-10-4', t: '꼬리질문 실전 연습 심화 + 스피치 업그레이드', type: 'tab', tab: 'simulation' },
+      m: '7월', theme: '직업 문제해결 프로젝트', freq: '주 1회 (4주)', output: '직업 문제해결 보고서',
+      missions: [
+        { key: 'high2-07-1', t: '희망직업 업무 분석', type: 'inAnswer', tab: 'roadmap-v2' },
+        { key: 'high2-07-2', t: '실제 문제 선정', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high2-07-3', t: '해결방안 연구', type: 'teacher', tab: 'book' },
+        { key: 'high2-07-4', t: '직업인 관점 제안', type: 'tab', tab: 'roadmap-v2' },
       ],
     },
     {
-      m: '12월', theme: '면접 90% 완성 + 고3 준비', freq: '주 2회 (2주)', missions: [
-        { key: 'high2-12-1', t: '고1~고2 전체 생기부 예상질문 총정리', type: 'tab', tab: 'expect' },
-        { key: 'high2-12-2', t: '실전 면접 시뮬레이션 3회 이상 — 약점 최종 보완', type: 'tab', tab: 'simulation' },
-        { key: 'high2-12-3', t: '부족한 전공 지식 마지막 점검', type: 'tab', tab: 'major' },
-        { key: 'high2-12-4', t: '고3 로드맵 설계 — 지원 대학 최종 확정', type: 'teacher' },
+      m: '8월', theme: '고2 전공 활동 모음집', freq: '주 1회 (4주)', output: '전공 활동 모음집',
+      missions: [
+        { key: 'high2-08-1', t: '과목별 활동 정리', type: 'teacher', tab: 'record' },
+        { key: 'high2-08-2', t: '활동 간 연결', type: 'tab', tab: 'expect' },
+        { key: 'high2-08-3', t: '대표연구 선정', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high2-08-4', t: '고3 최종연구 설계', type: 'inAnswer', tab: 'roadmap-v2' },
       ],
     },
   ],
+
   '고3': [
     {
-      m: '1월', theme: '생기부 마지막 탐구주제 설계 ①', freq: '주 2회 (2주)', missions: [
-        { key: 'high3-01-1', t: '세특라이트로 고3 마지막 탐구주제 선택', type: 'tab', tab: 'topic' },
-        { key: 'high3-01-2', t: '진로진학 AI로 독서 리스트 + 탐구 방향 최종 점검', type: 'tab', tab: 'book' },
-        { key: 'high3-01-3', t: '학과 스토리 완성에 필요한 활동 설계', type: 'teacher' },
-        { key: 'high3-01-4', t: '지원 대학 범위 사전 점검', type: 'teacher' },
+      m: '1월', theme: '고3 수행평가 선행', freq: '주 1회 (4주)', output: '고3 수행평가 대비 노트 + 최종 연구축',
+      missions: [
+        { key: 'high3-01-1', t: '3년 탐구 훑고 최종 연구축 설정', type: 'inAnswer', tab: 'roadmap-v2' },
+        { key: 'high3-01-2', t: '과목별 수행평가 유형 파악', type: 'tab', tab: 'suhaeng' },
+        { key: 'high3-01-3', t: '작년 수행평가 과제 분석 · 유사과제 실습', type: 'tab', tab: 'suhaeng' },
+        { key: 'high3-01-4', t: '1학기 수행평가 대비 계획', type: 'teacher', tab: 'suhaeng' },
       ],
     },
     {
-      m: '2월', theme: '생기부 마지막 탐구주제 설계 ②', freq: '주 1회 (4주)', missions: [
-        { key: 'high3-02-1', t: '전공특화문제로 기초 전공 지식 점검 — 면접 답변 재료 확보', type: 'tab', tab: 'major' },
-        { key: 'high3-02-2', t: '지금까지 생기부 업로드 → 예상질문 뽑아서 부족한 부분 파악', type: 'tab', tab: 'expect' },
-        { key: 'high3-02-3', t: '고1·고2 연결 스토리 최종 점검', type: 'teacher' },
-        { key: 'high3-02-4', t: '면접 답변 방향 설계', type: 'teacher' },
+      m: '2월', theme: '직업·산업 심층탐구', freq: '주 1회 (4주)', output: '직업·산업 이슈 보고서',
+      missions: [
+        { key: 'high3-02-1', t: '직업 실제 업무 분석', type: 'inAnswer', tab: 'major' },
+        { key: 'high3-02-2', t: '산업 핵심 이슈', type: 'teacher', tab: 'book' },
+        { key: 'high3-02-3', t: '전문가·학술자료 분석', type: 'tab', tab: 'book' },
+        { key: 'high3-02-4', t: '해결할 문제 정의', type: 'tab', tab: 'roadmap-v2' },
       ],
     },
     {
-      m: '3월', theme: '탐구 실행 + 수행평가 마무리', freq: '주 1회 (4주)', missions: [
-        { key: 'high3-03-1', t: '겨울방학 설계 탐구주제 실행 — 고1·고2 연결 스토리 완성', type: 'tab', tab: 'topic' },
-        { key: 'high3-03-2', t: '수행평가 주제 학과와 연결 — 마지막 학기 전략적 활용', type: 'teacher' },
-        { key: 'high3-03-3', t: '세특라이트로 탐구 방향 점검 + 예상 생기부 문구 확인', type: 'tab', tab: 'expect' },
-        { key: 'high3-03-4', t: '전공특화문제로 수행평가 관련 전공 지식 동시에 보완', type: 'tab', tab: 'major' },
+      m: '3월', theme: '최종연구 설계', freq: '주 1회 (4주)', output: '연구계획서',
+      missions: [
+        { key: 'high3-03-1', t: '연구질문·가설', type: 'tab', tab: 'roadmap-v2' },
+        { key: 'high3-03-2', t: '선행연구 비교', type: 'teacher', tab: 'book' },
+        { key: 'high3-03-3', t: '조사·데이터 설계', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high3-03-4', t: '연구계획 발표', type: 'tab', tab: 'roadmap-v2' },
       ],
     },
     {
-      m: '5월', theme: '생기부 완성 + 대학 제출 전 최종 점검', freq: '주 1~2회', missions: [
-        { key: 'high3-05-1', t: '생기부 완성본 업로드 → 예상 면접질문 전체 뽑기', type: 'tab', tab: 'expect' },
-        { key: 'high3-05-2', t: '지원 대학 확정 + 5개년 기출문제 분석 시작', type: 'tab', tab: 'past' },
-        { key: 'high3-05-3', t: '스피치 훈련 시작 — 말투·속도·태도 교정', type: 'tab', tab: 'simulation' },
-        { key: 'high3-05-4', t: '생기부-기출 갭 분석 → 여름방학 집중 계획 수립', type: 'teacher' },
+      m: '4월', theme: '최종연구 완성', freq: '주 1회 (4주)', output: '직업·전공 최종 연구보고서',
+      missions: [
+        { key: 'high3-04-1', t: '자료·데이터 분석', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high3-04-2', t: '결과 해석', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high3-04-3', t: '해결안·최종 보고서', type: 'teacher', tab: 'roadmap-v2' },
+        { key: 'high3-04-4', t: '7분 연구발표·질의응답', type: 'tab', tab: 'roadmap-v2' },
       ],
     },
     {
-      m: '7월', theme: '수시 직전 최종 완성 ①', freq: '주 2~3회', missions: [
-        { key: 'high3-07-1', t: '생기부 예상질문 전체 답변 완성 + 대학별 맞춤 분석', type: 'tab', tab: 'expect' },
-        { key: 'high3-07-2', t: '기출문제 집중 완성 — 지원 대학 패턴 완전히 내 것으로', type: 'tab', tab: 'past' },
-        { key: 'high3-07-3', t: 'SKY·교대 지원자 → 꼬리질문 집중 대비', type: 'tab', tab: 'expect' },
-        { key: 'high3-07-4', t: '지원 대학 최종 확정', type: 'teacher' },
+      m: '5월', theme: '학생부 × 대학 매칭', freq: '주 1회 (4주)', output: '대학 매칭 보고서',
+      missions: [
+        { key: 'high3-05-1', t: '대표활동 선정', type: 'tab', tab: 'record' },
+        { key: 'high3-05-2', t: '전공역량 정리', type: 'tab', tab: 'major' },
+        { key: 'high3-05-3', t: '대학·학과 분석', type: 'inAnswer', tab: 'roadmap-v2?step=3' },
+        { key: 'high3-05-4', t: '지원전략 설계', type: 'teacher', tab: 'roadmap-v2' },
       ],
     },
     {
-      m: '8월', theme: '수시 직전 최종 완성 ②', freq: '주 2~3회', missions: [
-        { key: 'high3-08-1', t: '실전 면접 시뮬레이션 3~5회 집중 반복', type: 'tab', tab: 'simulation' },
-        { key: 'high3-08-2', t: '영상·음성 분석 후 약점 최종 보완', type: 'teacher' },
-        { key: 'high3-08-3', t: 'SKY·교대 지원자 → 제시문 최종 완성 + 꼬리질문', type: 'tab', tab: 'presentation' },
-        { key: 'high3-08-4', t: '면접 전날 루틴 완성', type: 'teacher' },
+      m: '6월', theme: '대입면접 기본', freq: '주 1회 (4주)', output: '기본 답변집',
+      missions: [
+        { key: 'high3-06-1', t: '지원동기', type: 'tab', tab: 'basic' },
+        { key: 'high3-06-2', t: '전공적합성', type: 'tab', tab: 'basic' },
+        { key: 'high3-06-3', t: '인성·공동체', type: 'tab', tab: 'basic' },
+        { key: 'high3-06-4', t: '미래발전성', type: 'tab', tab: 'basic' },
       ],
     },
     {
-      m: '10월', theme: '수시 면접 완주', freq: '면접일 맞춤', missions: [
-        { key: 'high3-10-1', t: '면접 일정 확인 후 대학별 맞춤 최종 점검', type: 'teacher' },
-        { key: 'high3-10-2', t: '면접 전날 시뮬레이션 1회 — 긴장감 조절 + 컨디션 체크', type: 'tab', tab: 'simulation' },
-        { key: 'high3-10-3', t: '앞선 면접 피드백 반영 → 다음 면접 바로 보완', type: 'teacher' },
-        { key: 'high3-10-4', t: 'SKY·교대 제시문 면접 최종 점검', type: 'tab', tab: 'presentation' },
+      m: '7월', theme: '학생부 심층면접', freq: '주 1회 (4주)', output: '개인 질문 모음',
+      missions: [
+        { key: 'high3-07-1', t: '교과탐구 질문', type: 'tab', tab: 'expect' },
+        { key: 'high3-07-2', t: '선택과목 질문', type: 'tab', tab: 'expect' },
+        { key: 'high3-07-3', t: '최종연구 질문', type: 'tab', tab: 'expect' },
+        { key: 'high3-07-4', t: '꼬리·검증질문', type: 'tab', tab: 'expect' },
       ],
     },
     {
-      m: '12월', theme: '수시 결과 확인 + 마무리', freq: '필요시', missions: [
-        { key: 'high3-12-1', t: '수시 합격 → 마무리 및 대학 생활 준비', type: 'teacher' },
-        { key: 'high3-12-2', t: '정시 대비 필요 시 → 추가 전략 수립', type: 'teacher' },
-        { key: 'high3-12-3', t: '합격 후기 공유', type: 'teacher' },
-        { key: 'high3-12-4', t: '고등학교 생활 마무리', type: 'teacher' },
+      m: '8월', theme: '대학별 최종 점검', freq: '주 1회 (4주)', output: '대입 준비 모음집',
+      missions: [
+        { key: 'high3-08-1', t: '대학별 기출', type: 'tab', tab: 'past' },
+        { key: 'high3-08-2', t: '모의면접 ①', type: 'tab', tab: 'mockexam' },
+        { key: 'high3-08-3', t: '영상 피드백', type: 'teacher', tab: 'simulation' },
+        { key: 'high3-08-4', t: '최종 모의면접', type: 'tab', tab: 'mockexam' },
       ],
     },
   ],
@@ -238,7 +269,7 @@ export const ROADMAP: Record<GradeKey, RoadmapMonth[]> = {
  * month 문자열("3월")에서 숫자만 추출 → DB에 저장될 month 컬럼 값
  */
 export function parseMonth(m: string): number {
-  return parseInt(m.replace('월', ''), 10)
+  return parseInt(m.replace(/[^0-9]/g, ''), 10) || 0
 }
 
 /**

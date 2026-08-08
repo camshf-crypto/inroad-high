@@ -10,6 +10,9 @@ import AdminLogin from '@/pages/admin/_pages/login/Login'
 import Dashboard from '@/pages/admin/_pages/dashboard/Dashboard'
 import Students from '@/pages/admin/_pages/students/Students'
 import StudentDetail from '@/pages/admin/_pages/students/detail/StudentDetail'
+import MiddleWorkbookView from '@/pages/admin/_pages/students/detail/middle-tabs/MiddleWorkbookView'
+import LessonRun from '@/pages/admin/_pages/lesson-run/LessonRun'
+import MiddleLessonVideos from '@/pages/admin/_pages/lessons/MiddleLessonVideos'
 import Academy from '@/pages/admin/_pages/academy/Academy'
 import Billing from '@/pages/admin/_pages/billing/Billing'
 import Settings from '@/pages/admin/_pages/settings/Settings'
@@ -47,7 +50,6 @@ import MiddleLogin from '@/pages/middle-student/_pages/login/Login'
 import MiddleConnect from '@/pages/middle-student/_pages/connect/Connect'
 import MiddlePending from '@/pages/middle-student/_pages/pending/Pending'
 import MiddleRoadmap from '@/pages/middle-student/_pages/roadmap/Roadmap'
-import MiddleLesson from '@/pages/middle-student/_pages/lesson/Lesson'
 import MiddleHomework from '@/pages/middle-student/_pages/homework/Homework'
 import MiddleBookList from '@/pages/middle-student/_pages/book/BookList'
 import MiddleExpect from '@/pages/middle-student/_pages/expect/Expect'
@@ -60,6 +62,7 @@ import MiddleSuhaeng from '@/pages/middle-student/_pages/suhaeng/Suhaeng'
 import MiddleDebate from '@/pages/middle-student/_pages/debate/MiddleDebate'
 import MiddleRecord from '@/pages/middle-student/_pages/record/Record'
 import MiddleCareerConcept from '@/pages/middle-student/_pages/concept/CareerConcept'
+import MiddleWorkbook from '@/pages/middle-student/_pages/workbook/Workbook'
 
 // Master
 import MasterLayout from '@/pages/master/_layout/Layout'
@@ -101,6 +104,9 @@ const router = createBrowserRouter([
           { path: 'students/:id', element: <StudentDetail /> },
           { path: 'middle-students', element: <Students /> },
           { path: 'middle-students/:id', element: <StudentDetail /> },
+          { path: 'middle-students/:id/workbook/:missionKey', element: <MiddleWorkbookView /> },
+          { path: 'lesson-run', element: <LessonRun /> },
+          { path: 'middle-lessons', element: <MiddleLessonVideos /> },
           { path: 'middle-suhaeng', element: <SuhaengManage /> },
           { path: 'reports', element: <Reports /> },
           { path: 'student-approval', element: <StudentApproval /> },
@@ -159,8 +165,8 @@ const router = createBrowserRouter([
         element: <MiddleLayout />,
         children: [
           { path: 'roadmap', element: <MiddleRoadmap /> },
+          { path: 'workbook/:missionKey', element: <MiddleWorkbook /> },
           { path: 'concept', element: <MiddleCareerConcept /> },
-          { path: 'lesson', element: <MiddleLesson /> },
           { path: 'homework', element: <MiddleHomework /> },
           { path: 'suhaeng', element: <MiddleSuhaeng /> },
           { path: 'record', element: <MiddleRecord /> },

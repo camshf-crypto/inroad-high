@@ -12,9 +12,8 @@ import SchoolSearchInput from '@/components/SchoolSearchInput'
 import { findOrCreateSchool } from '@/pages/middle-student/_hooks/useSchoolSuhaeng'
 
 const MENUS = [
-  { path: '/middle-student/roadmap', label: '내 커리큘럼', icon: '⊞', menuKey: 'middle.roadmap' },
   { path: '/middle-student/concept', label: '진로 계열 검사', icon: '🧭', menuKey: 'middle.concept', isNew: true },
-  { path: '/middle-student/lesson', label: '수업 영상', icon: '🎬', menuKey: 'middle.lesson' },
+  { path: '/middle-student/roadmap', label: '입시 로드맵', icon: '⊞', menuKey: 'middle.roadmap' },
   { path: '/middle-student/homework', label: '숙제', icon: '📝', menuKey: 'middle.homework' },
   { path: '/middle-student/suhaeng', label: '수행평가', icon: '🎯', menuKey: 'middle.suhaeng' },
   { path: '/middle-student/record', label: '내 생기부', icon: '📋', menuKey: 'middle.record' },

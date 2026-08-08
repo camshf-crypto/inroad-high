@@ -31,6 +31,13 @@ const THEME = {
 const GRADE_LIST = ['중1', '중2', '중3']
 const SEMESTER_LIST = [1, 2] as const
 
+// 창의적 체험활동 3영역
+const CHANGCHE_ROWS: { category: SaenggibuCategory; label: string; hint: string }[] = [
+  { category: '자율', label: '자율·자치활동', hint: '학교 활동을 직접 입력' },
+  { category: '동아리', label: '동아리활동', hint: '학교 활동을 직접 입력' },
+  { category: '진로', label: '진로활동', hint: '로드맵 워크북 결과' },
+]
+
 const EMPHASIS_OPTIONS = [
   { value: '자료 조사 중심', label: '자료 조사 중심' },
   { value: '개념 이해 중심', label: '개념 이해 중심' },
@@ -158,8 +165,8 @@ export default function Record({ student }: { student: any }) {
   const handlePublishAll = () => {
     const hasPublished = saenggibuItems.some((i: MiddleSaenggibuItem) => i.status === 'published')
     const msg = hasPublished
-      ? `${selGrade} ${selSemester}학기 세특 전체를 비공개로 전환할까요?`
-      : `${selGrade} ${selSemester}학기 세특 전체를 학생에게 게시할까요?`
+      ? `${selGrade} ${selSemester}학기 생기부 전체를 비공개로 전환할까요?`
+      : `${selGrade} ${selSemester}학기 생기부 전체를 학생에게 게시할까요?`
     if (window.confirm(msg)) {
       publishAll.mutate({ studentId, grade: gradeNum, semester: selSemester, publish: !hasPublished })
     }
@@ -172,6 +179,8 @@ export default function Record({ student }: { student: any }) {
           📅 {selGrade} · {selSemester}학기
         </div>
       )}
+
+      {/* 교과학습발달상황 */}
       <div className={inModal ? 'mb-5' : 'mb-3'}>
         <div className={`font-extrabold text-ink mb-1.5 tracking-tight ${inModal ? 'text-[13px]' : 'text-[11px]'}`}>
           교과학습발달상황 · 세부능력 및 특기사항
@@ -267,6 +276,87 @@ export default function Record({ student }: { student: any }) {
                 )
               })
             )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 창의적 체험활동상황 */}
+      <div className={inModal ? 'mb-5' : 'mb-3'}>
+        <div className={`font-extrabold text-ink mb-1.5 tracking-tight ${inModal ? 'text-[13px]' : 'text-[11px]'}`}>
+          창의적 체험활동상황 · 특기사항
+        </div>
+        <table className="w-full border-collapse border border-gray-700">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className={`border border-gray-700 font-bold text-ink w-24 text-center ${inModal ? 'px-3 py-2 text-[12px]' : 'px-2 py-1.5 text-[10px]'}`}>영역</th>
+              <th className={`border border-gray-700 font-bold text-ink text-center ${inModal ? 'px-3 py-2 text-[12px]' : 'px-2 py-1.5 text-[10px]'}`}>특기사항</th>
+              {!inModal && <th className="border border-gray-700 font-bold text-ink text-center w-28 px-2 py-1.5 text-[10px]">—</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {CHANGCHE_ROWS.map(row => {
+              const item = findItem(saenggibuItems, row.category, null)
+              const isEditing = !inModal && editingCell?.category === row.category && editingCell?.subject === null
+              return (
+                <tr key={row.category}>
+                  <td className={`border border-gray-700 font-semibold text-ink text-center bg-gray-50 align-top ${inModal ? 'px-3 py-2 text-[12px]' : 'px-2 py-1.5 text-[10px]'}`}>
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="leading-tight">{row.label}</span>
+                      {!inModal && item?.status === 'published' && (
+                        <span className="text-[8px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full whitespace-nowrap">게시됨</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="border border-gray-700 p-0 align-top">
+                    {isEditing ? (
+                      <div className="p-1">
+                        <textarea
+                          value={editText}
+                          onChange={e => setEditText(e.target.value)}
+                          autoFocus
+                          className="w-full border-none outline-none text-[11px] font-medium leading-[1.7] resize-y min-h-[80px] px-2 py-1"
+                          style={{ boxShadow: `inset 0 0 0 2px ${THEME.accent}` }}
+                        />
+                        <div className="flex items-center gap-1 px-2 py-1">
+                          <button onClick={saveCell} disabled={upsertItem.isPending} className="px-2.5 py-0.5 text-white rounded text-[11px] font-bold transition-all disabled:opacity-60" style={{ background: THEME.accent }}>
+                            {upsertItem.isPending ? '저장중...' : '💾 저장'}
+                          </button>
+                          <button onClick={() => { setEditingCell(null); setEditText('') }} className="px-2.5 py-0.5 bg-white text-ink-secondary border border-line rounded text-[11px] font-semibold hover:bg-gray-50 transition-colors">
+                            취소
+                          </button>
+                          <div className="text-[10px] text-ink-muted ml-auto font-medium">{editText.length}자</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="group relative">
+                        <div
+                          onClick={() => !inModal && !locked && startEditCell(row.category, null)}
+                          className={`leading-[1.8] whitespace-pre-wrap transition-colors ${inModal ? 'px-3 py-2 text-[12px] min-h-[50px]' : 'px-2 py-1.5 text-[10px] min-h-[32px]'} ${!inModal && !locked ? 'cursor-text hover:bg-blue-50/30' : ''}`}
+                          style={{ color: item?.content ? '#1a1a1a' : '#D1D5DB' }}
+                        >
+                          {item?.content || (inModal ? '' : locked ? '🔒 마감됨' : `클릭하여 입력 · ${row.hint}`)}
+                        </div>
+                        {!inModal && item && (
+                          <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleTogglePublish(item) }}
+                              className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all ${item.status === 'published' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'}`}
+                            >
+                              {item.status === 'published' ? '🔒 비공개' : '👁 게시'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  {!inModal && (
+                    <td className="border border-gray-700 align-top p-1.5 text-center text-[10px] text-ink-muted">
+                      —
+                    </td>
+                  )}
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -456,11 +546,11 @@ export default function Record({ student }: { student: any }) {
         )}
       </div>
 
-      {/* 오른쪽: 세특 시트 */}
+      {/* 오른쪽: 생기부 시트 */}
       <div className="flex-1 bg-white border border-line rounded-2xl flex flex-col overflow-hidden min-w-0 shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
         <div className="px-4 py-3 border-b border-line flex-shrink-0 flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="text-[14px] font-extrabold text-ink tracking-tight">📋 세특</div>
+            <div className="text-[14px] font-extrabold text-ink tracking-tight">📋 생기부</div>
             <div className="flex gap-1">
               {GRADE_LIST.map(g => {
                 const isActive = selGrade === g

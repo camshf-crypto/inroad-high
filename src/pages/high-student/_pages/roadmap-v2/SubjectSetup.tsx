@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   selectVisibleLines,
   useSelectNode,
@@ -11,6 +11,9 @@ import {
 
 const GRADES: Grade[] = [1, 2, 3]
 
+/** 공통과목 중 목록에서 감출 대체 과목 */
+const HIDDEN_COMMON = ['기본수학', '기본영어']
+
 interface Props {
   board: RoadmapBoardData
   career: CareerSeriesData
@@ -20,6 +23,14 @@ interface Props {
 
 export default function SubjectSetup({ board, career, myGrade = 1, onDone }: Props) {
   const [grade, setGrade] = useState<Grade>(myGrade)
+
+  /** 현재 학년 +1 까지만 열림 (고1 → 고2까지, 고2 → 고3까지) */
+  const maxGrade = Math.min(3, myGrade + 1) as Grade
+
+  // 잠긴 학년을 보고 있으면 열린 마지막 학년으로 되돌린다
+  useEffect(() => {
+    if (grade > maxGrade) setGrade(maxGrade)
+  }, [grade, maxGrade])
 
   const lines = useMemo(
     () => selectVisibleLines(board, career.seriesUnion),
@@ -36,15 +47,19 @@ export default function SubjectSetup({ board, career, myGrade = 1, onDone }: Pro
         all: board.nodesByLine.get(l.id)?.get(grade) ?? [],
       }))
 
-    // 공통과목은 전원 이수라 고르는 게 아니다 — 이름 기준 중복 제거해서 따로 보여준다
+    // 공통과목은 전원 이수라 고르는 게 아니다.
+    // 공통국어1·2 처럼 뒤에 숫자만 다른 과목은 하나로 묶고,
+    // 기본수학·기본영어는 대체 과목이라 목록에서 뺀다.
     const seen = new Set<string>()
     const req: string[] = []
     for (const c of cells) {
       for (const n of c.all) {
         if (n.category !== '공통') continue
-        if (seen.has(n.subject_name)) continue
-        seen.add(n.subject_name)
-        req.push(n.subject_name)
+        const base = n.subject_name.replace(/\s*[12]$/, '')
+        if (HIDDEN_COMMON.includes(base)) continue
+        if (seen.has(base)) continue
+        seen.add(base)
+        req.push(base)
       }
     }
 
@@ -76,23 +91,34 @@ export default function SubjectSetup({ board, career, myGrade = 1, onDone }: Pro
       <div className="flex gap-1.5 mb-4">
         {GRADES.map((g) => {
           const on = grade === g
+          const locked = g > maxGrade
           return (
             <button
               key={g}
-              onClick={() => setGrade(g)}
-              className="px-3.5 py-1.5 rounded-full text-[12px] border transition-all"
+              onClick={() => !locked && setGrade(g)}
+              disabled={locked}
+              title={locked ? `고${maxGrade} 때 열려요` : undefined}
+              className="px-3.5 py-1.5 rounded-full text-[12px] border transition-all flex items-center gap-1"
               style={{
-                background: on ? '#2563EB' : '#fff',
-                color: on ? '#fff' : '#6B7280',
+                background: on ? '#2563EB' : locked ? '#F8FAFC' : '#fff',
+                color: on ? '#fff' : locked ? '#CBD5E1' : '#6B7280',
                 borderColor: on ? '#2563EB' : '#E5E7EB',
                 fontWeight: on ? 700 : 500,
+                cursor: locked ? 'not-allowed' : 'pointer',
               }}
             >
               고{g}
+              {locked && <span className="text-[10px]">🔒</span>}
             </button>
           )
         })}
       </div>
+
+      {maxGrade < 3 && (
+        <div className="text-[11px] text-ink-muted mb-4 -mt-2">
+          고{maxGrade + 1}은 고{maxGrade}가 되면 열려요.
+        </div>
+      )}
 
       {choosable.length === 0 ? (
         <div className="rounded-xl border border-line bg-gray-50 px-4 py-6 text-center text-[13px] text-ink-secondary">

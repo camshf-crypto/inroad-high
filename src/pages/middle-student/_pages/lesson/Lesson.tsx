@@ -15,6 +15,33 @@ function toGrade(g: string | null | undefined): MiddleGrade {
   return '중1'
 }
 
+/**
+ * 영상 주소를 재생 가능한 형태로 바꾼다.
+ * mp4 직접 링크는 <video>, 비메오·유튜브는 iframe으로 재생한다.
+ */
+function toEmbed(url: string): { kind: 'file' | 'iframe'; src: string } {
+  const u = url.trim()
+
+  // 비메오 — https://vimeo.com/123456789 또는 /123456789/abcdef (비공개 해시)
+  const vimeo = u.match(/vimeo\.com\/(?:video\/)?(\d+)(?:\/(\w+))?/)
+  if (vimeo) {
+    const [, id, hash] = vimeo
+    return {
+      kind: 'iframe',
+      src: `https://player.vimeo.com/video/${id}${hash ? `?h=${hash}` : ''}`,
+    }
+  }
+
+  // 유튜브 — watch?v= / youtu.be/ / embed/
+  const yt = u.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/)
+  if (yt) {
+    return { kind: 'iframe', src: `https://www.youtube.com/embed/${yt[1]}?rel=0` }
+  }
+
+  // 그 외(스토리지 mp4 등)는 그대로
+  return { kind: 'file', src: u }
+}
+
 // 영상 4편 정보 (1편/2편/3편/4편)
 const VIDEO_PARTS = [
   { no: 1, label: '1편', subLabel: '0~5분' },
@@ -199,12 +226,27 @@ export default function MiddleLesson() {
                   </div>
                 </>
               ) : currentVideoUrl ? (
-                <video
-                  key={currentVideoUrl}  /* 영상 바뀌면 리렌더링 */
-                  src={currentVideoUrl}
-                  controls
-                  className="w-full h-full rounded-xl"
-                />
+                (() => {
+                  const v = toEmbed(currentVideoUrl)
+                  return v.kind === 'iframe' ? (
+                    <iframe
+                      key={v.src}
+                      src={v.src}
+                      title="수업 영상"
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      allowFullScreen
+                      className="w-full h-full rounded-xl border-0"
+                    />
+                  ) : (
+                    <video
+                      key={v.src}
+                      src={v.src}
+                      controls
+                      controlsList="nodownload"
+                      className="w-full h-full rounded-xl"
+                    />
+                  )
+                })()
               ) : (
                 <>
                   <div

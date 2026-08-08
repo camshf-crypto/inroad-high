@@ -37,7 +37,7 @@ export function useMyTeacherProgress(grade: MiddleGrade) {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return { lessons_visible_until: 0, homework_visible_until: 0 }
 
-      // 1. 내 teacher_id 조회
+      // 1. 내 담당 선생님 조회
       const { data: profile, error: profErr } = await supabase
         .from('profiles')
         .select('teacher_id')
@@ -45,24 +45,46 @@ export function useMyTeacherProgress(grade: MiddleGrade) {
         .maybeSingle()
 
       if (profErr) throw profErr
-      if (!profile?.teacher_id) {
-        // 담당 선생님 미배정 → 모든 영상 잠금
+
+      // 2. 담당 선생님이 있으면 그 진도를 먼저 본다
+      if (profile?.teacher_id) {
+        const { data: mine, error: mineErr } = await supabase
+          .from('teacher_progress')
+          .select('lessons_visible_until, homework_visible_until')
+          .eq('teacher_id', profile.teacher_id)
+          .eq('grade', grade)
+          .maybeSingle()
+
+        if (mineErr) throw mineErr
+        if (mine) {
+          return {
+            lessons_visible_until: mine.lessons_visible_until ?? 0,
+            homework_visible_until: mine.homework_visible_until ?? 0,
+          }
+        }
+      }
+
+      // 3. 담당이 없거나 그 선생님 진도가 아직 없으면 학원 진도를 따라간다.
+      //    (teacher_id 없이 조회하면 RLS가 볼 수 있는 행만 내려준다)
+      const { data: fallback, error: fbErr } = await supabase
+        .from('teacher_progress')
+        .select('lessons_visible_until, homework_visible_until')
+        .eq('grade', grade)
+
+      if (fbErr) throw fbErr
+
+      const rows = fallback ?? []
+      if (rows.length === 0) {
         return { lessons_visible_until: 0, homework_visible_until: 0 }
       }
 
-      // 2. 그 선생님의 해당 학년 진도 조회
-      const { data: progress, error: progErr } = await supabase
-        .from('teacher_progress')
-        .select('lessons_visible_until, homework_visible_until')
-        .eq('teacher_id', profile.teacher_id)
-        .eq('grade', grade)
-        .maybeSingle()
-
-      if (progErr) throw progErr
-
       return {
-        lessons_visible_until: progress?.lessons_visible_until ?? 0,
-        homework_visible_until: progress?.homework_visible_until ?? 0,
+        lessons_visible_until: Math.max(
+          ...rows.map((r: any) => r.lessons_visible_until ?? 0),
+        ),
+        homework_visible_until: Math.max(
+          ...rows.map((r: any) => r.homework_visible_until ?? 0),
+        ),
       }
     },
     refetchInterval: 3000,  // 3초 폴링 (원장이 슬라이더 옮기면 즉시 반영)

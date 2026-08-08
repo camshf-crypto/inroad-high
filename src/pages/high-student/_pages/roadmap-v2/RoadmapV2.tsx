@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAtomValue } from 'jotai'
 import { supabase } from '@/lib/supabase'
 import { studentState, academyState } from '@/lib/auth/atoms'
@@ -18,7 +18,11 @@ import SubjectSetup from './SubjectSetup'
 import TargetGoalSetup from './TargetGoalSetup'
 import PivotSummary from './PivotSummary'
 import NextIdeas from './NextIdeas'
+import MonthlyScore from './MonthlyScore'
+import AdmitCompare from './AdmitCompare'
 import CareerConcept from '@/pages/high-student/_pages/concept/CareerConcept'
+import { useMyReadings } from '@/pages/high-student/_hooks/useMyHighReading'
+import BookChain from './BookChain'
 
 type Step = 1 | 2 | 3 | 4 | 5 | 'board'
 
@@ -41,11 +45,22 @@ export default function RoadmapV2() {
   const academyId = academy?.academyId ? String(academy.academyId) : undefined
   const myGrade: Grade = TEXT_GRADE[String(student?.grade ?? '고1')] ?? 1
 
+  /** 주소로 단계를 지정해 들어온 경우 (/roadmap-v2?step=4) */
+  const [params] = useSearchParams()
+  const stepParam = params.get('step')
+
   /** 학생이 단계를 직접 눌러 이동한 경우 (null이면 자동 판정) */
-  const [manualStep, setManualStep] = useState<Step | null>(null)
+  const [manualStep, setManualStep] = useState<Step | null>(
+    stepParam && ['1', '2', '3', '4', '5'].includes(stepParam)
+      ? (Number(stepParam) as Step)
+      : null,
+  )
   /** 보드에서 열어본 진로 전환 (career.pivots 인덱스) */
   const [openPivot, setOpenPivot] = useState<number | null>(null)
   const [showNext, setShowNext] = useState(false)
+  const [showScore, setShowScore] = useState(false)
+  const [showCompare, setShowCompare] = useState(false)
+  const [showBook, setShowBook] = useState(false)
 
 
   // 1단계 — 성향 진단
@@ -122,6 +137,48 @@ export default function RoadmapV2() {
   const step: Step = manualStep ?? autoStep
   const allDone = doneMap[1] && doneMap[2] && doneMap[3] && doneMap[4] && doneMap[5]
 
+  /**
+   * 내가 고른 과목 — 현재 학년에서 직접 선택한 것만.
+   * 공통국어1·2 처럼 뒤에 숫자만 다른 과목은 하나로 묶는다.
+   */
+  const mySubjects = useMemo(() => {
+    if (!board) return []
+    const picked = new Set<string>()
+    for (const byGrade of board.nodesByLine.values()) {
+      for (const n of byGrade.get(myGrade) ?? []) {
+        if (board.progress.has(n.id)) {
+          picked.add(n.subject_name.replace(/\s*[12]$/, ''))
+        }
+      }
+    }
+    return [...picked].sort()
+  }, [board, myGrade])
+
+  /** 학년·과목별 담은 책 권수 — 보드 노드에 배지로 */
+  const { data: allReadings = [] } = useMyReadings()
+  const bookCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const r of allReadings as any[]) {
+      const g = Number(r.grade) || myGrade
+      const raw = (r.subject ?? '').trim()
+      if (!raw) continue
+      for (const sj of raw.split('·').map((x: string) => x.trim()).filter(Boolean)) {
+        const k = `${g}|${sj}`
+        m.set(k, (m.get(k) ?? 0) + 1)
+      }
+    }
+    return m
+  }, [allReadings, myGrade])
+
+  /** 보드 탭 전환 */
+  const openTab = (key: 'board' | 'score' | 'compare' | 'next' | 'book') => {
+    setShowScore(key === 'score')
+    setShowCompare(key === 'compare')
+    setShowNext(key === 'next')
+    setShowBook(key === 'book')
+    setOpenPivot(null)
+  }
+
   if (loading) {
     return <div className="p-6 text-[13px] text-ink-muted">불러오는 중…</div>
   }
@@ -138,13 +195,43 @@ export default function RoadmapV2() {
         </div>
 
         {step === 'board' && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowNext(true)}
-              className="h-9 px-3.5 bg-white border border-amber-300 text-amber-800 rounded-lg text-[12px] font-semibold hover:bg-amber-50"
-            >
-              이어서 할 탐구
-            </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {([
+              { key: 'board', label: '입시 로드맵' },
+              { key: 'book', label: '독서' },
+              { key: 'score', label: '월별 점수' },
+              { key: 'compare', label: '합격 생기부 비교' },
+              { key: 'next', label: '이어서 할 탐구' },
+            ] as const).map((t) => {
+              const on =
+                t.key === 'board'
+                  ? !showScore && !showCompare && !showNext && !showBook && openPivot === null
+                  : t.key === 'score'
+                    ? showScore
+                    : t.key === 'compare'
+                      ? showCompare
+                      : t.key === 'book'
+                        ? showBook
+                        : showNext
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => openTab(t.key)}
+                  className="h-9 px-3.5 rounded-lg text-[12px] transition-all border"
+                  style={{
+                    background: on ? '#2563EB' : '#fff',
+                    color: on ? '#fff' : '#6B7280',
+                    borderColor: on ? '#2563EB' : '#E5E7EB',
+                    fontWeight: on ? 700 : 600,
+                  }}
+                >
+                  {t.label}
+                </button>
+              )
+            })}
+
+            <span className="w-px h-6 bg-slate-200 mx-0.5" />
+
             <button
               onClick={() => setManualStep(3)}
               className="h-9 px-3.5 bg-white border border-line text-ink-secondary rounded-lg text-[12px] font-semibold hover:bg-gray-50"
@@ -169,7 +256,7 @@ export default function RoadmapV2() {
 
       {/* 진행 표시 */}
       {step !== 'board' && (
-        <div className="max-w-[680px] mx-auto mb-5">
+        <div className="max-w-[760px] mx-auto mb-5">
           <div className="flex gap-2">
             {([1, 2, 3, 4, 5] as const).map((s) => {
               const on = step === s
@@ -231,49 +318,55 @@ export default function RoadmapV2() {
         </div>
       )}
 
-      {/* 단계별 화면 */}
-      {step === 1 && <AptitudeTest onDone={() => setManualStep(2)} />}
+      {/* 단계별 화면 — 가운데 정렬 */}
+      {step !== 'board' && (
+        <div className="flex justify-center">
+          <div className="w-full max-w-[760px]">
+          {step === 1 && <AptitudeTest onDone={() => setManualStep(2)} />}
 
-      {step === 2 && (
-        <div>
-          <div className="max-w-[680px] mb-3 rounded-xl border border-brand-high-light bg-brand-high-pale px-4 py-3 text-[12px] text-brand-high-dark">
-            학년별로 계열 → 학과 → 직업군을 좁혀가요. 지금 학년만 먼저 해도 괜찮아요.
+        {step === 2 && (
+          <div>
+            <div className="max-w-[680px] mb-3 rounded-xl border border-brand-high-light bg-brand-high-pale px-4 py-3 text-[12px] text-brand-high-dark">
+              학년별로 계열 → 학과 → 직업군을 좁혀가요. 지금 학년만 먼저 해도 괜찮아요.
+            </div>
+
+            <CareerConcept />
+
+            {doneMap[2] && (
+              <button
+                onClick={() => setManualStep(3)}
+                className="mt-4 h-11 px-5 bg-brand-high text-white rounded-xl text-[13px] font-bold hover:bg-brand-high-dark transition-all"
+              >
+                다음: 최종 목표 정하기 →
+              </button>
+            )}
           </div>
+        )}
 
-          <CareerConcept />
+        {step === 3 &&
+          (!career ? (
+            <div className="text-[13px] text-ink-muted">불러오는 중…</div>
+          ) : (
+            <TargetGoalSetup career={career} myGrade={myGrade} onDone={() => setManualStep(4)} />
+          ))}
 
-          {doneMap[2] && (
-            <button
-              onClick={() => setManualStep(3)}
-              className="mt-4 h-11 px-5 bg-brand-high text-white rounded-xl text-[13px] font-bold hover:bg-brand-high-dark transition-all"
-            >
-              다음: 최종 목표 정하기 →
-            </button>
-          )}
+        {step === 4 &&
+          (!board || !career ? (
+            <div className="text-[13px] text-ink-muted">과목 목록을 불러오는 중…</div>
+          ) : (
+            <SubjectSetup
+              board={board}
+              career={career}
+              myGrade={myGrade}
+              onDone={() => setManualStep(5)}
+            />
+          ))}
+
+        {step === 5 && (
+          <SchoolActivityInput myGrade={myGrade} onDone={() => setManualStep('board')} />
+        )}
+          </div>
         </div>
-      )}
-
-      {step === 3 &&
-        (!career ? (
-          <div className="text-[13px] text-ink-muted">불러오는 중…</div>
-        ) : (
-          <TargetGoalSetup career={career} myGrade={myGrade} onDone={() => setManualStep(4)} />
-        ))}
-
-      {step === 4 &&
-        (!board || !career ? (
-          <div className="text-[13px] text-ink-muted">과목 목록을 불러오는 중…</div>
-        ) : (
-          <SubjectSetup
-            board={board}
-            career={career}
-            myGrade={myGrade}
-            onDone={() => setManualStep(5)}
-          />
-        ))}
-
-      {step === 5 && (
-        <SchoolActivityInput myGrade={myGrade} onDone={() => setManualStep('board')} />
       )}
 
       {/* 보드 */}
@@ -284,8 +377,30 @@ export default function RoadmapV2() {
           </div>
         ) : !board || !career ? (
           <div className="text-[13px] text-ink-muted">로드맵을 그리는 중…</div>
+        ) : showScore ? (
+          <MonthlyScore onClose={() => setShowScore(false)} />
+        ) : showCompare ? (
+          <AdmitCompare onClose={() => setShowCompare(false)} />
         ) : showNext ? (
           <NextIdeas myGrade={myGrade} onClose={() => setShowNext(false)} />
+        ) : showBook ? (
+          <div>
+            <div className="flex justify-end mb-2">
+              <button
+                onClick={() => openTab('board')}
+                className="h-9 px-3.5 bg-white border border-line text-ink-secondary rounded-lg text-[12px] font-semibold hover:bg-gray-50"
+              >
+                닫기
+              </button>
+            </div>
+            <BookChain
+              myGrade={myGrade}
+              series={career.seriesUnion[0] ?? null}
+              major={career.byGrade.get(myGrade)?.major ?? null}
+              career={career.byGrade.get(myGrade)?.career ?? null}
+              subjects={mySubjects}
+            />
+          </div>
         ) : openPivot !== null && career.pivots[openPivot] ? (
           <PivotSummary
             fromMajor={career.pivots[openPivot].fromMajor}
@@ -324,8 +439,11 @@ export default function RoadmapV2() {
             <RoadmapBoard
               board={board}
               career={career}
+              myGrade={myGrade}
+              bookCounts={bookCounts}
               onToggleComplete={(node, next) => toggle.mutate({ node, next })}
               onEditGoal={() => setManualStep(3)}
+              onSetupSubjects={() => setManualStep(4)}
               onNodeClick={(_line, node) =>
                 navigate(`/high-student/roadmap-v2/node/${node.id}`)
               }
