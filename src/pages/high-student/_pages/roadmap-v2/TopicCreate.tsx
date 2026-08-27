@@ -20,6 +20,12 @@ interface NodeRow {
   high_roadmap_line: { name: string; color: string } | null
 }
 
+interface Alt {
+  title: string
+  desc?: string
+  from: string
+}
+
 export default function TopicCreate() {
   const { nodeId, slot: slotParam } = useParams()
   const navigate = useNavigate()
@@ -34,9 +40,8 @@ export default function TopicCreate() {
 
   const [area, setArea] = useState<string>('')
   const [custom, setCustom] = useState('')
-  const [aiAlts, setAiAlts] = useState<{ title: string; desc: string; from: string }[] | null>(null)
-  const [aiLoading, setAiLoading] = useState(false)
-  const [aiError, setAiError] = useState<string | null>(null)
+  /** 다시 추천받기 누를 때마다 올려서 새로 요청 */
+  const [nonce, setNonce] = useState(0)
 
   const { data: node, isLoading } = useQuery({
     queryKey: ['roadmap-node', nodeId],
@@ -87,6 +92,8 @@ export default function TopicCreate() {
   const grade = (node?.grade ?? 1) as Grade
   const c = career?.byGrade.get(grade)
   const goal = goalTextOf(c)
+  /** 화면·프롬프트에는 계열이 아니라 학과를 쓴다 */
+  const major = c?.major ?? goal
   const typeKey = (aptitude?.type_key as TypeKey) ?? 'aa'
   const type = TYPES[typeKey]
   const areas = node?.areas ?? []
@@ -94,56 +101,67 @@ export default function TopicCreate() {
   const splitMode = siblings[0]?.split_mode ?? 'full'
   const isSecondTerm = splitMode === 'term' && slot === 2
   const charLimit = splitMode === 'full' ? 500 : 250
+  const prevTitle = isSecondTerm
+    ? (siblings.find((t) => t.slot === 1)?.title ?? null)
+    : null
 
-  const candidates = useMemo(() => {
-    if (!area) return []
-    if (isSecondTerm) {
-      return [
-        `1학기 탐구를 확장해 「${area}」와 ${goal}의 연결을 더 깊이 ${type.verb}`,
-        `「${area}」에서 1학기에 남은 의문을 ${goal} 관점에서 다시 ${type.verb}`,
-        `1학기 결과를 바탕으로 「${area}」의 적용 범위를 ${goal} 시각에서 ${type.verb}`,
-      ]
-    }
-    return [
-      `「${area}」 개념을 ${goal} 관점에서 ${type.verb}하는 탐구`,
-      `${goal} 분야에서 「${area}」가 실제로 어떻게 쓰이는지 ${type.verb}`,
-      `「${area}」의 한계를 ${goal} 시각에서 짚고 대안을 ${type.verb}`,
-    ]
-  }, [area, goal, type, isSecondTerm])
-
-  /** 세특 라이브러리와 진로를 근거로 AI가 주제를 제안 */
-  const askAI = async () => {
-    if (aiLoading) return
-    setAiLoading(true)
-    setAiError(null)
-    setAiAlts(null)
-    try {
+  // ── AI 추천 (학습영역을 고르면 자동 실행) ────────────────
+  const {
+    data: aiAlts,
+    isFetching: aiLoading,
+    error: aiErrorObj,
+    refetch: refetchAlts,
+  } = useQuery({
+    queryKey: ['topic-alts', nodeId, area, nonce],
+    enabled: !!node && !!nodeId && (areas.length === 0 || !!area),
+    staleTime: Infinity,
+    retry: false,
+    queryFn: async (): Promise<Alt[]> => {
       const { data, error } = await supabase.functions.invoke('research-coach', {
         body: {
           mode: 'alts',
           direction: 'both',
-          major: c?.major ?? goal,
+          major,
           grade: `고${grade}`,
           job: c?.career ?? undefined,
           subject: node?.subject_name,
           topic: area ? `${node?.subject_name} - ${area}` : node?.subject_name,
+          previousTopic: prevTitle ?? undefined,
         },
       })
-      if (error || data?.error) throw new Error(error?.message || data?.error)
-
-      const pack = [
-        ...(data.dbAlts ?? []).map((a: any) => ({ ...a, from: '실제 사례' })),
-        ...(data.careerAlts ?? []).map((a: any) => ({ ...a, from: '진로 연계' })),
-        ...(data.keepAlts ?? []).map((a: any) => ({ ...a, from: '영역 심화' })),
+      if (error || (data as any)?.error) {
+        throw new Error(error?.message || (data as any)?.error)
+      }
+      const pack: Alt[] = [
+        ...((data as any).dbAlts ?? []).map((a: any) => ({ ...a, from: '실제 사례' })),
+        ...((data as any).careerAlts ?? []).map((a: any) => ({ ...a, from: '진로 연계' })),
+        ...((data as any).keepAlts ?? []).map((a: any) => ({ ...a, from: '영역 심화' })),
       ]
       if (pack.length === 0) throw new Error('제안을 받지 못했어요')
-      setAiAlts(pack)
-    } catch (e: any) {
-      setAiError(e?.message ?? '알 수 없는 오류')
-    } finally {
-      setAiLoading(false)
+      return pack
+    },
+  })
+
+  const aiError = aiErrorObj ? ((aiErrorObj as Error).message ?? '알 수 없는 오류') : null
+
+  /** AI가 실패했을 때만 보여주는 기본 틀 */
+  const fallbackCandidates = useMemo(() => {
+    if (!area) return []
+    if (isSecondTerm) {
+      return [
+        `1학기 탐구를 확장해 「${area}」와 ${major}의 연결을 더 깊이 ${type.verb}`,
+        `「${area}」에서 1학기에 남은 의문을 ${major} 관점에서 다시 ${type.verb}`,
+        `1학기 결과를 바탕으로 「${area}」의 적용 범위를 ${major} 시각에서 ${type.verb}`,
+      ]
     }
-  }
+    return [
+      `「${area}」 개념을 ${major} 관점에서 ${type.verb}하는 탐구`,
+      `${major} 분야에서 「${area}」가 실제로 어떻게 쓰이는지 ${type.verb}`,
+      `「${area}」의 한계를 ${major} 시각에서 짚고 대안을 ${type.verb}`,
+    ]
+  }, [area, major, type, isSecondTerm])
+
+  const showFallback = !aiLoading && !!aiError && fallbackCandidates.length > 0
 
   const save = useMutation({
     mutationFn: async (v: { title: string; source: string }) => {
@@ -208,10 +226,7 @@ export default function TopicCreate() {
           <div className="flex items-center gap-1.5 mb-1">
             {line && (
               <>
-                <span
-                  className="w-2 h-2 rounded-full"
-                  style={{ background: line.color }}
-                />
+                <span className="w-2 h-2 rounded-full" style={{ background: line.color }} />
                 <span className="text-[11px] font-bold" style={{ color: line.color }}>
                   {line.name}
                 </span>
@@ -224,17 +239,15 @@ export default function TopicCreate() {
 
           <div className="text-[18px] font-extrabold text-ink">탐구주제 정하기</div>
           <div className="text-[12px] text-ink-secondary mt-0.5">
-            {type.name} · {goal} 기준 · 세특 {charLimit}자
+            {type.name} · {major} 기준 · 세특 {charLimit}자
             {splitMode !== 'full' && ` · ${isSecondTerm ? '2학기' : '1학기'}`}
           </div>
         </div>
 
-        {isSecondTerm && siblings.find((t) => t.slot === 1) && (
+        {isSecondTerm && prevTitle && (
           <div className="rounded-xl border border-purple-200 bg-purple-50 px-4 py-3 mb-4">
             <div className="text-[11px] font-bold text-purple-800 mb-1">1학기에 한 탐구</div>
-            <div className="text-[13px] text-purple-900">
-              {siblings.find((t) => t.slot === 1)?.title}
-            </div>
+            <div className="text-[13px] text-purple-900">{prevTitle}</div>
             <div className="text-[11px] text-purple-700 mt-1.5">
               이걸 이어받아 더 깊이 들어가는 주제를 정해요.
             </div>
@@ -260,7 +273,7 @@ export default function TopicCreate() {
                 어느 학습영역에서 찾을까?
               </div>
               <div className="text-[11px] text-ink-muted mb-2.5">
-                {node.subject_name}에서 배우는 영역이에요. 관심 가는 걸 고르면 주제 후보가 나와요.
+                {node.subject_name}에서 배우는 영역이에요. 고르면 바로 주제를 찾아드려요.
               </div>
               <div className="flex flex-wrap gap-1.5 mb-5">
                 {areas.map((a) => {
@@ -285,63 +298,56 @@ export default function TopicCreate() {
             </>
           ) : (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 mb-5 text-[12px] text-amber-900">
-              이 과목엔 학습영역이 아직 등록돼 있지 않아요. 아래에 주제를 직접 적어주세요.
+              이 과목엔 학습영역이 아직 등록돼 있지 않아요. 아래 추천을 보거나 직접 적어주세요.
             </div>
           )}
 
-          {candidates.length > 0 && (
-            <>
-              <div className="text-[13px] font-bold text-ink mb-1">기본 주제 틀</div>
-              <div className="text-[11px] text-ink-muted mb-2.5">
-                학습영역 · 진로 · 성향을 조합한 기본형이에요. 아래 AI 추천이 더 구체적이에요.
-              </div>
-              <div className="flex flex-col gap-2 mb-5">
-                {candidates.map((t, i) => (
-                  <div key={i} className="flex gap-2">
-                    <button
-                      onClick={() => save.mutate({ title: t, source: 'ai' })}
-                      disabled={save.isPending}
-                      className="flex-1 text-left rounded-xl border border-line px-4 py-3 text-[13.5px] text-ink hover:border-brand-high hover:bg-brand-high-pale/40 transition-all disabled:opacity-50"
-                    >
-                      {t}
-                    </button>
-                    <button
-                      onClick={() => setCustom(t)}
-                      className="w-[64px] text-[11.5px] font-semibold text-ink-secondary border border-line rounded-xl hover:bg-gray-50"
-                    >
-                      고쳐쓰기
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* AI 추천 */}
+          {/* 추천 주제 */}
           <div className="rounded-xl border border-purple-200 bg-purple-50/50 p-4 mb-5">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className="text-[13px] font-bold text-purple-900">AI 추천</span>
-              <button
-                onClick={askAI}
-                disabled={aiLoading}
-                className="ml-auto h-9 px-3.5 bg-purple-600 text-white rounded-lg text-[12px] font-bold hover:bg-purple-700 disabled:opacity-40"
-              >
-                {aiLoading ? '찾는 중…' : aiAlts ? '다시 추천받기' : '주제 추천받기'}
-              </button>
+              <span className="text-[13px] font-bold text-purple-900">추천 주제</span>
+              {(aiAlts || aiError) && !aiLoading && (
+                <button
+                  onClick={() => setNonce((n) => n + 1)}
+                  className="ml-auto h-9 px-3.5 bg-purple-600 text-white rounded-lg text-[12px] font-bold hover:bg-purple-700"
+                >
+                  다시 추천받기
+                </button>
+              )}
             </div>
             <div className="text-[11px] text-ink-muted mb-2.5 leading-relaxed">
-              선배들의 실제 세특 사례와 {c?.major ?? goal} 진로를 근거로 제안해요.
+              선배들의 실제 세특 사례와 {major} 진로를 근거로 제안해요.
               {area && ` 「${area}」 영역 기준.`}
             </div>
 
-            {aiError && (
-              <div className="text-[12px] text-red-600">{aiError}</div>
+            {areas.length > 0 && !area && (
+              <div className="text-[12.5px] text-ink-muted py-3">
+                위에서 학습영역을 먼저 골라주세요.
+              </div>
             )}
 
-            {aiAlts && (
+            {aiLoading && (
+              <div className="text-[12.5px] text-ink-muted py-4 text-center">
+                {area ? `「${area}」에서 ` : ''}맞는 주제를 찾는 중이에요…
+              </div>
+            )}
+
+            {!aiLoading && aiError && (
+              <div className="text-[12px] text-red-600 mb-2">
+                {aiError}{' '}
+                <button
+                  onClick={() => refetchAlts()}
+                  className="font-bold underline underline-offset-2"
+                >
+                  다시 시도
+                </button>
+              </div>
+            )}
+
+            {!aiLoading && aiAlts && (
               <div className="flex flex-col gap-2">
                 {aiAlts.map((a, i) => (
-                  <div key={i} className="bg-white border border-purple-200 rounded-lg p-3.5">
+                  <div key={`${a.title}-${i}`} className="bg-white border border-purple-200 rounded-lg p-3.5">
                     <div className="flex items-center gap-1.5 mb-1">
                       <span className="text-[9.5px] font-bold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded">
                         {a.from}
@@ -375,6 +381,35 @@ export default function TopicCreate() {
               </div>
             )}
           </div>
+
+          {/* 추천을 못 받았을 때만 보이는 기본 틀 */}
+          {showFallback && (
+            <>
+              <div className="text-[13px] font-bold text-ink mb-1">기본 주제 틀</div>
+              <div className="text-[11px] text-ink-muted mb-2.5">
+                추천을 받지 못해 기본형을 보여드려요. 그대로 쓰기보다 고쳐 쓰는 걸 권해요.
+              </div>
+              <div className="flex flex-col gap-2 mb-5">
+                {fallbackCandidates.map((t, i) => (
+                  <div key={i} className="flex gap-2">
+                    <button
+                      onClick={() => save.mutate({ title: t, source: 'ai' })}
+                      disabled={save.isPending}
+                      className="flex-1 text-left rounded-xl border border-line px-4 py-3 text-[13.5px] text-ink hover:border-brand-high hover:bg-brand-high-pale/40 transition-all disabled:opacity-50"
+                    >
+                      {t}
+                    </button>
+                    <button
+                      onClick={() => setCustom(t)}
+                      className="w-[64px] text-[11.5px] font-semibold text-ink-secondary border border-line rounded-xl hover:bg-gray-50"
+                    >
+                      고쳐쓰기
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           <div className="text-[13px] font-bold text-ink mb-1">직접 적기</div>
           <div className="text-[11px] text-ink-muted mb-2">

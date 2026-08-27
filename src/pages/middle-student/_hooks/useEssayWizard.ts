@@ -1,9 +1,10 @@
 // src/pages/middle-student/_hooks/useEssayWizard.ts
-// 5단계 자소서 작성 마법사 DB 연동
+// 자소서 작성 마법사 DB 연동
 // - 학생이 작성하는 동안 자동 저장 (debounce 1.5초)
 // - 다시 들어오면 이어서 작성 가능
 // - 🎯 학교별 동적 항목 (key 기반, 3~5개)
 // - 🎯 마인드맵 5가지: 학교생활 / 동아리 / 독서학습 / 봉사인성 / 학교관심
+// - 🎯 컨셉(직업군) 저장 — middle_essay_wizard.concept jsonb 컬럼 필요
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
@@ -28,6 +29,16 @@ export interface MindmapData {
 // 🎯 학교별 동적 항목 (key 기반: selfStudy / reason / career / character / sciInquiry / mathInquiry ...)
 export type MatchingData = Record<string, string[]>
 
+// 🎯 컨셉(직업군) — 마법사 3단계에서 정한다
+export interface ConceptData {
+  career: string        // 직업군
+  label: string         // "OO를 향해 △△를 해온 학생"
+  source: "test" | "ai" | "custom"   // 진로검사 / AI추천 / 직접입력
+  fit?: number          // 경험과의 적합도 0~100 (직접입력 시 대조 결과)
+  verdict?: "strong" | "partial" | "weak"
+  decidedAt?: string
+}
+
 export interface SubAnswer {
   q1: string
   q2: string
@@ -47,6 +58,7 @@ export interface EssayWizardRow {
   mindmap: MindmapData
   matching: MatchingData
   sections: SectionsData
+  concept: ConceptData | null
   current_step: number
   created_at: string
   updated_at: string
@@ -69,6 +81,9 @@ export interface EssayWizardData {
   mindmap: MindmapData
   matching: MatchingData
   sections: SectionsData
+  // 🎯 화면에서 아직 안 보낼 수 있으므로 선택적.
+  //    undefined면 아래 저장 로직이 그 컬럼을 건드리지 않아 기존 값이 보존된다.
+  concept?: ConceptData | null
   current_step: number
 }
 
@@ -116,6 +131,11 @@ export function useSaveEssayWizard() {
         .eq('essay_id', essay_id)
         .maybeSingle()
 
+      // 🎯 concept은 값이 있을 때만 보낸다. undefined를 그냥 넘기면
+      //    기존에 저장된 컨셉이 지워질 수 있다.
+      const conceptPatch =
+        data.concept !== undefined ? { concept: data.concept } : {}
+
       if (existing) {
         // UPDATE
         const { data: updated, error } = await supabase
@@ -125,6 +145,7 @@ export function useSaveEssayWizard() {
             mindmap: data.mindmap,
             matching: data.matching,
             sections: data.sections,
+            ...conceptPatch,
             current_step: data.current_step,
             updated_at: new Date().toISOString(),
           })
@@ -146,6 +167,7 @@ export function useSaveEssayWizard() {
             mindmap: data.mindmap,
             matching: data.matching,
             sections: data.sections,
+            ...conceptPatch,
             current_step: data.current_step,
           })
           .select()

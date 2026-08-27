@@ -36,9 +36,13 @@ interface Diff {
   what: string
   why: string
   point: string
+  /** AI가 준 것만 있음 */
+  method?: string
+  common?: string
 }
 
-function makeDiffs(activity: string, goal: string, typeName: string, verb: string): Diff[] {
+/** 엣지 함수가 실패했을 때만 쓰는 최소 대체안 */
+function fallbackDiffs(activity: string, goal: string, typeName: string, verb: string): Diff[] {
   return [
     {
       title: `${goal} 관점의 특화 주제 맡기`,
@@ -92,7 +96,14 @@ export default function ChangcheDetail({ line, node, grade, career, onClose }: P
   const c = career.byGrade.get(grade)
   const goal = goalTextOf(c)
 
+  // 프롬프트에는 계열이 아니라 학과를 넣는다 (goalTextOf 는 고1에서 계열을 준다)
+  const major = (c as any)?.major ?? null
+  const careerJob = (c as any)?.career ?? null
+  const series = (career as any)?.seriesUnion?.[0] ?? (c as any)?.series ?? null
+
   const [picked, setPicked] = useState<{ id: string; name: string } | null>(null)
+  /** 다시 추천받기 — 이미 본 제목을 넘겨 겹치지 않게 한다 */
+  const [seen, setSeen] = useState<string[]>([])
 
   const { data: aptitude } = useQuery({
     queryKey: ['my-aptitude', studentId],
@@ -114,7 +125,7 @@ export default function ChangcheDetail({ line, node, grade, career, onClose }: P
   const { data: activities = [] } = useMySchoolActivities(grade)
   const mine = activities.filter((a) => a.category === category)
 
-  // 지금까지 만든 탐구주제 — "내가 한 활동과 엮기"용
+  // 지금까지 만든 탐구주제 — "내가 한 활동과 엮기"용 + 중복 방지용
   const { data: history = [] } = useQuery({
     queryKey: ['my-topics-brief', studentId],
     enabled: !!studentId,
@@ -127,6 +138,92 @@ export default function ChangcheDetail({ line, node, grade, career, onClose }: P
         .limit(3)
       if (error) throw error
       return data ?? []
+    },
+  })
+
+  // ── 차별화 추천 (엣지 함수) ─────────────────────────────
+  const {
+    data: aiDiffs,
+    isFetching: diffLoading,
+    error: diffError,
+    refetch: refetchDiffs,
+  } = useQuery({
+    queryKey: ['changche-diff', node.id, picked?.name, seen.length],
+    enabled: !!picked?.name,
+    staleTime: Infinity,
+    retry: false,
+    queryFn: async (): Promise<Diff[]> => {
+      const { data, error } = await supabase.functions.invoke('high-changche-diff', {
+        body: {
+          activity: picked!.name,
+          category,
+          grade,
+          major,
+          careerJob,
+          series,
+          typeName: type.name,
+          doneTopics: (history as any[]).map((h) => h.title).filter(Boolean),
+          exclude: seen,
+        },
+      })
+      if (error) throw error
+      if ((data as any)?.error) throw new Error((data as any).error)
+      const items = ((data as any)?.items ?? []) as Diff[]
+      if (!items.length) throw new Error('추천을 받지 못했어요')
+      return items
+    },
+  })
+
+  const diffs: Diff[] = useMemo(() => {
+    if (aiDiffs?.length) return aiDiffs
+    if (!picked) return []
+    if (diffLoading) return []
+    return fallbackDiffs(picked.name, goal, type.name, type.verb)
+  }, [aiDiffs, picked, diffLoading, goal, type])
+
+  const save = useMutation({
+    mutationFn: async (v: {
+      activityId: string | null
+      activityName: string
+      source: 'ai' | 'history'
+      diff: Diff
+      linkedId?: string
+    }) => {
+      if (!studentId || !academyId) throw new Error('학생 정보가 없습니다')
+
+      // 보통 버전이 있으면 "왜 차별화"에 함께 남긴다
+      const why = v.diff.common
+        ? `보통은 ${v.diff.common} 나는 ${v.diff.why}`
+        : v.diff.why
+
+      const { error } = await supabase.from('high_roadmap_changche').upsert(
+        {
+          student_id: studentId,
+          academy_id: academyId,
+          node_id: node.id,
+          activity_id: v.activityId,
+          activity_name: v.activityName,
+          diff_source: v.source,
+          diff_title: v.diff.title,
+          diff_what: v.diff.what,
+          diff_why: why,
+          diff_point: v.diff.point,
+          linked_table: v.linkedId ? 'high_roadmap_topic' : null,
+          linked_id: v.linkedId ?? null,
+          goal_basis: GOAL_BASIS[grade],
+          goal_text: goal,
+          type_key: typeKey,
+          status: 'confirmed',
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'student_id,node_id' },
+      )
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['node-changche', studentId, node.id] })
+      setPicked(null)
+      setSeen([])
     },
   })
 
@@ -145,53 +242,12 @@ export default function ChangcheDetail({ line, node, grade, career, onClose }: P
     },
   })
 
-  const save = useMutation({
-    mutationFn: async (v: {
-      activityId: string | null
-      activityName: string
-      source: 'ai' | 'history'
-      diff: Diff
-      linkedId?: string
-    }) => {
-      if (!studentId || !academyId) throw new Error('학생 정보가 없습니다')
+  const isRecommended = (name: string) => HINTS[typeKey].some((h) => name.includes(h))
 
-      const { error } = await supabase.from('high_roadmap_changche').upsert(
-        {
-          student_id: studentId,
-          academy_id: academyId,
-          node_id: node.id,
-          activity_id: v.activityId,
-          activity_name: v.activityName,
-          diff_source: v.source,
-          diff_title: v.diff.title,
-          diff_what: v.diff.what,
-          diff_why: v.diff.why,
-          diff_point: v.diff.point,
-          linked_table: v.linkedId ? 'high_roadmap_topic' : null,
-          linked_id: v.linkedId ?? null,
-          goal_basis: GOAL_BASIS[grade],
-          goal_text: goal,
-          type_key: typeKey,
-          status: 'confirmed',
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'student_id,node_id' },
-      )
-      if (error) throw error
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['node-changche', studentId, node.id] })
-      setPicked(null)
-    },
-  })
-
-  const isRecommended = (name: string) =>
-    HINTS[typeKey].some((h) => name.includes(h))
-
-  const diffs = useMemo(
-    () => (picked ? makeDiffs(picked.name, goal, type.name, type.verb) : []),
-    [picked, goal, type],
-  )
+  /** 다시 추천받기 — 지금 본 제목을 제외 목록에 넣고 새로 요청 */
+  const regenerate = () => {
+    setSeen((prev) => [...prev, ...diffs.map((d) => d.title)].slice(-9))
+  }
 
   return (
     <div className="max-w-[880px]">
@@ -208,7 +264,7 @@ export default function ChangcheDetail({ line, node, grade, career, onClose }: P
               고{grade} · {node.subject_name}
             </div>
             <div className="text-[12px] text-ink-secondary mt-0.5">
-              {type.name} · {goal} 기준
+              {type.name} · {major ?? goal} 기준
             </div>
           </div>
           <button
@@ -263,7 +319,10 @@ export default function ChangcheDetail({ line, node, grade, career, onClose }: P
                     return (
                       <button
                         key={a.id}
-                        onClick={() => setPicked({ id: a.id, name: a.name })}
+                        onClick={() => {
+                          setSeen([])
+                          setPicked({ id: a.id, name: a.name })
+                        }}
                         className="text-left rounded-xl border px-4 py-3 flex items-center justify-between gap-2.5 transition-all"
                         style={{
                           borderColor: rec ? '#93C5FD' : '#E5E7EB',
@@ -300,7 +359,7 @@ export default function ChangcheDetail({ line, node, grade, career, onClose }: P
                 </span>
                 <span className="text-ink-muted font-extrabold">×</span>
                 <span className="text-[12px] font-bold text-white bg-purple-600 px-3 py-1.5 rounded-lg">
-                  {goal}
+                  {major ?? goal}
                 </span>
                 <span className="text-ink-muted">→</span>
                 <span className="text-[12px] font-bold text-amber-900 bg-amber-50 border border-amber-400 px-3 py-1.5 rounded-lg">
@@ -309,46 +368,85 @@ export default function ChangcheDetail({ line, node, grade, career, onClose }: P
               </div>
 
               <div className="text-[12px] text-ink-secondary mb-3 leading-relaxed">
-                같은 <b>{picked.name}</b>이라도 {goal} 관심과 {type.name} 성향을 살려 남들과 다르게
-                만들어요.
+                같은 <b>{picked.name}</b>이라도 {major ?? goal} 관심과 {type.name} 성향을 살려
+                남들과 다르게 만들어요.
               </div>
 
-              <div className="text-[11.5px] font-extrabold text-brand-high mb-2">
-                추천 차별화
-              </div>
-              <div className="flex flex-col gap-2 mb-5">
-                {diffs.map((d, i) => (
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[11.5px] font-extrabold text-brand-high">추천 차별화</span>
+                {!diffLoading && (
                   <button
-                    key={i}
-                    onClick={() =>
-                      save.mutate({
-                        activityId: picked.id || null,
-                        activityName: picked.name,
-                        source: 'ai',
-                        diff: d,
-                      })
-                    }
-                    disabled={save.isPending}
-                    className="text-left rounded-xl border-2 border-line p-4 hover:border-amber-400 hover:bg-amber-50/60 transition-all disabled:opacity-50"
+                    onClick={regenerate}
+                    className="ml-auto text-[11px] font-semibold text-ink-secondary bg-white border border-line rounded-lg px-2.5 py-1 hover:bg-gray-50"
                   >
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-[10px] font-extrabold text-white bg-ink-muted px-2 py-0.5 rounded-full">
-                        추천 {String.fromCharCode(65 + i)}
-                      </span>
-                      <span className="text-[14px] font-extrabold text-ink">{d.title}</span>
-                    </div>
-                    <div className="text-[12.5px] text-ink-secondary leading-relaxed mb-2">
-                      {d.what}
-                    </div>
-                    <div className="text-[11.5px] text-amber-800 mb-0.5">
-                      <b>왜 차별화</b> · {d.why}
-                    </div>
-                    <div className="text-[11.5px] text-brand-high">
-                      <b>생기부 포인트</b> · {d.point}
-                    </div>
+                    ↻ 다른 추천 보기
                   </button>
-                ))}
+                )}
               </div>
+
+              {diffLoading && (
+                <div className="rounded-xl border border-line bg-gray-50 px-4 py-6 text-center text-[12.5px] text-ink-muted mb-5">
+                  {picked.name}에 맞는 차별화를 만드는 중이에요…
+                </div>
+              )}
+
+              {!diffLoading && diffError && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-900 mb-3">
+                  추천을 받지 못해 기본 예시를 보여드려요.{' '}
+                  <button
+                    onClick={() => refetchDiffs()}
+                    className="font-bold underline underline-offset-2"
+                  >
+                    다시 시도
+                  </button>
+                </div>
+              )}
+
+              {!diffLoading && (
+                <div className="flex flex-col gap-2 mb-5">
+                  {diffs.map((d, i) => (
+                    <button
+                      key={`${d.title}-${i}`}
+                      onClick={() =>
+                        save.mutate({
+                          activityId: picked.id || null,
+                          activityName: picked.name,
+                          source: 'ai',
+                          diff: d,
+                        })
+                      }
+                      disabled={save.isPending}
+                      className="text-left rounded-xl border-2 border-line p-4 hover:border-amber-400 hover:bg-amber-50/60 transition-all disabled:opacity-50"
+                    >
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        <span className="text-[10px] font-extrabold text-white bg-ink-muted px-2 py-0.5 rounded-full">
+                          추천 {String.fromCharCode(65 + i)}
+                        </span>
+                        {d.method && (
+                          <span className="text-[10px] font-bold text-brand-high bg-brand-high-pale border border-brand-high-light px-2 py-0.5 rounded-full">
+                            {d.method}
+                          </span>
+                        )}
+                        <span className="text-[14px] font-extrabold text-ink">{d.title}</span>
+                      </div>
+                      <div className="text-[12.5px] text-ink-secondary leading-relaxed mb-2">
+                        {d.what}
+                      </div>
+                      {d.common && (
+                        <div className="text-[11.5px] text-ink-muted mb-0.5">
+                          <b>보통은</b> · {d.common}
+                        </div>
+                      )}
+                      <div className="text-[11.5px] text-amber-800 mb-0.5">
+                        <b>나는</b> · {d.why}
+                      </div>
+                      <div className="text-[11.5px] text-brand-high">
+                        <b>생기부 포인트</b> · {d.point}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {history.length > 0 && (
                 <>
@@ -359,7 +457,7 @@ export default function ChangcheDetail({ line, node, grade, career, onClose }: P
                     {history.map((h) => {
                       const d: Diff = {
                         title: `${h.title}을(를) ${picked.name}로 확장`,
-                        what: `이미 한 탐구를 ${picked.name}에서 이어가며 ${goal}와 연결된 후속 활동으로 발전시켜요.`,
+                        what: `이미 한 탐구를 ${picked.name}에서 이어가며 ${major ?? goal}와 연결된 후속 활동으로 발전시켜요.`,
                         why: '활동이 따로 놀지 않고 하나의 흐름으로 이어져요.',
                         point: '활동 간 연결로 일관된 탐구 스토리가 완성돼요',
                       }
@@ -395,7 +493,10 @@ export default function ChangcheDetail({ line, node, grade, career, onClose }: P
               )}
 
               <button
-                onClick={() => setPicked(null)}
+                onClick={() => {
+                  setPicked(null)
+                  setSeen([])
+                }}
                 className="text-[12px] font-semibold text-brand-high bg-brand-high-pale border border-brand-high-light rounded-lg px-3.5 py-2"
               >
                 ← 다른 활동 고르기

@@ -9,6 +9,7 @@ import {
   useRejectDeleteRequest,
 } from "@/pages/admin/_hooks/middle/useStudentExpect";
 import { getSchoolEssayData } from "@/constants/schoolEssayData";
+import { getRoundDef, MAX_ESSAY_ROUND } from "@/constants/essayRounds";
 import {
   useAnalyzeSection,
   useGenerateQuestionsAi,
@@ -62,7 +63,8 @@ function getSectionsForSchool(schoolName: string): SectionDef[] {
   }));
 }
 
-const MAX_ESSAY_AI_COUNT = 2;
+// 🎯 차수당 1회 × 4차수 (차수 정의는 src/constants/essayRounds.ts)
+const MAX_ESSAY_AI_COUNT = 4;
 
 function useEssayAiCount(essayId: string | undefined) {
   return useQuery({
@@ -275,7 +277,7 @@ export default function MiddleExpectEssayPanel({
     }
   };
 
-  const toggleAiPanel = async (sectionKey: string) => {
+  const toggleAiPanel = async (sectionKey: string, round: number) => {
     if (showAiPanel && aiPanelSection === sectionKey) {
       setShowAiPanel(false);
       return;
@@ -295,7 +297,9 @@ export default function MiddleExpectEssayPanel({
       .eq("section_key", sectionKey)
       .maybeSingle();
 
-    if ((countRow?.count || 0) >= MAX_ESSAY_AI_COUNT) {
+    // 🎯 차수당 1회. 2차 피드백 중이면 누적 2회까지만 허용 (총 상한은 MAX_ESSAY_AI_COUNT)
+    const roundLimit = Math.min(round, MAX_ESSAY_AI_COUNT);
+    if ((countRow?.count || 0) >= roundLimit) {
       if (countRow?.result) setAiResults((prev) => ({ ...prev, [sectionKey]: countRow.result }));
       return;
     }
@@ -316,6 +320,7 @@ export default function MiddleExpectEssayPanel({
         sectionKey: sectionInfo.aiKey as any,
         sectionLabel: sectionInfo.label,
         answerText,
+        round,
         studentName: student?.name,
       });
       setAiResults((prev) => ({ ...prev, [sectionKey]: result }));
@@ -327,42 +332,112 @@ export default function MiddleExpectEssayPanel({
     }
   };
 
-  // 왼쪽 "학생 진단"을 글로 변환해 피드백 입력란에 채움
+  // 🎯 AI 분석 화면에 보이는 내용을 빠짐없이 피드백 입력란으로 옮긴다.
+  //    선생님이 지우거나 고쳐 쓰는 건 자유. 모자란 것보다 넘치는 게 낫다.
   const writeAiFeedback = (sectionKey: string) => {
     const result = aiResults[sectionKey];
     if (!result) {
       alert("먼저 AI 분석을 받아주세요.");
       return;
     }
+
     const fb = result.feedback;
-    const lines: string[] = [];
-    if (fb?.completeness != null) {
-      lines.push(`[현재 완성도 ${fb.completeness}%${fb.statusLabel ? ` · ${fb.statusLabel}` : ""}]`);
+    const cp = result.concept;
+    const co = result.coaching;
+    const L: string[] = [];
+    const levelKo = (lv: string) => (lv === "high" ? "충분" : lv === "low" ? "미흡" : "보통");
+    const verdictKo = (v: string) =>
+      v === "go" ? "이 소재로 간다" : v === "change" ? "이 소재는 바꾼다" : "둘 중 고민";
+
+    // ── 컨셉·직업군
+    if (cp?.label || cp?.career) {
+      L.push("【컨셉】");
+      if (cp.label) L.push(cp.label);
+      if (cp.career) L.push(`희망 직업군: ${cp.career}`);
+      if (cp.basis) L.push(`(근거: ${cp.basis})`);
+      L.push("");
     }
-    if (fb?.summary) lines.push(fb.summary);
+
+    // ── 소재 판정
+    if (cp?.materials?.length) {
+      L.push("【소재 판정】");
+      cp.materials.forEach((m) => {
+        L.push(`· ${m.name} → ${verdictKo(m.verdict)}`);
+        if (m.reason) L.push(`  ${m.reason}`);
+        if (m.alternative) L.push(`  대안: ${m.alternative}`);
+      });
+      L.push("");
+    }
+
+    // ── 완성도
+    if (fb?.completeness != null) {
+      const to = co?.expectedTo;
+      L.push(
+        `【현재 완성도 ${fb.completeness}%${fb.statusLabel ? ` · ${fb.statusLabel}` : ""}】` +
+          (to && to > fb.completeness ? ` → 보완하면 ${to}%` : "")
+      );
+    }
+    if (fb?.summary) L.push(fb.summary);
+    L.push("");
+
+    // ── 문항 기준 충족도
+    if (fb?.criteria?.length) {
+      L.push("【문항 기준 충족도】");
+      fb.criteria.forEach((c) => {
+        L.push(`· ${c.label}: ${levelKo(c.level)}${c.desc ? ` — ${c.desc}` : ""}`);
+      });
+      L.push("");
+    }
+
+    // ── 문장별 진단 (원문 인용까지)
     const strengths = fb?.quotes?.filter((q) => q.type === "strength") ?? [];
     const weaks = fb?.quotes?.filter((q) => q.type === "weak") ?? [];
     const missings = fb?.quotes?.filter((q) => q.type === "missing") ?? [];
+
     if (strengths.length) {
-      lines.push("");
-      lines.push("✅ 잘한 점");
-      strengths.forEach((q) => lines.push(`· ${q.comment || q.text}`));
+      L.push("【잘한 점】");
+      strengths.forEach((q) => {
+        L.push(`· "${q.text}"`);
+        if (q.comment) L.push(`  → ${q.comment}`);
+      });
+      L.push("");
     }
     if (weaks.length) {
-      lines.push("");
-      lines.push("✏️ 보완하면 좋은 점");
-      weaks.forEach((q) => lines.push(`· ${q.comment || q.text}`));
+      L.push("【보완하면 좋은 점】");
+      weaks.forEach((q) => {
+        L.push(`· "${q.text}"`);
+        if (q.comment) L.push(`  → ${q.comment}`);
+      });
+      L.push("");
     }
     if (missings.length) {
-      lines.push("");
-      lines.push("➕ 빠진 내용");
-      missings.forEach((q) => lines.push(`· ${q.comment || q.text}`));
+      L.push("【빠진 내용】");
+      missings.forEach((q) => L.push(`· ${q.comment || q.text}`));
+      L.push("");
     }
-    if (lines.length === 0) {
-      if (result.summary) lines.push(result.summary);
-      (result.improvements ?? []).forEach((s) => lines.push(`· ${s}`));
+
+    // ── 지도 순서 (선생님이 던질 질문)
+    if (co?.steps?.length) {
+      L.push("【지도 순서】");
+      co.steps.forEach((st, i) => {
+        L.push(`${st.order || i + 1}. ${st.title}${st.priority === "urgent" ? " (시급)" : ""}`);
+        if (st.why) L.push(`   왜: ${st.why}`);
+        if (st.askText) L.push(`   질문: "${st.askText}"`);
+        if (st.followUp) L.push(`   이어서: ${st.followUp}`);
+      });
+      L.push("");
     }
-    setNewSectionFbs((prev) => ({ ...prev, [sectionKey]: lines.join("\n").trim() }));
+
+    // ── 폴백 (구버전 응답)
+    if (L.length === 0) {
+      if (result.summary) L.push(result.summary);
+      (result.improvements ?? []).forEach((x) => L.push(`· ${x}`));
+    }
+
+    setNewSectionFbs((prev) => ({
+      ...prev,
+      [sectionKey]: L.join("\n").replace(/\n{3,}/g, "\n\n").trim(),
+    }));
   };
 
   const handleTextareaFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
@@ -466,12 +541,17 @@ export default function MiddleExpectEssayPanel({
               const lastAnswerRound = answers.length > 0 ? Math.max(...answers.map((a) => a.round)) : 0;
               const lastFeedbackRound = sectionFbs.length > 0 ? Math.max(...sectionFbs.map((f) => f.round)) : 0;
               const maxRound = Math.max(lastAnswerRound, lastFeedbackRound);
+              // 🎯 4차까지만. 4차 피드백이 끝나면 이 문항은 마무리된다.
+              const isRoundDone = lastFeedbackRound >= MAX_ESSAY_ROUND;
               const canWriteNextFb =
-                lastAnswerRound > lastFeedbackRound ||
-                (currentContent && answers.length === 0 && sectionFbs.length === 0);
-              const nextFbRound = Math.max(lastAnswerRound, 1);
+                !isRoundDone &&
+                (lastAnswerRound > lastFeedbackRound ||
+                  (currentContent && answers.length === 0 && sectionFbs.length === 0));
+              const nextFbRound = Math.min(Math.max(lastAnswerRound, 1), MAX_ESSAY_ROUND);
+              const roundDef = getRoundDef(nextFbRound);
               const sectionAiCount = getEssayAiCount(s.key);
-              const sectionAiExhausted = sectionAiCount >= MAX_ESSAY_AI_COUNT;
+              // 🎯 이번 차수에서 이미 썼는지 (총량이 아니라 차수 기준)
+              const sectionAiExhausted = sectionAiCount >= Math.min(nextFbRound, MAX_ESSAY_AI_COUNT);
 
               return (
                 <div key={s.key} className="mb-6">
@@ -545,15 +625,15 @@ export default function MiddleExpectEssayPanel({
                   {canWriteNextFb && (
                     <div className="bg-white rounded-md p-2 mt-2" style={{ border: `1px dashed ${THEME.accent}` }}>
                       <div className="flex items-center justify-between mb-1">
-                        <div className="text-[9px] font-bold" style={{ color: THEME.accent }}>➕ {nextFbRound}차 피드백 작성</div>
+                        <div className="text-[9px] font-bold" style={{ color: THEME.accent }}>➕ {nextFbRound}차 · {roundDef.short}</div>
                         {s.aiKey && (
                           <button
                             onClick={() => {
                               if (sectionAiExhausted && !aiResults[s.key]) {
-                                alert(`이 항목은 이미 AI 분석 ${MAX_ESSAY_AI_COUNT}회를 모두 사용했어요.`);
+                                alert(`${nextFbRound}차에서는 AI 분석을 이미 사용했어요.\n학생이 다음 차수 자소서를 내면 다시 쓸 수 있어요.`);
                                 return;
                               }
-                              toggleAiPanel(s.key);
+                              toggleAiPanel(s.key, nextFbRound);
                             }}
                             disabled={analyzeSection.isPending && aiPanelSection === s.key}
                             className="text-[9px] font-bold px-2 py-0.5 rounded-full transition-all hover:-translate-y-px disabled:opacity-50"
@@ -573,10 +653,17 @@ export default function MiddleExpectEssayPanel({
                           </button>
                         )}
                       </div>
+                      {/* 🎯 이번 차수에 무엇을 보는지 — 선생님마다 제각각 첨삭하지 않도록 */}
+                      <div className="rounded-md px-2.5 py-2 mb-1.5" style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}60` }}>
+                        <div className="text-[10px] font-extrabold mb-1" style={{ color: THEME.accentDark }}>{roundDef.title}</div>
+                        <div className="text-[10px] leading-[1.55] mb-1.5" style={{ color: THEME.accentDark }}>{roundDef.feedbackStyle}</div>
+                        <div className="text-[9.5px] leading-[1.5] text-amber-700 mb-1">🚫 {roundDef.notDoing}</div>
+                        <div className="text-[9.5px] leading-[1.5] text-ink-secondary">✅ 통과 기준 — {roundDef.passCriteria.join(" / ")}</div>
+                      </div>
                       <textarea
                         value={newSectionFbs[s.key] || ""}
                         onChange={(e) => setNewSectionFbs((prev) => ({ ...prev, [s.key]: e.target.value }))}
-                        placeholder={`${nextFbRound}차 피드백을 작성해주세요...`}
+                        placeholder={`${nextFbRound}차 · ${roundDef.short} — 피드백을 작성해주세요...`}
                         rows={3}
                         className="w-full border border-line rounded px-2 py-1.5 text-[11.5px] font-medium outline-none resize-y leading-[1.6] placeholder:text-ink-muted"
                         onFocus={handleTextareaFocus}
@@ -598,9 +685,19 @@ export default function MiddleExpectEssayPanel({
                     </div>
                   )}
 
-                  {!canWriteNextFb && lastFeedbackRound >= lastAnswerRound && lastFeedbackRound > 0 && (
+                  {!canWriteNextFb && !isRoundDone && lastFeedbackRound >= lastAnswerRound && lastFeedbackRound > 0 && (
                     <div className="bg-gray-50 border border-line rounded-md px-3 py-2 mt-2 text-center">
-                      <div className="text-[10px] font-medium text-ink-muted">⏳ 학생이 다음 답변 작성을 기다리고 있어요</div>
+                      <div className="text-[10px] font-medium text-ink-muted">
+                        ⏳ 학생이 {lastFeedbackRound + 1}차 · {getRoundDef(lastFeedbackRound + 1).short} 작성을 기다리고 있어요
+                      </div>
+                    </div>
+                  )}
+
+                  {isRoundDone && (
+                    <div className="rounded-md px-3 py-2 mt-2 text-center" style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}80` }}>
+                      <div className="text-[10px] font-bold" style={{ color: THEME.accentDark }}>
+                        ✅ {MAX_ESSAY_ROUND}차까지 완료 — 이 문항은 마무리됐어요
+                      </div>
                     </div>
                   )}
                 </div>

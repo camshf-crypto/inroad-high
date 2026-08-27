@@ -2,6 +2,8 @@
 // 자소서 AI 분석 + 예상질문 생성 — Edge Function 호출
 // ★ 변경점: 학교 특색(profile) + 문항·배점(rubric)을 함께 Edge Function으로 전달
 //   → AI가 "이 학교 기준"으로 분석 + 학생용 피드백 / 선생님용 코칭을 분리 생성
+// ★ 변경점2: round(차수) 전달 → 차수마다 AI가 보는 대상이 달라진다
+//   (차수 정의는 src/constants/essayRounds.ts)
 
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -46,6 +48,21 @@ export interface CoachingStep {
   followUp: string;     // 학생이 답하면 어떻게 이어갈지
 }
 
+// 🎯 컨셉·직업군·소재 판정 (기존 문항 분석과 별개로 추가)
+export interface ConceptMaterial {
+  name: string;                            // 소재 이름
+  verdict: "go" | "change" | "hold";       // 간다 / 바꾼다 / 고민
+  reason: string;                          // 컨셉·문항과 맞는지
+  alternative: string;                     // 바꾼다면 어떤 경험으로
+}
+
+export interface ConceptBlock {
+  career: string;      // 희망 직업군
+  label: string;       // "OO을 향해 △△를 해온 학생"
+  basis: string;       // 근거 (추론이면 밝힘)
+  materials: ConceptMaterial[];
+}
+
 // 선생님용 코칭 블록
 export interface TeacherCoaching {
   steps: CoachingStep[];
@@ -61,6 +78,7 @@ export interface SectionAnalysisResult {
   totalScore: number;
   // 신규: 학생용 / 선생님용 분리
   feedback: StudentFeedback;
+  concept?: ConceptBlock;   // 🎯 1차 소재 판정용 (엣지 함수가 항상 채워 보냄)
   coaching: TeacherCoaching;
   // 하위호환(기존 화면이 참조하던 필드 — 점진적 마이그레이션용)
   scores: { label: string; score: number; max: number; desc: string }[];
@@ -81,6 +99,10 @@ export interface AnalyzeSectionInput {
   sectionKey: string;      // 자유 문자열 (학교마다 영역이 다르므로 고정 union 제거)
   sectionLabel: string;
   answerText: string;
+  // 🎯 차수 (1~4). 엣지 함수가 이 값으로 프롬프트를 고른다.
+  //    1차=소재 판정 / 2차=되묻는 질문 / 3차=문장 첨삭+꼬리질문 / 4차=일관성
+  //    안 넘기면 엣지 함수가 1차로 처리한다.
+  round?: number;
   keywords?: string[];
   studentName?: string;
   previousAnswer?: string;
@@ -116,6 +138,68 @@ export function useAnalyzeSection() {
       if (!data?.success) throw new Error(data?.error || "AI 분석 실패");
 
       return data.analysis as SectionAnalysisResult;
+    },
+  });
+}
+
+// ============================================================
+// 1-2. 컨셉(직업군) 분석 — 마법사 3단계
+//   suggest: 경험을 읽고 직업군 후보 3개 역산
+//   check  : 학생이 직접 정한 직업군 ↔ 경험 대조
+// ============================================================
+export interface ConceptCandidate {
+  career: string;        // 직업군
+  label: string;         // "OO를 향해 △△를 해온 학생"
+  why: string;           // 왜 이 직업군으로 봤는지
+  evidence: string[];    // 뒷받침 경험 (학생이 적은 것 그대로)
+  supportCount: number;
+  gap: string;           // 이 직업군인데 아직 없는 경험
+}
+
+export interface ConceptSuggestResult {
+  mode: "suggest";
+  summary: string;
+  candidates: ConceptCandidate[];
+}
+
+export interface ConceptCheckResult {
+  mode: "check";
+  label: string;
+  fit: number;                                  // 0~100
+  verdict: "strong" | "partial" | "weak";
+  summary: string;
+  matched: { experience: string; link: string }[];
+  unmatched: { experience: string; reason: string; rescue: string }[];
+  missing: string[];
+}
+
+export interface AnalyzeConceptInput {
+  mode: "suggest" | "check";
+  studentName?: string;
+  schoolName?: string;
+  keywords?: { keyword: string; experience: string }[];
+  experiences?: { branch: string; text: string }[];
+  existingConcept?: {
+    career?: string | null;
+    major?: string | null;
+    keywords?: string[] | null;
+    customGoal?: string | null;
+    typeName?: string | null;
+  } | null;
+  chosenCareer?: string | null;   // mode="check" 일 때
+}
+
+export function useAnalyzeConcept() {
+  return useMutation({
+    mutationFn: async (
+      input: AnalyzeConceptInput
+    ): Promise<ConceptSuggestResult | ConceptCheckResult> => {
+      const { data, error } = await supabase.functions.invoke("middle-essay-concept", {
+        body: { ...input },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "컨셉 분석 실패");
+      return data.analysis;
     },
   });
 }

@@ -1,9 +1,8 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAtomValue } from 'jotai'
 import { supabase } from '@/lib/supabase'
 import { studentState } from '@/lib/auth/atoms'
-import { useMyCareerSeries } from '@/pages/high-student/_hooks/useRoadmap'
 
 const AXES = [
   { key: 'speaking', label: '말하기·면접', color: '#378ADD' },
@@ -12,6 +11,10 @@ const AXES = [
 ] as const
 
 type AxisKey = (typeof AXES)[number]['key']
+
+/** 제시문 면접 main_intent_score 의 만점.
+ *  실제 스케일이 10점 만점이면 10, 5점 만점이면 5로만 바꾸면 됩니다. */
+const PASSAGE_SCORE_MAX = 100
 
 interface MonthScore {
   ym: string
@@ -22,12 +25,101 @@ interface MonthScore {
   detail: Record<AxisKey, string>
 }
 
-/** 최근 N개월 (오래된 것부터) */
-function recentMonths(n: number) {
+const clamp100 = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
+
+/**
+ * jsonb 점수를 0~100 으로 환산한다.
+ * high_mock_exam_report 의 scores / detailed_scores 는 구조가 확정되지 않아
+ * 아래 형태를 모두 받아들이도록 방어적으로 작성함.
+ *   - 숫자                       → 그대로
+ *   - { total, max }             → total/max*100
+ *   - { 국어: 80, 수학: 70 }      → 평균
+ *   - [{ score, max }, ...]      → 합계/만점합계*100
+ *   - [80, 70]                   → 100점 만점으로 보고 평균
+ *   - 위 형태가 중첩된 객체        → 각각 환산 후 평균
+ */
+function toScore100(input: unknown): number | null {
+  if (input === null || input === undefined) return null
+
+  if (typeof input === 'number') {
+    return Number.isFinite(input) ? clamp100(input) : null
+  }
+
+  if (typeof input === 'string') {
+    const trimmed = input.trim()
+    if (!trimmed) return null
+    try {
+      return toScore100(JSON.parse(trimmed))
+    } catch {
+      const n = Number(trimmed)
+      return Number.isFinite(n) ? clamp100(n) : null
+    }
+  }
+
+  if (Array.isArray(input)) {
+    let got = 0
+    let full = 0
+    for (const item of input) {
+      if (typeof item === 'number') {
+        if (!Number.isFinite(item)) continue
+        got += item
+        full += 100
+      } else if (item && typeof item === 'object') {
+        const o = item as Record<string, unknown>
+        const s = Number(o.score ?? o.value ?? o.point)
+        const m = Number(o.max ?? o.maxScore ?? o.total ?? 100)
+        if (!Number.isFinite(s)) continue
+        got += s
+        full += Number.isFinite(m) && m > 0 ? m : 100
+      }
+    }
+    return full > 0 ? clamp100((got / full) * 100) : null
+  }
+
+  if (typeof input === 'object') {
+    const o = input as Record<string, unknown>
+
+    // { total, max } / { totalScore, maxScore } 형태
+    const total = Number(o.total ?? o.totalScore ?? o.sum ?? o.score)
+    const max = Number(o.max ?? o.maxScore ?? o.maxTotal ?? o.total_max)
+    if (Number.isFinite(total)) {
+      return Number.isFinite(max) && max > 0
+        ? clamp100((total / max) * 100)
+        : clamp100(total)
+    }
+
+    const values = Object.values(o)
+
+    // { 항목명: 점수 } 형태 → 평균
+    const flat = values.map(Number).filter((n) => Number.isFinite(n))
+    if (flat.length) {
+      return clamp100(flat.reduce((a, b) => a + b, 0) / flat.length)
+    }
+
+    // 중첩된 형태 → 각각 환산 후 평균
+    const nested = values
+      .map(toScore100)
+      .filter((n): n is number => n !== null)
+    if (nested.length) {
+      return clamp100(nested.reduce((a, b) => a + b, 0) / nested.length)
+    }
+  }
+
+  return null
+}
+
+/** 오늘이 속한 학년도의 시작 연도 (3월 시작 기준) */
+function academicYearStart(now = new Date()) {
+  return now.getMonth() + 1 >= 3 ? now.getFullYear() : now.getFullYear() - 1
+}
+
+/** 해당 학년도의 3월 ~ 다음해 2월. 아직 오지 않은 달은 뺀다. */
+function monthsOfSchoolYear(startYear: number) {
   const out: { ym: string; label: string; from: string; to: string }[] = []
   const now = new Date()
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(startYear, 2 + i, 1) // 3월부터
+    if (d > now) break
     const next = new Date(d.getFullYear(), d.getMonth() + 1, 1)
     out.push({
       ym: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
@@ -50,50 +142,104 @@ export default function MonthlyScore({ onClose }: Props) {
   const student = useAtomValue(studentState)
   const studentId = student?.id ? String(student.id) : undefined
 
-  const months = useMemo(() => recentMonths(6), [])
-  const rangeFrom = months[0].from
+  const { data: career } = useQuery({
+    queryKey: ['my-concepts', studentId],
+    enabled: !!studentId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('student_concept')
+        .select('grade, major, university, career, updated_at')
+        .eq('student_id', studentId!)
+        .order('updated_at', { ascending: false })
+      return data ?? []
+    },
+  })
 
-  const { data: career } = useMyCareerSeries()
-  const targetMajor = career?.byGrade.get(3)?.major ?? career?.byGrade.get(1)?.major ?? null
-  const targetUniv = career?.byGrade.get(3)?.university ?? null
+  /** 학년별 진로 (고1/고2/고3). 같은 학년 row 가 여럿이면 최근 것 */
+  const conceptByGrade = useMemo(() => {
+    const m = new Map<number, any>()
+    for (const r of career ?? []) {
+      const raw = String((r as any).grade ?? '')
+      if (!raw.includes('고')) continue // 중등 row 제외
+      const g = Number(raw.replace(/[^0-9]/g, ''))
+      if (!(g >= 1 && g <= 3)) continue
+      if (!m.has(g)) m.set(g, r) // updated_at 내림차순이라 첫 개가 최신
+    }
+    return m
+  }, [career])
+
+  /** 학생의 현재 학년 (1~3). '고1' 같은 문자열도 처리 */
+  const currentGrade = useMemo(() => {
+    const s: any = student
+    const raw = s?.grade ?? s?.grade_level ?? s?.school_grade ?? s?.high_grade
+    const n = Number(String(raw ?? '').replace(/[^0-9]/g, ''))
+    return n >= 1 && n <= 3 ? n : null
+  }, [student])
+
+  // 보고 있는 학년 탭. 처음엔 현재 학년.
+  const [picked, setPicked] = useState<number | null>(null)
+  const viewGrade = picked ?? currentGrade ?? 1
+
+  // 그 학년의 학년도 (현재 학년 = 올해 학년도 기준으로 앞뒤로 이동)
+  const months = useMemo(() => {
+    const base = academicYearStart()
+    const yearStart = base + (viewGrade - (currentGrade ?? viewGrade))
+    return monthsOfSchoolYear(yearStart)
+  }, [viewGrade, currentGrade])
+
+  const rangeFrom = months[0]?.from ?? new Date().toISOString()
+  const rangeTo = months[months.length - 1]?.to ?? new Date().toISOString()
+
+  // 목표는 "보고 있는 학년" row 만 쓴다. 다른 학년으로 넘어가지 않는다.
+  const target = conceptByGrade.get(viewGrade) ?? null
+  const targetMajor = target?.major ?? null
+  const targetUniv = target?.university ?? null
+  const targetGrade = target ? viewGrade : null
 
   // ── 원본 조회 (6개월치 한 번에) ──────────────────────────
   const { data: raw, isLoading } = useQuery({
-    queryKey: ['monthly-score-raw', studentId, rangeFrom],
+    queryKey: ['monthly-score-raw', studentId, rangeFrom, rangeTo],
     enabled: !!studentId,
+    placeholderData: (prev: any) => prev,
     queryFn: async () => {
       const [mock, passage, major, topics, reports, changche] = await Promise.all([
         supabase
           .from('high_mock_exam_report')
-          .select('total_score, created_at')
+          .select('scores, detailed_scores, created_at')
           .eq('student_id', studentId!)
-          .gte('created_at', rangeFrom),
+          .gte('created_at', rangeFrom)
+          .lt('created_at', rangeTo),
         supabase
           .from('high_passage_exam')
-          .select('final_score, first_score, created_at')
+          .select('main_intent_score, created_at')
           .eq('student_id', studentId!)
-          .gte('created_at', rangeFrom),
+          .gte('created_at', rangeFrom)
+          .lt('created_at', rangeTo),
         supabase
           .from('high_major_progress')
           .select('obj_score, obj_total, updated_at')
           .eq('student_id', studentId!)
-          .gte('updated_at', rangeFrom),
+          .gte('updated_at', rangeFrom)
+          .lt('updated_at', rangeTo),
         supabase
           .from('high_roadmap_topic')
           .select('id, created_at')
           .eq('student_id', studentId!)
-          .gte('created_at', rangeFrom),
+          .gte('created_at', rangeFrom)
+          .lt('created_at', rangeTo),
         supabase
           .from('high_roadmap_pipeline')
           .select('step, status, completed_at')
           .eq('student_id', studentId!)
           .eq('status', 'done')
-          .gte('completed_at', rangeFrom),
+          .gte('completed_at', rangeFrom)
+          .lt('completed_at', rangeTo),
         supabase
           .from('high_roadmap_changche')
           .select('id, created_at')
           .eq('student_id', studentId!)
-          .gte('created_at', rangeFrom),
+          .gte('created_at', rangeFrom)
+          .lt('created_at', rangeTo),
       ])
 
       return {
@@ -115,14 +261,21 @@ export default function MonthlyScore({ onClose }: Props) {
       !!d && d >= m.from && d < m.to
 
     return months.map((m) => {
-      // 말하기 = 모의고사 총점 + 제시문 최종점수 평균
+      // 말하기 = 모의고사 환산점수 + 제시문 면접 점수 평균
       const mockS = raw.mock
-        .filter((r: any) => inMonth(r.created_at, m) && r.total_score != null)
-        .map((r: any) => Number(r.total_score))
+        .filter((r: any) => inMonth(r.created_at, m))
+        .map((r: any) => toScore100(r.scores ?? r.detailed_scores))
+        .filter((n: number | null): n is number => n !== null)
+
       const passS = raw.passage
         .filter((r: any) => inMonth(r.created_at, m))
-        .map((r: any) => Number(r.final_score ?? r.first_score))
-        .filter((n: number) => !Number.isNaN(n))
+        .map((r: any) => {
+          const n = Number(r.main_intent_score)
+          if (!Number.isFinite(n)) return null
+          return clamp100((n / PASSAGE_SCORE_MAX) * 100)
+        })
+        .filter((n: number | null): n is number => n !== null)
+
       const speaking = avg([...mockS, ...passS])
 
       // 전공 = 객관식 정답률
@@ -274,8 +427,54 @@ export default function MonthlyScore({ onClose }: Props) {
         )}
       </div>
 
+      {/* 학년 탭 */}
+      <div className="flex items-center gap-2 mb-3">
+        {[1, 2, 3].map((g) => {
+          const locked = g > (currentGrade ?? 1)
+          const active = g === viewGrade
+          return (
+            <button
+              key={g}
+              onClick={() => !locked && setPicked(g)}
+              disabled={locked}
+              className={[
+                'h-9 px-4 rounded-full text-[13px] font-bold flex items-center gap-1.5 transition-colors',
+                locked
+                  ? 'bg-gray-100 text-ink-muted cursor-not-allowed'
+                  : active
+                    ? 'bg-brand-high text-white'
+                    : 'bg-white border border-line text-ink-secondary hover:bg-gray-50',
+              ].join(' ')}
+            >
+              고{g}
+              {g === currentGrade && (
+                <span
+                  className={[
+                    'text-[10px] font-semibold rounded-full px-1.5 py-0.5',
+                    active ? 'bg-white/25 text-white' : 'bg-blue-50 text-brand-high',
+                  ].join(' ')}
+                >
+                  현재
+                </span>
+              )}
+              {locked && <span className="text-[11px]">🔒</span>}
+            </button>
+          )
+        })}
+      </div>
+      <div className="text-[11.5px] text-ink-muted mb-3">
+        {(currentGrade ?? 1) < 3
+          ? `고${(currentGrade ?? 1) + 1}부터는 그 학년이 되면 열려요.`
+          : '3학년까지 모두 볼 수 있어요.'}
+      </div>
+
       {/* 목표 달성률 */}
-      <TargetProgress major={targetMajor} university={targetUniv} studentId={studentId} />
+      <TargetProgress
+        major={targetMajor}
+        university={targetUniv}
+        grade={targetGrade ?? viewGrade}
+        studentId={studentId}
+      />
 
       {/* 막대 그래프 */}
       <div className="bg-white border border-line rounded-2xl p-5">
@@ -294,7 +493,10 @@ export default function MonthlyScore({ onClose }: Props) {
           </div>
         </div>
 
-        <div className="flex items-end gap-4 h-[200px] border-b border-slate-300 pb-0">
+        <div
+          className="flex items-end h-[200px] border-b border-slate-300 pb-0"
+          style={{ gap: months.length > 8 ? 6 : 16 }}
+        >
           {scores.map((s) => (
             <div
               key={s.ym}
@@ -319,7 +521,7 @@ export default function MonthlyScore({ onClose }: Props) {
           ))}
         </div>
 
-        <div className="flex gap-4 mt-2.5">
+        <div className="flex mt-2.5" style={{ gap: months.length > 8 ? 6 : 16 }}>
           {scores.map((s, i) => {
             const isLast = i === scores.length - 1
             return (
@@ -412,10 +614,11 @@ export default function MonthlyScore({ onClose }: Props) {
 // ============================================================
 
 function TargetProgress({
-  major, university, studentId,
+  major, university, grade, studentId,
 }: {
   major: string | null
   university: string | null
+  grade?: number | null
   studentId?: string
 }) {
   const { data: bench } = useQuery({
@@ -477,7 +680,7 @@ function TargetProgress({
   if (!major) {
     return (
       <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 mb-3 text-[12px] text-amber-900">
-        진로에서 희망 학과를 정하면 목표 대비 달성률도 같이 볼 수 있어요.
+        {grade ? `고${grade}` : '이 학년'} 진로에서 희망 학과를 정하면 목표 대비 달성률도 같이 볼 수 있어요.
       </div>
     )
   }
@@ -489,6 +692,11 @@ function TargetProgress({
           {university ? `${university} ` : ''}
           {major}
         </span>
+        {grade ? (
+          <span className="text-[10.5px] font-semibold text-brand-high bg-blue-50 rounded px-1.5 py-0.5">
+            고{grade} 목표
+          </span>
+        ) : null}
         {bench?.sample_size ? (
           <span className="text-[11px] text-ink-muted">
             합격자 {bench.sample_size}명 기준

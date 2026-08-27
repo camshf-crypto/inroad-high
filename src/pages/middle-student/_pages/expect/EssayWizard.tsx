@@ -4,8 +4,19 @@ import {
   useSaveEssayWizard,
   useSubmitToTeacher,
 } from "@/pages/middle-student/_hooks/useEssayWizard";
+import { supabase } from "@/lib/supabase";
 import { getSchoolEssayData } from "@/constants/schoolEssayData";
 import { SCHOOL_SUBQUESTIONS } from "@/constants/schoolSubQuestions";
+// 🎯 선생님이 실제로 쓰는 곳(jaso_essay_answers / jaso_essay_feedback)을 읽는다.
+//    예전엔 middle_essay_wizard.feedback 을 봤는데 거기 쓰는 코드가 없어 늘 비어 있었다.
+import { useEssayAnswers, useEssayFeedback } from "@/pages/middle-student/_hooks/useExpect";
+import { getRoundDef, MAX_ESSAY_ROUND } from "@/constants/essayRounds";
+import type { ConceptData } from "@/pages/middle-student/_hooks/useEssayWizard";
+import {
+  useAnalyzeConcept,
+  type ConceptSuggestResult,
+  type ConceptCheckResult,
+} from "@/pages/admin/_hooks/middle/useAiEssay";
 
 // ──────────────────────────────────────────
 // 타입
@@ -41,6 +52,7 @@ interface WizardData {
   mindmap: MindmapBranch;
   matching: ExperienceMatching;
   sections: SectionAnswers;
+  concept?: ConceptData | null;   // 🎯 3단계에서 정한 직업군
 }
 
 // ════════════════════════════════════════════════════════════
@@ -57,7 +69,7 @@ const SECTION_ICON: Record<string, string> = {
 
 type SubQuestion = { title: string; guide: string; example: string };
 
-// key별 세부 질문 가이드 풀 (마법사 4단계에서 사용)
+// key별 세부 질문 가이드 풀 (마법사 5단계에서 사용)
 const QUESTION_GUIDE: Record<string, SubQuestion[]> = {
   selfStudy: [
     { title: "어떤 학습 목표를 세우고 어떻게 계획했어?", guide: '공부할 때 무작정 한 게 아니라 "목표 → 계획"의 과정이 있었는지 떠올려요.', example: '"2학년 때 영어 회화 약점을 느끼고, 6개월간 매주 영자신문 1편 읽기를 목표로 세웠다"' },
@@ -67,7 +79,7 @@ const QUESTION_GUIDE: Record<string, SubQuestion[]> = {
   ],
   reason: [
     { title: "이 학교 건학이념·특성 중 가장 와닿은 게 뭐야?", guide: "학교 홈페이지에서 건학이념·인재상을 확인하고, 내 가치관과 맞는 한 가지를 골라요.", example: "\"이 학교의 '글로벌 인재 양성' 이념이 가장 와닿았다.\"" },
-    { title: "그 이념·특성과 연결되는 내 경험은?", guide: "3단계에서 매칭한 경험을 활용해요. 구체적인 사건과 숫자를 넣으면 좋아요.", example: '"5년간 비행기 모형 30개를 조립하며 항공역학 강의를 50편 이상 봤다"' },
+    { title: "그 이념·특성과 연결되는 내 경험은?", guide: "4단계에서 매칭한 경험을 활용해요. 구체적인 사건과 숫자를 넣으면 좋아요.", example: '"5년간 비행기 모형 30개를 조립하며 항공역학 강의를 50편 이상 봤다"' },
     { title: "왜 다른 학교가 아니라 이 학교여야 해?", guide: "이 학교만의 특별한 점(프로그램, 동아리, 환경 등)을 구체적으로 적어요.", example: '"이 학교에만 있는 항공물리 동아리에서 활동하고 싶다"' },
     { title: "입학하면 어떤 학생이 되고 싶어?", guide: '단순한 다짐 말고, 구체적으로 뭘 하고 싶은지 적어요.', example: '"동아리에 들어가 드론 자작 프로젝트에 참여하고 싶다"' },
   ],
@@ -216,7 +228,44 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
   const [expandedExp, setExpandedExp] = useState<string | null>(null);
   const [currentBranchIdx, setCurrentBranchIdx] = useState(0);
 
+  // 🎯 3단계 컨셉(직업군)
+  const analyzeConcept = useAnalyzeConcept();
+  const [suggest, setSuggest] = useState<ConceptSuggestResult | null>(null);
+  const [checkResult, setCheckResult] = useState<ConceptCheckResult | null>(null);
+  const [customCareer, setCustomCareer] = useState("");
+  const [priorConcept, setPriorConcept] = useState<any>(null);
+
+  // 🎯 5단계(작성)에 처음 들어올 때만 컨셉을 각인시킨다.
+  //    여러 번 뜨면 학생이 반사적으로 닫아버려서 오히려 안 읽힌다.
+  const [showConceptIntro, setShowConceptIntro] = useState(false);
+  const conceptIntroShown = useRef(false);
+
+  useEffect(() => {
+    if (currentStep !== 5) return;
+    if (conceptIntroShown.current) return;
+    if (!data.concept?.career) return;
+    conceptIntroShown.current = true;
+    setShowConceptIntro(true);
+  }, [currentStep, data.concept?.career]);
+
+  // 진로계열검사 결과 — 있으면 후보 0번으로 먼저 보여준다
+  useEffect(() => {
+    if (!studentId) return;
+    supabase
+      .from("middle_student_concept")
+      .select("type_name, major, career, keywords, custom_goal")
+      .eq("student_id", studentId)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setPriorConcept(data));
+  }, [studentId]);
+
   const { data: savedWizard, isLoading: isLoadingWizard } = useEssayWizard(essayId);
+  // 🎯 차수별 원문 / 차수별 선생님 피드백 (5초마다 자동 갱신)
+  const { data: essayAnswers = [] } = useEssayAnswers(essayId);
+  const { data: essayFeedbacks = [] } = useEssayFeedback(essayId);
   const saveWizard = useSaveEssayWizard();
   const submitToTeacher = useSubmitToTeacher();
 
@@ -345,6 +394,19 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
     setData((prev) => ({ ...prev, sections: { ...prev.sections, [section]: { ...(prev.sections[section] || EMPTY_SUB), [field]: value } } }));
   };
 
+  // 🎯 항목별 차수 묶기
+  const answersOf = (key: string) =>
+    essayAnswers.filter((a) => a.section_key === key).sort((x, y) => x.round - y.round);
+  const feedbacksOf = (key: string) =>
+    essayFeedbacks.filter((f) => f.section_key === key).sort((x, y) => x.round - y.round);
+
+  // 이번에 학생이 써야 할 차수 = 마지막 피드백 차수 + 1 (없으면 1차)
+  const nextRoundOf = (key: string) => {
+    const fbs = feedbacksOf(key);
+    const lastFb = fbs.length ? Math.max(...fbs.map((f) => f.round)) : 0;
+    return Math.min(lastFb + 1, MAX_ESSAY_ROUND);
+  };
+
   const draftFor = (section: string): string => {
     const a = data.sections[section] || EMPTY_SUB;
     return [a.q1, a.q2, a.q3, a.q4].filter((s) => s.trim()).join(" ");
@@ -376,10 +438,18 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
   const experienceAppearedCount = experienceCheck.filter((e) => e.appears).length;
   const totalMatchedExp = experienceCheck.length;
 
-  const isStep1Done = filledKeywords >= 3;
+  // 🎯 1단계 — 키워드 5개를 모두 채워야 통과
+  const isStep1Done = filledKeywords >= 5;
+
+  // 🎯 2단계 — 5가지 가지를 모두 채워야 통과 (가지당 4칸)
   const filledMindmap = (Object.values(data.mindmap) as string[][]).flat().filter((s) => s.trim()).length;
-  const isStep2Done = filledMindmap >= 4;
+  const mindmapBranchKeys = Object.keys(data.mindmap) as (keyof MindmapBranch)[];
+  const emptyBranches = mindmapBranchKeys.filter(
+    (b) => (data.mindmap[b] || []).filter((t) => t.trim()).length < 4
+  );
+  const isStep2Done = emptyBranches.length === 0;
   const matchedCount = sectionKeys.reduce((sum, k) => sum + (data.matching[k]?.length || 0), 0);
+  const isConceptDone = !!data.concept?.career;
   const isStep3Done = matchedCount >= 2;
   const filledSections = sectionKeys.filter((sec) => Object.values(data.sections[sec] || EMPTY_SUB).some((v) => v.trim())).length;
   const isStep4Done = filledSections >= 2;
@@ -387,10 +457,11 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
   const STEPS = [
     { num: 1, label: "키워드", done: isStep1Done },
     { num: 2, label: "경험", done: isStep2Done },
-    { num: 3, label: "매칭", done: isStep3Done },
-    { num: 4, label: "작성", done: isStep4Done },
-    { num: 5, label: "점검", done: false },
-    { num: 6, label: "피드백", done: false },
+    { num: 3, label: "컨셉", done: isConceptDone },
+    { num: 4, label: "매칭", done: isStep3Done },
+    { num: 5, label: "작성", done: isStep4Done },
+    { num: 6, label: "점검", done: false },
+    { num: 7, label: "피드백", done: false },
   ];
 
   const currentBranch = MINDMAP_STRUCTURE[currentBranchIdx];
@@ -418,6 +489,44 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-gray-50">
+      {/* 🎯 5단계 최초 진입 — 컨셉 각인 (그 세션에서 한 번만) */}
+      {showConceptIntro && data.concept?.career && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
+          <div className="bg-white rounded-2xl w-full max-w-[420px] overflow-hidden shadow-[0_20px_60px_rgba(15,23,42,0.25)]">
+            <div className="bg-brand-middle px-6 py-5 text-center">
+              <div className="text-[11px] font-extrabold uppercase tracking-wider text-white/80 mb-1.5">이제 자소서를 씁니다</div>
+              <div className="text-[19px] font-extrabold text-white leading-[1.35]">{data.concept.career}</div>
+              {data.concept.label && (
+                <div className="text-[12.5px] text-white/90 leading-[1.55] mt-1.5">{data.concept.label}</div>
+              )}
+            </div>
+
+            <div className="px-6 py-5">
+              <div className="text-[13px] text-ink leading-[1.75] mb-4">
+                세 문항을 다 쓰고 나서 읽었을 때<br />
+                <strong className="text-brand-middle-dark">“이 학생은 {data.concept.career}을(를) 향하는구나”</strong> 하고 느껴져야 해요.
+              </div>
+
+              <div className="bg-gray-50 border border-line rounded-xl px-4 py-3 mb-4">
+                <div className="text-[11.5px] text-ink-secondary leading-[1.7]">
+                  · 이 직업군과 <strong className="text-ink">이어지는 경험</strong>으로 쓰세요<br />
+                  · 관계없는 경험은 넣지 마세요. 흩어져 보여요<br />
+                  · 컨셉은 <strong className="text-ink">왼쪽 참고 자료 맨 위</strong>에서 언제든 볼 수 있어요
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowConceptIntro(false)}
+                className="w-full h-11 bg-brand-middle hover:bg-brand-middle-hover text-white rounded-xl text-[13.5px] font-bold transition-all hover:-translate-y-px"
+              >
+                이 컨셉으로 쓸게요
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-6 px-6 py-3 bg-white border-b border-line flex-shrink-0">
         <div className="flex items-center gap-3 flex-shrink-0">
           <button onClick={onCancel} className="text-[12px] font-semibold text-ink-secondary hover:text-ink transition-colors">← 나가기</button>
@@ -454,7 +563,7 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-6">
-        <div className={currentStep === 4 ? "max-w-[1280px] mx-auto" : "max-w-[900px] mx-auto"}>
+        <div className={currentStep === 5 ? "max-w-[1280px] mx-auto" : "max-w-[900px] mx-auto"}>
           {/* 1단계 — 키워드 (학교 무관, 그대로) */}
           {currentStep === 1 && (
             <div className="bg-white border border-line rounded-2xl p-7 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
@@ -491,7 +600,7 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
               </div>
               <div className="mt-5 bg-gray-50 border border-line rounded-lg px-4 py-2.5 text-[12px] text-ink-secondary">
                 <span className="font-bold text-brand-middle-dark">{filledKeywords}/5</span> 키워드 입력됨
-                {isStep1Done ? " · ✅ 다음 단계로 갈 수 있어요!" : " · 최소 3개 이상 입력해주세요"}
+                {isStep1Done ? " · ✅ 다음 단계로 갈 수 있어요!" : ` · 5개를 모두 채워야 해요 (${5 - filledKeywords}개 남음)`}
               </div>
             </div>
           )}
@@ -508,21 +617,43 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                   <div className="text-[12px] text-amber-900 leading-[1.6]">"기억에 남는 사건"보다 "내가 1주일 이상 시간을 들인 일"이 자소서 재료가 돼요. 동아리 활동, 교내 대회, 읽은 책, 친구와 협력한 프로젝트 — 사소해 보여도 다 적어보세요.<br /><strong className="text-sky-700">🏠 학교관심</strong>은 지원동기에 쓸 재료라서 꼭 적어주세요!</div>
                 </div>
               </div>
-              <div className="flex items-center justify-between mb-4 bg-gray-50 border border-line rounded-xl px-4 py-3">
-                <div className="flex items-center gap-2">
+              {/* 🎯 가지 고르기 — 눌러야 하는 자리라는 게 보이도록 카드 버튼으로 */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[12px] font-bold text-ink-secondary">아래에서 적을 가지를 골라주세요</div>
+                  <div className="text-[12px] font-bold text-ink-secondary tabular-nums">{currentBranchIdx + 1} / {MINDMAP_STRUCTURE.length}</div>
+                </div>
+                <div className="grid grid-cols-5 gap-2">
                   {MINDMAP_STRUCTURE.map((b, idx) => {
                     const filled = data.mindmap[b.key].filter((s) => s.trim()).length;
                     const isCurrent = idx === currentBranchIdx;
-                    const hasContent = filled > 0;
+                    const isFull = filled >= 4;
                     return (
-                      <button key={b.key} type="button" onClick={() => setCurrentBranchIdx(idx)} className="flex flex-col items-center gap-1 group" title={b.key}>
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-base transition-all ${isCurrent ? "bg-brand-middle text-white scale-110 shadow-[0_4px_12px_rgba(16,185,129,0.3)] ring-4 ring-brand-middle-pale" : hasContent ? "bg-brand-middle-pale border-2 border-brand-middle text-brand-middle-dark" : "bg-white border-2 border-line text-ink-muted group-hover:border-brand-middle-light"}`}>{b.icon}</div>
-                        <div className={`text-[10px] font-semibold whitespace-nowrap ${isCurrent ? "text-brand-middle-dark" : hasContent ? "text-brand-middle-dark" : "text-ink-muted"}`}>{b.key}</div>
+                      <button
+                        key={b.key}
+                        type="button"
+                        onClick={() => setCurrentBranchIdx(idx)}
+                        title={b.key}
+                        className={`relative flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 transition-all ${
+                          isCurrent
+                            ? "bg-brand-middle border-brand-middle text-white shadow-[0_4px_14px_rgba(16,185,129,0.28)] -translate-y-0.5"
+                            : isFull
+                            ? "bg-brand-middle-pale border-brand-middle text-brand-middle-dark hover:-translate-y-0.5"
+                            : "bg-white border-line text-ink-secondary hover:border-brand-middle hover:-translate-y-0.5 hover:shadow-[0_2px_10px_rgba(15,23,42,0.06)]"
+                        }`}
+                      >
+                        {isFull && !isCurrent && (
+                          <span className="absolute top-1 right-1.5 text-[11px] text-brand-middle">✓</span>
+                        )}
+                        <span className="text-xl leading-none">{b.icon}</span>
+                        <span className="text-[11.5px] font-bold whitespace-nowrap">{b.key}</span>
+                        <span className={`text-[10px] font-semibold tabular-nums ${isCurrent ? "text-white/85" : isFull ? "text-brand-middle-dark" : "text-ink-muted"}`}>
+                          {filled}/4
+                        </span>
                       </button>
                     );
                   })}
                 </div>
-                <div className="text-[12px] font-bold text-ink-secondary tabular-nums">{currentBranchIdx + 1} / {MINDMAP_STRUCTURE.length}</div>
               </div>
               {currentBranch && (
                 <div className="bg-gradient-to-br from-gray-50 to-white border-2 border-brand-middle-light rounded-xl p-6">
@@ -547,24 +678,293 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                   </div>
                 </div>
               )}
-              <div className="flex items-center justify-between mt-5 gap-3">
-                <button type="button" onClick={() => setCurrentBranchIdx((p) => Math.max(0, p - 1))} disabled={currentBranchIdx === 0} className="h-11 px-5 bg-white border border-line rounded-lg text-[13px] font-semibold text-ink-secondary hover:bg-gray-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">← 이전</button>
-                <div className="text-[11px] text-ink-muted font-medium text-center">
-                  {currentBranchIdx === MINDMAP_STRUCTURE.length - 1 ? <span className="text-brand-middle-dark font-bold">✅ 마지막이예요!</span> : <span>다음: <strong className="text-brand-middle-dark">{MINDMAP_STRUCTURE[currentBranchIdx + 1].icon} {MINDMAP_STRUCTURE[currentBranchIdx + 1].key}</strong></span>}
-                </div>
-                <button type="button" onClick={() => setCurrentBranchIdx((p) => Math.min(MINDMAP_STRUCTURE.length - 1, p + 1))} disabled={currentBranchIdx === MINDMAP_STRUCTURE.length - 1} className="h-11 px-5 bg-brand-middle hover:bg-brand-middle-hover text-white rounded-lg text-[13px] font-semibold transition-all hover:-translate-y-px hover:shadow-btn-middle disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none">다음 →</button>
+              {/* 🎯 가지 이동은 위 아이콘 줄로. 아래 "이전/다음 단계"와 헷갈리지 않게 버튼은 두지 않는다. */}
+              <div className="mt-5 text-[11.5px] text-ink-muted font-medium text-center">
+                {currentBranchIdx === MINDMAP_STRUCTURE.length - 1
+                  ? <span className="text-brand-middle-dark font-bold">✅ 마지막 가지예요!</span>
+                  : <span>다 적었으면 위에서 <strong className="text-brand-middle-dark">{MINDMAP_STRUCTURE[currentBranchIdx + 1].icon} {MINDMAP_STRUCTURE[currentBranchIdx + 1].key}</strong> 를 눌러주세요</span>}
               </div>
               <div className="mt-5 bg-gray-50 border border-line rounded-lg px-4 py-2.5 text-[12px] text-ink-secondary">
                 <span className="font-bold text-brand-middle-dark">총 {filledMindmap}개</span> 경험 적었어요
-                {isStep2Done ? " · ✅ 다음 단계로 갈 수 있어요!" : " · 최소 4개 이상 적어주세요"}
+                {isStep2Done
+                  ? " · ✅ 다음 단계로 갈 수 있어요!"
+                  : ` · 아직 다 못 채운 가지: ${emptyBranches.join(", ")}`}
               </div>
             </div>
           )}
 
-          {/* 3단계 — 매칭 (학교 항목 동적) */}
+          {/* 3단계 — 컨셉(직업군) 정하기 */}
           {currentStep === 3 && (
             <div className="bg-white border border-line rounded-2xl p-7 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
-              <h2 className="text-[18px] font-extrabold text-ink mb-2 tracking-tight">3단계 · 경험을 자소서 항목에 연결하기</h2>
+              <h2 className="text-[18px] font-extrabold text-ink mb-2 tracking-tight">3단계 · 나는 어떤 직업군을 향하는 학생일까?</h2>
+              <p className="text-[12.5px] text-ink-secondary leading-[1.7] mb-5">
+                앞에서 적은 경험들을 보면 내가 어떤 걸 좋아하는지 보여요.<br />
+                <strong>여기서 정한 직업군이 자소서 전체의 기준</strong>이 돼요. 소재를 고를 때도 이 기준으로 골라요.
+              </p>
+
+              {/* 지금 정해진 컨셉 */}
+              {data.concept?.career && (
+                <div className="bg-brand-middle-pale border-2 border-brand-middle rounded-xl px-5 py-4 mb-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-extrabold uppercase tracking-wider text-brand-middle-dark mb-1">✓ 내가 정한 컨셉</div>
+                      <div className="text-[16px] font-extrabold text-ink mb-0.5">{data.concept.career}</div>
+                      <div className="text-[12.5px] text-brand-middle-dark leading-[1.6]">{data.concept.label}</div>
+                      {data.concept.fit != null && (
+                        <div className="text-[11px] text-ink-secondary mt-1.5">
+                          내 경험과의 적합도 <strong>{data.concept.fit}%</strong>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setData((p) => ({ ...p, concept: null })); setCheckResult(null); }}
+                      className="text-[11px] font-bold text-ink-muted hover:text-ink underline flex-shrink-0"
+                    >
+                      다시 정하기
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!data.concept?.career && (
+                <>
+                  {/* 후보 0 — 진로계열검사 결과 */}
+                  {priorConcept?.career && (
+                    <div className="border border-line rounded-xl px-5 py-4 mb-4 bg-gray-50">
+                      <div className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted mb-1.5">🧭 내가 전에 받은 진로 검사 결과</div>
+                      <div className="text-[15px] font-extrabold text-ink mb-0.5">{priorConcept.career}</div>
+                      {priorConcept.major && <div className="text-[12px] text-ink-secondary">관심 계열 · {priorConcept.major}</div>}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setData((p) => ({
+                            ...p,
+                            concept: {
+                              career: priorConcept.career,
+                              label: `${priorConcept.career}을(를) 향해 준비해온 학생`,
+                              source: "test",
+                              decidedAt: new Date().toISOString(),
+                            },
+                          }));
+                        }}
+                        className="mt-2.5 h-9 px-4 bg-white border border-brand-middle text-brand-middle-dark rounded-lg text-[12px] font-bold hover:bg-brand-middle-pale transition-colors"
+                      >
+                        이걸로 정할래요
+                      </button>
+                    </div>
+                  )}
+
+                  {/* AI 추천 */}
+                  <div className="border border-line rounded-xl px-5 py-4 mb-4">
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div>
+                        <div className="text-[13px] font-extrabold text-ink">✨ 내 경험으로 직업군 찾기</div>
+                        <div className="text-[11.5px] text-ink-secondary mt-0.5">앞에서 적은 경험을 읽고 어울리는 직업군 3개를 찾아줘요.</div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={analyzeConcept.isPending}
+                        onClick={async () => {
+                          try {
+                            setCheckResult(null);
+                            const r = await analyzeConcept.mutateAsync({
+                              mode: "suggest",
+                              schoolName,
+                              keywords: data.keywords.filter((k) => k.keyword.trim()),
+                              experiences: (Object.keys(data.mindmap) as (keyof MindmapBranch)[]).flatMap((b) =>
+                                (data.mindmap[b] || []).filter((t) => t.trim()).map((t) => ({ branch: String(b), text: t }))
+                              ),
+                              existingConcept: priorConcept
+                                ? {
+                                    career: priorConcept.career,
+                                    major: priorConcept.major,
+                                    keywords: priorConcept.keywords,
+                                    customGoal: priorConcept.custom_goal,
+                                    typeName: priorConcept.type_name,
+                                  }
+                                : null,
+                            });
+                            setSuggest(r as ConceptSuggestResult);
+                          } catch (e: any) {
+                            alert(e.message || "분석에 실패했어요.");
+                          }
+                        }}
+                        className="h-9 px-4 bg-brand-middle hover:bg-brand-middle-hover text-white rounded-lg text-[12px] font-bold transition-all disabled:opacity-50 flex-shrink-0"
+                      >
+                        {analyzeConcept.isPending ? "찾는 중..." : suggest ? "다시 찾기" : "찾아보기"}
+                      </button>
+                    </div>
+
+                    {suggest && (
+                      <div className="mt-3">
+                        {suggest.summary && (
+                          <div className="text-[12px] text-ink-secondary leading-[1.7] bg-gray-50 rounded-lg px-3 py-2.5 mb-3">{suggest.summary}</div>
+                        )}
+                        <div className="flex flex-col gap-3">
+                          {suggest.candidates.map((c, i) => (
+                            <div key={i} className="border border-line rounded-lg px-4 py-3 hover:border-brand-middle transition-colors">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="w-5 h-5 rounded-full bg-brand-middle text-white text-[10px] font-extrabold flex items-center justify-center flex-shrink-0">{i + 1}</span>
+                                <span className="text-[14px] font-extrabold text-ink">{c.career}</span>
+                                <span className="text-[10px] font-bold text-brand-middle-dark bg-brand-middle-pale rounded-full px-2 py-0.5">경험 {c.supportCount}개</span>
+                              </div>
+                              <div className="text-[12.5px] font-semibold text-brand-middle-dark mb-1.5">{c.label}</div>
+                              <div className="text-[11.5px] text-ink-secondary leading-[1.6] mb-2">{c.why}</div>
+                              {c.evidence.length > 0 && (
+                                <div className="bg-gray-50 rounded-md px-3 py-2 mb-2">
+                                  <div className="text-[10px] font-bold text-ink-muted mb-1">이 경험들이 근거예요</div>
+                                  <ul className="text-[11px] text-ink-secondary leading-[1.6] list-disc list-inside space-y-0.5">
+                                    {c.evidence.map((e, j) => <li key={j}>{e}</li>)}
+                                  </ul>
+                                </div>
+                              )}
+                              {c.gap && <div className="text-[10.5px] text-amber-700 leading-[1.5] mb-2">➕ 앞으로 채우면 좋을 것 — {c.gap}</div>}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setData((p) => ({
+                                    ...p,
+                                    concept: { career: c.career, label: c.label, source: "ai", fit: Math.min(100, c.supportCount * 25), decidedAt: new Date().toISOString() },
+                                  }))
+                                }
+                                className="w-full h-9 bg-white border border-brand-middle text-brand-middle-dark rounded-lg text-[12px] font-bold hover:bg-brand-middle-pale transition-colors"
+                              >
+                                이걸로 정할래요
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 직접 입력 */}
+                  <div className="border border-line rounded-xl px-5 py-4">
+                    <div className="text-[13px] font-extrabold text-ink mb-1">✏️ 내가 하고 싶은 직업이 따로 있어요</div>
+                    <div className="text-[11.5px] text-ink-secondary mb-2.5">직접 적으면 내 경험 중 어떤 게 이 직업과 이어지는지 확인해줄게요.</div>
+                    <div className="flex gap-2">
+                      <input
+                        value={customCareer}
+                        onChange={(e) => setCustomCareer(e.target.value)}
+                        placeholder="예: 생명공학 연구원, 특수교사, 통역가"
+                        className="flex-1 h-10 px-3 border border-line rounded-lg text-[13px] focus:outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-all"
+                      />
+                      <button
+                        type="button"
+                        disabled={!customCareer.trim() || analyzeConcept.isPending}
+                        onClick={async () => {
+                          try {
+                            setSuggest(null);
+                            const r = await analyzeConcept.mutateAsync({
+                              mode: "check",
+                              schoolName,
+                              chosenCareer: customCareer.trim(),
+                              keywords: data.keywords.filter((k) => k.keyword.trim()),
+                              experiences: (Object.keys(data.mindmap) as (keyof MindmapBranch)[]).flatMap((b) =>
+                                (data.mindmap[b] || []).filter((t) => t.trim()).map((t) => ({ branch: String(b), text: t }))
+                              ),
+                            });
+                            setCheckResult(r as ConceptCheckResult);
+                          } catch (e: any) {
+                            alert(e.message || "확인에 실패했어요.");
+                          }
+                        }}
+                        className="h-10 px-4 bg-brand-middle hover:bg-brand-middle-hover text-white rounded-lg text-[12px] font-bold transition-all disabled:opacity-40 flex-shrink-0"
+                      >
+                        {analyzeConcept.isPending ? "확인 중..." : "확인하기"}
+                      </button>
+                    </div>
+
+                    {checkResult && (
+                      <div className="mt-3.5">
+                        <div
+                          className="rounded-lg px-4 py-3 mb-3"
+                          style={{
+                            background: checkResult.verdict === "strong" ? "#ECFDF5" : checkResult.verdict === "weak" ? "#FEF2F2" : "#FFFBEB",
+                            border: `1px solid ${checkResult.verdict === "strong" ? "#6EE7B7" : checkResult.verdict === "weak" ? "#FCA5A5" : "#FCD34D"}`,
+                          }}
+                        >
+                          <div className="flex items-end justify-between mb-1">
+                            <div className="text-[13px] font-extrabold text-ink">{checkResult.label}</div>
+                            <div className="text-[18px] font-extrabold text-ink">{checkResult.fit}<span className="text-[11px] text-ink-muted">%</span></div>
+                          </div>
+                          <div className="text-[11.5px] text-ink-secondary leading-[1.65]">{checkResult.summary}</div>
+                        </div>
+
+                        {checkResult.matched.length > 0 && (
+                          <div className="mb-2.5">
+                            <div className="text-[11px] font-extrabold text-ink mb-1.5">✅ 이 직업과 이어지는 경험 — 자소서에 쓸 수 있어요</div>
+                            <div className="flex flex-col gap-1.5">
+                              {checkResult.matched.map((m, i) => (
+                                <div key={i} className="border-l-[3px] border-emerald-300 bg-emerald-50 px-3 py-2">
+                                  <div className="text-[11.5px] text-ink leading-[1.5]">{m.experience}</div>
+                                  <div className="text-[10.5px] text-emerald-800 leading-[1.5] mt-0.5">→ {m.link}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {checkResult.unmatched.length > 0 && (
+                          <div className="mb-2.5">
+                            <div className="text-[11px] font-extrabold text-ink mb-1.5">⚠️ 연결이 약한 경험 — 소재로 쓰기 어려워요</div>
+                            <div className="flex flex-col gap-1.5">
+                              {checkResult.unmatched.map((u, i) => (
+                                <div key={i} className="border-l-[3px] border-amber-300 bg-amber-50 px-3 py-2">
+                                  <div className="text-[11.5px] text-ink leading-[1.5]">{u.experience}</div>
+                                  <div className="text-[10.5px] text-amber-800 leading-[1.5] mt-0.5">→ {u.reason}</div>
+                                  {u.rescue && <div className="text-[10.5px] text-ink-secondary leading-[1.5] mt-0.5">살리려면 — {u.rescue}</div>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {checkResult.missing.length > 0 && (
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5 mb-3">
+                            <div className="text-[11px] font-bold text-blue-900 mb-1">➕ 이 직업이면 앞으로 만들면 좋을 경험</div>
+                            <ul className="text-[11px] text-blue-900 leading-[1.6] list-disc list-inside space-y-0.5">
+                              {checkResult.missing.map((m, i) => <li key={i}>{m}</li>)}
+                            </ul>
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setData((p) => ({
+                              ...p,
+                              concept: {
+                                career: customCareer.trim(),
+                                label: checkResult.label,
+                                source: "custom",
+                                fit: checkResult.fit,
+                                verdict: checkResult.verdict,
+                                decidedAt: new Date().toISOString(),
+                              },
+                            }))
+                          }
+                          className="w-full h-10 bg-brand-middle hover:bg-brand-middle-hover text-white rounded-lg text-[12.5px] font-bold transition-all"
+                        >
+                          그래도 이 직업으로 갈래요
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              <div className="mt-5 text-[12px] text-ink-secondary text-center">
+                {isConceptDone ? " ✅ 다음 단계로 갈 수 있어요!" : " 직업군을 하나 정해야 다음으로 갈 수 있어요"}
+              </div>
+            </div>
+          )}
+
+          {/* 4단계 — 매칭 (학교 항목 동적) */}
+          {currentStep === 4 && (
+            <div className="bg-white border border-line rounded-2xl p-7 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
+              <h2 className="text-[18px] font-extrabold text-ink mb-2 tracking-tight">4단계 · 경험을 자소서 항목에 연결하기</h2>
               <p className="text-[12.5px] text-ink-secondary leading-[1.7] mb-5">2단계에서 꺼낸 경험들을 <strong>{schoolName}의 {sectionDefs.length}개 자소서 항목</strong>에 매칭해요.<br />각 항목 박스 안에 어떤 경험이 어울리는지 예시를 보여줄게요!</p>
               <div className="grid grid-cols-[280px_1fr] gap-4">
                 <div className="bg-gray-50 border border-line rounded-xl p-3">
@@ -634,12 +1034,26 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
             </div>
           )}
 
-          {/* 4단계 — 작성 (학교 항목 동적) */}
-          {currentStep === 4 && (
+          {/* 5단계 — 작성 (학교 항목 동적) */}
+          {currentStep === 5 && (
             <div className="grid grid-cols-[340px_1fr] gap-4 items-start">
               <div className="bg-white border border-line rounded-2xl p-5 shadow-[0_4px_16px_rgba(15,23,42,0.04)] sticky top-0 max-h-[calc(100vh-220px)] overflow-y-auto">
                 <div className="text-[14px] font-extrabold text-ink mb-1 flex items-center gap-1.5">📋 내 참고 자료</div>
                 <div className="text-[10px] text-ink-muted mb-4 leading-[1.5]">오른쪽 답변 작성할 때 이걸 보면서 쓰세요!</div>
+
+                {/* 🎯 3단계에서 정한 컨셉 — 글의 기준. 맨 위에 고정해서 계속 보이게 한다. */}
+                {data.concept?.career && (
+                  <div className="rounded-xl px-3 py-3 mb-5 bg-brand-middle border border-brand-middle">
+                    <div className="text-[10px] font-extrabold uppercase tracking-wider text-white/80 mb-1">✍️ 이 컨셉에 맞춰 쓰세요</div>
+                    <div className="text-[13px] font-extrabold text-white leading-[1.4] mb-0.5">{data.concept.career}</div>
+                    {data.concept.label && (
+                      <div className="text-[11px] text-white/90 leading-[1.5]">{data.concept.label}</div>
+                    )}
+                    <div className="text-[10px] text-white/75 leading-[1.5] mt-2 pt-2 border-t border-white/25">
+                      이 직업군과 이어지는 경험으로 쓰세요. 아무 경험이나 쓰면 흩어져 보여요.
+                    </div>
+                  </div>
+                )}
                 <div className="mb-5">
                   <div className="text-[11px] font-extrabold text-brand-middle-dark uppercase tracking-wider mb-2 flex items-center gap-1">🎯 내 키워드 ({filledKeywords}/5)</div>
                   {data.keywords.filter((k) => k.keyword.trim()).length === 0 ? (
@@ -661,7 +1075,7 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                   {matchedCardsForCurrentSection.length === 0 ? (
                     <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
                       <div className="text-[10.5px] text-amber-800 leading-[1.5] mb-1.5">⚠️ 이 항목에 매칭된 경험이 없어요</div>
-                      <button type="button" onClick={() => setCurrentStep(3)} className="text-[10.5px] font-bold text-amber-900 underline hover:text-amber-700">← 3단계로 돌아가기</button>
+                      <button type="button" onClick={() => setCurrentStep(4)} className="text-[10.5px] font-bold text-amber-900 underline hover:text-amber-700">← 4단계로 돌아가기</button>
                     </div>
                   ) : (
                     <div className="space-y-1.5">
@@ -706,8 +1120,16 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
               </div>
 
               <div className="bg-white border border-line rounded-2xl p-6 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
-                <h2 className="text-[18px] font-extrabold text-ink mb-2 tracking-tight">4단계 · 항목별로 차근차근 작성</h2>
-                <p className="text-[12px] text-ink-secondary leading-[1.7] mb-4">← 왼쪽 참고 자료를 보면서 답변을 작성해보세요!</p>
+                <h2 className="text-[18px] font-extrabold text-ink mb-2 tracking-tight">5단계 · 항목별로 차근차근 작성</h2>
+                <p className="text-[12px] text-ink-secondary leading-[1.7] mb-4">
+                  ← 왼쪽 참고 자료를 보면서 답변을 작성해보세요!
+                  {data.concept?.career && (
+                    <>
+                      <br />
+                      <strong className="text-brand-middle-dark">{data.concept.career}</strong>을(를) 향하는 학생으로 읽히게 쓰는 게 이번 목표예요.
+                    </>
+                  )}
+                </p>
                 <div className="flex gap-1 mb-5 bg-gray-50 p-1 rounded-lg flex-wrap">
                   {sectionDefs.map((sec) => {
                     const filled = Object.values(data.sections[sec.key] || EMPTY_SUB).filter((v) => v.trim()).length;
@@ -753,10 +1175,10 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
             </div>
           )}
 
-          {/* 5단계 — 점검 (학교 항목 동적) */}
-          {currentStep === 5 && (
+          {/* 6단계 — 점검 (학교 항목 동적) */}
+          {currentStep === 6 && (
             <div className="bg-white border border-line rounded-2xl p-7 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
-              <h2 className="text-[18px] font-extrabold text-ink mb-2 tracking-tight">5단계 · 전체 자소서 점검 후 제출</h2>
+              <h2 className="text-[18px] font-extrabold text-ink mb-2 tracking-tight">6단계 · 전체 자소서 점검 후 제출</h2>
               <p className="text-[12.5px] text-ink-secondary leading-[1.7] mb-5">{sectionDefs.length}개 항목을 합친 전체 자소서예요. 셀프 점검 후 선생님께 제출하세요.</p>
               <div className="grid grid-cols-3 gap-3 mb-5">
                 <div className="bg-gray-50 border border-line rounded-xl p-3 text-center">
@@ -793,7 +1215,7 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
 
               {experienceCheck.length > 0 && (
                 <div className="mb-5 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-4">
-                  <div className="text-[13px] font-extrabold text-blue-900 mb-1">3단계에서 매칭한 경험이 자소서에 반영됐는지 체크</div>
+                  <div className="text-[13px] font-extrabold text-blue-900 mb-1">4단계에서 매칭한 경험이 자소서에 반영됐는지 체크</div>
                   <div className="text-[11px] text-ink-secondary mb-3">경험의 핵심 단어가 해당 항목 자소서에 있으면 ✅로 표시돼요!</div>
                   <div className="space-y-2">
                     {sectionDefs.map((sec) => {
@@ -859,67 +1281,141 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
             </div>
           )}
 
-          {/* 6단계 — 피드백 (학교 항목 동적) */}
-          {currentStep === 6 && (
+          {/* 7단계 — 피드백 (학교 항목 동적) */}
+          {currentStep === 7 && (
             <div className="bg-white border border-line rounded-2xl p-7 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
               <div className="flex items-center gap-2 mb-2">
-                <h2 className="text-[18px] font-extrabold text-ink tracking-tight">6단계 · 선생님 피드백 받기 + 수정</h2>
+                <h2 className="text-[18px] font-extrabold text-ink tracking-tight">7단계 · 선생님 피드백 받기 + 수정</h2>
                 {savedWizard?.submitted && <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">✓ 제출완료</span>}
               </div>
-              <p className="text-[12.5px] text-ink-secondary leading-[1.7] mb-5">항목별로 선생님 피드백을 받고, 그에 맞춰 자소서를 수정해보세요.<br />수정한 후 <strong>재제출</strong>하면 선생님이 추가 피드백을 드려요.</p>
+              <p className="text-[12.5px] text-ink-secondary leading-[1.7] mb-5">
+                왼쪽은 지난번에 낸 자소서와 선생님 피드백이에요.<br />
+                오른쪽에 이번 차수 자소서를 새로 써보세요. 지난 글은 그대로 남아 있어요.
+              </p>
+
               {sectionDefs.map((sec) => {
-                const sectionFeedbacks = savedWizard?.feedback?.[sec.key] || [];
-                const draft = draftFor(sec.key);
+                const fbs = feedbacksOf(sec.key);
+                const anss = answersOf(sec.key);
+                const round = nextRoundOf(sec.key);
+                const def = getRoundDef(round);
+
+                const lastFbRound = fbs.length ? Math.max(...fbs.map((f) => f.round)) : 0;
+                const prevAnswer = anss.find((a) => a.round === lastFbRound) || anss[anss.length - 1];
+                const prevFb = fbs.find((f) => f.round === lastFbRound);
+
+                const isDone = lastFbRound >= MAX_ESSAY_ROUND;
+                const waiting = lastFbRound === 0;   // 아직 선생님 피드백 전
+
                 return (
-                  <div key={sec.key} className="mb-6 border border-line rounded-xl p-5 bg-gray-50">
-                    <div className="flex items-center justify-between mb-3">
+                  <div key={sec.key} className="mb-6 border border-line rounded-xl overflow-hidden">
+                    {/* 항목 헤더 */}
+                    <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-line">
                       <div className="text-[14px] font-extrabold text-ink">{sec.icon} {sec.label}</div>
-                      <span className="text-[11px] text-ink-muted">{draft.replace(/\s/g, "").length}자</span>
+                      {isDone ? (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                          ✓ {MAX_ESSAY_ROUND}차까지 완료
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-white bg-brand-middle rounded-full px-2 py-0.5">
+                          {round}차 · {def.short}
+                        </span>
+                      )}
                     </div>
-                    <div className="bg-white border border-line rounded-lg px-4 py-3 mb-3">
-                      <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1.5">📝 내 자소서</div>
-                      <div className="text-[13px] text-ink leading-[1.8] whitespace-pre-wrap">{draft || <span className="text-ink-muted italic">아직 작성 안 됨</span>}</div>
-                    </div>
-                    {sectionFeedbacks.length > 0 ? (
-                      <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg px-4 py-3 mb-3">
-                        <div className="text-[11px] font-bold text-brand-middle-dark mb-2 flex items-center gap-1">💬 선생님 피드백 ({sectionFeedbacks.length}차)</div>
-                        <div className="space-y-2">
-                          {sectionFeedbacks.map((fb: any, i: number) => (
-                            <div key={i} className="bg-white border border-brand-middle-light rounded-md px-3 py-2">
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <span className="text-[9px] font-extrabold text-white bg-brand-middle px-1.5 py-0.5 rounded-full">{fb.round}차</span>
-                                <span className="text-[9px] text-ink-muted">{new Date(fb.created_at).toLocaleDateString("ko-KR")}</span>
-                              </div>
-                              <div className="text-[12.5px] text-brand-middle-dark leading-[1.7] whitespace-pre-wrap">{fb.text}</div>
-                            </div>
-                          ))}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2">
+                      {/* ── 왼쪽: 지난 차수 (읽기 전용) ── */}
+                      <div className="p-4 border-b md:border-b-0 md:border-r border-line bg-gray-50/60">
+                        <div className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted mb-2">
+                          {lastFbRound > 0 ? `${lastFbRound}차 — 지난 자소서` : "1차 — 내가 낸 자소서"}
                         </div>
-                      </div>
-                    ) : (
-                      <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 mb-3 text-center">
-                        <div className="text-[12px] text-amber-800 font-medium">💬 선생님 피드백을 기다리는 중이에요...</div>
-                      </div>
-                    )}
-                    {sectionFeedbacks.length > 0 && (
-                      <div className="bg-white border-2 border-dashed border-brand-middle rounded-lg p-3">
-                        <div className="text-[11px] font-bold text-brand-middle-dark mb-2">✏️ 피드백 반영해서 수정하기</div>
-                        {guideFor(sec.key, schoolName).map((q, i) => {
-                          const fieldKey = `q${i + 1}` as keyof SubAnswer;
-                          const value = (data.sections[sec.key] || EMPTY_SUB)[fieldKey];
-                          return (
-                            <div key={i} className="mb-2">
-                              <div className="text-[11px] font-semibold text-ink-secondary mb-1">{i + 1}. {q.title}</div>
-                              <textarea value={value} onChange={(e) => updateSubAnswer(sec.key, fieldKey, e.target.value)} rows={2} className="w-full px-3 py-2 bg-white border border-line rounded text-[12.5px] leading-[1.6] resize-y focus:outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-all" />
+
+                        <div className="bg-white border border-line rounded-lg px-3 py-2.5 mb-3">
+                          <div className="text-[12.5px] text-ink leading-[1.8] whitespace-pre-wrap">
+                            {prevAnswer?.content || draftFor(sec.key) || (
+                              <span className="text-ink-muted italic">아직 작성 안 됨</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {prevFb ? (
+                          <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg px-3 py-2.5">
+                            <div className="text-[11px] font-bold text-brand-middle-dark mb-1.5">
+                              💬 선생님 {prevFb.round}차 피드백
+                              <span className="text-[9px] font-medium text-ink-muted ml-1.5">
+                                {new Date(prevFb.created_at).toLocaleDateString("ko-KR")}
+                              </span>
                             </div>
-                          );
-                        })}
+                            <div className="text-[12px] text-brand-middle-dark leading-[1.7] whitespace-pre-wrap">{prevFb.text}</div>
+                          </div>
+                        ) : (
+                          <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-center">
+                            <div className="text-[11.5px] text-amber-800 font-medium">💬 선생님 피드백을 기다리는 중이에요</div>
+                          </div>
+                        )}
                       </div>
-                    )}
+
+                      {/* ── 오른쪽: 이번 차수 작성 ── */}
+                      <div className="p-4">
+                        {isDone ? (
+                          <div className="h-full flex flex-col items-center justify-center text-center py-8">
+                            <div className="text-2xl mb-2">🎉</div>
+                            <div className="text-[13px] font-bold text-ink">{MAX_ESSAY_ROUND}차까지 다 끝냈어요</div>
+                            <div className="text-[11.5px] text-ink-secondary mt-1">이 항목은 더 고치지 않아도 돼요.</div>
+                          </div>
+                        ) : waiting ? (
+                          <div className="h-full flex flex-col items-center justify-center text-center py-8">
+                            <div className="text-2xl mb-2">⏳</div>
+                            <div className="text-[13px] font-bold text-ink">선생님 피드백을 기다려요</div>
+                            <div className="text-[11.5px] text-ink-secondary mt-1 leading-[1.6]">
+                              피드백이 오면 여기서<br />다음 차수를 쓸 수 있어요.
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="text-[10px] font-extrabold uppercase tracking-wider text-brand-middle-dark mb-2">
+                              ✏️ {round}차 — {def.short}
+                            </div>
+
+                            {/* 이번 차수에 뭘 하는지 */}
+                            <div className="bg-brand-middle-pale border border-brand-middle-light rounded-lg px-3 py-2.5 mb-3">
+                              <div className="text-[11.5px] font-bold text-brand-middle-dark mb-1">{def.title}</div>
+                              <div className="text-[11px] text-brand-middle-dark leading-[1.6] mb-1.5">{def.goal}</div>
+                              <div className="text-[10.5px] text-amber-700 leading-[1.5]">🚫 {def.notDoing}</div>
+                            </div>
+
+                            {guideFor(sec.key, schoolName).map((q, i) => {
+                              const fieldKey = `q${i + 1}` as keyof SubAnswer;
+                              const value = (data.sections[sec.key] || EMPTY_SUB)[fieldKey];
+                              return (
+                                <div key={i} className="mb-2.5">
+                                  <div className="text-[11px] font-semibold text-ink-secondary mb-1">{i + 1}. {q.title}</div>
+                                  <textarea
+                                    value={value}
+                                    onChange={(e) => updateSubAnswer(sec.key, fieldKey, e.target.value)}
+                                    rows={3}
+                                    className="w-full px-3 py-2 bg-white border border-line rounded text-[12.5px] leading-[1.6] resize-y focus:outline-none focus:border-brand-middle focus:ring-2 focus:ring-brand-middle/10 transition-all"
+                                  />
+                                </div>
+                              );
+                            })}
+
+                            {/* 통과 기준 */}
+                            <div className="bg-gray-50 border border-line rounded-lg px-3 py-2 mt-3">
+                              <div className="text-[10px] font-bold text-ink-secondary mb-1">✅ 이번 차수 통과 기준</div>
+                              <ul className="text-[10.5px] text-ink-secondary leading-[1.6] list-disc list-inside space-y-0.5">
+                                {def.passCriteria.map((c, i) => <li key={i}>{c}</li>)}
+                              </ul>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 );
               })}
+
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-5">
-                <div className="text-[12px] text-blue-900 leading-[1.7]">💡 <strong>팁:</strong> 선생님 피드백은 학원 어드민에서 작성됩니다. 피드백이 도착하면 위 항목별로 보여요. 수정한 후 하단 <strong>재제출</strong> 버튼을 눌러주세요.</div>
+                <div className="text-[12px] text-blue-900 leading-[1.7]">💡 <strong>팁:</strong> 오른쪽에 새로 쓴 다음 하단 <strong>재제출</strong> 버튼을 눌러야 선생님에게 전달돼요. 왼쪽 지난 자소서는 지워지지 않으니 마음 놓고 고쳐도 돼요.</div>
               </div>
             </div>
           )}
@@ -929,11 +1425,41 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
       <div className="bg-white border-t border-line px-6 py-3 flex-shrink-0">
         <div className="max-w-[900px] mx-auto flex items-center justify-between">
           <button type="button" onClick={() => setCurrentStep((p) => Math.max(1, p - 1))} disabled={currentStep === 1} className="h-10 px-5 bg-white border border-line rounded-lg text-[13px] font-semibold text-ink-secondary hover:bg-gray-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">← 이전 단계</button>
-          <div className="text-[11px] text-ink-muted font-medium">{currentStep} / 6 단계</div>
-          {currentStep < 5 && (
-            <button type="button" onClick={() => setCurrentStep((p) => Math.min(6, p + 1))} className="h-10 px-5 bg-brand-middle hover:bg-brand-middle-hover text-white rounded-lg text-[13px] font-semibold transition-all hover:-translate-y-px hover:shadow-btn-middle">다음 단계 →</button>
+          <div className="text-[11px] text-ink-muted font-medium">{currentStep} / 7 단계</div>
+          {currentStep < 6 && (
+            <button
+              type="button"
+              onClick={() => {
+                // 🎯 앞 단계를 건너뛰면 뒤 단계가 재료 없이 돌아간다. 단계마다 막는다.
+                if (currentStep === 1 && !isStep1Done) {
+                  alert(`키워드 5개를 모두 채워야 다음으로 갈 수 있어요.\n지금 ${filledKeywords}개 적었어요.`);
+                  return;
+                }
+                if (currentStep === 2 && !isStep2Done) {
+                  alert(`5가지를 모두 채워야 다음으로 갈 수 있어요.\n아직 남은 가지 — ${emptyBranches.join(", ")}`);
+                  return;
+                }
+                if (currentStep === 3 && !isConceptDone) {
+                  alert("직업군을 하나 정해야 다음으로 갈 수 있어요.\n내 경험으로 찾아보거나, 하고 싶은 직업을 직접 적어보세요.");
+                  return;
+                }
+                if (currentStep === 4 && !isStep3Done) {
+                  alert("경험을 자소서 항목에 2개 이상 연결해야 다음으로 갈 수 있어요.");
+                  return;
+                }
+                setCurrentStep((p) => Math.min(7, p + 1));
+              }}
+              className={`h-10 px-5 rounded-lg text-[13px] font-semibold transition-all ${
+                (currentStep === 1 && !isStep1Done) ||
+                (currentStep === 2 && !isStep2Done) ||
+                (currentStep === 3 && !isConceptDone) ||
+                (currentStep === 4 && !isStep3Done)
+                  ? "bg-gray-100 text-ink-muted cursor-not-allowed"
+                  : "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"
+              }`}
+            >다음 단계 →</button>
           )}
-          {currentStep === 5 && (
+          {currentStep === 6 && (
             <button type="button" onClick={async () => {
               try {
                 await submitToTeacher.mutateAsync(essayId);
@@ -945,7 +1471,7 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
               {submitToTeacher.isPending ? "제출 중..." : "선생님께 제출하기"}
             </button>
           )}
-          {currentStep === 6 && (
+          {currentStep === 7 && (
             <button type="button" onClick={async () => {
               try {
                 await onComplete(buildFinalContent());

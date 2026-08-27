@@ -9,6 +9,13 @@ export interface Reading {
   subject: string | null
   book_title: string
   author: string | null
+  /** 서점 책 소개 — 이어읽기 추천에 쓰임 */
+  book_description: string | null
+  /** 읽고 나서 남기는 기록 */
+  summary: string | null
+  impression: string | null
+  quotes: string | null
+  read_at: string | null
   reason: string | null
   plan: string | null
   notes: string | null
@@ -137,13 +144,16 @@ export function useCreateReading() {
     mutationFn: async (params: {
       book_title: string
       author?: string
+      book_description?: string | null
       subject?: string
       reason: string
       plan?: string
       grade?: number
     }) => {
       if (!studentId) throw new Error('로그인이 필요해요')
-      const { book_title, author, subject, reason, plan, grade: paramGrade } = params
+      const {
+        book_title, author, book_description, subject, reason, plan, grade: paramGrade,
+      } = params
       const grade = paramGrade ?? gradeToNum(student?.grade as any)
 
       const { data, error } = await supabase
@@ -152,6 +162,7 @@ export function useCreateReading() {
           student_id: studentId,
           book_title,
           author: author ?? null,
+          book_description: book_description ?? null,
           subject: subject ?? null,
           reason,
           plan: plan ?? null,

@@ -20,6 +20,7 @@ import {
 } from "@/pages/middle-student/_hooks/useExpect";
 import { useDraftAutoSave, type DraftStatus } from "@/pages/middle-student/_hooks/useDraftAutoSave";
 import EssayWizard from "./EssayWizard";
+import EssayRounds, { MAX_SECTION_ROUND } from "./EssayRounds";
 
 const STEP_LABELS = ["첫 답변", "1차 피드백", "업그레이드", "최종 피드백", "꼬리질문"];
 
@@ -417,7 +418,9 @@ export default function MiddleExpect() {
   const [editingEssay, setEditingEssay] = useState(false);
   const [tempContent, setTempContent] = useState<Record<string, string>>({});
   const [editingSection, setEditingSection] = useState<string | null>(null);
-  const [tempSection, setTempSection] = useState("");
+
+  const [roundTabBySection, setRoundTabBySection] = useState<Record<string, number>>({});
+  const [draftBySection, setDraftBySection] = useState<Record<string, string>>({});
 
   const [selSchoolFilter, setSelSchoolFilter] = useState<string>("");
   const [selQId, setSelQId] = useState<string | null>(null);
@@ -571,18 +574,20 @@ export default function MiddleExpect() {
     }
   };
 
-  const saveSectionEdit = async (key: string) => {
+  const submitRoundAnswer = async (key: string) => {
     if (!selEssay) return;
+    const text = draftBySection[key] || "";
+    if (!text.trim()) return;
     try {
-      const newContent = { ...selEssay.content, [key]: tempSection };
+      const newContent = { ...selEssay.content, [key]: text };
       await updateEssay.mutateAsync({
         essay_id: selEssay.id,
         content: newContent,
         version: selEssay.version + 1,
         previousContent: selEssay.content,
       });
-      setEditingSection(null);
-      setTempSection("");
+      setDraftBySection((p) => ({ ...p, [key]: "" }));
+      setRoundTabBySection((p) => ({ ...p, [key]: 0 }));
     } catch (e: any) {
       alert(`저장 실패: ${e.message}`);
     }
@@ -916,7 +921,7 @@ export default function MiddleExpect() {
                               onClick={() => setShowWizard(true)}
                               className="text-[11px] font-bold text-white bg-brand-middle hover:bg-brand-middle-hover rounded-md px-3 py-1.5 transition-all hover:-translate-y-px hover:shadow-btn-middle"
                             >
-                              {essayWritten ? "5단계로 다시 작성" : "5단계로 작성하기"}
+                              {essayWritten ? "나의 경험 보기" : "5단계로 작성하기"}
                             </button>
                             {essayWritten && (
                               <button
@@ -1032,100 +1037,43 @@ export default function MiddleExpect() {
                         {sectionsForCurrent.map((s) => {
                           const currentContent = (selEssay.content as any)[s.key];
                           if (!currentContent && !answersBySection[s.key]) return null;
+
                           const sectionChars = getCharCount(currentContent);
                           const isOK = sectionChars >= MIN_CHARS;
                           const answers = answersBySection[s.key] || [];
                           const feedbacks = feedbackBySection[s.key] || [];
-                          const maxRound = Math.max(
-                            answers.length > 0 ? Math.max(...answers.map((a) => a.round)) : 0,
-                            feedbacks.length > 0 ? Math.max(...feedbacks.map((f) => f.round)) : 0,
-                          );
-                          const lastAnswerRound = answers.length > 0 ? Math.max(...answers.map((a) => a.round)) : 0;
-                          const lastFeedbackRound = feedbacks.length > 0 ? Math.max(...feedbacks.map((f) => f.round)) : 0;
-                          const canWriteNextAnswer = lastFeedbackRound >= lastAnswerRound && lastAnswerRound > 0 && !isLocked;
-                          const nextRound = lastAnswerRound + 1;
+
+                          const lastAnswerRound = answers.length
+                            ? Math.max(...answers.map((a) => a.round))
+                            : 0;
+                          const lastFeedbackRound = feedbacks.length
+                            ? Math.max(...feedbacks.map((f) => f.round))
+                            : 0;
+                          const canWriteNext =
+                            !isLocked &&
+                            lastFeedbackRound >= lastAnswerRound &&
+                            lastAnswerRound < MAX_SECTION_ROUND;
+                          const defaultRound = canWriteNext
+                            ? lastAnswerRound + 1
+                            : Math.max(lastAnswerRound, 1);
+                          const activeRound = roundTabBySection[s.key] || defaultRound;
+
+                          const label = `${s.label} · ${sectionChars}자${isOK ? " ✓" : ` (${MIN_CHARS - sectionChars}자 부족)`}`;
+
                           return (
-                            <div key={s.key} className="mb-6">
-                              <div className="text-[12px] font-bold text-brand-middle-dark mb-2 flex items-center justify-between">
-                                <span className="flex items-center gap-2">
-                                  {s.label}
-                                  <span className={`text-[10px] font-semibold ${isOK ? 'text-emerald-600' : 'text-amber-700'}`}>
-                                    ({sectionChars}자 {isOK ? '✓' : `· ${MIN_CHARS - sectionChars}자 부족`})
-                                  </span>
-                                </span>
-                                {answers.length > 1 && (<span className="text-[10px] font-semibold text-ink-muted">총 {answers.length}차</span>)}
-                              </div>
-                              {Array.from({ length: maxRound }, (_, i) => i + 1).map((round) => {
-                                const ans = answers.find((a) => a.round === round);
-                                const fb = feedbacks.find((f) => f.round === round);
-                                return (
-                                  <div key={round} className="mb-2">
-                                    {ans && (
-                                      <div className="bg-gray-50 border border-line rounded-xl px-4 py-3 mb-1.5">
-                                        <div className="flex items-center gap-1.5 mb-1.5">
-                                          <span className="text-[10px] font-extrabold text-white bg-brand-middle px-1.5 py-0.5 rounded-full">
-                                            {round === 1 ? "1차 자소서 작성" : `${round}차 자소서 수정`}
-                                          </span>
-                                          <span className="text-[9px] text-ink-muted">{new Date(ans.created_at).toLocaleDateString("ko-KR")}</span>
-                                        </div>
-                                        <div className="text-[13px] text-ink leading-[1.8] whitespace-pre-wrap">{ans.content}</div>
-                                      </div>
-                                    )}
-                                    {fb && (
-                                      <div className="bg-brand-middle-pale border border-brand-middle-light rounded-md px-4 py-2.5 flex gap-2 ml-3">
-                                        <span className="text-sm flex-shrink-0">💬</span>
-                                        <div className="flex-1">
-                                          <div className="flex items-center gap-1.5 mb-0.5">
-                                            <span className="text-[9px] font-extrabold text-white bg-brand-middle px-1.5 py-0.5 rounded-full">{round}차 피드백</span>
-                                            <span className="text-[9px] text-ink-muted ml-auto">{new Date(fb.created_at).toLocaleDateString("ko-KR")}</span>
-                                          </div>
-                                          <div className="text-[12px] text-brand-middle-dark leading-[1.7] whitespace-pre-wrap">{fb.text}</div>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                              {canWriteNextAnswer && (
-                                <div className="bg-white border-2 border-dashed border-brand-middle rounded-xl px-4 py-3 mt-2">
-                                  <div className="flex items-center gap-1.5 mb-2">
-                                    <span className="text-[10px] font-extrabold text-white bg-brand-middle px-1.5 py-0.5 rounded-full">{nextRound}차 답변</span>
-                                    <span className="text-[10px] text-brand-middle-dark font-semibold">✏️ 피드백을 반영해서 새 답변 작성</span>
-                                  </div>
-                                  {editingSection === s.key ? (
-                                    <div>
-                                      <textarea
-                                        value={tempSection}
-                                        onChange={(e) => setTempSection(e.target.value)}
-                                        rows={6}
-                                        placeholder={nextRound === 1 ? "1차 자소서를 작성해주세요..." : `${nextRound}차로 자소서를 수정해주세요...`}
-                                        className="w-full border border-brand-middle rounded-lg px-3 py-2.5 text-[13px] leading-[1.7] resize-y focus:outline-none focus:ring-2 focus:ring-brand-middle/10 transition-all mb-2 placeholder:text-ink-muted"
-                                      />
-                                      <div className="flex gap-2">
-                                        <button onClick={() => { setEditingSection(null); setTempSection(""); }} disabled={updateEssay.isPending} className="flex-1 h-[34px] bg-white text-ink-secondary border border-line rounded-md text-[12px] font-medium hover:bg-gray-50 transition-colors disabled:opacity-50">취소</button>
-                                        <button onClick={() => saveSectionEdit(s.key)} disabled={updateEssay.isPending || !tempSection.trim()} className="flex-[2] h-[34px] bg-brand-middle hover:bg-brand-middle-hover text-white rounded-md text-[12px] font-semibold transition-all hover:-translate-y-px hover:shadow-btn-middle disabled:opacity-50">
-                                          {updateEssay.isPending ? "저장 중..." : nextRound === 1 ? "1차 저장" : `${nextRound}차 저장`}
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <button onClick={() => { setEditingSection(s.key); setTempSection(""); }} className="w-full h-10 bg-brand-middle-pale hover:bg-brand-middle-bg border border-brand-middle-light rounded-md text-[12px] font-semibold text-brand-middle-dark transition-all">
-                                      ✏️ {nextRound === 1 ? "1차 자소서 작성하기" : `${nextRound}차 자소서 수정하기`}
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                              {!canWriteNextAnswer && lastAnswerRound > lastFeedbackRound && (
-                                <div className="bg-gray-50 border border-line rounded-md px-4 py-2.5 mt-2">
-                                  <div className="text-[11px] text-ink-muted text-center">💬 선생님 피드백을 기다리는 중이에요...</div>
-                                </div>
-                              )}
-                              {!canWriteNextAnswer && answers.length === 0 && lastFeedbackRound === 0 && (
-                                <div className="bg-gray-50 border border-line rounded-md px-4 py-2.5 mt-2">
-                                  <div className="text-[11px] text-ink-muted text-center">{currentContent ? "답변 작성됨 (이전 버전)" : "답변 없음"}</div>
-                                </div>
-                              )}
-                            </div>
+                            <EssayRounds
+                              key={s.key}
+                              sectionLabel={label}
+                              answers={answers}
+                              feedbacks={feedbacks}
+                              isLocked={isLocked}
+                              activeRound={activeRound}
+                              onChangeRound={(r) => setRoundTabBySection((p) => ({ ...p, [s.key]: r }))}
+                              draftText={draftBySection[s.key] || ""}
+                              onChangeDraft={(t) => setDraftBySection((p) => ({ ...p, [s.key]: t }))}
+                              onSubmit={() => submitRoundAnswer(s.key)}
+                              isPending={updateEssay.isPending}
+                            />
                           );
                         })}
                       </div>
