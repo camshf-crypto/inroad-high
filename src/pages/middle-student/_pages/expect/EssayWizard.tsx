@@ -451,8 +451,22 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
   const matchedCount = sectionKeys.reduce((sum, k) => sum + (data.matching[k]?.length || 0), 0);
   const isConceptDone = !!data.concept?.career;
   const isStep3Done = matchedCount >= 2;
-  const filledSections = sectionKeys.filter((sec) => Object.values(data.sections[sec] || EMPTY_SUB).some((v) => v.trim())).length;
-  const isStep4Done = filledSections >= 2;
+  // 🎯 항목 하나는 "다 쓰거나 / 손도 안 대거나" 둘 중 하나여야 한다.
+  //    반쯤 쓴 항목이 넘어가면 선생님이 볼 게 없다.
+  const sectionFillState = (sec: string) => {
+    const guides = guideFor(sec, schoolName);
+    const sub = data.sections[sec] || EMPTY_SUB;
+    const need = guides.length;                        // 이 항목의 세부질문 수
+    const done = guides.filter((_, i) => (sub[`q${i + 1}` as keyof SubAnswer] || "").trim()).length;
+    return { need, done, complete: need > 0 && done === need, partial: done > 0 && done < need };
+  };
+
+  // 제출 대상 = 세부질문을 전부 채운 항목
+  const completeSections = sectionKeys.filter((sec) => sectionFillState(sec).complete);
+  // 반쯤 쓴 항목 = 제출을 막는 항목
+  const partialSections = sectionKeys.filter((sec) => sectionFillState(sec).partial);
+  const filledSections = completeSections.length;
+  const isStep4Done = filledSections >= 1;
 
   const STEPS = [
     { num: 1, label: "키워드", done: isStep1Done },
@@ -471,6 +485,13 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
   const buildFinalContent = (): Record<string, string> => {
     const content: Record<string, string> = {};
     sectionKeys.forEach((k) => { content[k] = draftFor(k); });
+    return content;
+  };
+
+  // 🎯 다 쓴 항목만 담는다. 안 쓴 항목은 아예 안 보내서 기존 내용을 덮어쓰지 않는다.
+  const buildSubmitContent = (): Record<string, string> => {
+    const content: Record<string, string> = {};
+    completeSections.forEach((k) => { content[k] = draftFor(k); });
     return content;
   };
 
@@ -504,7 +525,7 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
             <div className="px-6 py-5">
               <div className="text-[13px] text-ink leading-[1.75] mb-4">
                 세 문항을 다 쓰고 나서 읽었을 때<br />
-                <strong className="text-brand-middle-dark">“이 학생은 {data.concept.career}을(를) 향하는구나”</strong> 하고 느껴져야 해요.
+                <strong className="text-brand-middle-dark">"이 학생은 {data.concept.career}을(를) 향하는구나"</strong> 하고 느껴져야 해요.
               </div>
 
               <div className="bg-gray-50 border border-line rounded-xl px-4 py-3 mb-4">
@@ -1179,7 +1200,38 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
           {currentStep === 6 && (
             <div className="bg-white border border-line rounded-2xl p-7 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
               <h2 className="text-[18px] font-extrabold text-ink mb-2 tracking-tight">6단계 · 전체 자소서 점검 후 제출</h2>
-              <p className="text-[12.5px] text-ink-secondary leading-[1.7] mb-5">{sectionDefs.length}개 항목을 합친 전체 자소서예요. 셀프 점검 후 선생님께 제출하세요.</p>
+              <p className="text-[12.5px] text-ink-secondary leading-[1.7] mb-5">
+                다 쓴 항목만 먼저 내도 돼요. 나머지는 나중에 써서 또 낼 수 있어요.<br />
+                다만 <strong>항목 하나는 끝까지 써야</strong> 선생님이 봐줄 수 있어요.
+              </p>
+
+              {/* 🎯 항목별 제출 가능 여부 */}
+              <div className="border border-line rounded-xl px-4 py-3 mb-5 bg-gray-50">
+                <div className="text-[11px] font-extrabold text-ink-secondary mb-2">지금 낼 수 있는 항목</div>
+                <div className="flex flex-col gap-1.5">
+                  {sectionKeys.map((k) => {
+                    const st = sectionFillState(k);
+                    const label = defByKey(k)?.label ?? k;
+                    return (
+                      <div key={k} className="flex items-center justify-between gap-2 text-[12px]">
+                        <span className="text-ink truncate">{label}</span>
+                        {st.complete ? (
+                          <span className="text-[11px] font-bold text-brand-middle-dark bg-brand-middle-pale border border-brand-middle-light rounded-full px-2 py-0.5 flex-shrink-0">✓ 낼 수 있어요</span>
+                        ) : st.partial ? (
+                          <span className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex-shrink-0">쓰다 말았어요 ({st.done}/{st.need})</span>
+                        ) : (
+                          <span className="text-[11px] font-semibold text-ink-muted flex-shrink-0">아직 안 썼어요</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {partialSections.length > 0 && (
+                  <div className="text-[11px] text-amber-700 leading-[1.55] mt-2.5 pt-2.5 border-t border-line">
+                    쓰다 만 항목이 있으면 제출할 수 없어요. 끝까지 쓰거나, 그 항목은 아예 비워두세요.
+                  </div>
+                )}
+              </div>
               <div className="grid grid-cols-3 gap-3 mb-5">
                 <div className="bg-gray-50 border border-line rounded-xl p-3 text-center">
                   <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-1">전체 글자수</div>
@@ -1461,14 +1513,35 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
           )}
           {currentStep === 6 && (
             <button type="button" onClick={async () => {
+              // 🎯 반쯤 쓴 항목이 있으면 못 낸다. 항목 하나는 끝까지 써야 피드백이 된다.
+              if (partialSections.length > 0) {
+                const names = partialSections.map((k) => defByKey(k)?.label ?? k).join(", ");
+                alert(`쓰다 만 항목이 있어요 — ${names}\n\n항목 하나는 끝까지 써야 선생님이 봐줄 수 있어요.\n다 못 쓰겠으면 그 항목은 아예 비워두고 나중에 내도 돼요.`);
+                return;
+              }
+              if (completeSections.length === 0) {
+                alert("아직 다 쓴 항목이 없어요.\n항목 하나라도 끝까지 써야 제출할 수 있어요.");
+                return;
+              }
+              const names = completeSections.map((k) => defByKey(k)?.label ?? k).join(", ");
+              const rest = sectionKeys.length - completeSections.length;
+              if (!confirm(
+                `${completeSections.length}개 항목을 선생님께 보냅니다 — ${names}` +
+                (rest > 0 ? `\n\n나머지 ${rest}개 항목은 나중에 써서 또 낼 수 있어요.` : "")
+              )) return;
+
               try {
                 await submitToTeacher.mutateAsync(essayId);
-                await onComplete(buildFinalContent());
-                setCurrentStep(6);
+                await onComplete(buildSubmitContent());
+                setCurrentStep(7);
               } catch (e) { console.error("제출 실패:", e); alert("제출에 실패했어요. 다시 시도해주세요."); }
-            }} disabled={!isStep4Done || totalCharCount > 1500 || submitToTeacher.isPending}
-              className={`h-10 px-5 rounded-lg text-[13px] font-bold transition-all ${isStep4Done && totalCharCount <= 1500 && !submitToTeacher.isPending ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle" : "bg-gray-100 text-ink-muted cursor-not-allowed"}`}>
-              {submitToTeacher.isPending ? "제출 중..." : "선생님께 제출하기"}
+            }} disabled={!isStep4Done || partialSections.length > 0 || totalCharCount > 1500 || submitToTeacher.isPending}
+              className={`h-10 px-5 rounded-lg text-[13px] font-bold transition-all ${isStep4Done && partialSections.length === 0 && totalCharCount <= 1500 && !submitToTeacher.isPending ? "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle" : "bg-gray-100 text-ink-muted cursor-not-allowed"}`}>
+              {submitToTeacher.isPending
+                ? "제출 중..."
+                : completeSections.length > 0 && partialSections.length === 0
+                ? `${completeSections.length}개 항목 제출하기`
+                : "선생님께 제출하기"}
             </button>
           )}
           {currentStep === 7 && (
