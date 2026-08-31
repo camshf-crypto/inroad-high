@@ -42,6 +42,9 @@ export default function TopicCreate() {
   const [custom, setCustom] = useState('')
   /** 다시 추천받기 누를 때마다 올려서 새로 요청 */
   const [nonce, setNonce] = useState(0)
+  /** 🎯 버튼을 눌러야 AI가 돈다. 화면에 들어오는 것만으로 호출되지 않게.
+   *  null = 아직 안 누름 / 'career' = 진로 연계 / 'keep' = 과목 심화 */
+  const [askedDir, setAskedDir] = useState<'career' | 'keep' | null>(null)
 
   const { data: node, isLoading } = useQuery({
     queryKey: ['roadmap-node', nodeId],
@@ -105,22 +108,28 @@ export default function TopicCreate() {
     ? (siblings.find((t) => t.slot === 1)?.title ?? null)
     : null
 
-  // ── AI 추천 (학습영역을 고르면 자동 실행) ────────────────
+  /** 추천 버튼을 누를 수 있는 상태인가 (학습영역이 있으면 먼저 골라야 함) */
+  const canAsk = areas.length === 0 || !!area
+
+  // ── AI 추천 (버튼을 눌러야 실행) ──────────────────────────
   const {
     data: aiAlts,
     isFetching: aiLoading,
     error: aiErrorObj,
     refetch: refetchAlts,
   } = useQuery({
-    queryKey: ['topic-alts', nodeId, area, nonce],
-    enabled: !!node && !!nodeId && (areas.length === 0 || !!area),
+    queryKey: ['topic-alts', nodeId, area, askedDir, nonce],
+    // 🎯 askedDir 가 핵심. 이게 없으면 화면에 들어오는 순간 AI가 돈다.
+    enabled: !!askedDir && !!node && !!nodeId && canAsk,
     staleTime: Infinity,
     retry: false,
     queryFn: async (): Promise<Alt[]> => {
       const { data, error } = await supabase.functions.invoke('research-coach', {
         body: {
           mode: 'alts',
-          direction: 'both',
+          // 🎯 진로 연계 / 과목 심화 중 학생이 고른 쪽만 받는다.
+          //    모든 과목을 진로에 억지로 엮으면 세특이 작위적이 된다.
+          direction: askedDir ?? 'career',
           major,
           grade: `고${grade}`,
           job: c?.career ?? undefined,
@@ -143,6 +152,13 @@ export default function TopicCreate() {
   })
 
   const aiError = aiErrorObj ? ((aiErrorObj as Error).message ?? '알 수 없는 오류') : null
+
+  /** 추천 버튼 — 같은 방향을 또 누르면 새로 요청 */
+  const askAi = (dir: 'career' | 'keep') => {
+    if (!canAsk) return
+    if (askedDir === dir) setNonce((n) => n + 1)
+    setAskedDir(dir)
+  }
 
   /** AI가 실패했을 때만 보여주는 기본 틀 */
   const fallbackCandidates = useMemo(() => {
@@ -198,7 +214,29 @@ export default function TopicCreate() {
         .single()
 
       if (error) throw error
-      return data.id as string
+      const topicId = data.id as string
+
+      // 🎯 생기부·탐구주제 탭·도서 탭은 high_research 를 본다.
+      //    로드맵에서 정한 주제가 그쪽에도 보이도록 같이 넣는다.
+      //    roadmap_topic_id 가 유니크라 주제를 바꿔도 행이 늘지 않고 갱신된다.
+      const { error: rErr } = await supabase.from('high_research').upsert(
+        {
+          student_id: studentId,
+          academy_id: academyId,
+          roadmap_topic_id: topicId,
+          subject: node?.subject_name ?? null,
+          topic: v.title,
+          grade,
+          semester: isSecondTerm ? 2 : 1,
+          status: 'active',
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'roadmap_topic_id' },
+      )
+      // 생기부 연동이 실패해도 주제 저장 자체는 살린다
+      if (rErr) console.error('[high_research 연동 실패]', rErr.message)
+
+      return topicId
     },
     onSuccess: (topicId) => {
       qc.invalidateQueries({ queryKey: ['node-topics', studentId, nodeId] })
@@ -273,7 +311,7 @@ export default function TopicCreate() {
                 어느 학습영역에서 찾을까?
               </div>
               <div className="text-[11px] text-ink-muted mb-2.5">
-                {node.subject_name}에서 배우는 영역이에요. 고르면 바로 주제를 찾아드려요.
+                {node.subject_name}에서 배우는 영역이에요. 고른 다음 아래 추천 버튼을 눌러주세요.
               </div>
               <div className="flex flex-wrap gap-1.5 mb-5">
                 {areas.map((a) => {
@@ -281,7 +319,11 @@ export default function TopicCreate() {
                   return (
                     <button
                       key={a}
-                      onClick={() => setArea(a)}
+                      // 영역을 바꾸면 이전 추천은 지우고 다시 누르게 한다
+                      onClick={() => {
+                        setArea(a)
+                        setAskedDir(null)
+                      }}
                       className="px-3 py-2 rounded-lg text-[12.5px] border transition-all"
                       style={{
                         borderColor: on ? '#2563EB' : '#E5E7EB',
@@ -304,25 +346,78 @@ export default function TopicCreate() {
 
           {/* 추천 주제 */}
           <div className="rounded-xl border border-purple-200 bg-purple-50/50 p-4 mb-5">
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className="text-[13px] font-bold text-purple-900">추천 주제</span>
-              {(aiAlts || aiError) && !aiLoading && (
-                <button
-                  onClick={() => setNonce((n) => n + 1)}
-                  className="ml-auto h-9 px-3.5 bg-purple-600 text-white rounded-lg text-[12px] font-bold hover:bg-purple-700"
-                >
-                  다시 추천받기
-                </button>
-              )}
-            </div>
-            <div className="text-[11px] text-ink-muted mb-2.5 leading-relaxed">
-              선배들의 실제 세특 사례와 {major} 진로를 근거로 제안해요.
+            <div className="text-[13px] font-bold text-purple-900 mb-1">추천 주제</div>
+            <div className="text-[11px] text-ink-muted mb-3 leading-relaxed">
+              어느 쪽으로 찾을지 골라주세요.
               {area && ` 「${area}」 영역 기준.`}
             </div>
 
             {areas.length > 0 && !area && (
               <div className="text-[12.5px] text-ink-muted py-3">
                 위에서 학습영역을 먼저 골라주세요.
+              </div>
+            )}
+
+            {/* 🎯 방향 두 갈래 — 모든 과목을 진로에 억지로 엮지 않는다 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+              <button
+                onClick={() => askAi('career')}
+                disabled={!canAsk || aiLoading}
+                className="text-left rounded-xl border-2 px-3.5 py-3 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  borderColor: askedDir === 'career' ? '#7C3AED' : '#E9D5FF',
+                  background: askedDir === 'career' ? '#7C3AED' : '#fff',
+                }}
+              >
+                <div
+                  className="text-[12.5px] font-extrabold mb-0.5"
+                  style={{ color: askedDir === 'career' ? '#fff' : '#6D28D9' }}
+                >
+                  🎯 진로 연계
+                  {askedDir === 'career' && !aiLoading && (
+                    <span className="ml-1 text-[10px] font-bold opacity-80">· 다시 받기</span>
+                  )}
+                </div>
+                <div
+                  className="text-[10.5px] leading-[1.5]"
+                  style={{ color: askedDir === 'career' ? 'rgba(255,255,255,0.85)' : '#94A3B8' }}
+                >
+                  {major}와 이어지는 주제로 찾아요
+                </div>
+              </button>
+
+              <button
+                onClick={() => askAi('keep')}
+                disabled={!canAsk || aiLoading}
+                className="text-left rounded-xl border-2 px-3.5 py-3 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  borderColor: askedDir === 'keep' ? '#2563EB' : '#BFDBFE',
+                  background: askedDir === 'keep' ? '#2563EB' : '#fff',
+                }}
+              >
+                <div
+                  className="text-[12.5px] font-extrabold mb-0.5"
+                  style={{ color: askedDir === 'keep' ? '#fff' : '#1D4ED8' }}
+                >
+                  📚 과목 심화
+                  {askedDir === 'keep' && !aiLoading && (
+                    <span className="ml-1 text-[10px] font-bold opacity-80">· 다시 받기</span>
+                  )}
+                </div>
+                <div
+                  className="text-[10.5px] leading-[1.5]"
+                  style={{ color: askedDir === 'keep' ? 'rgba(255,255,255,0.85)' : '#94A3B8' }}
+                >
+                  {node.subject_name}에서 배우는 걸로 파고들어요
+                </div>
+              </button>
+            </div>
+
+            {/* 아직 안 눌렀을 때 */}
+            {!askedDir && !aiLoading && canAsk && (
+              <div className="text-[12px] text-ink-muted leading-[1.6] bg-white/70 rounded-lg px-3 py-2.5">
+                진로와 잘 안 엮이는 과목도 있어요. 그럴 땐 <b className="text-blue-700">📚 과목 심화</b>가
+                더 자연스러운 세특이 됩니다.
               </div>
             )}
 

@@ -394,43 +394,62 @@ export default function SubjectDetail({ line, node, grade, career, onClose, onSw
                       ? `${slot}학기 250자`
                       : `선생님${slot === 1 ? 'A' : 'B'} 250자`
 
+                // 🎯 주제는 정한 뒤에도 바뀐다. 선생님이 바꾸라고 하거나 하다 막히거나.
+                //    그래서 "이어서 하기" 옆에 "주제 바꾸기"를 항상 열어둔다.
+                const goWork = () =>
+                  navigate(`/high-student/roadmap-v2/topic/${existing!.id}`)
+                const goPick = () =>
+                  navigate(`/high-student/roadmap-v2/node/${node.id}/topic/${slot}`)
+
                 return (
-                  <button
+                  <div
                     key={slot}
-                    onClick={() =>
-                      navigate(
-                        existing
-                          ? `/high-student/roadmap-v2/topic/${existing.id}`
-                          : `/high-student/roadmap-v2/node/${node.id}/topic/${slot}`,
-                      )
-                    }
-                    className="text-left rounded-xl border-2 px-4 py-3.5 transition-all"
+                    className="rounded-xl border-2 overflow-hidden transition-all"
                     style={{
                       borderColor: existing ? '#F59E0B' : '#E5E7EB',
                       background: existing ? '#FFFBEB' : '#fff',
                     }}
                   >
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span
-                        className="text-[10px] font-extrabold text-white px-2 py-0.5 rounded-full"
-                        style={{ background: existing ? '#F59E0B' : '#94A3B8' }}
-                      >
-                        {slotLabel}
-                      </span>
-                      {existing?.area && (
-                        <span className="text-[10.5px] text-ink-muted">{existing.area}</span>
-                      )}
-                      <span className="ml-auto text-[11.5px] font-semibold text-brand-high">
-                        {existing ? '이어서 하기 →' : '주제 정하기 →'}
-                      </span>
-                    </div>
-                    <div
-                      className="text-[14px] font-bold leading-snug"
-                      style={{ color: existing ? '#78350F' : '#94A3B8' }}
+                    <button
+                      onClick={existing ? goWork : goPick}
+                      className="w-full text-left px-4 py-3.5"
                     >
-                      {existing ? existing.title : '아직 주제를 정하지 않았어요'}
-                    </div>
-                  </button>
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span
+                          className="text-[10px] font-extrabold text-white px-2 py-0.5 rounded-full"
+                          style={{ background: existing ? '#F59E0B' : '#94A3B8' }}
+                        >
+                          {slotLabel}
+                        </span>
+                        {existing?.area && (
+                          <span className="text-[10.5px] text-ink-muted">{existing.area}</span>
+                        )}
+                        <span className="ml-auto text-[11.5px] font-semibold text-brand-high">
+                          {existing ? '이어서 하기 →' : '주제 정하기 →'}
+                        </span>
+                      </div>
+                      <div
+                        className="text-[14px] font-bold leading-snug"
+                        style={{ color: existing ? '#78350F' : '#94A3B8' }}
+                      >
+                        {existing ? existing.title : '아직 주제를 정하지 않았어요'}
+                      </div>
+                    </button>
+
+                    {existing && (
+                      <div className="flex items-center justify-between gap-2 px-4 py-2 bg-white border-t border-amber-200">
+                        <span className="text-[11px] text-ink-muted">
+                          이 주제로 계속 갈까요?
+                        </span>
+                        <button
+                          onClick={goPick}
+                          className="text-[11.5px] font-bold text-ink-secondary hover:text-brand-high underline underline-offset-2"
+                        >
+                          ✏️ 주제 바꾸기
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )
               })}
             </div>
