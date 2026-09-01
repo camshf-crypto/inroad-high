@@ -50,7 +50,9 @@ export default function ResearchCoachPanel({
       if (!sid) { if (!cancelled) setConceptLoaded(true); return }
       const { data: concepts } = await supabase
         .from('student_concept').select('major, career, grade')
-        .eq('student_id', sid).eq('status', 'approved')
+        // 🎯 status 에 completed / approved 가 섞여 있다. approved 만 거르면
+        //    진로가 안 잡혀 major 가 비고, 엣지 함수가 500으로 터진다.
+        .eq('student_id', sid).neq('status', 'draft')
         .order('created_at', { ascending: false })
       let picked: Concept | null = null
       if (concepts && concepts.length > 0) {

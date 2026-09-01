@@ -39,6 +39,7 @@ import MiddleDebateTab from './middle-tabs/MiddleDebateTab'   // 🔥 AI 토론 
 
 const HIGH_TABS = [
   { key: 'roadmap', label: '로드맵', menuKey: 'high.roadmap' },
+  // 🎯 고1~고3을 한 표에서 훑고, 칸을 눌러 코멘트를 단다
   { key: 'roadmap_activity', label: '로드맵 활동', menuKey: 'high.roadmap_v2' },
   { key: 'concept', label: '진로 계열 검사', menuKey: 'high.concept' },
   { key: 'topic', label: '탐구주제', menuKey: 'high.topic' },
