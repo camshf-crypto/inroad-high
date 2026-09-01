@@ -99,6 +99,8 @@ export default function RoadmapActivityTab({ student, viewGrade }: Props) {
   const [subjGrade, setSubjGrade] = useState<number | null>(null)
   const [fits, setFits] = useState<Record<number, FitResult>>({})
   const [subjDraft, setSubjDraft] = useState('')
+  /** 이미 전달한 과목 코멘트 (학년별) — 같은 내용 재전송을 막는다 */
+  const [subjSent, setSubjSent] = useState<Record<number, string>>({})
 
   const { data: topics = [], isLoading } = useQuery({
     queryKey: ['admin-grid-topics', studentId],
@@ -380,7 +382,10 @@ export default function RoadmapActivityTab({ student, viewGrade }: Props) {
       )
       if (error) throw error
     },
-    onSuccess: () => alert('학생에게 전달했어요.'),
+    onSuccess: (_r, v) => {
+      setSubjSent((prev) => ({ ...prev, [v.grade]: v.text.trim() }))
+      alert('학생에게 전달했어요.')
+    },
     onError: (e: any) => alert(`저장 실패: ${e.message}`),
   })
 
@@ -865,14 +870,24 @@ export default function RoadmapActivityTab({ student, viewGrade }: Props) {
                       지우기
                     </button>
                   )}
+                  {/* 🎯 이미 보낸 내용과 같으면 잠근다. 안 그러면 같은 걸 계속 덮어쓴다. */}
                   <button
                     onClick={() =>
                       saveComment.mutate({ topicId: selected.id, text: draft })
                     }
-                    disabled={!draft.trim() || saveComment.isPending}
-                    className="h-8 px-3.5 bg-brand-high text-white rounded-lg text-[11.5px] font-bold disabled:opacity-40"
+                    disabled={
+                      !draft.trim() ||
+                      saveComment.isPending ||
+                      draft.trim() === (selected.teacher_comment ?? '').trim()
+                    }
+                    className="h-8 px-3.5 bg-brand-high text-white rounded-lg text-[11.5px] font-bold disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    {saveComment.isPending ? '전달 중…' : '📤 학생에게 전달'}
+                    {saveComment.isPending
+                      ? '전달 중…'
+                      : draft.trim() &&
+                          draft.trim() === (selected.teacher_comment ?? '').trim()
+                        ? '✓ 전달됨'
+                        : '📤 학생에게 전달'}
                   </button>
                 </div>
               </div>
@@ -1078,10 +1093,18 @@ export default function RoadmapActivityTab({ student, viewGrade }: Props) {
                   onClick={() =>
                     saveSubjectNote.mutate({ grade: subjGrade, text: subjDraft })
                   }
-                  disabled={!subjDraft.trim() || saveSubjectNote.isPending}
-                  className="h-8 px-3.5 bg-brand-high text-white rounded-lg text-[11.5px] font-bold disabled:opacity-40"
+                  disabled={
+                    !subjDraft.trim() ||
+                    saveSubjectNote.isPending ||
+                    subjDraft.trim() === (subjSent[subjGrade] ?? '')
+                  }
+                  className="h-8 px-3.5 bg-brand-high text-white rounded-lg text-[11.5px] font-bold disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {saveSubjectNote.isPending ? '전달 중…' : '📤 학생에게 전달'}
+                  {saveSubjectNote.isPending
+                    ? '전달 중…'
+                    : subjDraft.trim() && subjDraft.trim() === (subjSent[subjGrade] ?? '')
+                      ? '✓ 전달됨'
+                      : '📤 학생에게 전달'}
                 </button>
               </div>
             </div>

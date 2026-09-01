@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAtomValue } from 'jotai'
@@ -108,6 +108,42 @@ export default function RoadmapV2() {
   // 보드 데이터
   const { data: board, error: boardError } = useHighRoadmapBoard()
   const { data: career } = useMyCareerSeries()
+
+  /** 🎯 선생님이 보낸 코멘트.
+   *  과목에 들어가야만 보이면 학생이 놓친다. 로드맵을 열 때 바로 띄운다. */
+  const { data: comments = [] } = useQuery({
+    queryKey: ['my-topic-comments', studentId],
+    enabled: !!studentId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('high_roadmap_topic')
+        .select(
+          'id, node_id, title, teacher_comment, commented_at, high_roadmap_node(subject_name, grade)',
+        )
+        .eq('student_id', studentId!)
+        .not('teacher_comment', 'is', null)
+        .order('commented_at', { ascending: false })
+      if (error) throw error
+      return data ?? []
+    },
+  })
+
+  /** 코멘트가 달린 노드 — 보드에 ! 표시 */
+  const commentedNodes = useMemo(
+    () => new Set((comments as any[]).map((c) => c.node_id)),
+    [comments],
+  )
+
+  const [noticeOpen, setNoticeOpen] = useState(false)
+  const [noticeSeen, setNoticeSeen] = useState(false)
+
+  // 코멘트가 있으면 한 번 띄운다. 닫으면 그 세션에선 다시 안 뜬다.
+  useEffect(() => {
+    if (noticeSeen) return
+    if (comments.length === 0) return
+    setNoticeOpen(true)
+    setNoticeSeen(true)
+  }, [comments.length, noticeSeen])
   const toggle = useToggleNodeComplete()
 
   const doneMap = useMemo(() => {
@@ -441,6 +477,7 @@ export default function RoadmapV2() {
               career={career}
               myGrade={myGrade}
               bookCounts={bookCounts}
+              commentedNodes={commentedNodes}
               onToggleComplete={(node, next) => toggle.mutate({ node, next })}
               onEditGoal={() => setManualStep(3)}
               onSetupSubjects={() => setManualStep(4)}
@@ -452,6 +489,80 @@ export default function RoadmapV2() {
         ))}
 
       </div>
+
+      {/* 🎯 선생님 코멘트 알림 — 로드맵을 열면 바로 뜬다.
+          과목에 들어가야만 보이면 학생이 놓친다. */}
+      {noticeOpen && comments.length > 0 && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4"
+          onClick={() => setNoticeOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-[460px] max-h-[80vh] overflow-y-auto shadow-[0_20px_60px_rgba(15,23,42,0.25)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 bg-blue-50 border-b border-blue-100 flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[16px] font-extrabold text-ink">
+                  💬 선생님이 보낸 말이 있어요
+                </div>
+                <div className="text-[12px] text-ink-secondary mt-0.5">
+                  {comments.length}개 · 눌러서 주제를 고쳐보세요
+                </div>
+              </div>
+              <button
+                onClick={() => setNoticeOpen(false)}
+                className="text-[16px] text-ink-muted hover:text-ink flex-shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 flex flex-col gap-2">
+              {comments.map((c: any) => (
+                <button
+                  key={c.id}
+                  onClick={() => {
+                    setNoticeOpen(false)
+                    navigate(`/high-student/roadmap-v2/node/${c.node_id}`)
+                  }}
+                  className="text-left rounded-xl border-2 border-blue-200 bg-blue-50/60 px-4 py-3 hover:border-blue-400 hover:bg-blue-50 transition-all"
+                >
+                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                    <span className="text-[10px] font-extrabold text-white bg-blue-600 px-2 py-0.5 rounded-full">
+                      고{c.high_roadmap_node?.grade} ·{' '}
+                      {c.high_roadmap_node?.subject_name}
+                    </span>
+                    {c.commented_at && (
+                      <span className="text-[10px] text-ink-muted">
+                        {new Date(c.commented_at).toLocaleDateString('ko-KR')}
+                      </span>
+                    )}
+                    <span className="ml-auto text-[11px] font-bold text-brand-high">
+                      고치러 가기 →
+                    </span>
+                  </div>
+                  <div className="text-[12.5px] font-bold text-ink leading-snug mb-1">
+                    {c.title}
+                  </div>
+                  <div className="text-[12px] text-ink-secondary leading-[1.6] whitespace-pre-wrap">
+                    {c.teacher_comment}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="px-4 pb-4">
+              <button
+                onClick={() => setNoticeOpen(false)}
+                className="w-full h-10 bg-white border border-line text-ink-secondary rounded-xl text-[12.5px] font-bold hover:bg-gray-50"
+              >
+                나중에 볼게요
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

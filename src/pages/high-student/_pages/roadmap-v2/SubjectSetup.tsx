@@ -9,7 +9,7 @@ import {
   type Grade,
 } from '@/pages/high-student/_hooks/useRoadmap'
 // 🎯 고른 과목이 진로와 이어지는지 판정 (subject-fit-check 엣지 함수)
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 
 const GRADES: Grade[] = [1, 2, 3]
@@ -140,6 +140,24 @@ export default function SubjectSetup({ board, career, myGrade = 1, onDone }: Pro
     return m
   }, [fit])
 
+  /** 🎯 선생님이 이 학년 과목 조합에 보낸 코멘트.
+   *  "간호학과인데 화학Ⅱ가 없다" 같은 건 여기서 학생이 본다. */
+  const { data: teacherNote } = useQuery({
+    queryKey: ['subject-note', grade],
+    queryFn: async () => {
+      const { data: me } = await supabase.auth.getUser()
+      if (!me?.user?.id) return null
+      const { data, error } = await supabase
+        .from('high_subject_note')
+        .select('comment, commented_at:updated_at')
+        .eq('student_id', me.user.id)
+        .eq('grade', grade)
+        .maybeSingle()
+      if (error) return null
+      return data
+    },
+  })
+
   const checkFit = useMutation({
     mutationFn: async (): Promise<FitResult> => {
       const { data, error } = await supabase.functions.invoke('subject-fit-check', {
@@ -224,6 +242,26 @@ export default function SubjectSetup({ board, career, myGrade = 1, onDone }: Pro
         </div>
       ) : (
         <>
+          {/* 🎯 선생님 코멘트 — 과목은 한번 고르면 1년을 산다.
+              그래서 고르기 전에 제일 먼저 보여야 한다. */}
+          {teacherNote?.comment && (
+            <div className="rounded-xl bg-blue-50 border-2 border-blue-300 px-4 py-3 mb-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[12px] font-extrabold text-blue-800">
+                  💬 선생님이 보낸 말
+                </span>
+                {teacherNote.commented_at && (
+                  <span className="text-[10px] text-ink-muted">
+                    {new Date(teacherNote.commented_at).toLocaleDateString('ko-KR')}
+                  </span>
+                )}
+              </div>
+              <div className="text-[12.5px] text-ink leading-[1.7] whitespace-pre-wrap">
+                {teacherNote.comment}
+              </div>
+            </div>
+          )}
+
           {/* 🎯 진로 적합도 — 이 화면은 과목을 고르는 곳이다.
               탐구 방향은 여기서 말하지 않는다. 그건 탐구주제 단계의 일이다. */}
           <div className="rounded-xl border border-line bg-white px-4 py-3 mb-3">

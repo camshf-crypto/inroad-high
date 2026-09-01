@@ -36,6 +36,8 @@ interface Props {
   myGrade?: Grade
   /** `${학년}|${과목명}` → 담은 책 권수 */
   bookCounts?: Map<string, number>
+  /** 🎯 선생님 코멘트가 달린 노드 id — 보드에서 바로 보여야 학생이 놓치지 않는다 */
+  commentedNodes?: Set<string>
   onNodeClick?: (line: RoadmapLine, node: RoadmapNode, grade: Grade) => void
   onToggleComplete?: (node: RoadmapNode, next: boolean) => void
   /** 헤더의 진로 카드를 눌렀을 때 (최종 목표 수정) */
@@ -57,6 +59,7 @@ export default function RoadmapBoard({
   career,
   myGrade = 1,
   bookCounts,
+  commentedNodes,
   onNodeClick,
   onToggleComplete,
   onEditGoal,
@@ -284,6 +287,7 @@ export default function RoadmapBoard({
                     const x = xOf(cell.grade)
                     const { node, done } = cell
                     const isCustom = node.student_id !== null
+                    const hasComment = commentedNodes?.has(node.id) ?? false
                     const label =
                       node.subject_name.length > 10
                         ? node.subject_name.slice(0, 10) + '…'
@@ -303,18 +307,51 @@ export default function RoadmapBoard({
                           width={NODE_W}
                           height={NODE_H}
                           rx={10}
-                          fill={done ? '#F0FDF4' : '#fff'}
-                          stroke={active ? line.color : done ? '#A7F3D0' : '#E2E8F0'}
-                          strokeWidth={active ? 1.8 : 1}
+                          fill={
+                            hasComment ? '#FEF2F2' : done ? '#F0FDF4' : '#fff'
+                          }
+                          stroke={
+                            hasComment
+                              ? '#EF4444'
+                              : active
+                                ? line.color
+                                : done
+                                  ? '#A7F3D0'
+                                  : '#E2E8F0'
+                          }
+                          strokeWidth={hasComment ? 2 : active ? 1.8 : 1}
                         />
-                        <circle
-                          cx={x - NODE_W / 2 + 14}
-                          cy={y}
-                          r={done ? 5 : 4}
-                          fill={done ? line.color : '#fff'}
-                          stroke={line.color}
-                          strokeWidth={1.6}
-                        />
+                        {/* 🎯 코멘트가 있으면 계통 색 원을 빨간 ! 로 바꾼다.
+                            카드 밖에 그리면 잘려서 안 보인다. */}
+                        {hasComment ? (
+                          <g>
+                            <circle
+                              cx={x - NODE_W / 2 + 14}
+                              cy={y}
+                              r={8}
+                              fill="#EF4444"
+                            />
+                            <text
+                              x={x - NODE_W / 2 + 14}
+                              y={y + 4}
+                              fontSize={11}
+                              fill="#fff"
+                              fontWeight={800}
+                              textAnchor="middle"
+                            >
+                              !
+                            </text>
+                          </g>
+                        ) : (
+                          <circle
+                            cx={x - NODE_W / 2 + 14}
+                            cy={y}
+                            r={done ? 5 : 4}
+                            fill={done ? line.color : '#fff'}
+                            stroke={line.color}
+                            strokeWidth={1.6}
+                          />
+                        )}
                         <text
                           x={x - NODE_W / 2 + 26}
                           y={y - 3}
@@ -354,6 +391,22 @@ export default function RoadmapBoard({
                                   fontWeight={700}
                                 >
                                   독서 {cnt}
+                                </text>
+                              )}
+                              {/* 🎯 카드 안쪽 글자 자리 — 여기는 잘릴 일이 없다 */}
+                              {hasComment && (
+                                <text
+                                  x={
+                                    x - NODE_W / 2 + 26 +
+                                    (base ? base.length * 8 + 8 : 0) +
+                                    (cnt > 0 ? 36 : 0)
+                                  }
+                                  y={y + 11}
+                                  fontSize={9}
+                                  fill="#EF4444"
+                                  fontWeight={800}
+                                >
+                                  선생님 코멘트
                                 </text>
                               )}
                             </>

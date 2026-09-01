@@ -30,6 +30,9 @@ interface TopicRow {
   detail: string | null
   source: string
   status: string
+  /** 원장이 보낸 코멘트 */
+  teacher_comment: string | null
+  commented_at: string | null
 }
 
 interface Props {
@@ -82,7 +85,7 @@ export default function SubjectDetail({ line, node, grade, career, onClose, onSw
     queryFn: async (): Promise<TopicRow[]> => {
       const { data, error } = await supabase
         .from('high_roadmap_topic')
-        .select('id, slot, split_mode, area, title, detail, source, status')
+        .select('id, slot, split_mode, area, title, detail, source, status, teacher_comment, commented_at')
         .eq('student_id', studentId!)
         .eq('node_id', node.id)
         .order('slot')
@@ -406,7 +409,11 @@ export default function SubjectDetail({ line, node, grade, career, onClose, onSw
                     key={slot}
                     className="rounded-xl border-2 overflow-hidden transition-all"
                     style={{
-                      borderColor: existing ? '#F59E0B' : '#E5E7EB',
+                      borderColor: existing?.teacher_comment
+                        ? '#2563EB'
+                        : existing
+                          ? '#F59E0B'
+                          : '#E5E7EB',
                       background: existing ? '#FFFBEB' : '#fff',
                     }}
                   >
@@ -424,6 +431,11 @@ export default function SubjectDetail({ line, node, grade, career, onClose, onSw
                         {existing?.area && (
                           <span className="text-[10.5px] text-ink-muted">{existing.area}</span>
                         )}
+                        {existing?.teacher_comment && (
+                          <span className="text-[10px] font-bold text-white bg-blue-600 px-2 py-0.5 rounded-full">
+                            💬 선생님 코멘트
+                          </span>
+                        )}
                         <span className="ml-auto text-[11.5px] font-semibold text-brand-high">
                           {existing ? '이어서 하기 →' : '주제 정하기 →'}
                         </span>
@@ -436,10 +448,34 @@ export default function SubjectDetail({ line, node, grade, career, onClose, onSw
                       </div>
                     </button>
 
+                    {/* 🎯 선생님이 보낸 코멘트. 바로 아래 "주제 바꾸기"가 있어
+                        읽고 그 자리에서 고칠 수 있다. */}
+                    {existing?.teacher_comment && (
+                      <div className="px-4 py-3 bg-white border-t border-amber-200">
+                        <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2.5">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="text-[11px] font-extrabold text-blue-800">
+                              💬 선생님 코멘트
+                            </span>
+                            {existing.commented_at && (
+                              <span className="text-[10px] text-ink-muted">
+                                {new Date(existing.commented_at).toLocaleDateString('ko-KR')}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[12.5px] text-ink leading-[1.7] whitespace-pre-wrap">
+                            {existing.teacher_comment}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {existing && (
                       <div className="flex items-center justify-between gap-2 px-4 py-2 bg-white border-t border-amber-200">
                         <span className="text-[11px] text-ink-muted">
-                          이 주제로 계속 갈까요?
+                          {existing.teacher_comment
+                            ? '코멘트를 보고 주제를 고쳐볼까요?'
+                            : '이 주제로 계속 갈까요?'}
                         </span>
                         <button
                           onClick={goPick}
