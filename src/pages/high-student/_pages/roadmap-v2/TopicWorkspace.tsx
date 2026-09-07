@@ -116,6 +116,9 @@ export default function TopicWorkspace() {
   const current = pipes.find((p) => p.step === step)
   const doneCount = pipes.filter((p) => p.status === 'done').length
 
+  /** ⭐ 5단계 확인 문제의 재료 — 2단계 보고서 */
+  const reportPipe = pipes.find((p) => p.step === 'report')
+
   const savePipe = useMutation({
     mutationFn: async (v: {
       content?: string
@@ -251,9 +254,15 @@ export default function TopicWorkspace() {
         ) : step === 'archive' ? (
           <ArchiveWriter
             topicId={topic.id}
+            topicTitle={topic.title}
+            major={topic.goal_text}
+            grade={node?.grade}
+            reportContent={reportPipe?.content ?? ''}
+            reportFormat={reportPipe?.report_format ?? null}
             content={current?.content ?? ''}
             saving={savePipe.isPending}
             onSave={(content) => savePipe.mutate({ content })}
+            onGoReport={() => setParams({ step: 'report' })}
           />
         ) : step === 'debate' ? (
           <TopicInterview

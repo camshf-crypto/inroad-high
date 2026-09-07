@@ -19,6 +19,11 @@ import {
 
 const NEIS_API_KEY = import.meta.env.VITE_NEIS_API_KEY
 
+// ⭐ AI 완성본: 엣지 함수 배포 전에는 true로 두고 화면만 확인. 배포 후 false로 변경.
+const MOCK_AI = true
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+
 type Mode = "list" | "practice" | "feedback"
 
 const SECTION_LABEL_MAP: Record<string, string> = {
@@ -45,6 +50,47 @@ const getDraftKey = (question: any) => `${DRAFT_KEY_PREFIX}${question._isAcademy
 const loadDraft = (question: any) => { try { const raw = localStorage.getItem(getDraftKey(question)); return raw ? JSON.parse(raw) : null } catch { return null } }
 const saveDraft = (question: any, data: any) => { try { localStorage.setItem(getDraftKey(question), JSON.stringify({ ...data, savedAt: new Date().toISOString() })); return true } catch { return false } }
 const clearDraft = (question: any) => { try { localStorage.removeItem(getDraftKey(question)) } catch { } }
+
+// ⭐ AI 완성본 호출
+type AiCompleteResult = {
+  completed: string
+  changes: { where: string; what: string; criterion?: string }[]
+  check_needed?: string[]
+}
+
+async function callAiComplete(payload: {
+  question_content: string
+  criteria: string
+  min_chars: number
+  max_chars: number
+  student_answer: string
+  teacher_feedback?: string
+}): Promise<AiCompleteResult> {
+  if (MOCK_AI) {
+    await new Promise((r) => setTimeout(r, 1200))
+    return {
+      completed: payload.student_answer.trim() +
+        "\n\n[모의 결과] 엣지 함수를 배포하고 MOCK_AI를 false로 바꾸면 실제 완성본이 표시됩니다.",
+      changes: [
+        { where: "2문단", what: "근거 없는 단정을 자료에 기반한 문장으로 바꿨습니다", criterion: "근거의 타당성" },
+        { where: "3문단", what: "관찰만 있던 문장에 그것이 뜻하는 바를 이어 붙였습니다", criterion: "분석력" },
+        { where: "마지막 문단", what: "흐린 표현을 근거가 있는 진술로 바꿨습니다", criterion: "서술력" },
+      ],
+      check_needed: ["[자료에서 확인한 수치를 직접 적으세요]"],
+    }
+  }
+
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/suhaeng-complete`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error(`완성본 생성 실패 (${res.status})`)
+  return await res.json()
+}
 
 function getDefaultSections(displayType: string) {
   if (displayType === "주제탐구" || displayType === "포트폴리오") return [
@@ -351,6 +397,143 @@ function QuestionCard({ q }: { q: any }) {
   )
 }
 
+// ⭐ AI 완성본 박스
+function AiCompleteBox({ q, answer, onApply, teacherFeedback, maxTries = 2 }: {
+  q: any
+  answer: string
+  onApply: (text: string) => void
+  teacherFeedback?: string
+  maxTries?: number
+}) {
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<AiCompleteResult | null>(null)
+  const [tries, setTries] = useState(0)
+  const [error, setError] = useState("")
+
+  const MIN_INPUT = 100
+  const enough = answer.trim().length >= MIN_INPUT
+  const canRun = enough && tries < maxTries && !loading
+
+  const criteria = [
+    q?.scoringCriteriaAi, q?.scoringCriteriaOriginal, q?.evalType, q?.coreConcept, q?.achievementStandard,
+  ].filter(Boolean).join(" / ") || "주장의 명확성 / 근거의 타당성 / 문단 구성"
+
+  const handleRun = async () => {
+    setLoading(true)
+    setError("")
+    try {
+      const data = await callAiComplete({
+        question_content: q?.content || q?.title || "",
+        criteria,
+        min_chars: q?.minChars || 400,
+        max_chars: q?.maxChars || 800,
+        student_answer: answer,
+        teacher_feedback: teacherFeedback,
+      })
+      setResult(data)
+      setTries((t) => t + 1)
+    } catch (e: any) {
+      setError(e.message || "완성본을 만들지 못했어요. 잠시 후 다시 시도해주세요.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleApply = () => {
+    if (!result?.completed) return
+    if (!confirm("지금 작성한 답안을 완성본으로 바꿀까요?\n\n바꾼 뒤에도 직접 고칠 수 있어요.")) return
+    onApply(result.completed)
+    setResult(null)
+  }
+
+  return (
+    <div className="bg-white border border-line rounded-xl overflow-hidden shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
+      <div className="px-4 py-2.5 bg-gray-50 border-b border-line flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-brand-middle-dark">🤖</span>
+          <span className="text-[12px] font-bold text-ink">AI 완성본</span>
+          {MOCK_AI && <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">테스트 모드</span>}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-ink-muted tabular-nums">{tries}/{maxTries}회 사용</span>
+          <button onClick={handleRun} disabled={!canRun}
+            className={`h-7 px-3 text-[11px] font-semibold rounded-md transition-all ${canRun ? "bg-brand-middle hover:bg-brand-middle-hover text-white" : "bg-gray-100 text-ink-muted cursor-not-allowed"}`}>
+            {loading ? "만드는 중..." : result ? "다시 만들기" : "완성본 만들기"}
+          </button>
+        </div>
+      </div>
+
+      {!result && !loading && (
+        <div className="px-4 py-6 text-center">
+          <div className="text-[11.5px] text-ink-secondary leading-[1.7]">
+            {!enough
+              ? `${MIN_INPUT}자 이상 작성한 뒤에 사용할 수 있어요. (현재 ${answer.trim().length}자)`
+              : tries >= maxTries
+                ? "사용 횟수를 모두 썼어요. 지금 답안을 직접 다듬어 제출하세요."
+                : "내가 쓴 답안을 바탕으로 완성본을 만들어 줍니다. 가져온 뒤 직접 고칠 수 있어요."}
+          </div>
+          {error && <div className="mt-2 text-[11px] text-red-600 font-semibold">{error}</div>}
+        </div>
+      )}
+
+      {loading && (
+        <div className="px-4 py-8 text-center text-ink-muted">
+          <div className="inline-block w-5 h-5 border-2 border-gray-300 border-t-brand-middle rounded-full animate-spin mb-2" />
+          <div className="text-[11.5px]">내 답안을 읽고 다듬는 중...</div>
+        </div>
+      )}
+
+      {result && !loading && (
+        <div className="p-4 space-y-3">
+          {result.check_needed && result.check_needed.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <div className="text-[11px] font-bold text-amber-800 mb-0.5">⚠️ 직접 채워야 하는 부분이 있어요</div>
+              <div className="text-[11px] text-amber-700 leading-[1.6]">
+                대괄호 [ ] 표시는 AI가 지어내지 않고 비워둔 자리예요. 자료에서 확인해서 직접 적으세요.
+              </div>
+            </div>
+          )}
+
+          <div className="border border-line rounded-lg p-3.5 bg-gray-50 max-h-[320px] overflow-y-auto">
+            <div className="text-[13px] text-ink leading-[1.9] whitespace-pre-wrap">{result.completed}</div>
+          </div>
+          <div className="text-[10px] text-ink-muted text-right tabular-nums">{result.completed.length}자</div>
+
+          {result.changes && result.changes.length > 0 && (
+            <div>
+              <div className="text-[11px] font-bold text-ink-muted mb-1.5">무엇을 바꿨나요</div>
+              <div className="space-y-1.5">
+                {result.changes.map((c, i) => (
+                  <div key={i} className="flex items-start gap-2 text-[11.5px] leading-[1.6]">
+                    <span className="flex-shrink-0 w-4 h-4 rounded-full bg-brand-middle-pale text-brand-middle-dark text-[9px] font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
+                    <div>
+                      <span className="text-ink font-semibold">{c.where}</span>
+                      <span className="text-ink"> — {c.what}</span>
+                      {c.criterion && <span className="text-ink-muted"> · {c.criterion}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 pt-1">
+            <button onClick={handleApply}
+              className="h-9 px-4 text-[12px] font-semibold text-white bg-brand-middle hover:bg-brand-middle-hover rounded-md transition-all">
+              가져와서 고치기
+            </button>
+            <button onClick={() => setResult(null)}
+              className="h-9 px-4 text-[12px] font-medium text-ink-secondary bg-white border border-line rounded-md hover:border-brand-middle-light transition-all">
+              내 글 그대로 두기
+            </button>
+            <span className="ml-auto text-[10px] text-ink-muted">그대로 내지 말고 내 말로 고쳐 쓰세요</span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function PracticeHeader({ q, secondsLeft, onBack, onSubmit, onSaveDraft, canSubmit, submitting }: any) {
   const timeUrgent = secondsLeft < 300
   const [savedAt, setSavedAt] = useState<Date | null>(null)
@@ -404,8 +587,10 @@ function EssayPractice({ q, onBack, onSubmit, submitting }: any) {
                 <span className="text-ink-muted">/ {minChars}~{maxChars}자</span>
               </div>
             </div>
-            <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="이곳에 답안을 작성하세요." className="w-full h-[500px] p-4 text-[13px] leading-[1.8] text-ink resize-none focus:outline-none placeholder:text-ink-muted" />
+            <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="이곳에 답안을 작성하세요." className="w-full h-[420px] p-4 text-[13px] leading-[1.8] text-ink resize-none focus:outline-none placeholder:text-ink-muted" />
           </div>
+
+          <AiCompleteBox q={q} answer={answer} onApply={setAnswer} />
         </div>
         <PracticeSidebar q={q} />
       </div>
@@ -439,6 +624,8 @@ function ShortAnswerPractice({ q, onBack, onSubmit, submitting }: any) {
             </div>
             <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="핵심 개념을 중심으로 간결하게 답안을 작성하세요." className="w-full h-[300px] p-4 text-[13px] leading-[1.8] text-ink resize-none focus:outline-none placeholder:text-ink-muted" />
           </div>
+
+          <AiCompleteBox q={q} answer={answer} onApply={setAnswer} />
         </div>
         <PracticeSidebar q={q} />
       </div>
@@ -503,6 +690,15 @@ function FeedbackView({ submission, onBack }: any) {
   // 사이드바에 넘길 최소 객체 (검색창 + 과목 키워드)
   const sidebarQ = {
     keywords: submission.question_subject ? [submission.question_subject] : [],
+  }
+
+  // ⭐ AI 완성본에 넘길 문항 정보
+  const aiQ = {
+    content: submission.question_content,
+    title: submission.question_title,
+    evalType: submission.question_type,
+    minChars: submission.question_min_chars || 400,
+    maxChars: submission.question_max_chars || 800,
   }
 
   const handleResubmit = async () => {
@@ -572,6 +768,13 @@ function FeedbackView({ submission, onBack }: any) {
                     <div className="text-[11px] text-ink-muted leading-relaxed">
                       선생님의 1차 피드백을 반영해서 답안을 수정한 뒤 다시 제출하세요. 한 번 재제출하면 수정할 수 없어요. (오른쪽 검색으로 자료를 찾을 수 있어요)
                     </div>
+                    <div className="flex items-center justify-end">
+                      <button
+                        onClick={() => { if (!resubmitText.trim()) setResubmitText(studentAnswerDisplay) }}
+                        className="text-[11px] font-semibold text-brand-middle-dark hover:text-brand-middle mr-auto">
+                        📋 1차 답안 불러오기
+                      </button>
+                    </div>
                     <textarea
                       value={resubmitText}
                       onChange={(e) => setResubmitText(e.target.value)}
@@ -595,6 +798,16 @@ function FeedbackView({ submission, onBack }: any) {
                 )}
               </div>
             </div>
+          )}
+
+          {/* ⭐ 재제출 단계에서도 AI 완성본 사용 가능 (선생님 피드백을 함께 반영) */}
+          {showResubmit && !alreadyResubmitted && (
+            <AiCompleteBox
+              q={aiQ}
+              answer={resubmitText || studentAnswerDisplay}
+              onApply={setResubmitText}
+              teacherFeedback={feedback?.teacher_first_feedback ?? undefined}
+            />
           )}
 
           {feedback?.teacher_final_feedback && (
