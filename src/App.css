@@ -182,3 +182,686 @@
     border-right-color: var(--border);
   }
 }
+
+/* ==================================================================
+   워크북 (mission_workbook)
+   ================================================================== */
+
+.wb-page {
+  --wb-blue: #2563eb;
+  --wb-blue-soft: #eff6ff;
+  --wb-amber: #f59e0b;
+  --wb-amber-soft: #fffbeb;
+  --wb-ink: #111827;
+  --wb-ink-2: #4b5563;
+  --wb-ink-3: #9ca3af;
+  --wb-line: #e5e7eb;
+
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+  font-family: Pretendard, -apple-system, 'Malgun Gothic', sans-serif;
+  color: var(--wb-ink);
+  line-height: 1.6;
+  text-align: left;
+}
+
+/* ---------- 페이지 머리 ---------- */
+
+.wb-page-head {
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid var(--wb-ink);
+}
+.wb-page-no {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--wb-blue);
+}
+.wb-page-head h2 {
+  margin: 4px 0 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.wb-block {
+  margin-bottom: 32px;
+}
+.wb-h4 {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 700;
+  padding-left: 10px;
+  border-left: 3px solid var(--wb-blue);
+}
+.wb-note {
+  margin: -4px 0 14px;
+  font-size: 13px;
+  color: var(--wb-ink-2);
+}
+.wb-label-sm {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--wb-ink-3);
+  margin-bottom: 6px;
+}
+.wb-label-sm.accent {
+  color: var(--wb-amber);
+}
+
+/* ---------- 1. 표지 ---------- */
+
+.wb-page.cover {
+  padding-top: 40px;
+}
+.wb-cover {
+  text-align: center;
+}
+.wb-cover-badge {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--wb-blue);
+}
+.wb-cover-week {
+  margin: 20px 0 0;
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+.wb-cover-subject {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--wb-blue-soft);
+  color: var(--wb-blue);
+  font-size: 14px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.wb-cover-title {
+  margin: 8px 0 32px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--wb-ink-2);
+}
+.wb-cover-question,
+.wb-cover-quote {
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  border-radius: 16px;
+  background: #f9fafb;
+  border: 1px solid var(--wb-line);
+}
+.wb-cover-question p,
+.wb-cover-quote p {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  font-style: italic;
+}
+.wb-cover-output {
+  margin-top: 24px;
+  padding: 22px 20px;
+  border-radius: 16px;
+  background: var(--wb-amber-soft);
+  border: 1px solid #fde68a;
+}
+.wb-cover-output strong {
+  display: block;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+.wb-cover-output p {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--wb-ink-2);
+}
+.wb-cover-meta {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 28px;
+}
+
+/* ---------- 2. 안내문 ---------- */
+
+.wb-notice {
+  margin-bottom: 28px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  font-size: 14px;
+}
+.wb-notice h4 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.wb-notice p {
+  margin: 0 0 6px;
+}
+.wb-notice p:last-child {
+  margin-bottom: 0;
+}
+.wb-notice.plain {
+  background: #f9fafb;
+  color: var(--wb-ink-2);
+}
+.wb-notice.quote {
+  background: var(--wb-blue-soft);
+  border-left: 3px solid var(--wb-blue);
+  font-style: italic;
+  font-weight: 600;
+}
+.wb-notice.point {
+  background: var(--wb-amber-soft);
+  border-left: 3px solid var(--wb-amber);
+  font-weight: 600;
+}
+
+/* ---------- 3. 진행표 ---------- */
+
+.wb-agenda {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--wb-line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.wb-agenda li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--wb-line);
+}
+.wb-agenda li:last-child {
+  border-bottom: 0;
+}
+.wb-agenda-no {
+  flex: 0 0 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: var(--wb-blue);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 24px;
+}
+.wb-agenda-label {
+  flex: 1;
+  font-weight: 600;
+}
+.wb-agenda-time {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--wb-blue);
+}
+
+/* ---------- 4. 입력 필드 ---------- */
+
+.wb-fields.stack .wb-field-row,
+.wb-field-row.stack {
+  display: block;
+  margin-bottom: 14px;
+}
+.wb-fields.numbered .wb-field-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.wb-fields.inline,
+.wb-fields.hash {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+.wb-field-row {
+  margin-bottom: 12px;
+}
+.wb-field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--wb-ink-2);
+  margin-bottom: 6px;
+}
+.wb-no {
+  flex: 0 0 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #f3f4f6;
+  color: var(--wb-ink-2);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 22px;
+}
+
+.wb-input-wrap {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  flex: 1;
+}
+.wb-input {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 0;
+  border-bottom: 2px solid var(--wb-line);
+  background: transparent;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--wb-ink);
+  transition: border-color 0.15s;
+}
+.wb-input:focus {
+  outline: 0;
+  border-bottom-color: var(--wb-blue);
+}
+.wb-input:disabled {
+  color: var(--wb-ink-2);
+}
+.wb-input::placeholder {
+  color: #d1d5db;
+}
+.wb-input.num {
+  width: 64px;
+  flex: 0 0 auto;
+  text-align: center;
+}
+.wb-input.inline {
+  width: auto;
+  min-width: 120px;
+  padding: 2px 8px;
+}
+.wb-input.hash {
+  width: 100px;
+  padding: 6px 4px;
+  font-weight: 700;
+}
+.wb-hash-mark {
+  font-weight: 800;
+  color: var(--wb-blue);
+}
+.wb-suffix {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: var(--wb-ink-2);
+}
+
+.wb-textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border: 1px solid var(--wb-line);
+  border-radius: 12px;
+  background: #fcfcfd;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.7;
+  resize: vertical;
+}
+.wb-textarea:focus {
+  outline: 0;
+  border-color: var(--wb-blue);
+  background: #fff;
+}
+
+.wb-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  cursor: pointer;
+}
+.wb-check input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--wb-blue);
+  flex: 0 0 auto;
+}
+
+.wb-stars {
+  display: inline-flex;
+  gap: 4px;
+}
+.wb-star {
+  border: 0;
+  background: 0;
+  padding: 0;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--wb-line);
+  cursor: pointer;
+}
+.wb-star.on {
+  color: var(--wb-amber);
+}
+
+/* ---------- 5. 표 · 6. 채점 격자 ---------- */
+
+.wb-table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--wb-line);
+  border-radius: 14px;
+}
+.wb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.wb-table th {
+  padding: 11px 12px;
+  background: #f9fafb;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--wb-ink-2);
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--wb-line);
+}
+.wb-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f3f4f6;
+}
+.wb-table tr:last-child td {
+  border-bottom: 0;
+}
+.wb-td-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.wb-table .wb-input {
+  padding: 5px 8px;
+  border-bottom-width: 1px;
+}
+
+.wb-table.wb-score th,
+.wb-table.wb-score td {
+  text-align: center;
+}
+.wb-table.wb-score .wb-td-label {
+  text-align: left;
+}
+.wb-th-total,
+.wb-td-total {
+  background: var(--wb-blue-soft);
+  font-weight: 800;
+  color: var(--wb-blue);
+}
+.wb-td-total em {
+  font-style: normal;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--wb-ink-3);
+}
+
+.wb-total {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* ---------- 7. 반복 카드 ---------- */
+
+.wb-cards {
+  display: grid;
+  gap: 16px;
+}
+.wb-card {
+  border: 1px solid var(--wb-line);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.wb-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-bottom: 1px solid var(--wb-line);
+}
+.wb-card-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--wb-blue);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+.wb-card-head strong {
+  font-size: 14px;
+}
+.wb-card-body {
+  padding: 16px;
+}
+
+/* ---------- 8. 선택지 ---------- */
+
+.wb-options {
+  display: grid;
+  gap: 8px;
+}
+.wb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wb-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--wb-line);
+  border-radius: 12px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--wb-ink);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.wb-chips .wb-opt {
+  border-radius: 999px;
+  padding: 8px 14px;
+}
+.wb-opt:hover:not(:disabled) {
+  border-color: #c7d2fe;
+}
+.wb-opt.on {
+  border-color: var(--wb-blue);
+  background: var(--wb-blue-soft);
+  color: var(--wb-blue);
+  font-weight: 700;
+}
+.wb-opt-box {
+  flex: 0 0 18px;
+  height: 18px;
+  border: 1px solid var(--wb-line);
+  border-radius: 5px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 17px;
+  text-align: center;
+}
+.wb-opt.on .wb-opt-box {
+  border-color: var(--wb-blue);
+  background: var(--wb-blue);
+  color: #fff;
+}
+
+/* ---------- 9. 빈칸 문장 ---------- */
+
+.wb-sentences {
+  display: grid;
+  gap: 14px;
+}
+.wb-sentence {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #f9fafb;
+  font-size: 15px;
+  line-height: 2.1;
+}
+
+/* ---------- 10. FINAL OUTPUT ---------- */
+
+.wb-output {
+  padding: 24px 20px;
+  border-radius: 18px;
+  background: var(--wb-amber-soft);
+  border: 1px solid #fde68a;
+}
+.wb-output-head {
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+  border-bottom: 1px dashed #fcd34d;
+}
+.wb-output-head h3 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+.wb-output-group {
+  margin-bottom: 18px;
+}
+.wb-output-group:last-child {
+  margin-bottom: 0;
+}
+.wb-output-group h5 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #92400e;
+}
+.wb-output .wb-input {
+  border-bottom-color: #fcd34d;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 6px 6px 0 0;
+}
+.wb-output .wb-textarea {
+  border-color: #fcd34d;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* ---------- 11. SELF CHECK ---------- */
+
+.wb-selfcheck {
+  margin-bottom: 28px;
+  padding: 20px;
+  border: 2px solid var(--wb-ink);
+  border-radius: 16px;
+}
+.wb-selfcheck .wb-h4 {
+  border-left: 0;
+  padding-left: 0;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  font-weight: 800;
+}
+.wb-selfcheck ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+
+/* ---------- 12. 다음 주 예고 ---------- */
+
+.wb-nextweek {
+  margin-top: 32px;
+  padding: 22px 20px;
+  border-radius: 18px;
+  background: var(--wb-ink);
+  color: #fff;
+}
+.wb-nextweek .wb-label-sm {
+  color: #9ca3af;
+}
+.wb-nextweek strong {
+  display: block;
+  font-size: 19px;
+  font-weight: 800;
+}
+.wb-nextweek strong em {
+  display: inline-block;
+  margin-right: 10px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--wb-amber);
+  color: var(--wb-ink);
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 800;
+  vertical-align: middle;
+}
+.wb-nextweek p {
+  margin: 10px 0 0;
+  font-size: 14px;
+  font-style: italic;
+  color: #d1d5db;
+}
+.wb-final-list {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+.wb-final-list li {
+  padding: 9px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ---------- 모바일 ---------- */
+
+@media (max-width: 640px) {
+  .wb-page {
+    padding: 16px 14px 56px;
+  }
+  .wb-cover-week {
+    font-size: 28px;
+  }
+  .wb-page-head h2 {
+    font-size: 19px;
+  }
+  .wb-cover-meta {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .wb-sentence {
+    line-height: 2.4;
+  }
+}
