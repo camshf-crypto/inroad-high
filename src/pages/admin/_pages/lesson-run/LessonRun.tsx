@@ -105,6 +105,20 @@ export default function LessonRun() {
   const mission = month.missions[Math.min(weekIdx, month.missions.length - 1)]
   const missionKey = mission.key
 
+  // 🖥️ 빔·TV 용 PPT 창 — 이 창을 빔으로 옮기고 F11, 좌우키로 넘긴다
+  const openBeam = () => {
+    const w = window.open(
+      `/admin/lesson-screen/${missionKey}`,
+      'bkurs-beam',
+      'width=1280,height=720',
+    )
+    if (!w) {
+      alert('팝업이 차단되었어요. 주소창 오른쪽의 팝업 허용을 눌러 주세요.')
+      return
+    }
+    w.focus()
+  }
+
   const switchLevel = (lv: Level) => {
     setLevel(lv)
     setGrade(GRADES_BY_LEVEL[lv][0])
@@ -331,8 +345,17 @@ export default function LessonRun() {
               <option key={i} value={i}>{i + 1}주차 · {ms.subject ?? ''} {ms.t}</option>
             ))}
           </select>
-          <div className="ml-auto text-[11px] text-ink-muted">
-            학생 {students?.length ?? 0}명
+          <div className="ml-auto flex items-center gap-3">
+            <button
+              onClick={openBeam}
+              className="text-[12px] font-bold px-4 py-2 rounded-lg text-white"
+              style={{ background: THEME.accent }}
+            >
+              🖥️ PPT 띄우기
+            </button>
+            <span className="text-[11px] text-ink-muted">
+              학생 {students?.length ?? 0}명
+            </span>
           </div>
         </div>
       </div>

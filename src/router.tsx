@@ -12,6 +12,7 @@ import Students from '@/pages/admin/_pages/students/Students'
 import StudentDetail from '@/pages/admin/_pages/students/detail/StudentDetail'
 import MiddleWorkbookView from '@/pages/admin/_pages/students/detail/middle-tabs/MiddleWorkbookView'
 import LessonRun from '@/pages/admin/_pages/lesson-run/LessonRun'
+import LessonScreen from '@/pages/admin/_pages/lesson-run/LessonScreen'
 import MiddleLessonVideos from '@/pages/admin/_pages/lessons/MiddleLessonVideos'
 import Academy from '@/pages/admin/_pages/academy/Academy'
 import Billing from '@/pages/admin/_pages/billing/Billing'
@@ -95,6 +96,8 @@ const router = createBrowserRouter([
     children: [
       { path: 'login', element: <AdminLogin /> },
       { path: 'signup', element: <Navigate to="/signup" replace /> },
+      // 🖥️ 빔·TV 용 수업 화면 (사이드바 없이 전체화면)
+      { path: 'lesson-screen/:missionKey', element: <LessonScreen /> },
       {
         path: '',
         element: <AdminLayout />,

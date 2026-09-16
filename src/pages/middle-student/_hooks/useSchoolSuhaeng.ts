@@ -25,6 +25,7 @@ export interface SchoolSuhaeng {
   eval_type: string
   score: number | null
   eval_period: string | null
+  sort_order: number | null
   scoring_factors: string | null
   grade_scale: string | null
   scoring_criteria_original: string | null
@@ -77,6 +78,8 @@ export function useSchool(schoolId?: string | null) {
 }
 
 // 특정 학교의 수행평가 조회
+// 평가시기가 빠른 순(sort_order) → 과목 → 과제명 순으로 정렬한다.
+// sort_order 가 없는 항목(평가시기 미기재)은 맨 뒤로 보낸다.
 export function useSchoolSuhaeng(schoolId?: string | null, grade?: string, semester?: string) {
   return useQuery({
     queryKey: ['school-suhaeng', schoolId, grade, semester],
@@ -85,7 +88,10 @@ export function useSchoolSuhaeng(schoolId?: string | null, grade?: string, semes
       let q = supabase.from('school_suhaeng').select('*').eq('school_id', schoolId)
       if (grade) q = q.eq('grade', grade)
       if (semester) q = q.eq('semester', semester)
-      const { data, error } = await q.order('subject').order('task_title')
+      const { data, error } = await q
+        .order('sort_order', { ascending: true, nullsFirst: false })
+        .order('subject')
+        .order('task_title')
       if (error) throw error
       return (data ?? []) as SchoolSuhaeng[]
     },

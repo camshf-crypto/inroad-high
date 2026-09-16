@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { useAtomValue } from "jotai";
 import { studentState, academyState } from "@/lib/auth/atoms";
 import {
@@ -908,7 +908,6 @@ export default function Suhaeng() {
       <div className="flex items-center justify-between flex-shrink-0">
         <div>
           <div className="text-[18px] font-extrabold text-ink tracking-tight">수행평가</div>
-          <div className="text-[12px] text-ink-muted mt-0.5">{student?.name} · {academy?.academyName}</div>
         </div>
         <div className="flex gap-2">
           {mySubmissions && mySubmissions.length > 0 && (
