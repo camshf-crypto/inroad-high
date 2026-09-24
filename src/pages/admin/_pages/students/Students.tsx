@@ -4,6 +4,7 @@ import { useAtomValue } from 'jotai'
 import { academyState } from '@/lib/auth/atoms'
 import { useAcademyStudents } from '../../_hooks/useAcademyStudents'
 import TeacherProgressSection from './TeacherProgressSection'
+import { JinroBulkButton } from './detail/middle-tabs/JinroAdmin'
 
 const PAGE_SIZE = 10
 
@@ -62,6 +63,7 @@ export default function Students() {
   const [sortKey, setSortKey] = useState<'name' | 'pct'>('name')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [page, setPage] = useState(1)
+  const [jinroSem, setJinroSem] = useState(1)
 
   const filtered = baseStudents
     .filter(s => grade === '전체' || s.grade === grade)
@@ -171,6 +173,19 @@ export default function Students() {
             총 <span className="font-extrabold text-[14px]" style={{ color: theme.accent }}>{filtered.length}명</span>
             {totalPages > 1 && <span className="text-ink-muted"> · {page}/{totalPages} 페이지</span>}
           </div>
+          {isMiddle && grade !== '전체' && (
+            <div className="flex items-center gap-2 ml-auto mr-3">
+              <select
+                value={jinroSem}
+                onChange={e => setJinroSem(Number(e.target.value))}
+                className="h-9 px-2 border border-line rounded-lg text-[12px] font-semibold text-ink-secondary outline-none"
+              >
+                <option value={1}>1학기</option>
+                <option value={2}>2학기</option>
+              </select>
+              <JinroBulkButton students={filtered} grade={grade} semester={jinroSem} />
+            </div>
+          )}
           <div
             className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full"
             style={{

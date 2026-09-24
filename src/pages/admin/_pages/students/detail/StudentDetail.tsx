@@ -24,8 +24,6 @@ import ConceptTab from './high-tabs/ConceptTab'
 
 // 중등 (middle-tabs)
 import MiddleRoadmapTab from './middle-tabs/roadmap'
-import MiddleLessonTab from './middle-tabs/lesson'
-import MiddleHomeworkTab from './middle-tabs/homework'
 import MiddleSuhaengTab from './middle-tabs/suhaeng'
 import MiddleRecordTab from './middle-tabs/Record'
 import MiddleBookTab from './middle-tabs/booklist'
@@ -36,6 +34,7 @@ import MiddleSimulationTab from './middle-tabs/simulation'
 import MiddlePresentationTab from './middle-tabs/presentation'
 import MiddleConceptTab from './middle-tabs/ConceptTab'
 import MiddleDebateTab from './middle-tabs/MiddleDebateTab'   // 🔥 AI 토론 추가
+import { JinroStudentPanel } from './middle-tabs/JinroAdmin'
 
 const HIGH_TABS = [
   { key: 'roadmap', label: '로드맵', menuKey: 'high.roadmap' },
@@ -57,9 +56,8 @@ const HIGH_TABS = [
 
 const MIDDLE_TABS = [
   { key: 'roadmap', label: '로드맵', menuKey: 'middle.roadmap' },
+  { key: 'jinro', label: '진로 데이터', menuKey: 'middle.roadmap' },
   { key: 'concept', label: '진로 계열 검사', menuKey: 'middle.concept' },
-  { key: 'lesson', label: '수업', menuKey: 'middle.lesson' },
-  { key: 'homework', label: '숙제', menuKey: 'middle.homework' },
   { key: 'suhaeng', label: '수행평가', menuKey: 'middle.suhaeng' },
   { key: 'record', label: '생기부', menuKey: 'middle.record' },
   { key: 'book', label: '독서리스트', menuKey: 'middle.book' },
@@ -77,7 +75,7 @@ const ALWAYS_VISIBLE_MIDDLE = ['middle.concept', 'middle.suhaeng', 'middle.basic
 const ALL_GRADES: GradeKey[] = ['고1', '고2', '고3']
 
 type HighTabType = 'roadmap' | 'roadmap_activity' | 'concept' | 'topic' | 'book' | 'record' | 'suhaeng' | 'expect' | 'past' | 'basic' | 'mockexam' | 'simulation' | 'presentation' | 'major'
-type MiddleTabType = 'roadmap' | 'concept' | 'lesson' | 'homework' | 'suhaeng' | 'record' | 'book' | 'debate' | 'expect' | 'past' | 'basic' | 'simulation' | 'presentation'   // 🔥 'debate' 추가
+type MiddleTabType = 'roadmap' | 'jinro' | 'concept' | 'suhaeng' | 'record' | 'book' | 'debate' | 'expect' | 'past' | 'basic' | 'simulation' | 'presentation'   // 🔥 'debate' 추가
 
 const THEME = {
   accent: '#2563EB',
@@ -370,9 +368,8 @@ export default function StudentDetail() {
           {isMiddle && (
             <>
               {middleTab === 'roadmap'      && visibleMiddleTabs.find(t => t.key === 'roadmap')      && <MiddleRoadmapTab student={student} />}
+              {middleTab === 'jinro'        && visibleMiddleTabs.find(t => t.key === 'jinro')        && <JinroStudentPanel studentId={student.id} studentName={student.name} grade={student.grade} />}
               {middleTab === 'concept'      && visibleMiddleTabs.find(t => t.key === 'concept')      && <MiddleConceptTab student={student} />}
-              {middleTab === 'lesson'       && visibleMiddleTabs.find(t => t.key === 'lesson')       && <MiddleLessonTab student={student} />}
-              {middleTab === 'homework'     && visibleMiddleTabs.find(t => t.key === 'homework')     && <MiddleHomeworkTab student={student} />}
               {middleTab === 'suhaeng'      && visibleMiddleTabs.find(t => t.key === 'suhaeng')      && <MiddleSuhaengTab student={student} />}
               {middleTab === 'record'       && visibleMiddleTabs.find(t => t.key === 'record')       && <MiddleRecordTab student={student} />}
               {middleTab === 'book'         && visibleMiddleTabs.find(t => t.key === 'book')         && <MiddleBookTab student={student} />}

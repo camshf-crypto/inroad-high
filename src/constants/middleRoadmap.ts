@@ -1,10 +1,15 @@
 /**
- * 중등 로드맵 (본사 공통 커리큘럼)
+ * 중등 진로 로드맵 (본사 공통 커리큘럼)
  *
- * - 학년: 중1 / 중2 / 중3특목 / 중3일반
+ * - 학년: 초5 / 초6 / 중1 / 중2 / 중3특목 / 중3일반
+ *   · 초5·초6 — 커리큘럼 준비 중 (자리만 잡아둠)
  *   · 중3특목 — 자사고·외고·국제고 (자기주도학습전형: 자소서 + 면접)
  *   · 중3일반 — 일반고 (PRE-BUILD: 고1 교과활동·탐구 선행)
  * - 월: 1, 2, 3, 4, 5, 6, 7, 8 (8개월)
+ *
+ * 진로 로드맵 구간은 중3 1학기(1~4개월)까지.
+ * 중3 5~8개월(phase: 'prep')부터는 트랙별 고입 준비 구간이다.
+ *
  * - 미션 타입:
  *   - inAnswer: 비커스 서비스로 진행 (보라)
  *   - tab: 특정 탭으로 이동 (파랑, tab 속성 참고)
@@ -38,15 +43,24 @@ export interface RoadmapMonth {
   freq: string
   /** 그 달에 남기는 결과물 */
   output?: string
+  /** 진로 로드맵 구간인지(기본), 고입 준비 구간인지 */
+  phase?: 'jinro' | 'prep'
   missions: Mission[]
 }
 
-export type MiddleGradeKey = '중1' | '중2' | '중3특목' | '중3일반'
+export type MiddleGradeKey = '초5' | '초6' | '중1' | '중2' | '중3특목' | '중3일반'
 
 // 고등의 GradeKey와 충돌 방지용 재export
 export type { HighGradeKey }
 
 export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
+
+  // ───────────────────────────────────────────
+  // 초5 · 초6 — 커리큘럼 준비 중 (길에 자리만 잡아둔다)
+  // ───────────────────────────────────────────
+  '초5': [],
+  '초6': [],
+
   '중1': [
     {
       m: '1개월', theme: '나를 이해하기', freq: '주 1회 (4주)', output: '개인 관심·강점 지도',
@@ -199,6 +213,8 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
 
   // ───────────────────────────────────────────
   // 중3 특목 트랙 — 자사고·외고·국제고 (자기주도학습전형)
+  //   1~4개월: 진로 로드맵 마지막 구간
+  //   5~8개월: 고입 준비 구간 (phase: 'prep')
   // ───────────────────────────────────────────
   '중3특목': [
     {
@@ -239,6 +255,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
     },
     {
       m: '5개월', theme: '고1 활동 로드맵 완성', freq: '주 1회 (4주)', output: '고1 MASTER PLAN',
+      phase: 'prep',
       missions: [
         { key: 'middle3-05-1', t: '관심학과 핵심역량', type: 'inAnswer' },
         { key: 'middle3-05-2', t: '과목별 후속탐구', type: 'teacher' },
@@ -248,6 +265,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
     },
     {
       m: '6개월', theme: '자소서 + 면접 BASIC', freq: '주 1회 (4주)', output: 'EXPERIENCE BANK + 자소서 초안',
+      phase: 'prep',
       missions: [
         { key: 'middle3-06-1', t: '자소서 문항·소재 발굴', type: 'tab', tab: 'expect' },
         { key: 'middle3-06-2', t: '자기주도학습 작성·답변', type: 'tab', tab: 'expect' },
@@ -257,6 +275,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
     },
     {
       m: '7개월', theme: '자소서 완성 + 서류면접', freq: '주 1회 (4주)', output: '최종 자소서 + 예상질문집',
+      phase: 'prep',
       missions: [
         { key: 'middle3-07-1', t: '학교별 자소서 완성', type: 'tab', tab: 'expect' },
         { key: 'middle3-07-2', t: '자소서 기반 질문', type: 'tab', tab: 'expect' },
@@ -266,6 +285,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
     },
     {
       m: '8개월', theme: '학교별 실전면접', freq: '주 1회 (4주)', output: '고입 면접 Portfolio',
+      phase: 'prep',
       missions: [
         { key: 'middle3-08-1', t: '학교별 기출', type: 'tab', tab: 'past' },
         { key: 'middle3-08-2', t: '실전 모의면접 ①', type: 'tab', tab: 'simulation' },
@@ -277,6 +297,8 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
 
   // ───────────────────────────────────────────
   // 중3 일반고 트랙 — PRE-BUILD "고1에서 처음 하지 않는다"
+  //   1~4개월: 진로 로드맵 마지막 구간
+  //   5~8개월: 예비고1 준비 구간 (phase: 'prep')
   // ───────────────────────────────────────────
   '중3일반': [
     {
@@ -317,6 +339,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
     },
     {
       m: '5개월', theme: '고1 활동 로드맵', freq: '주 1회 (4주)', output: '고1 기본 로드맵',
+      phase: 'prep',
       missions: [
         { key: 'middle3g-05-1', t: '관심학과 핵심역량', type: 'inAnswer' },
         { key: 'middle3g-05-2', t: '고1 과목과 진로 연결', type: 'inAnswer' },
@@ -326,6 +349,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
     },
     {
       m: '6개월', theme: '고1 탐구 선행 ①', freq: '주 1회 (4주)', output: '교과탐구 예행 2개',
+      phase: 'prep',
       missions: [
         { key: 'middle3g-06-1', t: '교과 A 단원 분석', type: 'teacher' },
         { key: 'middle3g-06-2', t: '교과 A 탐구 실습', type: 'teacher' },
@@ -335,6 +359,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
     },
     {
       m: '7개월', theme: '고1 탐구 선행 ②', freq: '주 1회 (4주)', output: '교과탐구 예행 2개',
+      phase: 'prep',
       missions: [
         { key: 'middle3g-07-1', t: '교과 C 탐구 실습', type: 'teacher' },
         { key: 'middle3g-07-2', t: '자료·데이터 활용', type: 'teacher' },
@@ -344,6 +369,7 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
     },
     {
       m: '8개월', theme: '고1 입학 실전 선행', freq: '주 1회 (4주)', output: '고1 시작 지도',
+      phase: 'prep',
       missions: [
         { key: 'middle3g-08-1', t: '탐구주제 선정 실습', type: 'teacher' },
         { key: 'middle3g-08-2', t: '보고서형 활동', type: 'teacher' },
@@ -354,6 +380,18 @@ export const MIDDLE_ROADMAP: Record<MiddleGradeKey, RoadmapMonth[]> = {
   ],
 
 }
+
+/**
+ * 진로 로드맵의 마지막 구간 — 중3 1학기 4개월
+ * 이 뒤는 트랙별 고입 준비 구간이라 길에서 갈림길로 표시한다.
+ */
+export const JINRO_LAST_MONTHS = 4
+
+/** 중3 2학기부터 갈라지는 두 트랙 */
+export const PREP_TRACKS: { key: MiddleGradeKey; label: string; sub: string }[] = [
+  { key: '중3특목', label: '특목·자사고', sub: '자소서 · 면접 준비' },
+  { key: '중3일반', label: '일반고', sub: '예비고1 준비' },
+]
 
 /**
  * month 문자열("3개월")에서 숫자만 추출 → DB에 저장될 month 컬럼 값
@@ -370,6 +408,8 @@ export function toMiddleGradeKey(
   grade: string | null | undefined,
   track?: string | null,
 ): MiddleGradeKey {
+  if (grade?.includes('초5')) return '초5'
+  if (grade?.includes('초6')) return '초6'
   if (grade?.includes('3')) return track === 'general' ? '중3일반' : '중3특목'
   if (grade?.includes('2')) return '중2'
   return '중1'

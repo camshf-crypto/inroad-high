@@ -13,7 +13,7 @@ import { findOrCreateSchool } from '@/pages/middle-student/_hooks/useSchoolSuhae
 
 const MENUS = [
   { path: '/middle-student/concept', label: '진로 계열 검사', icon: '🧭', menuKey: 'middle.concept', isNew: true },
-  { path: '/middle-student/roadmap', label: '입시 로드맵', icon: '⊞', menuKey: 'middle.roadmap' },
+  { path: '/middle-student/roadmap', label: '진로 로드맵', icon: '⊞', menuKey: 'middle.roadmap' },
   { path: '/middle-student/suhaeng', label: '수행평가', icon: '🎯', menuKey: 'middle.suhaeng' },
   { path: '/middle-student/record', label: '내 생기부', icon: '📋', menuKey: 'middle.record' },
   { path: '/middle-student/book', label: '독서리스트', icon: '📚', menuKey: 'middle.book' },
