@@ -5,6 +5,7 @@ import {
   useSubmitToTeacher,
 } from "@/pages/middle-student/_hooks/useEssayWizard";
 import { supabase } from "@/lib/supabase";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSchoolEssayData } from "@/constants/schoolEssayData";
 import { SCHOOL_SUBQUESTIONS } from "@/constants/schoolSubQuestions";
 // 🎯 선생님이 실제로 쓰는 곳(jaso_essay_answers / jaso_essay_feedback)을 읽는다.
@@ -71,11 +72,28 @@ type SubQuestion = { title: string; guide: string; example: string };
 
 // key별 세부 질문 가이드 풀 (마법사 5단계에서 사용)
 const QUESTION_GUIDE: Record<string, SubQuestion[]> = {
+  // 🎓 자기주도학습 — 학교와 상관없이 공통 4문항 (질문 하나 = 자소서 한 문단)
   selfStudy: [
-    { title: "어떤 학습 목표를 세우고 어떻게 계획했어?", guide: '공부할 때 무작정 한 게 아니라 "목표 → 계획"의 과정이 있었는지 떠올려요.', example: '"2학년 때 영어 회화 약점을 느끼고, 6개월간 매주 영자신문 1편 읽기를 목표로 세웠다"' },
-    { title: "실제로 어떻게 학습했고 어려움은 어떻게 극복했어?", guide: "계획대로 다 안 됐을 수 있어요. 막힌 부분을 어떻게 해결했는지 솔직하게 적어요.", example: '"처음엔 한 기사 읽는데 1시간 걸려 좌절했지만, 단어 노트를 만들어 매주 30개씩 외웠다"' },
-    { title: "진로체험·동아리·꿈끼 활동 중 가장 의미 있었던 건?", guide: "교과 외 활동 중 본인의 진로나 꿈과 연결된 활동을 골라요.", example: '"과학동아리 부장으로 1년간 매월 실험 프로젝트를 기획·진행했다"' },
-    { title: "결과를 평가하고 무엇을 느꼈어?", guide: '"재미있었다" 말고, 구체적으로 뭘 배웠고 어떻게 성장했는지 적어요.', example: '"꾸준함의 힘을 알게 됐고, 6개월 단위로 도전하는 습관이 생겼다"' },
+    {
+      title: "이 진로(분야)에 관심을 갖게 된 계기는 무엇인가요?",
+      guide: "관심이 처음 생긴 장면을 구체적으로 적어요(언제, 무엇을 보거나 겪었는지). '멋있어서'보다 그때 무엇이 궁금했는지가 중요해요. 그 뒤 관심이 어떻게 이어졌는지 한 줄로 마무리해요.",
+      example: '"어릴 때 이국종 교수 영상 보고 의사에 관심 생김. 몸 구조랑 병 고치는 법이 궁금했음. 중학교 과학 시간에 인체 배우면서 직접 실험해 보고 싶어짐"',
+    },
+    {
+      title: "그 관심을 직접 확인해 본 활동은 무엇인가요?",
+      guide: "관심을 행동으로 옮긴 학교 안 활동(수업·동아리·과제·보고서) 하나를 골라요. 내가 직접 한 일, 해 보고 새로 알게 된 것, 그 뒤 더 궁금해진 점을 순서대로 적어요.",
+      example: '"생활과학탐구반에서 혈액형 검사 실험함. 항원 항체 원리 배우고 직접 해 봄. 끝나고 수혈 잘못하면 어떻게 되는지 궁금해서 찾아봤는데 열, 오한 생기고 심하면 용혈성 수혈 부작용 생긴다고 함"',
+    },
+    {
+      title: "관심 분야를 더 알기 위해 스스로 어떻게 공부했나요?",
+      guide: "누가 시켜서가 아니라 내가 정한 공부를 적어요. 무엇을 알고 싶었는지(목표), 어떤 자료와 방법으로 했는지(계획·실천), 잘 안 될 때 방법을 어떻게 바꿨는지(점검·수정)가 다 들어가야 해요.",
+      example: '"혈액이 몸을 어떻게 도는지 더 알고 싶어서 도서관에서 인체 책 찾아 읽음. 처음엔 용어가 어려워서 그냥 외웠는데 금방 까먹음. 그래서 몸 구조를 그림으로 그리면서 기능을 연결해 정리하는 방식으로 바꿈"',
+    },
+    {
+      title: "이 과정을 통해 무엇이 달라졌고, 꿈과 어떻게 연결되나요?",
+      guide: "느낀 점보다 달라진 행동을 적어요(공부 습관, 생각하는 방식, 태도). 그 변화가 내 꿈에 왜 필요한지 이어 주고, 고등학교에서 이어서 해 보고 싶은 것으로 마무리해요.",
+      example: '"그림으로 연결해서 정리하니까 오래 기억나서 다른 과목도 이렇게 공부함. 몸을 구조랑 기능으로 같이 보는 게 의사한테 꼭 필요하다고 느낌. 고등학교 가서 생명과학 실험 더 깊게 해 보고 싶음"',
+    },
   ],
   reason: [
     { title: "이 학교 건학이념·특성 중 가장 와닿은 게 뭐야?", guide: "학교 홈페이지에서 건학이념·인재상을 확인하고, 내 가치관과 맞는 한 가지를 골라요.", example: "\"이 학교의 '글로벌 인재 양성' 이념이 가장 와닿았다.\"" },
@@ -112,7 +130,7 @@ const QUESTION_GUIDE: Record<string, SubQuestion[]> = {
 
 // 매칭 단계에서 보여줄 "이런 경험이 어울려요" 예시 풀
 const MATCHING_EXAMPLES: Record<string, string[]> = {
-  selfStudy: ["- 스스로 세운 학습 목표·달성 경험", "- 동아리 프로젝트·교내 대회 참가", "- 진로 체험·꿈을 키운 활동", "- 어려움을 극복한 학습 경험", "- 기억에 남는 책·스스로 찾아 한 학습"],
+  selfStudy: ["- 진로에 관심을 갖게 된 계기(영상·책·사람·경험)", "- 관심을 직접 확인해 본 수업·동아리·실험 활동", "- 활동 뒤에 더 궁금해서 스스로 찾아본 것", "- 관심 분야를 혼자 공부한 방법과 막혔던 점", "- 공부하면서 달라진 점"],
   reason: ["- 학교 건학이념과 맞는 가치관 형성 경험", "- 학교 특성에 관심 갖게 된 사건", "- 학교 인재상과 닮은 내 모습", "- 학교 프로그램·동아리에 끌린 이유"],
   career: ["- 진로에 영향 준 결정적 경험", "- 진로 관련 독서·강의·다큐", "- 관심 분야 탐구 활동", "- 진로 박람회·직업 체험"],
   character: ["- 친구·후배를 도운 봉사 경험", "- 갈등 해결·협력 경험", "- 규칙·약속 지킨 사례", "- 배려·나눔 실천 경험", "- 학급·자치회 활동"],
@@ -140,8 +158,9 @@ function getWizardSections(schoolName: string): SectionDef[] {
   }));
 }
 
-// 질문 가이드 우선순위: ① 학교별 세부질문 → ② key별 기본 → ③ 범용 기본
+// 질문 가이드 우선순위: ⓪ 자기주도학습은 공통 → ① 학교별 세부질문 → ② key별 기본 → ③ 범용 기본
 function guideFor(key: string, schoolName?: string): SubQuestion[] {
+  if (key === "selfStudy") return QUESTION_GUIDE.selfStudy;
   if (schoolName && SCHOOL_SUBQUESTIONS[schoolName]?.[key]?.length) {
     return SCHOOL_SUBQUESTIONS[schoolName][key];
   }
@@ -263,6 +282,57 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
   }, [studentId]);
 
   const { data: savedWizard, isLoading: isLoadingWizard } = useEssayWizard(essayId);
+
+  // 🎯 컨셉 선생님 확인 — 학생이 컨셉을 고르면 선생님께 넘어가고, 확인 전까지 4단계는 잠긴다
+  const qc = useQueryClient();
+  const { data: conceptGate } = useQuery({
+    queryKey: ["concept-gate", essayId],
+    enabled: !!essayId,
+    refetchInterval: 10000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("middle_essay_wizard")
+        .select("concept_status, concept_feedback, concept_checked_at")
+        .eq("essay_id", essayId)
+        .maybeSingle();
+      return data as { concept_status: string | null; concept_feedback: string | null; concept_checked_at: string | null } | null;
+    },
+  });
+  const conceptStatus = (conceptGate?.concept_status ?? "none") as "none" | "pending" | "approved" | "rejected";
+  const conceptFeedback = conceptGate?.concept_feedback ?? "";
+  // 이 기능 전에 이미 4단계 이후로 넘어간 학생은 막지 않는다
+  const [legacyPass, setLegacyPass] = useState(false);
+
+  /** 컨셉을 고르는 순간 선생님께 넘긴다 */
+  const sendConceptToTeacher = async (concept: ConceptData) => {
+    setData((p) => ({ ...p, concept }));
+    setLegacyPass(false);
+    const { error } = await supabase
+      .from("middle_essay_wizard")
+      .update({
+        concept,
+        concept_status: "pending",
+        concept_feedback: null,
+        concept_sent_at: new Date().toISOString(),
+        concept_checked_at: null,
+      })
+      .eq("essay_id", essayId);
+    if (error) console.error("[concept] send", error);
+    qc.invalidateQueries({ queryKey: ["concept-gate", essayId] });
+  };
+
+  /** 컨셉을 지우고 다시 고른다 */
+  const resetConcept = async () => {
+    if (conceptStatus === "approved" && !confirm("선생님이 확인해 준 컨셉이에요.\n바꾸면 선생님께 다시 확인받아야 해요. 바꿀까요?")) return;
+    setData((p) => ({ ...p, concept: null }));
+    setCheckResult(null);
+    setLegacyPass(false);
+    await supabase
+      .from("middle_essay_wizard")
+      .update({ concept: null, concept_status: "none", concept_checked_at: null })
+      .eq("essay_id", essayId);
+    qc.invalidateQueries({ queryKey: ["concept-gate", essayId] });
+  };
   // 🎯 차수별 원문 / 차수별 선생님 피드백 (5초마다 자동 갱신)
   const { data: essayAnswers = [] } = useEssayAnswers(essayId);
   const { data: essayFeedbacks = [] } = useEssayFeedback(essayId);
@@ -303,8 +373,17 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
         mindmap: mergedMindmap,
         matching: mergedMatching,
         sections: mergedSections,
+        concept: (savedWizard as any).concept ?? null,
       });
       setCurrentStep(savedWizard.current_step || 1);
+      // 이 기능 전에 컨셉을 정하고 4단계 이후로 넘어간 학생
+      if (
+        ((savedWizard as any).concept_status ?? "none") === "none" &&
+        (savedWizard as any).concept?.career &&
+        (savedWizard.current_step || 1) >= 4
+      ) {
+        setLegacyPass(true);
+      }
       isInitialLoadRef.current = false;
     } else if (!savedWizard && !isLoadingWizard && isInitialLoadRef.current) {
       isInitialLoadRef.current = false;
@@ -450,6 +529,8 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
   const isStep2Done = emptyBranches.length === 0;
   const matchedCount = sectionKeys.reduce((sum, k) => sum + (data.matching[k]?.length || 0), 0);
   const isConceptDone = !!data.concept?.career;
+  // 🎯 4단계부터는 선생님이 컨셉을 확인해야 갈 수 있다
+  const isConceptApproved = isConceptDone && (conceptStatus === "approved" || legacyPass);
   const isStep3Done = matchedCount >= 2;
   // 🎯 항목 하나는 "다 쓰거나 / 손도 안 대거나" 둘 중 하나여야 한다.
   //    반쯤 쓴 항목이 넘어가면 선생님이 볼 게 없다.
@@ -471,7 +552,7 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
   const STEPS = [
     { num: 1, label: "키워드", done: isStep1Done },
     { num: 2, label: "경험", done: isStep2Done },
-    { num: 3, label: "컨셉", done: isConceptDone },
+    { num: 3, label: "컨셉", done: isConceptApproved },
     { num: 4, label: "매칭", done: isStep3Done },
     { num: 5, label: "작성", done: isStep4Done },
     { num: 6, label: "점검", done: false },
@@ -570,7 +651,16 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
             const isLast = idx === STEPS.length - 1;
             return (
               <div key={s.num} className="flex items-center flex-1 last:flex-initial">
-                <div onClick={() => setCurrentStep(s.num)} className="flex items-center gap-2 cursor-pointer flex-shrink-0">
+                <div
+                  onClick={() => {
+                    if (s.num >= 4 && !isConceptApproved) {
+                      alert(isConceptDone ? "선생님이 컨셉을 확인해 주면 다음 단계로 갈 수 있어요." : "3단계에서 컨셉을 먼저 정해 주세요.");
+                      return;
+                    }
+                    setCurrentStep(s.num);
+                  }}
+                  className="flex items-center gap-2 cursor-pointer flex-shrink-0"
+                >
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold transition-all ${isActive ? "bg-brand-middle text-white shadow-[0_2px_8px_rgba(16,185,129,0.3)] ring-2 ring-brand-middle-pale" : isPast ? "bg-brand-middle-dark text-white" : "bg-white text-ink-muted border border-line"}`}>
                     {isPast ? "✓" : s.num}
                   </div>
@@ -739,13 +829,59 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                     </div>
                     <button
                       type="button"
-                      onClick={() => { setData((p) => ({ ...p, concept: null })); setCheckResult(null); }}
+                      onClick={resetConcept}
                       className="text-[11px] font-bold text-ink-muted hover:text-ink underline flex-shrink-0"
                     >
                       다시 정하기
                     </button>
                   </div>
                 </div>
+              )}
+
+              {/* 🎯 선생님 확인 상태 */}
+              {data.concept?.career && !legacyPass && (
+                <>
+                  {conceptStatus === "pending" && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 mb-5 flex gap-3">
+                      <div className="text-xl flex-shrink-0">⏳</div>
+                      <div>
+                        <div className="text-[13px] font-extrabold text-amber-900">선생님이 컨셉을 확인하고 있어요</div>
+                        <div className="text-[12px] text-amber-800 leading-[1.6] mt-0.5">
+                          내가 꺼낸 경험과 이 컨셉이 잘 맞는지 선생님이 봐 줄 거예요. 확인되면 4단계로 갈 수 있어요.
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {conceptStatus === "approved" && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-4 mb-5">
+                      <div className="text-[13px] font-extrabold text-emerald-800">✓ 선생님이 이 컨셉으로 가자고 했어요</div>
+                      {conceptFeedback && (
+                        <div className="text-[12.5px] text-emerald-900 leading-[1.7] mt-1.5 whitespace-pre-wrap">💬 {conceptFeedback}</div>
+                      )}
+                    </div>
+                  )}
+                  {conceptStatus === "rejected" && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 mb-5">
+                      <div className="text-[13px] font-extrabold text-red-800">선생님이 컨셉을 다시 정해 보자고 했어요</div>
+                      {conceptFeedback && (
+                        <div className="text-[12.5px] text-red-900 leading-[1.7] mt-1.5 whitespace-pre-wrap">💬 {conceptFeedback}</div>
+                      )}
+                      <div className="text-[11.5px] text-red-700 mt-2">위의 <strong>다시 정하기</strong>를 눌러 컨셉을 다시 골라 주세요. 고르면 선생님께 다시 넘어가요.</div>
+                    </div>
+                  )}
+                  {conceptStatus === "none" && (
+                    <div className="bg-gray-50 border border-line rounded-xl px-5 py-4 mb-5 flex items-center justify-between gap-3">
+                      <div className="text-[12px] text-ink-secondary">아직 선생님께 넘어가지 않았어요.</div>
+                      <button
+                        type="button"
+                        onClick={() => data.concept && sendConceptToTeacher(data.concept)}
+                        className="h-9 px-4 bg-brand-middle hover:bg-brand-middle-hover text-white rounded-lg text-[12px] font-bold flex-shrink-0"
+                      >
+                        선생님께 보내기
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
 
               {!data.concept?.career && (
@@ -759,15 +895,12 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                       <button
                         type="button"
                         onClick={() => {
-                          setData((p) => ({
-                            ...p,
-                            concept: {
-                              career: priorConcept.career,
-                              label: `${priorConcept.career}을(를) 향해 준비해온 학생`,
-                              source: "test",
-                              decidedAt: new Date().toISOString(),
-                            },
-                          }));
+                          sendConceptToTeacher({
+                            career: priorConcept.career,
+                            label: `${priorConcept.career}을(를) 향해 준비해온 학생`,
+                            source: "test",
+                            decidedAt: new Date().toISOString(),
+                          });
                         }}
                         className="mt-2.5 h-9 px-4 bg-white border border-brand-middle text-brand-middle-dark rounded-lg text-[12px] font-bold hover:bg-brand-middle-pale transition-colors"
                       >
@@ -844,10 +977,7 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                               <button
                                 type="button"
                                 onClick={() =>
-                                  setData((p) => ({
-                                    ...p,
-                                    concept: { career: c.career, label: c.label, source: "ai", fit: Math.min(100, c.supportCount * 25), decidedAt: new Date().toISOString() },
-                                  }))
+                                  sendConceptToTeacher({ career: c.career, label: c.label, source: "ai", fit: Math.min(100, c.supportCount * 25), decidedAt: new Date().toISOString() })
                                 }
                                 className="w-full h-9 bg-white border border-brand-middle text-brand-middle-dark rounded-lg text-[12px] font-bold hover:bg-brand-middle-pale transition-colors"
                               >
@@ -954,17 +1084,14 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                         <button
                           type="button"
                           onClick={() =>
-                            setData((p) => ({
-                              ...p,
-                              concept: {
-                                career: customCareer.trim(),
-                                label: checkResult.label,
-                                source: "custom",
-                                fit: checkResult.fit,
-                                verdict: checkResult.verdict,
-                                decidedAt: new Date().toISOString(),
-                              },
-                            }))
+                            sendConceptToTeacher({
+                              career: customCareer.trim(),
+                              label: checkResult.label,
+                              source: "custom",
+                              fit: checkResult.fit,
+                              verdict: checkResult.verdict,
+                              decidedAt: new Date().toISOString(),
+                            })
                           }
                           className="w-full h-10 bg-brand-middle hover:bg-brand-middle-hover text-white rounded-lg text-[12.5px] font-bold transition-all"
                         >
@@ -977,7 +1104,11 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
               )}
 
               <div className="mt-5 text-[12px] text-ink-secondary text-center">
-                {isConceptDone ? " ✅ 다음 단계로 갈 수 있어요!" : " 직업군을 하나 정해야 다음으로 갈 수 있어요"}
+                {isConceptApproved
+                  ? " ✅ 다음 단계로 갈 수 있어요!"
+                  : isConceptDone
+                  ? " 선생님이 컨셉을 확인해 주면 다음 단계로 갈 수 있어요"
+                  : " 직업군을 하나 정하면 선생님께 넘어가요"}
               </div>
             </div>
           )}
@@ -986,6 +1117,16 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
           {currentStep === 4 && (
             <div className="bg-white border border-line rounded-2xl p-7 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
               <h2 className="text-[18px] font-extrabold text-ink mb-2 tracking-tight">4단계 · 경험을 자소서 항목에 연결하기</h2>
+              {data.concept?.career && (
+                <div className="bg-brand-middle-pale border border-brand-middle-light rounded-xl px-4 py-3 mb-4">
+                  <div className="text-[12px] text-brand-middle-dark">
+                    <strong>{data.concept.career}</strong> 컨셉에 맞는 경험을 골라 붙여요.
+                  </div>
+                  {conceptFeedback && conceptStatus === "approved" && (
+                    <div className="text-[11.5px] text-ink-secondary leading-[1.6] mt-1 whitespace-pre-wrap">💬 선생님: {conceptFeedback}</div>
+                  )}
+                </div>
+              )}
               <p className="text-[12.5px] text-ink-secondary leading-[1.7] mb-5">2단계에서 꺼낸 경험들을 <strong>{schoolName}의 {sectionDefs.length}개 자소서 항목</strong>에 매칭해요.<br />각 항목 박스 안에 어떤 경험이 어울리는지 예시를 보여줄게요!</p>
               <div className="grid grid-cols-[280px_1fr] gap-4">
                 <div className="bg-gray-50 border border-line rounded-xl p-3">
@@ -1073,6 +1214,9 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                     <div className="text-[10px] text-white/75 leading-[1.5] mt-2 pt-2 border-t border-white/25">
                       이 직업군과 이어지는 경험으로 쓰세요. 아무 경험이나 쓰면 흩어져 보여요.
                     </div>
+                    {conceptFeedback && conceptStatus === "approved" && (
+                      <div className="text-[10.5px] text-white leading-[1.5] mt-2 pt-2 border-t border-white/25 whitespace-pre-wrap">💬 선생님: {conceptFeedback}</div>
+                    )}
                   </div>
                 )}
                 <div className="mb-5">
@@ -1495,6 +1639,14 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
                   alert("직업군을 하나 정해야 다음으로 갈 수 있어요.\n내 경험으로 찾아보거나, 하고 싶은 직업을 직접 적어보세요.");
                   return;
                 }
+                if (currentStep === 3 && !isConceptApproved) {
+                  alert(
+                    conceptStatus === "rejected"
+                      ? "선생님이 컨셉을 다시 정해 보자고 했어요.\n'다시 정하기'를 눌러 컨셉을 다시 골라 주세요."
+                      : "선생님이 컨셉을 확인해 주면 다음 단계로 갈 수 있어요.",
+                  );
+                  return;
+                }
                 if (currentStep === 4 && !isStep3Done) {
                   alert("경험을 자소서 항목에 2개 이상 연결해야 다음으로 갈 수 있어요.");
                   return;
@@ -1504,7 +1656,7 @@ export default function EssayWizard({ schoolName, essayId, studentId, academyId,
               className={`h-10 px-5 rounded-lg text-[13px] font-semibold transition-all ${
                 (currentStep === 1 && !isStep1Done) ||
                 (currentStep === 2 && !isStep2Done) ||
-                (currentStep === 3 && !isConceptDone) ||
+                (currentStep === 3 && !isConceptApproved) ||
                 (currentStep === 4 && !isStep3Done)
                   ? "bg-gray-100 text-ink-muted cursor-not-allowed"
                   : "bg-brand-middle hover:bg-brand-middle-hover text-white hover:-translate-y-px hover:shadow-btn-middle"

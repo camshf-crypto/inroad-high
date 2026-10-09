@@ -21,6 +21,7 @@ import Teachers from '@/pages/admin/_pages/teachers/Teachers'
 import StudentApproval from '@/pages/admin/_pages/student-approval/StudentApproval'
 import SuhaengManage from '@/pages/admin/_pages/suhaeng/SuhaengManage'
 import Reports from '@/pages/admin/_pages/reports/Reports'
+import MockExamPage from '@/pages/admin/_pages/mockexam/MockExamPage'   // 면접 모의고사 (현장 모의면접)
 
 // High Student
 import StudentLayout from '@/pages/high-student/_layout/Layout'
@@ -111,6 +112,7 @@ const router = createBrowserRouter([
           { path: 'lesson-run', element: <LessonRun /> },
           { path: 'middle-lessons', element: <MiddleLessonVideos /> },
           { path: 'middle-suhaeng', element: <SuhaengManage /> },
+          { path: 'mock-exam', element: <MockExamPage /> },   // 면접 모의고사
           { path: 'reports', element: <Reports /> },
           { path: 'student-approval', element: <StudentApproval /> },
           { path: 'teachers', element: <Teachers /> },

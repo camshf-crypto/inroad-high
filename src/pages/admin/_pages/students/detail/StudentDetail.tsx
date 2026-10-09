@@ -19,7 +19,6 @@ import BasicTab from './high-tabs/BasicTab'
 import SimulationTab from './high-tabs/SimulationTab'
 import PresentationTab from './high-tabs/PresentationTab'
 import MajorTab from './high-tabs/MajorTab'
-import MockExam from './high-tabs/MockExam'
 import ConceptTab from './high-tabs/ConceptTab'
 
 // 중등 (middle-tabs)
@@ -48,7 +47,6 @@ const HIGH_TABS = [
   { key: 'basic', label: '기본 인성', menuKey: 'high.basic' },
   { key: 'expect', label: '생기부 예상질문', menuKey: 'high.expect' },
   { key: 'past', label: '기출문제', menuKey: 'high.past' },
-  { key: 'mockexam', label: '면접 모의고사', menuKey: 'high.mockexam' },
   { key: 'simulation', label: '면접 시뮬레이션', menuKey: 'high.simulation' },
   { key: 'presentation', label: '제시문 면접', menuKey: 'high.presentation' },
   { key: 'major', label: '전공특화문제', menuKey: 'high.major' },
@@ -358,7 +356,6 @@ export default function StudentDetail() {
               {highTab === 'expect'       && visibleHighTabs.find(t => t.key === 'expect')       && <ExpectTab student={student} />}
               {highTab === 'past'         && visibleHighTabs.find(t => t.key === 'past')         && <PastTab student={student} />}
               {highTab === 'basic'        && visibleHighTabs.find(t => t.key === 'basic')        && <BasicTab student={student} />}
-              {highTab === 'mockexam'     && visibleHighTabs.find(t => t.key === 'mockexam')     && <MockExam student={student} />}
               {highTab === 'simulation'   && visibleHighTabs.find(t => t.key === 'simulation')   && <SimulationTab student={student} />}
               {highTab === 'presentation' && visibleHighTabs.find(t => t.key === 'presentation') && <PresentationTab student={student} />}
               {highTab === 'major'        && visibleHighTabs.find(t => t.key === 'major')        && <MajorTab student={student} />}

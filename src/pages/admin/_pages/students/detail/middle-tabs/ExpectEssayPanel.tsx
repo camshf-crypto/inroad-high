@@ -110,6 +110,369 @@ function hasAnyContent(content: any): boolean {
   return Object.values(content).some((v) => typeof v === "string" && v.trim().length > 0);
 }
 
+// ════════════════════════════════════════════════════════════
+// 🎯 컨셉 확인 — 학생이 3단계에서 고른 컨셉을 선생님이 확인한다
+//    학생이 컨셉을 고르면 concept_status = 'pending' 으로 넘어온다.
+//    선생님이 [AI 피드백]으로 참고 의견을 받고, 진행 / 다시 정하기를 고른다.
+// ════════════════════════════════════════════════════════════
+type ConceptStatus = "none" | "pending" | "approved" | "rejected";
+
+interface ConceptReview {
+  verdict: "ok" | "check" | "rethink";
+  fit: number;
+  headline: string;
+  summary: string;
+  support: string[];
+  unrelated: string[];
+  gap: string;
+  alternatives: { career: string; why: string }[];
+  questions: string[];
+  studentMessage: string;
+  career: string;
+}
+
+const SOURCE_KO: Record<string, string> = {
+  test: "진로 계열 검사",
+  custom: "학생이 직접 적음",
+  ai: "AI 추천에서 고름",
+};
+
+const VERDICT_UI: Record<ConceptReview["verdict"], { label: string; bg: string; fg: string; border: string }> = {
+  ok: { label: "괜찮아요", bg: "#ECFDF5", fg: "#065F46", border: "#6EE7B7" },
+  check: { label: "확인 필요", bg: "#FFFBEB", fg: "#92400E", border: "#FCD34D" },
+  rethink: { label: "컨셉 재검토 권장", bg: "#FEF2F2", fg: "#991B1B", border: "#FCA5A5" },
+};
+
+const BRANCH_ORDER = ["학교생활", "동아리", "독서학습", "봉사인성", "학교관심"];
+
+function ConceptCheckCard({ essayId, schoolName, studentId }: { essayId: string; schoolName: string; studentId: string }) {
+  const qc = useQueryClient();
+  const [comment, setComment] = useState("");
+  const [open, setOpen] = useState(true);
+  const [busy, setBusy] = useState<"" | "ai" | "approved" | "rejected">("");
+
+  const { data: wiz } = useQuery({
+    queryKey: ["concept-check", essayId],
+    enabled: !!essayId,
+    refetchInterval: 10000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("middle_essay_wizard")
+        .select("keywords, mindmap, concept, concept_status, concept_review, concept_review_at, concept_feedback, concept_sent_at, concept_checked_at")
+        .eq("essay_id", essayId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
+  });
+
+  const { data: testConcept } = useQuery({
+    queryKey: ["concept-check-test", studentId],
+    enabled: !!studentId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("middle_student_concept")
+        .select("type_name, major, career")
+        .eq("student_id", studentId)
+        .eq("status", "approved")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data as any;
+    },
+  });
+
+  const status: ConceptStatus = (wiz?.concept_status as ConceptStatus) ?? "none";
+  const concept = wiz?.concept as { career?: string; label?: string; source?: string; fit?: number } | null;
+  const review = wiz?.concept_review as ConceptReview | null;
+  const reviewIsStale = !!review && !!concept?.career && review.career !== concept.career;
+
+  // 이미 확인한 건 접어 둔다
+  useEffect(() => {
+    setOpen(status === "pending" || status === "rejected");
+    setComment("");
+  }, [essayId, status]);
+
+  const keywords: { keyword: string; experience: string }[] = (wiz?.keywords ?? []).filter((k: any) => k?.keyword?.trim());
+  const mindmap: Record<string, string[]> = wiz?.mindmap ?? {};
+  const experiences = BRANCH_ORDER.flatMap((b) =>
+    (mindmap[b] ?? []).filter((t) => t?.trim()).map((t) => ({ branch: b, text: t.trim() })),
+  );
+
+  const runAi = async () => {
+    if (!concept?.career) return;
+    setBusy("ai");
+    try {
+      const { data, error } = await supabase.functions.invoke("middle-essay-concept-review", {
+        body: {
+          essayId,
+          schoolName,
+          concept,
+          keywords,
+          experiences,
+          existingConcept: testConcept ?? null,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      await qc.invalidateQueries({ queryKey: ["concept-check", essayId] });
+      if (!comment.trim() && data?.review?.studentMessage) setComment(data.review.studentMessage);
+    } catch (e: any) {
+      alert(`AI 피드백을 받지 못했어요.\n${e.message ?? e}`);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const decide = async (next: "approved" | "rejected") => {
+    if (next === "rejected" && !comment.trim()) {
+      alert("다시 정하게 할 때는 이유를 한마디 적어 주세요. 학생에게 그대로 보여요.");
+      return;
+    }
+    setBusy(next);
+    try {
+      const { error } = await supabase
+        .from("middle_essay_wizard")
+        .update({
+          concept_status: next,
+          concept_feedback: comment.trim() || null,
+          concept_checked_at: new Date().toISOString(),
+        })
+        .eq("essay_id", essayId);
+      if (error) throw error;
+      await qc.invalidateQueries({ queryKey: ["concept-check", essayId] });
+    } catch (e: any) {
+      alert(`저장하지 못했어요.\n${e.message ?? e}`);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  if (!wiz || !concept?.career) {
+    return (
+      <div className="bg-gray-50 border border-line rounded-xl px-4 py-3 mb-4 text-[11.5px] text-ink-muted">
+        🧭 컨셉 확인 — 학생이 아직 3단계에서 컨셉을 정하지 않았어요.
+      </div>
+    );
+  }
+
+  const badge =
+    status === "pending"
+      ? { text: "확인 대기", cls: "bg-amber-50 text-amber-700 border-amber-300" }
+      : status === "approved"
+        ? { text: "✓ 진행 확인함", cls: "bg-emerald-50 text-emerald-700 border-emerald-300" }
+        : status === "rejected"
+          ? { text: "다시 정하게 함", cls: "bg-red-50 text-red-700 border-red-200" }
+          : { text: "아직 안 넘어옴", cls: "bg-gray-50 text-ink-muted border-line" };
+
+  return (
+    <div
+      className="rounded-xl mb-5 overflow-hidden"
+      style={{ border: `1.5px solid ${status === "pending" ? "#FCD34D" : THEME.accentBorder}` }}
+    >
+      {/* 머리 */}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left"
+        style={{ background: status === "pending" ? "#FFFBEB" : THEME.accentBg }}
+      >
+        <div className="min-w-0">
+          <div className="text-[11px] font-bold text-ink-muted">🧭 컨셉 확인</div>
+          <div className="text-[14px] font-extrabold text-ink truncate">
+            {concept.career}
+            <span className="ml-2 text-[11px] font-semibold text-ink-muted">{SOURCE_KO[concept.source ?? ""] ?? ""}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className={`text-[10.5px] font-bold border rounded-full px-2 py-0.5 ${badge.cls}`}>{badge.text}</span>
+          <span className="text-[11px] text-ink-muted">{open ? "접기 ▲" : "펼치기 ▼"}</span>
+        </div>
+      </button>
+
+      {open && (
+        <div className="px-4 py-4 bg-white">
+          {/* 학생이 고른 것 */}
+          {concept.label && <div className="text-[12.5px] text-ink-secondary leading-[1.6] mb-3">{concept.label}</div>}
+          {testConcept?.career && concept.source !== "test" && (
+            <div className="text-[11px] text-ink-muted mb-3">
+              참고 · 진로 계열 검사 결과는 <strong className="text-ink-secondary">{testConcept.career}</strong>
+              {testConcept.major ? ` (${testConcept.major})` : ""}
+            </div>
+          )}
+
+          {/* 학생 활동 */}
+          <div className="grid gap-3 md:grid-cols-2 mb-4">
+            <div>
+              <div className="text-[11px] font-bold text-ink-secondary mb-1.5">나의 키워드</div>
+              <div className="flex flex-wrap gap-1.5">
+                {keywords.length ? (
+                  keywords.map((k, i) => (
+                    <span key={i} title={k.experience} className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-50 border border-line text-ink-secondary">
+                      #{k.keyword}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-[11px] text-ink-muted">없음</span>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] font-bold text-ink-secondary mb-1.5">꺼낸 활동 {experiences.length}개</div>
+              <div className="max-h-[180px] overflow-y-auto pr-1 grid gap-1">
+                {experiences.map((e, i) => {
+                  const sup = review && !reviewIsStale && review.support.some((x) => x.includes(e.text) || e.text.includes(x));
+                  return (
+                    <div key={i} className="text-[11.5px] leading-[1.5] flex gap-1.5">
+                      <span className="text-ink-muted flex-shrink-0">{e.branch}</span>
+                      <span style={{ color: sup ? THEME.accentDark : "#374151", fontWeight: sup ? 700 : 500 }}>
+                        {sup ? "✓ " : ""}{e.text}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* AI 피드백 */}
+          <div className="rounded-lg border border-line px-3.5 py-3 mb-4 bg-gray-50">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <div className="text-[12px] font-extrabold text-ink">✨ AI 피드백 <span className="font-medium text-ink-muted">· 선생님만 봐요</span></div>
+              <button
+                type="button"
+                onClick={runAi}
+                disabled={busy !== "" || experiences.length < 3}
+                className="h-8 px-3 rounded-lg text-[11.5px] font-bold text-white disabled:opacity-50"
+                style={{ background: THEME.accent }}
+              >
+                {busy === "ai" ? "분석 중..." : review ? "다시 분석" : "AI 피드백 받기"}
+              </button>
+            </div>
+
+            {!review ? (
+              <div className="text-[11.5px] text-ink-muted leading-[1.6]">
+                {experiences.length < 3
+                  ? "학생이 꺼낸 활동이 3개 미만이라 분석할 수 없어요."
+                  : "버튼을 누르면 이 컨셉이 학생 활동과 맞는지, 학생에게 어울리는지 정리해 드려요."}
+              </div>
+            ) : (
+              <div className="mt-2">
+                {reviewIsStale && (
+                  <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5 mb-2">
+                    학생이 컨셉을 바꿨어요. 아래는 예전 컨셉({review.career}) 분석이에요. 다시 분석해 주세요.
+                  </div>
+                )}
+                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                  <span
+                    className="text-[11px] font-bold rounded-full px-2 py-0.5"
+                    style={{ background: VERDICT_UI[review.verdict].bg, color: VERDICT_UI[review.verdict].fg, border: `1px solid ${VERDICT_UI[review.verdict].border}` }}
+                  >
+                    {VERDICT_UI[review.verdict].label}
+                  </span>
+                  <span className="text-[11px] font-bold text-ink-secondary">적합도 {review.fit}%</span>
+                  {wiz.concept_review_at && (
+                    <span className="text-[10px] text-ink-muted">{new Date(wiz.concept_review_at).toLocaleDateString("ko-KR")}</span>
+                  )}
+                </div>
+                {review.headline && <div className="text-[13px] font-bold text-ink mb-1">{review.headline}</div>}
+                {review.summary && <div className="text-[12px] text-ink-secondary leading-[1.65] mb-2.5">{review.summary}</div>}
+
+                <div className="grid gap-2.5 md:grid-cols-2">
+                  {review.support.length > 0 && (
+                    <div>
+                      <div className="text-[10.5px] font-bold text-emerald-700 mb-1">받쳐 주는 활동</div>
+                      {review.support.map((x, i) => (
+                        <div key={i} className="text-[11.5px] text-ink leading-[1.55]">· {x}</div>
+                      ))}
+                    </div>
+                  )}
+                  {review.unrelated.length > 0 && (
+                    <div>
+                      <div className="text-[10.5px] font-bold text-ink-muted mb-1">거리가 먼 활동</div>
+                      {review.unrelated.map((x, i) => (
+                        <div key={i} className="text-[11.5px] text-ink-muted leading-[1.55]">· {x}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {review.gap && <div className="text-[11.5px] text-amber-700 leading-[1.55] mt-2">부족한 점 · {review.gap}</div>}
+
+                {review.alternatives.length > 0 && (
+                  <div className="mt-2.5 bg-white border border-line rounded-md px-3 py-2">
+                    <div className="text-[10.5px] font-bold text-ink-secondary mb-1">더 어울릴 수 있는 쪽</div>
+                    {review.alternatives.map((a, i) => (
+                      <div key={i} className="text-[11.5px] leading-[1.55]">
+                        <strong className="text-ink">{a.career}</strong>
+                        <span className="text-ink-secondary"> — {a.why}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {review.questions.length > 0 && (
+                  <div className="mt-2.5">
+                    <div className="text-[10.5px] font-bold text-ink-secondary mb-1">학생에게 물어볼 것</div>
+                    {review.questions.map((q, i) => (
+                      <div key={i} className="text-[11.5px] text-ink leading-[1.55]">· {q}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 선생님 판단 */}
+          {status !== "pending" && wiz.concept_feedback && (
+            <div className="text-[11.5px] text-ink-secondary bg-gray-50 border border-line rounded-md px-3 py-2 mb-2 whitespace-pre-wrap">
+              <span className="font-bold">보낸 한마디 · </span>{wiz.concept_feedback}
+            </div>
+          )}
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-[11px] font-bold text-ink-secondary">학생에게 보낼 한마디</div>
+            {review?.studentMessage && (
+              <button type="button" onClick={() => setComment(review.studentMessage)} className="text-[10.5px] font-bold" style={{ color: THEME.accent }}>
+                AI 초안으로 채우기
+              </button>
+            )}
+          </div>
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={3}
+            placeholder="예) 동아리 활동이 이 컨셉과 잘 이어져요. 매칭할 때 동아리 경험을 지원동기에 꼭 넣어 보세요."
+            className="w-full border border-line rounded-lg px-3 py-2 text-[12px] leading-[1.6] outline-none resize-y focus:border-emerald-500"
+          />
+          <div className="flex justify-end gap-2 mt-2">
+            <button
+              type="button"
+              onClick={() => decide("rejected")}
+              disabled={busy !== ""}
+              className="h-9 px-4 rounded-lg text-[12px] font-bold bg-white border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
+            >
+              {busy === "rejected" ? "보내는 중..." : "다시 정하게 하기"}
+            </button>
+            <button
+              type="button"
+              onClick={() => decide("approved")}
+              disabled={busy !== ""}
+              className="h-9 px-4 rounded-lg text-[12px] font-bold text-white disabled:opacity-50"
+              style={{ background: THEME.accent }}
+            >
+              {busy === "approved" ? "보내는 중..." : "이 컨셉으로 진행"}
+            </button>
+          </div>
+          {status !== "pending" && (
+            <div className="text-[10.5px] text-ink-muted text-right mt-1">이미 판단했어도 다시 누르면 바뀌어요.</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MiddleExpectEssayPanel({
   student,
   selEssay,
@@ -524,6 +887,7 @@ export default function MiddleExpectEssayPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4">
+        <ConceptCheckCard essayId={selEssay.id} schoolName={selEssay.school} studentId={student?.id} />
         {!essayWritten ? (
           <div className="bg-gray-50 border border-line rounded-xl px-4 py-12 text-center">
             <div className="text-4xl mb-3">📝</div>

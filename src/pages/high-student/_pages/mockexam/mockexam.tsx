@@ -65,7 +65,6 @@ const THEME = {
   accentShadow: 'rgba(37, 99, 235, 0.15)',
 }
 
-const GRADE_OPTIONS = ['고1', '고2', '고3']
 
 // 기본 시간 (초)
 const DEFAULT_MAIN_TIME = 120     // 본 질문 2분
@@ -89,6 +88,394 @@ type Phase =
   | 'major'
   | 'done'
 
+// ═══════════════════════════════════════════════════════════
+// 현장 모의면접 결과 (원장님이 학원에서 녹음으로 진행한 회차)
+//   선생님이 "보내기" 한 질문만 보여줌: 질문 · 내 답변 · 꼬리질문 · 선생님 피드백 · AI 5항목
+// ═══════════════════════════════════════════════════════════
+const LIVE_LEVEL: Record<string, { bg: string; color: string; bar: string; width: string }> = {
+  '상': { bg: '#DBEAFE', color: '#1D4ED8', bar: '#2563EB', width: '100%' },
+  '중': { bg: '#F1F5F9', color: '#334155', bar: '#2563EB', width: '62%' },
+  '하': { bg: '#FFEDD5', color: '#C2410C', bar: '#F97316', width: '28%' },
+}
+
+// 컨셉 맞춤 + 말버릇 (군말 횟수 · 반복 습관)
+function ConceptHabits({ fb }: { fb: any }) {
+  const fillers = Object.entries((fb?.fillers ?? {}) as Record<string, number>).sort((a, b) => b[1] - a[1])
+  const habits: string[] = fb?.habits ?? []
+  const c = fb?.concept as { level: string; comment: string } | null | undefined
+  if (!c && !fillers.length && !habits.length) return null
+  const lv: Record<string, [string, string]> = { '상': ['#DBEAFE', '#1D4ED8'], '중': ['#F1F5F9', '#334155'], '하': ['#FFEDD5', '#C2410C'] }
+  const [cbg, cfg] = c ? (lv[c.level] ?? lv['중']) : lv['중']
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-3">
+      {c && (
+        <div className="flex items-start gap-2">
+          <span className="text-[11.5px] font-extrabold px-2 py-0.5 rounded-md flex-shrink-0" style={{ background: cbg, color: cfg }}>컨셉 {c.level}</span>
+          <span className="text-[13px] leading-[1.6] text-slate-700">
+            {c.comment}{fb?.conceptText ? <span className="text-slate-400"> · {fb.conceptText}</span> : null}
+          </span>
+        </div>
+      )}
+      {(fillers.length > 0 || habits.length > 0) && (
+        <div className="flex flex-col gap-1.5">
+          <div className="text-[12px] font-bold text-slate-600">말버릇</div>
+          {fillers.length > 0 && (
+            <div className="flex gap-1.5 flex-wrap">
+              {fillers.map(([w, n]) => (
+                <span key={w} className="text-[12px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-300 text-slate-700">“{w}” {n}번</span>
+              ))}
+            </div>
+          )}
+          {habits.map(h => <div key={h} className="text-[12.5px] text-slate-600 leading-[1.5]">· {h}</div>)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function LiveResultView({ mains, questions }: { mains: any[]; questions: any[] }) {
+  const liveMains = mains.filter(m => m.answer_source === 'live' && m.student_answer)
+  const sent = liveMains.filter(m => m.feedback_sent_at)
+  const waiting = liveMains.length - sent.length
+
+  // 보낸 질문들의 AI 평가를 항목별 평균으로 (한눈에 보기)
+  const avg = (() => {
+    const score: Record<string, number> = { '상': 3, '중': 2, '하': 1 }
+    const sum: Record<string, { s: number; n: number }> = {}
+    for (const m of sent) {
+      for (const t of (m.ai_feedback?.tags ?? []) as { label: string; level: string }[]) {
+        sum[t.label] ??= { s: 0, n: 0 }
+        sum[t.label].s += score[t.level] ?? 2
+        sum[t.label].n += 1
+      }
+    }
+    return Object.entries(sum).map(([label, v]) => {
+      const a = v.s / v.n
+      return { label, level: a >= 2.5 ? '상' : a >= 1.6 ? '중' : '하' }
+    })
+  })()
+
+  if (liveMains.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center gap-2">
+        <div className="text-5xl">🎤</div>
+        <div className="text-[15px] font-bold text-ink">학원에서 보는 현장 모의면접이에요</div>
+        <div className="text-[12px] text-ink-secondary">면접이 끝나고 선생님이 피드백을 보내면 여기에 나와요.</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {sent.length > 0 && avg.length > 0 && (
+        <div className="bg-white border border-line rounded-2xl p-4 flex flex-col gap-2.5">
+          <div className="text-[14px] font-bold text-ink">이번 면접 한눈에</div>
+          {avg.map(t => {
+            const ls = LIVE_LEVEL[t.level]
+            return (
+              <div key={t.label} className="flex items-center gap-2.5">
+                <div className="w-[78px] flex-shrink-0 text-[12.5px] text-ink-secondary">{t.label}</div>
+                <div className="flex-1 h-2 rounded bg-gray-100 overflow-hidden">
+                  <div className="h-full rounded" style={{ width: ls.width, background: ls.bar }} />
+                </div>
+                <div className="w-7 text-center text-[12px] font-extrabold" style={{ color: ls.color }}>{t.level}</div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {waiting > 0 && (
+        <div className="text-[12.5px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          선생님이 {waiting}개 질문의 피드백을 확인하고 있어요. 곧 와요.
+        </div>
+      )}
+
+      {liveMains.map((m, i) => {
+        const tails = questions
+          .filter(q => q.parent_id === m.id && q.student_answer)
+          .sort((a, b) => (a.tail_index || 0) - (b.tail_index || 0))
+        if (!m.feedback_sent_at) {
+          return (
+            <div key={m.id} className="bg-white border border-line rounded-2xl p-4 flex flex-col gap-1.5">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: THEME.accentDark, background: THEME.accentBg }}>Q{i + 1}</span>
+                {m.type && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: getTypeColor(m.type).bg, color: getTypeColor(m.type).color }}>{m.type}</span>}
+              </div>
+              <div className="text-[14px] font-bold text-ink leading-[1.6]">{m.question_text}</div>
+              <div className="text-[12px] text-ink-muted">선생님이 확인하고 있어요. 곧 피드백이 와요.</div>
+            </div>
+          )
+        }
+        const fb = m.ai_feedback ?? {}
+        return (
+          <div key={m.id} className="bg-white border border-line rounded-2xl p-4 flex flex-col gap-3">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: THEME.accentDark, background: THEME.accentBg }}>Q{i + 1}</span>
+              {m.type && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: getTypeColor(m.type).bg, color: getTypeColor(m.type).color }}>{m.type}</span>}
+              {m.answer_duration_sec ? <span className="text-[10px] text-ink-muted ml-auto">답변 {Math.floor(m.answer_duration_sec / 60)}분 {m.answer_duration_sec % 60}초</span> : null}
+            </div>
+            <div className="text-[15px] font-bold text-ink leading-[1.6]">{m.question_text}</div>
+
+            <div className="bg-gray-50 border border-line rounded-xl px-3.5 py-3 flex flex-col gap-1">
+              <div className="text-[11px] font-bold text-ink-muted">내 답변 (받아 적은 글)</div>
+              <div className="text-[13px] leading-[1.8] text-ink whitespace-pre-wrap">{m.student_answer}</div>
+            </div>
+
+            {tails.length > 0 && (
+              <div className="flex flex-col gap-2.5">
+                {tails.map((t, k) => (
+                  <div key={t.id} className="pl-3 flex flex-col gap-1" style={{ borderLeft: '3px solid #FDE68A' }}>
+                    <div className="text-[12.5px] font-bold text-ink">꼬리 {k + 1} · {t.question_text}</div>
+                    <div className="text-[12.5px] leading-[1.7] text-ink-secondary whitespace-pre-wrap">{t.student_answer}</div>
+                    {t.ai_feedback?.improve && <div className="text-[12px] text-orange-700 leading-[1.6]">다음엔: {t.ai_feedback.improve}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {m.teacher_feedback && (
+              <div className="rounded-xl px-3.5 py-3 flex flex-col gap-1" style={{ background: THEME.accentBg, border: `1px solid ${THEME.accentBorder}` }}>
+                <div className="text-[11px] font-extrabold" style={{ color: THEME.accentDark }}>선생님 피드백</div>
+                <div className="text-[13.5px] leading-[1.75] text-ink whitespace-pre-wrap">{m.teacher_feedback}</div>
+              </div>
+            )}
+
+            {(fb.tags ?? []).length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                {(fb.tags as { label: string; level: string }[]).map(t => {
+                  const ls = LIVE_LEVEL[t.level] ?? LIVE_LEVEL['중']
+                  return (
+                    <div key={t.label} className="flex items-center gap-2.5">
+                      <div className="w-[78px] flex-shrink-0 text-[12px] text-ink-secondary">{t.label}</div>
+                      <div className="flex-1 h-1.5 rounded bg-gray-100 overflow-hidden">
+                        <div className="h-full rounded" style={{ width: ls.width, background: ls.bar }} />
+                      </div>
+                      <div className="w-7 text-center text-[11px] font-extrabold rounded py-0.5" style={{ background: ls.bg, color: ls.color }}>{t.level}</div>
+                    </div>
+                  )
+                })}
+                <div className="text-[11px] text-ink-muted">
+                  {fb.charsPerMin ? `말 속도 1분 ${fb.charsPerMin}자 (보통 250~350)` : ''}
+                </div>
+                <ConceptHabits fb={fb} />
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+// 현장 면접 대기 (학생 핸드폰 · 태블릿 · 노트북)
+//   원장이 녹음 시작을 누르면 이 화면에서도 녹음이 켜지고, 끝을 누르면 녹음 파일을 올려 보냄
+//   채널: live-mock-{내 id} (원장 진행 화면과 같은 이름)
+// ═══════════════════════════════════════════════════════════
+function pickAudioType() {
+  if (typeof MediaRecorder === 'undefined') return { mime: '', ext: 'webm' }
+  if (MediaRecorder.isTypeSupported('audio/webm')) return { mime: 'audio/webm', ext: 'webm' }
+  if (MediaRecorder.isTypeSupported('audio/mp4')) return { mime: 'audio/mp4', ext: 'mp4' }   // 아이폰 사파리
+  return { mime: '', ext: 'webm' }
+}
+
+function LiveStudentRoom({ onClose }: { onClose: () => void }) {
+  const [uid, setUid] = useState<string | null>(null)
+  const [stage, setStage] = useState<'ask' | 'ready' | 'rec' | 'upload' | 'err'>('ask')
+  const [teacher, setTeacher] = useState(false)
+  const [question, setQuestion] = useState('')
+  const [msg, setMsg] = useState('')
+  const [sec, setSec] = useState(0)
+  const [lastSent, setLastSent] = useState(0)
+
+  const streamRef = useRef<MediaStream | null>(null)
+  const recRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const chRef = useRef<any>(null)
+  const recIdRef = useRef<string | null>(null)
+  const startedAtRef = useRef(0)
+  const wakeRef = useRef<any>(null)
+  const timerRef = useRef<number | null>(null)
+  const uidRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    void supabase.auth.getUser().then(({ data }) => { setUid(data.user?.id ?? null); uidRef.current = data.user?.id ?? null })
+    return () => {
+      if (timerRef.current) window.clearInterval(timerRef.current)
+      if (recRef.current?.state === 'recording') recRef.current.stop()
+      streamRef.current?.getTracks().forEach(t => t.stop())
+      try { wakeRef.current?.release?.() } catch { /* 무시 */ }
+      if (chRef.current) { void chRef.current.untrack?.(); void supabase.removeChannel(chRef.current) }
+    }
+  }, [])
+
+  // 화면 꺼짐 방지 — 다른 앱 갔다 오면 다시 요청
+  const keepAwake = async () => {
+    try { wakeRef.current = await (navigator as any).wakeLock?.request('screen') } catch { /* 지원 안 하는 기기 */ }
+  }
+  useEffect(() => {
+    const onVis = () => { if (document.visibilityState === 'visible' && stage !== 'ask') void keepAwake() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [stage])
+
+  // 선생님이 녹음 시작
+  const begin = (payload: any) => {
+    if (!streamRef.current || recRef.current?.state === 'recording') return
+    recIdRef.current = String(payload?.recId ?? '')
+    setQuestion(String(payload?.question ?? ''))
+    chunksRef.current = []
+    const { mime } = pickAudioType()
+    const rec = new MediaRecorder(streamRef.current, mime ? { mimeType: mime } : undefined)
+    rec.ondataavailable = e => { if (e.data.size) chunksRef.current.push(e.data) }
+    rec.onstop = () => { void upload(rec.mimeType || mime) }
+    rec.start()
+    recRef.current = rec
+    startedAtRef.current = Date.now()
+    setSec(0)
+    if (timerRef.current) window.clearInterval(timerRef.current)
+    timerRef.current = window.setInterval(() => setSec(s => s + 1), 1000)
+    setStage('rec')
+  }
+
+  // 선생님이 끝
+  const finish = (recId: string) => {
+    if (!recIdRef.current || recId !== recIdRef.current) return
+    if (timerRef.current) { window.clearInterval(timerRef.current); timerRef.current = null }
+    if (recRef.current?.state === 'recording') recRef.current.stop()
+  }
+
+  // 녹음 파일 올리고 선생님 화면에 알려 줌 (실패해도 선생님 노트북 녹음으로 저장됨)
+  const upload = async (mimeType: string) => {
+    const recId = recIdRef.current
+    const me = uidRef.current
+    if (!recId || !me) return
+    setStage('upload')
+    const ext = mimeType.includes('mp4') ? 'mp4' : 'webm'
+    const blob = new Blob(chunksRef.current, { type: mimeType || `audio/${ext}` })
+    const path = `${me}/${recId}.${ext}`
+    let ok = false
+    try {
+      const { error } = await supabase.storage.from('live-mock-audio').upload(path, blob, { contentType: blob.type, upsert: true })
+      ok = !error
+      if (error) console.error('[현장 면접] 업로드 실패', error)
+    } catch (e) {
+      console.error('[현장 면접] 업로드 실패', e)
+    }
+    void chRef.current?.send({ type: 'broadcast', event: 'uploaded', payload: { recId, path: ok ? path : null, startedAt: startedAtRef.current } })
+    recIdRef.current = null
+    setQuestion('')
+    if (ok) setLastSent(n => n + 1)
+    setStage('ready')
+  }
+
+  // 마이크 켜고 대기
+  const enable = async () => {
+    if (!uid) { setMsg('로그인 정보를 확인할 수 없어요. 다시 로그인해 주세요.'); setStage('err'); return }
+    try {
+      streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+    } catch {
+      setMsg('마이크를 쓸 수 없어요. 주소창 왼쪽(아이폰은 aA 버튼) → 마이크 허용으로 바꾼 뒤 다시 눌러 주세요.')
+      setStage('err')
+      return
+    }
+    await keepAwake()
+    const ch = supabase.channel(`live-mock-${uid}`, { config: { broadcast: { self: false }, presence: { key: 'student' } } })
+    ch.on('presence', { event: 'sync' }, () => {
+      const st = ch.presenceState() as Record<string, any[]>
+      setTeacher(!!st.teacher?.length)
+    })
+    ch.on('broadcast', { event: 'start' }, ({ payload }: any) => begin(payload))
+    ch.on('broadcast', { event: 'stop' }, ({ payload }: any) => finish(String(payload?.recId ?? '')))
+    ch.subscribe((status: string) => { if (status === 'SUBSCRIBED') void ch.track({ role: 'student', mic: true }) })
+    chRef.current = ch
+    setStage('ready')
+  }
+
+  const mmss = (n: number) => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`
+
+  return (
+    <div className="fixed inset-0 z-[100] flex flex-col font-sans"
+      style={{ background: stage === 'rec' ? '#0F172A' : '#F8FAFC', color: stage === 'rec' ? '#fff' : '#0F172A' }}>
+      <div className="flex items-center justify-between px-5 pt-5">
+        <div className="text-[16px] font-extrabold">현장 면접</div>
+        {stage !== 'rec' && stage !== 'upload' && (
+          <button onClick={onClose} className="h-10 px-4 rounded-xl border text-[14px] font-semibold"
+            style={{ borderColor: '#CBD5E1', color: '#475569', background: '#fff' }}>나가기</button>
+        )}
+      </div>
+
+      <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-5">
+        {stage === 'ask' && (
+          <>
+            <div className="w-20 h-20 rounded-full flex items-center justify-center" style={{ background: THEME.accentBg, color: THEME.accent }}>
+              <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v3" /></svg>
+            </div>
+            <div className="text-[22px] font-extrabold leading-[1.4]">현장 면접 대기</div>
+            <div className="text-[15px] text-slate-600 leading-[1.7]">
+              선생님이 녹음을 시작하면<br />이 기기로 내 대답이 녹음돼요.
+            </div>
+            <button onClick={enable} className="w-full max-w-[320px] h-16 rounded-2xl text-white text-[18px] font-extrabold"
+              style={{ background: THEME.accent, boxShadow: `0 6px 16px ${THEME.accentShadow}` }}>
+              마이크 켜고 대기하기
+            </button>
+            <div className="text-[13px] text-slate-500">마이크를 물어보면 <b>허용</b>을 눌러 주세요</div>
+          </>
+        )}
+
+        {stage === 'ready' && (
+          <>
+            <div className="flex items-center gap-2 text-[15px] font-bold" style={{ color: teacher ? '#047857' : '#92400E' }}>
+              <span className="w-3 h-3 rounded-full" style={{ background: teacher ? '#10B981' : '#F59E0B' }} />
+              {teacher ? '선생님과 연결됐어요' : '선생님 화면을 기다리는 중'}
+            </div>
+            <div className="text-[22px] font-extrabold leading-[1.4]">내 차례가 되면<br />자동으로 녹음돼요</div>
+            <div className="w-full max-w-[340px] rounded-2xl bg-white border border-slate-200 p-4 text-left text-[14px] text-slate-700 leading-[1.8]">
+              · <b>화면을 켜 둔 채로</b> 두세요 (잠금 버튼 누르면 녹음이 안 돼요)<br />
+              · 다른 앱으로 나가지 마세요<br />
+              · <b>방해금지 모드</b>를 켜 두면 알림 소리가 안 들어가요<br />
+              · 핸드폰은 입 앞 30cm쯤에 두세요
+            </div>
+            {lastSent > 0 && <div className="text-[13px] text-slate-500">대답 {lastSent}개를 선생님께 보냈어요</div>}
+          </>
+        )}
+
+        {stage === 'rec' && (
+          <>
+            <div className="flex items-center gap-2 text-[15px] font-bold text-red-300">
+              <span className="w-3.5 h-3.5 rounded-full bg-red-500 animate-pulse" />
+              녹음 중 {mmss(sec)}
+            </div>
+            <div className="text-[26px] font-extrabold leading-[1.3]">지금 대답하세요</div>
+            {question && (
+              <div className="w-full max-w-[380px] rounded-2xl p-5 text-left" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                <div className="text-[12px] font-bold text-slate-300 mb-1.5">질문</div>
+                <div className="text-[19px] font-bold leading-[1.55]">{question}</div>
+              </div>
+            )}
+            <div className="text-[13px] text-slate-400">선생님이 끝을 누르면 자동으로 멈춰요</div>
+          </>
+        )}
+
+        {stage === 'upload' && (
+          <>
+            <div className="w-10 h-10 border-[3px] border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+            <div className="text-[18px] font-bold">대답을 보내는 중…</div>
+          </>
+        )}
+
+        {stage === 'err' && (
+          <>
+            <div className="text-[18px] font-bold text-red-600">{msg}</div>
+            <button onClick={() => setStage('ask')} className="h-12 px-6 rounded-xl text-white text-[15px] font-bold" style={{ background: THEME.accent }}>다시 하기</button>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function MockExam({ student: studentProp }: { student?: any }) {
   const { data: myProfile } = useMyProfile()
   const student = myProfile || studentProp || {}
@@ -102,6 +489,7 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
   const [selGrade, setSelGrade] = useState(studentGrade)
   const [selExamId, setSelExamId] = useState<string | null>(null)
   const [activeSection, setActiveSection] = useState<'main' | 'major' | 'report'>('main')
+  const [liveRoom, setLiveRoom] = useState(false)   // 현장 면접 대기 화면
   const [autoSelected, setAutoSelected] = useState(false)
 
   // ── 진행 상태 ──
@@ -130,7 +518,30 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
 
   // ── DB ──
   const { data: allExams = [] } = useMyMockExams()
-  const exams = allExams.filter(e => e.grade === selGrade)
+  // 현장 모의면접 기록만 (학원에서 원장이 진행한 것) — 최근 것부터
+  const liveExams = useMemo(
+    () => (allExams as any[]).filter(e => e.live_at).sort((a, b) => String(b.live_at).localeCompare(String(a.live_at))),
+    [allExams],
+  )
+  const liveIds = liveExams.map((e: any) => e.id).join(',')
+  const { data: liveStat = {} } = useQuery({
+    queryKey: ['my-live-mock-stat', liveIds],
+    enabled: liveIds.length > 0,
+    refetchInterval: 5000,
+    queryFn: async () => {
+      const { data } = await supabase.from('high_mock_exam_questions')
+        .select('exam_id, level, answer_source, student_answer, feedback_sent_at')
+        .in('exam_id', liveIds.split(','))
+      const out: Record<string, { total: number; sent: number }> = {}
+      ;(data ?? []).forEach((q: any) => {
+        if (q.level !== 'main' || q.answer_source !== 'live' || !q.student_answer) return
+        out[q.exam_id] ??= { total: 0, sent: 0 }
+        out[q.exam_id].total += 1
+        if (q.feedback_sent_at) out[q.exam_id].sent += 1
+      })
+      return out
+    },
+  })
   const selExam = useMemo(() => allExams.find(e => e.id === selExamId), [allExams, selExamId])
   const { data: questions = [] } = useMyMockExamQuestions(selExamId || undefined)
   const { data: majors = [] } = useMyMockExamMajor(selExamId || undefined)
@@ -728,80 +1139,68 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
   }, [questions, mains])
 
   const answeredInterview = orderedInterview.filter(q => q.student_answer).length
+  // 원장님이 학원에서 녹음으로 진행한 회차 — 학생이 직접 시험을 시작하지 않음
+  const liveMode = !!(selExam as any)?.live_at || questions.some(q => (q as any).answer_source === 'live')
   const answeredMajor = majors.filter(m => m.student_answer).length
 
   return (
     <div className="flex flex-col h-full overflow-hidden px-6 py-5 gap-4">
-      {/* 학년 탭 */}
-      <div className="flex gap-1.5 flex-shrink-0">
-        {GRADE_OPTIONS.map(g => {
-          const examCount = allExams.filter(e => e.grade === g).length
-          return (
-            <button
-              key={g}
-              onClick={() => setSelGrade(g)}
-              className="px-4 py-1.5 rounded-full text-[12px] border transition-all flex items-center gap-1.5"
-              style={{
-                background: selGrade === g ? THEME.accent : '#fff',
-                color: selGrade === g ? '#fff' : '#6B7280',
-                borderColor: selGrade === g ? THEME.accent : '#E5E7EB',
-                fontWeight: selGrade === g ? 700 : 500,
-              }}
-            >
-              <span>{g} {g === studentGrade && '👤'}</span>
-              {examCount > 0 && (
-                <span
-                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                  style={{
-                    background: selGrade === g ? '#fff' : THEME.accentBg,
-                    color: THEME.accent,
-                  }}
-                >
-                  {examCount}
-                </span>
-              )}
-            </button>
-          )
-        })}
-      </div>
+      {liveRoom && <LiveStudentRoom onClose={() => setLiveRoom(false)} />}
+
+      {/* 현장 면접 대기 — 학원에서 선생님과 면접 볼 때 내 핸드폰으로 녹음 */}
+      {!selExamId && (
+        <button onClick={() => setLiveRoom(true)}
+          className="flex-shrink-0 w-full rounded-2xl px-5 py-4 flex items-center gap-4 text-left text-white"
+          style={{ background: '#0F172A' }}>
+          <span className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: THEME.accent }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v3" /></svg>
+          </span>
+          <span className="flex-1">
+            <span className="block text-[16px] font-extrabold">현장 면접 대기</span>
+            <span className="block text-[12.5px] text-slate-300 mt-0.5">학원에서 선생님과 모의면접 할 때 눌러 주세요. 내 기기로 대답이 녹음돼요.</span>
+          </span>
+          <span className="text-[20px] text-slate-400">›</span>
+        </button>
+      )}
 
       {!selExamId ? (
-        <div className="flex-1 overflow-y-auto">
-          {exams.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-ink-muted gap-3">
-              <div className="text-5xl">📝</div>
-              <div className="text-[15px] font-bold text-ink">아직 오픈된 회차가 없어요</div>
+        <div className="flex-1 overflow-y-auto flex flex-col gap-3">
+          <div className="flex items-baseline justify-between gap-2 px-1">
+            <div className="text-[15px] font-extrabold text-ink">내 현장 모의면접 기록</div>
+            {liveExams.length > 0 && <div className="text-[12px] text-ink-muted">{liveExams.length}번</div>}
+          </div>
+          {liveExams.length === 0 ? (
+            <div className="bg-white border border-line rounded-2xl flex flex-col items-center justify-center py-14 text-center gap-2">
+              <div className="text-[15px] font-bold text-ink">아직 현장 모의면접 기록이 없어요</div>
+              <div className="text-[12.5px] text-ink-secondary">학원에서 모의면접을 보면 선생님 피드백이 여기에 쌓여요.</div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3">
-              {exams.map(exam => {
-                const sl = getStatusLabel(exam.status)
-                return (
-                  <button
-                    key={exam.id}
-                    onClick={() => setSelExamId(exam.id)}
-                    className="bg-white border border-line rounded-2xl p-5 text-left hover:shadow-md transition-all hover:border-brand-high"
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="text-[16px] font-extrabold text-ink">📅 {exam.grade} · {exam.period}</div>
-                        <span
-                          className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
-                          style={{ background: sl.bg, color: sl.color }}
-                        >
-                          {sl.label}
-                        </span>
-                      </div>
+            liveExams.map((exam: any) => {
+              const st = liveStat[exam.id] ?? { total: 0, sent: 0 }
+              const waiting = st.total - st.sent
+              return (
+                <button key={exam.id} onClick={() => { setSelExamId(exam.id); setActiveSection('main') }}
+                  className="bg-white border border-line rounded-2xl px-5 py-4 text-left hover:shadow-md transition-all flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[16px] font-extrabold text-ink">{exam.period}</div>
+                    <div className="text-[12.5px] text-ink-secondary mt-1 truncate">
+                      {[exam.target_univ, exam.target_major, exam.interview_type].filter(Boolean).join(' · ') || '현장 모의면접'}
+                      {st.total ? ` · 질문 ${st.total}개` : ''}
                     </div>
-                    <div className="flex items-center gap-2 text-[12px] text-ink-secondary">
-                      <span className="font-semibold">{exam.exam_type}</span>
-                      <span>·</span>
-                      <span>{exam.major_level}</span>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
+                  </div>
+                  {st.sent > 0 ? (
+                    <span className="text-[12px] font-bold px-3 py-1 rounded-full flex-shrink-0" style={{ background: THEME.accentBg, color: THEME.accent }}>
+                      피드백 {st.sent}개 도착
+                    </span>
+                  ) : st.total > 0 ? (
+                    <span className="text-[12px] font-bold px-3 py-1 rounded-full flex-shrink-0 bg-amber-50 text-amber-800">선생님 확인 중</span>
+                  ) : (
+                    <span className="text-[12px] font-semibold px-3 py-1 rounded-full flex-shrink-0 bg-gray-100 text-ink-muted">진행 전</span>
+                  )}
+                  {waiting > 0 && st.sent > 0 && <span className="text-[11px] text-ink-muted flex-shrink-0">확인 중 {waiting}</span>}
+                </button>
+              )
+            })
           )}
         </div>
       ) : (
@@ -810,7 +1209,7 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
           <div className="flex items-center justify-between flex-shrink-0 gap-3 flex-wrap">
             <div className="flex items-center gap-2 flex-wrap">
               <button onClick={() => setSelExamId(null)} className="text-[11px] font-semibold text-ink-secondary hover:text-ink">
-                ← 회차 목록
+                ← 기록 목록
               </button>
               <span className="text-ink-muted">|</span>
               <div className="text-[14px] font-extrabold text-ink">📅 {selExam?.grade} · {selExam?.period}</div>
@@ -820,6 +1219,9 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
               >
                 {getStatusLabel(selExam?.status || '').label}
               </span>
+              {liveMode && (
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-900 text-white">🎤 현장 모의면접</span>
+              )}
               {selExam?.target_department && (
                 <span
                   className="text-[11px] font-bold px-2.5 py-0.5 rounded-full"
@@ -842,7 +1244,7 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
             </div>
 
             <div className="flex items-center gap-2">
-              {selExam?.status === 'open' && phase === 'before' && (
+              {selExam?.status === 'open' && phase === 'before' && !liveMode && (
                 <button
                   onClick={handleStart}
                   disabled={startExam.isPending || preparing}
@@ -875,10 +1277,10 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
           {phase === 'before' || phase === 'done' || isDone ? (
             <div className="flex gap-1.5 flex-shrink-0">
               {[
-                { key: 'main', label: `📝 면접 (${answeredInterview}/${orderedInterview.length})` },
+                { key: 'main', label: liveMode ? `🎤 현장 면접 피드백 (${mains.filter(m => (m as any).feedback_sent_at).length})` : `📝 면접 (${answeredInterview}/${orderedInterview.length})` },
                 { key: 'major', label: `🧠 전공특화 (${answeredMajor}/${majors.length})` },
                 { key: 'report', label: '📊 리포트' },
-              ].map(tab => (
+              ].filter(tab => !liveMode || tab.key === 'main').map(tab => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveSection(tab.key as any)}
@@ -1199,7 +1601,12 @@ export default function MockExam({ student: studentProp }: { student?: any }) {
           {/* 보기 모드 (before / done / isDone) */}
           {(phase === 'before' || phase === 'done' || isDone) && (
             <>
-              {activeSection === 'main' && (
+              {activeSection === 'main' && liveMode && (
+                <div className="flex-1 overflow-y-auto">
+                  <LiveResultView mains={mains as any[]} questions={questions as any[]} />
+                </div>
+              )}
+              {activeSection === 'main' && !liveMode && (
                 <div className="flex-1 overflow-y-auto flex flex-col gap-3">
                   {phase === 'before' && !isDone && (
                     <div className="flex flex-col items-center justify-center py-10 text-center">
