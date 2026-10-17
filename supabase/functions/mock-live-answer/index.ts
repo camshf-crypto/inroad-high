@@ -36,6 +36,31 @@ interface Meta {
   concept?: string;            // 학생 컨셉 (진로계열검사·목표: 학과 · 직업 · 대학) — 답변이 컨셉에 맞는지 확인용
   studentAudioPath?: string;   // 학생 핸드폰 녹음 (스토리지 live-mock-audio 안 경로)
   studentDelaySec?: number;    // 학생 핸드폰이 원장보다 늦게 녹음을 시작한 시간 (대략)
+  face?: FaceMetrics | null;   // 학생 핸드폰 카메라 얼굴 분석 (이번 녹음 전체)
+}
+interface FaceMetrics {
+  sec: number; facePct: number; gazePct: number; downPct: number; awayPct: number;
+  smilePct: number; browPct: number; pressPct: number; blinkPerMin: number;
+  moves: number; movesPerMin: number; earlyTensePct: number; calibrated?: boolean;
+}
+
+// 얼굴 숫자 → AI가 읽을 설명 (눈에 띄는 것만 표시)
+function faceText(f?: FaceMetrics | null) {
+  if (!f || typeof f.gazePct !== "number") return "";
+  if (f.facePct < 60) return `얼굴 분석: 카메라에 얼굴이 ${f.facePct}%만 잡혀서 표정·시선은 판단하지 않는다.`;
+  const notes: string[] = [];
+  if (f.gazePct < 60) notes.push(`면접관 쪽을 본 시간이 ${f.gazePct}%로 적음`);
+  if (f.downPct >= 25) notes.push(`아래를 본 시간 ${f.downPct}%`);
+  if (f.awayPct >= 30) notes.push(`옆·위 등 다른 곳을 본 시간 ${f.awayPct}%`);
+  if (f.earlyTensePct >= 50) notes.push(`처음 10초 표정이 굳어 있음`);
+  if (f.browPct >= 25) notes.push(`눈썹을 찌푸린 시간 ${f.browPct}%`);
+  if (f.pressPct >= 30) notes.push(`입술을 다물거나 깨문 시간 ${f.pressPct}%`);
+  if (f.movesPerMin >= 12) notes.push(`고개를 크게 움직인 횟수 1분 ${f.movesPerMin}번 (많음)`);
+  if (f.blinkPerMin >= 35) notes.push(`눈 깜빡임 1분 ${f.blinkPerMin}번 (많음, 긴장 신호일 수 있음)`);
+  if (f.smilePct >= 15) notes.push(`미소 ${f.smilePct}% (좋음)`);
+  if (f.gazePct >= 75) notes.push(`면접관을 본 시간 ${f.gazePct}% (좋음)`);
+  return `얼굴 분석(학생 핸드폰 카메라, ${f.sec}초, 대략값): 시선 ${f.gazePct}% · 아래 ${f.downPct}% · 미소 ${f.smilePct}% · 찌푸림 ${f.browPct}% · 고개 움직임 ${f.moves}번 · 눈 깜빡임 1분 ${f.blinkPerMin}번 · 처음 10초 굳음 ${f.earlyTensePct}%
+눈에 띄는 점: ${notes.length ? notes.join(" / ") : "특별히 눈에 띄는 점 없음"}`;
 }
 
 const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
@@ -126,10 +151,18 @@ function feedbackPrompt() {
 
 그리고 followUps: 마지막 대답에서 더 파고들 만한 꼬리질문 3개 (면접관이 이어서 물어볼 때 참고용). 짧고 실제 면접관 말투로, 이미 한 질문과 겹치지 않게.
 
+face: "얼굴 분석"이 주어졌을 때만 (이번 녹음 전체 1개). 없거나 판단하지 않는다고 되어 있으면 null.
+  · comment: 1~2문장. "눈에 띄는 점"만 짚는다. 숫자를 하나 넣어도 좋다 (예: "대답하는 동안 40%를 아래를 봤어요").
+  · tip: 다음 대답에서 바로 해 볼 행동 1문장 (예: "결론 문장을 말할 때는 면접관 눈을 보세요").
+  · 좋은 점이 있으면 먼저 칭찬한다. 카메라로 잰 대략값이라 단정하지 말고 "~로 보였어요"처럼 부드럽게.
+  · 표정이 담담한 것은 면접에서 괜찮다. 미소가 적다는 이유만으로 지적하지 않는다.
+  · 대답 내용 평가(good·improve)에는 얼굴 얘기를 섞지 않는다.
+
 반드시 아래 json 형식으로만 답한다.
 {
   "pairs": [{ "qa": 0, "summary": "", "good": "", "improve": "", "tags": [{ "label": "질문 이해도", "level": "상" }], "fillerCount": 0, "concept": { "level": "중", "comment": "" }, "habits": [""] }],
-  "followUps": ["", "", ""]
+  "followUps": ["", "", ""],
+  "face": { "comment": "", "tip": "" }
 }`;
 }
 
@@ -140,7 +173,7 @@ function contextHeader(meta: Meta) {
   return `학생: ${meta.studentName ?? ""} (${meta.grade ?? ""})${target ? ` · 지원: ${target}` : ""}
 학생 컨셉: ${meta.concept || "(없음)"}
 화면에 띄운 질문: ${meta.questionText || (meta.continuation ? "(앞 질문에 이어지는 꼬리질문)" : "(선생님이 말로 질문함)")}${meta.questionType ? ` [${meta.questionType}]` : ""}
-${prev ? `\n앞선 문답:\n${prev}\n` : ""}`;
+${prev ? `\n앞선 문답:\n${prev}\n` : ""}${faceText(meta.face) ? `\n${faceText(meta.face)}\n` : ""}`;
 }
 
 function cleanFeedback(raw: any) {
@@ -344,6 +377,14 @@ serve(async (req) => {
     });
     const followUps = (Array.isArray(fb?.followUps) ? fb.followUps : [])
       .map((s: any) => String(s ?? "").trim()).filter(Boolean).slice(0, 3);
+
+    // 얼굴 피드백은 이번 녹음 전체 1개 → 첫 문답 피드백에 붙임
+    const faceFb = faceText(meta.face) && fb?.face && String(fb.face.comment ?? "").trim()
+      ? { comment: String(fb.face.comment).trim(), tip: String(fb.face.tip ?? "").trim() }
+      : null;
+    if (faceFb && pairs.length) {
+      pairs[0] = { ...pairs[0], feedback: { ...(pairs[0] as any).feedback, face: faceFb, faceMetrics: meta.face } } as any;
+    }
 
     const first = pairs[0];
     return jsonResponse({

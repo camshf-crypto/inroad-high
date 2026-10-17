@@ -270,7 +270,9 @@ function LiveResultView({ mains, questions }: { mains: any[]; questions: any[] }
 
 // ═══════════════════════════════════════════════════════════
 // 현장 면접 대기 (학생 핸드폰 · 태블릿 · 노트북)
-//   원장이 녹음 시작을 누르면 이 화면에서도 녹음이 켜지고, 끝을 누르면 녹음 파일을 올려 보냄
+//   원장이 녹음 시작을 누르면 이 화면에서 얼굴 분석(+필요하면 녹음)이 켜지고, 끝을 누르면 결과를 보냄
+//   - 얼굴: 카메라로 얼굴에 초록 윤곽선을 그리고 시선·표정·고개 움직임을 숫자로만 셈 (영상은 저장 안 함)
+//   - 소리: 원장이 무선 마이크를 안 쓰는 학생이면 이 기기로 대답을 녹음해서 올림
 //   채널: live-mock-{내 id} (원장 진행 화면과 같은 이름)
 // ═══════════════════════════════════════════════════════════
 function pickAudioType() {
@@ -278,6 +280,70 @@ function pickAudioType() {
   if (MediaRecorder.isTypeSupported('audio/webm')) return { mime: 'audio/webm', ext: 'webm' }
   if (MediaRecorder.isTypeSupported('audio/mp4')) return { mime: 'audio/mp4', ext: 'mp4' }   // 아이폰 사파리
   return { mime: '', ext: 'webm' }
+}
+
+// ───────── 얼굴 분석 (MediaPipe · 기기 안에서만 계산) ─────────
+const MP_VER = '0.10.14'
+let landmarkerPromise: Promise<any> | null = null
+function loadLandmarker() {
+  if (!landmarkerPromise) {
+    landmarkerPromise = (async () => {
+      const vision: any = await import('@mediapipe/tasks-vision')
+      const files = await vision.FilesetResolver.forVisionTasks(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}/wasm`)
+      const make = (delegate: 'GPU' | 'CPU') => vision.FaceLandmarker.createFromOptions(files, {
+        baseOptions: {
+          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+          delegate,
+        },
+        runningMode: 'VIDEO', numFaces: 1,
+        outputFaceBlendshapes: true, outputFacialTransformationMatrixes: true,
+      })
+      let lm: any
+      try { lm = await make('GPU') } catch { lm = await make('CPU') }
+      return { lm, vision }
+    })()
+    landmarkerPromise.catch(() => { landmarkerPromise = null })
+  }
+  return landmarkerPromise
+}
+
+interface FaceAcc {
+  startT: number; frames: number; face: number; gaze: number; down: number; away: number
+  smile: number; brow: number; press: number; blinks: number; closed: boolean; moves: number
+  refYaw: number | null; refPitch: number | null; earlyFace: number; earlyTense: number; calibrated: boolean
+}
+const newAcc = (calibrated: boolean): FaceAcc => ({
+  startT: performance.now(), frames: 0, face: 0, gaze: 0, down: 0, away: 0, smile: 0, brow: 0, press: 0,
+  blinks: 0, closed: false, moves: 0, refYaw: null, refPitch: null, earlyFace: 0, earlyTense: 0, calibrated,
+})
+const median = (a: number[]) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : 0 }
+
+// 얼굴 각도 (도) — 4x4 변환행렬(열 우선)에서 좌우(yaw)·위아래(pitch)
+function headPose(m: number[] | Float32Array) {
+  const yaw = Math.atan2(m[8], m[10]) * 180 / Math.PI
+  const pitch = Math.atan2(-m[9], Math.hypot(m[8], m[10])) * 180 / Math.PI
+  return { yaw, pitch }
+}
+
+function faceResult(acc: FaceAcc) {
+  const sec = Math.max(1, (performance.now() - acc.startT) / 1000)
+  const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0)
+  return {
+    v: 1,
+    sec: Math.round(sec),
+    facePct: pct(acc.face, acc.frames),          // 얼굴이 화면에 잡힌 비율
+    gazePct: pct(acc.gaze, acc.face),            // 면접관 쪽을 본 비율
+    downPct: pct(acc.down, acc.face),            // 아래를 본 비율
+    awayPct: pct(acc.away, acc.face),            // 옆·위 등 다른 곳을 본 비율
+    smilePct: pct(acc.smile, acc.face),          // 미소
+    browPct: pct(acc.brow, acc.face),            // 눈썹 찌푸림
+    pressPct: pct(acc.press, acc.face),          // 입술 다물기·깨물기
+    blinkPerMin: Math.round((acc.blinks / sec) * 60),
+    moves: acc.moves,                            // 고개를 크게 움직인 횟수
+    movesPerMin: Math.round((acc.moves / sec) * 60),
+    earlyTensePct: pct(acc.earlyTense, acc.earlyFace), // 처음 10초 굳은 표정 비율
+    calibrated: acc.calibrated,                  // 대기 중에 선생님 쪽 기준을 잡았나
+  }
 }
 
 function LiveStudentRoom({ onClose }: { onClose: () => void }) {
@@ -288,6 +354,8 @@ function LiveStudentRoom({ onClose }: { onClose: () => void }) {
   const [msg, setMsg] = useState('')
   const [sec, setSec] = useState(0)
   const [lastSent, setLastSent] = useState(0)
+  const [cam, setCam] = useState<'off' | 'loading' | 'on' | 'fail'>('off')
+  const [faceSeen, setFaceSeen] = useState(false)
 
   const streamRef = useRef<MediaStream | null>(null)
   const recRef = useRef<MediaRecorder | null>(null)
@@ -298,11 +366,20 @@ function LiveStudentRoom({ onClose }: { onClose: () => void }) {
   const wakeRef = useRef<any>(null)
   const timerRef = useRef<number | null>(null)
   const uidRef = useRef<string | null>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const rafRef = useRef<number | null>(null)
+  const lmRef = useRef<any>(null)
+  const accRef = useRef<FaceAcc | null>(null)        // 녹음 중일 때만 쌓음
+  const baseRef = useRef<{ yaw: number[]; pitch: number[] }>({ yaw: [], pitch: [] })  // 대기 중 = 선생님 보는 자세
+  const stageRef = useRef(stage)
+  stageRef.current = stage
 
   useEffect(() => {
     void supabase.auth.getUser().then(({ data }) => { setUid(data.user?.id ?? null); uidRef.current = data.user?.id ?? null })
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current)
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
       if (recRef.current?.state === 'recording') recRef.current.stop()
       streamRef.current?.getTracks().forEach(t => t.stop())
       try { wakeRef.current?.release?.() } catch { /* 무시 */ }
@@ -320,18 +397,112 @@ function LiveStudentRoom({ onClose }: { onClose: () => void }) {
     return () => document.removeEventListener('visibilitychange', onVis)
   }, [stage])
 
+  // ── 얼굴 분석 반복 (1초에 15번쯤) ──
+  const startFaceLoop = async () => {
+    const video = videoRef.current
+    if (!video || !streamRef.current?.getVideoTracks().length) { setCam('fail'); return }
+    setCam('loading')
+    try {
+      video.srcObject = streamRef.current
+      await video.play().catch(() => { /* 자동재생 막히면 첫 터치 때 재생 */ })
+      const { lm, vision } = await loadLandmarker()
+      lmRef.current = lm
+      setCam('on')
+      let lastT = 0
+      const C = vision.FaceLandmarker
+      const loop = () => {
+        rafRef.current = requestAnimationFrame(loop)
+        const now = performance.now()
+        if (now - lastT < 66 || video.readyState < 2) return
+        lastT = now
+        let res: any
+        try { res = lm.detectForVideo(video, now) } catch { return }
+        const canvas = canvasRef.current
+        const ctx = canvas?.getContext('2d')
+        if (canvas && ctx) {
+          if (canvas.width !== video.videoWidth) { canvas.width = video.videoWidth; canvas.height = video.videoHeight }
+          ctx.clearRect(0, 0, canvas.width, canvas.height)
+        }
+        const pts = res?.faceLandmarks?.[0]
+        setFaceSeen(!!pts)
+        const acc = accRef.current
+        if (acc) acc.frames++
+        if (!pts) return
+
+        // 초록 윤곽선
+        if (ctx) {
+          const du = new vision.DrawingUtils(ctx)
+          du.drawConnectors(pts, C.FACE_LANDMARKS_TESSELATION, { color: 'rgba(34,197,94,0.35)', lineWidth: 0.6 })
+          for (const k of ['FACE_LANDMARKS_FACE_OVAL', 'FACE_LANDMARKS_LEFT_EYE', 'FACE_LANDMARKS_RIGHT_EYE', 'FACE_LANDMARKS_LEFT_EYEBROW', 'FACE_LANDMARKS_RIGHT_EYEBROW', 'FACE_LANDMARKS_LIPS', 'FACE_LANDMARKS_LEFT_IRIS', 'FACE_LANDMARKS_RIGHT_IRIS']) {
+            if (C[k]) du.drawConnectors(pts, C[k], { color: '#22C55E', lineWidth: 1.6 })
+          }
+        }
+
+        const bs: Record<string, number> = {}
+        for (const c of res.faceBlendshapes?.[0]?.categories ?? []) bs[c.categoryName] = c.score
+        const mat = res.facialTransformationMatrixes?.[0]?.data
+        const pose = mat ? headPose(mat) : { yaw: 0, pitch: 0 }
+
+        // 대기 중: 선생님을 보고 있는 자세를 기준으로 기억 (최근 3초)
+        if (!acc) {
+          if (stageRef.current === 'ready') {
+            const b = baseRef.current
+            b.yaw.push(pose.yaw); b.pitch.push(pose.pitch)
+            if (b.yaw.length > 45) { b.yaw.shift(); b.pitch.shift() }
+          }
+          return
+        }
+
+        // 녹음 중: 숫자 쌓기
+        acc.face++
+        const b = baseRef.current
+        if (!acc.calibrated && b.yaw.length < 15) { b.yaw.push(pose.yaw); b.pitch.push(pose.pitch) }  // 기준 없으면 처음 1초로
+        const by = median(b.yaw), bp = median(b.pitch)
+        const dy = Math.abs(pose.yaw - by), dp = Math.abs(pose.pitch - bp)
+        const eyeDown = ((bs.eyeLookDownLeft ?? 0) + (bs.eyeLookDownRight ?? 0)) / 2
+        const eyeSide = Math.max(bs.eyeLookOutLeft ?? 0, bs.eyeLookOutRight ?? 0, bs.eyeLookInLeft ?? 0, bs.eyeLookInRight ?? 0)
+        if (eyeDown >= 0.5) acc.down++
+        else if (dy < 18 && dp < 14 && eyeSide < 0.6) acc.gaze++
+        else acc.away++
+        const smile = ((bs.mouthSmileLeft ?? 0) + (bs.mouthSmileRight ?? 0)) / 2 > 0.35
+        const brow = ((bs.browDownLeft ?? 0) + (bs.browDownRight ?? 0)) / 2 > 0.45
+        const press = Math.max(bs.mouthPressLeft ?? 0, bs.mouthPressRight ?? 0, bs.mouthRollLower ?? 0) > 0.5
+        if (smile) acc.smile++
+        if (brow) acc.brow++
+        if (press) acc.press++
+        const blink = ((bs.eyeBlinkLeft ?? 0) + (bs.eyeBlinkRight ?? 0)) / 2
+        if (blink > 0.55 && !acc.closed) { acc.blinks++; acc.closed = true }
+        else if (blink < 0.3) acc.closed = false
+        if (acc.refYaw === null || acc.refPitch === null) { acc.refYaw = pose.yaw; acc.refPitch = pose.pitch }
+        else if (Math.hypot(pose.yaw - acc.refYaw, pose.pitch - acc.refPitch) > 10) { acc.moves++; acc.refYaw = pose.yaw; acc.refPitch = pose.pitch }
+        if (now - acc.startT < 10000) { acc.earlyFace++; if (!smile && (brow || press)) acc.earlyTense++ }
+      }
+      loop()
+    } catch (e) {
+      console.error('[현장 면접] 얼굴 분석 시작 실패', e)
+      setCam('fail')
+    }
+  }
+
   // 선생님이 녹음 시작
   const begin = (payload: any) => {
-    if (!streamRef.current || recRef.current?.state === 'recording') return
+    if (recIdRef.current) return
     recIdRef.current = String(payload?.recId ?? '')
     setQuestion(String(payload?.question ?? ''))
-    chunksRef.current = []
-    const { mime } = pickAudioType()
-    const rec = new MediaRecorder(streamRef.current, mime ? { mimeType: mime } : undefined)
-    rec.ondataavailable = e => { if (e.data.size) chunksRef.current.push(e.data) }
-    rec.onstop = () => { void upload(rec.mimeType || mime) }
-    rec.start()
-    recRef.current = rec
+    accRef.current = lmRef.current ? newAcc(baseRef.current.yaw.length >= 15) : null
+    const wantAudio = payload?.audio !== false   // 무선 마이크 쓰는 학생이면 false
+    if (wantAudio && streamRef.current?.getAudioTracks().length) {
+      chunksRef.current = []
+      const { mime } = pickAudioType()
+      const audioOnly = new MediaStream(streamRef.current.getAudioTracks())
+      const rec = new MediaRecorder(audioOnly, mime ? { mimeType: mime } : undefined)
+      rec.ondataavailable = e => { if (e.data.size) chunksRef.current.push(e.data) }
+      rec.onstop = () => { void upload(rec.mimeType || mime) }
+      rec.start()
+      recRef.current = rec
+    } else {
+      recRef.current = null
+    }
     startedAtRef.current = Date.now()
     setSec(0)
     if (timerRef.current) window.clearInterval(timerRef.current)
@@ -343,7 +514,12 @@ function LiveStudentRoom({ onClose }: { onClose: () => void }) {
   const finish = (recId: string) => {
     if (!recIdRef.current || recId !== recIdRef.current) return
     if (timerRef.current) { window.clearInterval(timerRef.current); timerRef.current = null }
+    // 얼굴 분석 결과 먼저 보냄 (숫자만)
+    const acc = accRef.current
+    accRef.current = null
+    void chRef.current?.send({ type: 'broadcast', event: 'face', payload: { recId, metrics: acc && acc.face > 5 ? faceResult(acc) : null } })
     if (recRef.current?.state === 'recording') recRef.current.stop()
+    else { recIdRef.current = null; setQuestion(''); setLastSent(n => n + 1); setStage('ready') }
   }
 
   // 녹음 파일 올리고 선생님 화면에 알려 줌 (실패해도 선생님 노트북 녹음으로 저장됨)
@@ -365,20 +541,27 @@ function LiveStudentRoom({ onClose }: { onClose: () => void }) {
     }
     void chRef.current?.send({ type: 'broadcast', event: 'uploaded', payload: { recId, path: ok ? path : null, startedAt: startedAtRef.current } })
     recIdRef.current = null
+    recRef.current = null
     setQuestion('')
     if (ok) setLastSent(n => n + 1)
     setStage('ready')
   }
 
-  // 마이크 켜고 대기
+  // 카메라·마이크 켜고 대기
   const enable = async () => {
     if (!uid) { setMsg('로그인 정보를 확인할 수 없어요. 다시 로그인해 주세요.'); setStage('err'); return }
+    const audio = { echoCancellation: true, noiseSuppression: true }
+    const video = { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
     try {
-      streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+      streamRef.current = await navigator.mediaDevices.getUserMedia({ audio, video })
     } catch {
-      setMsg('마이크를 쓸 수 없어요. 주소창 왼쪽(아이폰은 aA 버튼) → 마이크 허용으로 바꾼 뒤 다시 눌러 주세요.')
-      setStage('err')
-      return
+      try {
+        streamRef.current = await navigator.mediaDevices.getUserMedia({ audio })   // 카메라 거절 → 소리만
+      } catch {
+        setMsg('카메라·마이크를 쓸 수 없어요. 주소창 왼쪽(아이폰은 aA 버튼) → 카메라·마이크 허용으로 바꾼 뒤 다시 눌러 주세요.')
+        setStage('err')
+        return
+      }
     }
     await keepAwake()
     const ch = supabase.channel(`live-mock-${uid}`, { config: { broadcast: { self: false }, presence: { key: 'student' } } })
@@ -388,16 +571,21 @@ function LiveStudentRoom({ onClose }: { onClose: () => void }) {
     })
     ch.on('broadcast', { event: 'start' }, ({ payload }: any) => begin(payload))
     ch.on('broadcast', { event: 'stop' }, ({ payload }: any) => finish(String(payload?.recId ?? '')))
-    ch.subscribe((status: string) => { if (status === 'SUBSCRIBED') void ch.track({ role: 'student', mic: true }) })
+    ch.subscribe((status: string) => {
+      if (status === 'SUBSCRIBED') void ch.track({ role: 'student', mic: true, face: !!streamRef.current?.getVideoTracks().length })
+    })
     chRef.current = ch
     setStage('ready')
+    window.setTimeout(() => { void startFaceLoop() }, 0)
   }
 
   const mmss = (n: number) => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`
+  const dark = stage === 'rec'
+  const showCam = stage === 'ready' || stage === 'rec' || stage === 'upload'
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col font-sans"
-      style={{ background: stage === 'rec' ? '#0F172A' : '#F8FAFC', color: stage === 'rec' ? '#fff' : '#0F172A' }}>
+    <div className="fixed inset-0 z-[100] flex flex-col font-sans overflow-y-auto"
+      style={{ background: dark ? '#0F172A' : '#F8FAFC', color: dark ? '#fff' : '#0F172A' }}>
       <div className="flex items-center justify-between px-5 pt-5">
         <div className="text-[16px] font-extrabold">현장 면접</div>
         {stage !== 'rec' && stage !== 'upload' && (
@@ -406,21 +594,36 @@ function LiveStudentRoom({ onClose }: { onClose: () => void }) {
         )}
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-5">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-4 text-center gap-4">
+        {/* 카메라 + 초록 윤곽선 (거울처럼 좌우 반전) */}
+        <div className="relative w-full max-w-[360px] aspect-[4/3] rounded-2xl overflow-hidden bg-black"
+          style={{ display: showCam && cam !== 'fail' ? 'block' : 'none' }}>
+          <video ref={videoRef} playsInline muted autoPlay className="absolute inset-0 w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
+          <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
+          <div className="absolute left-2 top-2 text-[11px] font-bold px-2 py-1 rounded-md"
+            style={{ background: 'rgba(15,23,42,.65)', color: cam === 'on' && faceSeen ? '#4ADE80' : '#FCD34D' }}>
+            {cam === 'loading' ? '얼굴 인식 준비 중…' : cam === 'on' ? (faceSeen ? '얼굴 인식 중' : '얼굴이 안 보여요') : ''}
+          </div>
+        </div>
+        {showCam && cam === 'fail' && (
+          <div className="text-[12.5px] text-slate-500">카메라 없이 진행해요 (얼굴 분석은 빠져요)</div>
+        )}
+
         {stage === 'ask' && (
           <>
             <div className="w-20 h-20 rounded-full flex items-center justify-center" style={{ background: THEME.accentBg, color: THEME.accent }}>
-              <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v3" /></svg>
+              <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" /></svg>
             </div>
             <div className="text-[22px] font-extrabold leading-[1.4]">현장 면접 대기</div>
             <div className="text-[15px] text-slate-600 leading-[1.7]">
-              선생님이 녹음을 시작하면<br />이 기기로 내 대답이 녹음돼요.
+              핸드폰을 내 얼굴 앞에 세워 두면<br />시선·표정을 분석해서 피드백에 넣어 줘요.<br />
+              <span className="text-[13px] text-slate-500">영상은 저장되지 않고 숫자만 선생님께 가요.</span>
             </div>
             <button onClick={enable} className="w-full max-w-[320px] h-16 rounded-2xl text-white text-[18px] font-extrabold"
               style={{ background: THEME.accent, boxShadow: `0 6px 16px ${THEME.accentShadow}` }}>
-              마이크 켜고 대기하기
+              카메라·마이크 켜고 대기하기
             </button>
-            <div className="text-[13px] text-slate-500">마이크를 물어보면 <b>허용</b>을 눌러 주세요</div>
+            <div className="text-[13px] text-slate-500">카메라·마이크를 물어보면 <b>허용</b>을 눌러 주세요</div>
           </>
         )}
 
@@ -430,12 +633,12 @@ function LiveStudentRoom({ onClose }: { onClose: () => void }) {
               <span className="w-3 h-3 rounded-full" style={{ background: teacher ? '#10B981' : '#F59E0B' }} />
               {teacher ? '선생님과 연결됐어요' : '선생님 화면을 기다리는 중'}
             </div>
-            <div className="text-[22px] font-extrabold leading-[1.4]">내 차례가 되면<br />자동으로 녹음돼요</div>
-            <div className="w-full max-w-[340px] rounded-2xl bg-white border border-slate-200 p-4 text-left text-[14px] text-slate-700 leading-[1.8]">
-              · <b>화면을 켜 둔 채로</b> 두세요 (잠금 버튼 누르면 녹음이 안 돼요)<br />
-              · 다른 앱으로 나가지 마세요<br />
-              · <b>방해금지 모드</b>를 켜 두면 알림 소리가 안 들어가요<br />
-              · 핸드폰은 입 앞 30cm쯤에 두세요
+            <div className="text-[20px] font-extrabold leading-[1.4]">기다리는 동안<br />선생님을 바라봐 주세요</div>
+            <div className="w-full max-w-[360px] rounded-2xl bg-white border border-slate-200 p-4 text-left text-[13.5px] text-slate-700 leading-[1.8]">
+              · 핸드폰은 <b>거치대에 세워서</b> 얼굴 정면이 나오게 두세요<br />
+              · 얼굴에 초록 선이 보이면 준비 끝이에요<br />
+              · <b>화면을 켜 둔 채로</b>, 다른 앱으로 나가지 마세요<br />
+              · <b>방해금지 모드</b>를 켜 두세요
             </div>
             {lastSent > 0 && <div className="text-[13px] text-slate-500">대답 {lastSent}개를 선생님께 보냈어요</div>}
           </>
@@ -445,13 +648,13 @@ function LiveStudentRoom({ onClose }: { onClose: () => void }) {
           <>
             <div className="flex items-center gap-2 text-[15px] font-bold text-red-300">
               <span className="w-3.5 h-3.5 rounded-full bg-red-500 animate-pulse" />
-              녹음 중 {mmss(sec)}
+              면접 중 {mmss(sec)}
             </div>
-            <div className="text-[26px] font-extrabold leading-[1.3]">지금 대답하세요</div>
+            <div className="text-[24px] font-extrabold leading-[1.3]">선생님을 보고 대답하세요</div>
             {question && (
-              <div className="w-full max-w-[380px] rounded-2xl p-5 text-left" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                <div className="text-[12px] font-bold text-slate-300 mb-1.5">질문</div>
-                <div className="text-[19px] font-bold leading-[1.55]">{question}</div>
+              <div className="w-full max-w-[380px] rounded-2xl p-4 text-left" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                <div className="text-[12px] font-bold text-slate-300 mb-1">질문</div>
+                <div className="text-[17px] font-bold leading-[1.55]">{question}</div>
               </div>
             )}
             <div className="text-[13px] text-slate-400">선생님이 끝을 누르면 자동으로 멈춰요</div>

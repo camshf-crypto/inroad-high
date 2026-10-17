@@ -58,6 +58,8 @@ interface RecCtx {
   customText: string
   recId: string           // 이번 녹음 번호 (학생 핸드폰 녹음과 짝 맞추기)
   phone: boolean          // 학생 핸드폰도 같이 녹음했나
+  wmic: number | null     // 무선 마이크 번호 (1~6) — 쓰면 핸드폰 대신 이걸로
+  facePhone: boolean      // 학생 핸드폰이 켜져 있어서 얼굴 분석을 받나
   startedAt: number       // 원장 노트북 녹음 시작 시각
 }
 interface LastResult {
@@ -65,6 +67,38 @@ interface LastResult {
   followUps: string[]  // 마지막 대답 기준 더 물어볼 만한 꼬리질문 (참고)
   parentId: string     // 꼬리질문이 붙은 본 질문 id
   createdIds: string[] // 이번 녹음으로 새로 만든 줄 (다시 녹음할 때 지움)
+  face?: any           // 학생 핸드폰 얼굴 분석 (시선·표정·움직임 숫자)
+}
+
+// 얼굴 분석 숫자 → 한눈에 보는 칸
+function FaceBox({ f }: { f: any }) {
+  if (!f) return null
+  const warn = (bad: boolean) => (bad ? { background: '#FFF7ED', color: '#9A3412', border: '1px solid #FED7AA' } : { background: '#F8FAFC', color: '#334155', border: '1px solid #E2E8F0' })
+  const items = [
+    { k: '시선', v: `${f.gazePct}%`, sub: f.downPct >= 25 ? `아래 ${f.downPct}%` : '', bad: f.gazePct < 60 },
+    { k: '미소', v: `${f.smilePct}%`, sub: '', bad: f.smilePct < 5 },
+    { k: '찌푸림', v: `${f.browPct}%`, sub: '', bad: f.browPct >= 25 },
+    { k: '고개 움직임', v: `${f.moves}번`, sub: `1분 ${f.movesPerMin}번`, bad: f.movesPerMin >= 12 },
+    { k: '눈 깜빡임', v: `1분 ${f.blinkPerMin}번`, sub: '', bad: f.blinkPerMin >= 35 },
+    { k: '처음 10초', v: f.earlyTensePct >= 50 ? '굳음' : '괜찮음', sub: '', bad: f.earlyTensePct >= 50 },
+  ]
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <div className="text-[13px] font-bold text-ink">표정 · 시선 <span className="text-[11.5px] font-medium text-slate-500">학생 핸드폰 카메라 · {f.sec}초</span></div>
+        {f.facePct < 60 && <span className="text-[11.5px] font-semibold text-amber-700">얼굴이 {f.facePct}%만 잡혔어요</span>}
+      </div>
+      <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))' }}>
+        {items.map(it => (
+          <div key={it.k} className="rounded-lg px-2.5 py-2" style={warn(it.bad)}>
+            <div className="text-[11px] font-semibold opacity-80">{it.k}</div>
+            <div className="text-[14px] font-extrabold">{it.v}</div>
+            {it.sub && <div className="text-[10.5px] opacity-80">{it.sub}</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 const shuffle = <T,>(a: T[]) => [...a].sort(() => Math.random() - 0.5)
@@ -119,7 +153,8 @@ function ConceptHabits({ fb }: { fb: any }) {
   const fillers = Object.entries((fb?.fillers ?? {}) as Record<string, number>).sort((a, b) => b[1] - a[1])
   const habits: string[] = fb?.habits ?? []
   const c = fb?.concept as { level: string; comment: string } | null | undefined
-  if (!c && !fillers.length && !habits.length) return null
+  const face = fb?.face as { comment: string; tip: string } | null | undefined
+  if (!c && !fillers.length && !habits.length && !face) return null
   const lv: Record<string, [string, string]> = { '상': ['#DBEAFE', '#1D4ED8'], '중': ['#F1F5F9', '#334155'], '하': ['#FFEDD5', '#C2410C'] }
   const [cbg, cfg] = c ? (lv[c.level] ?? lv['중']) : lv['중']
   return (
@@ -143,6 +178,13 @@ function ConceptHabits({ fb }: { fb: any }) {
             </div>
           )}
           {habits.map(h => <div key={h} className="text-[12.5px] text-slate-600 leading-[1.5]">· {h}</div>)}
+        </div>
+      )}
+      {face && (
+        <div className="flex flex-col gap-1">
+          <div className="text-[12px] font-bold text-slate-600">표정 · 시선</div>
+          <div className="text-[13px] leading-[1.6] text-slate-700">{face.comment}</div>
+          {face.tip && <div className="text-[12.5px] leading-[1.5] text-blue-700">→ {face.tip}</div>}
         </div>
       )}
     </div>
@@ -541,6 +583,7 @@ export default function LiveInterview({ grade, onClose, onPick, resumeExams }: {
         followUps: last && last.parentId === viewingRow.id ? last.followUps : [],
         parentId: viewingRow.id,
         createdIds: last && last.parentId === viewingRow.id ? last.createdIds : [],
+        face: viewingRow.face_metrics ?? null,
       }
     : last
   const shownLabel = viewingRow ? `${(seat?.rows.indexOf(viewingRow) ?? 0) + 1}번 질문 기록` : '마지막 녹음'
@@ -588,6 +631,14 @@ export default function LiveInterview({ grade, onClose, onPick, resumeExams }: {
   const chansRef = useRef<Record<string, any>>({})
   const uploadWaitRef = useRef<Record<string, (v: { path: string; startedAt: number } | null) => void>>({})
   const uploadedRef = useRef<Record<string, { path: string; startedAt: number } | null>>({})
+  // 학생 핸드폰 얼굴 분석 결과 (녹음 끝나면 바로 옴)
+  const faceGotRef = useRef<Record<string, any>>({})
+  const faceWaitRef = useRef<Record<string, (v: any) => void>>({})
+  const waitFace = (recId: string) => new Promise<any>(resolve => {
+    if (recId in faceGotRef.current) { resolve(faceGotRef.current[recId]); return }
+    const timer = window.setTimeout(() => { delete faceWaitRef.current[recId]; resolve(null) }, 8000)
+    faceWaitRef.current[recId] = v => { window.clearTimeout(timer); delete faceWaitRef.current[recId]; resolve(v) }
+  })
   const seatIds = seats.map(x => x.student.id).join(',')
   useEffect(() => {
     if (step !== 'live') return
@@ -598,6 +649,11 @@ export default function LiveInterview({ grade, onClose, onPick, resumeExams }: {
       ch.on('presence', { event: 'sync' }, () => {
         const st = ch.presenceState() as Record<string, any[]>
         setPhones(p => ({ ...p, [sid]: !!st.student?.length }))
+      })
+      ch.on('broadcast', { event: 'face' }, ({ payload }: any) => {
+        const id = String(payload?.recId ?? '')
+        faceGotRef.current[id] = payload?.metrics ?? null
+        faceWaitRef.current[id]?.(payload?.metrics ?? null)
       })
       ch.on('broadcast', { event: 'uploaded' }, ({ payload }: any) => {
         const v = payload?.path ? { path: payload.path, startedAt: Number(payload.startedAt) || 0 } : null
@@ -621,6 +677,41 @@ export default function LiveInterview({ grade, onClose, onPick, resumeExams }: {
     const timer = window.setTimeout(() => { delete uploadWaitRef.current[recId]; resolve(null) }, 25000)
     uploadWaitRef.current[recId] = v => { window.clearTimeout(timer); delete uploadWaitRef.current[recId]; resolve(v) }
   })
+
+  // ───────── 무선 마이크 (학생 옷에 다는 마이크 1~6번) ─────────
+  //   노트북에서 마이크 수신 프로그램(receiver.js)을 켜 두면 http://127.0.0.1:5006 으로 학생별 소리를 받을 수 있음
+  //   학생마다 마이크 번호를 정해 두면, 녹음 시작/끝 때 그 마이크 소리만 가져와서 원장 노트북 녹음과 같이 AI로 보냄
+  const WMIC = 'http://127.0.0.1:5006'
+  const [wmics, setWmics] = useState<Record<number, { alive: boolean; level: number }>>({})
+  const [wmicOn, setWmicOn] = useState(false)
+  const [micOf, setMicOf] = useState<Record<string, number>>(() => {
+    try { return JSON.parse(localStorage.getItem('bkurs-wmic-map') || '{}') } catch { return {} }
+  })
+  const setMic = (sid: string, n: number) => setMicOf(m => {
+    const next = { ...m }
+    if (n) next[sid] = n; else delete next[sid]
+    try { localStorage.setItem('bkurs-wmic-map', JSON.stringify(next)) } catch { /* 저장 안 돼도 괜찮음 */ }
+    return next
+  })
+  useEffect(() => {
+    if (step !== 'live') return
+    let stopped = false
+    const tick = async () => {
+      try {
+        const r = await fetch(`${WMIC}/status`, { cache: 'no-store' })
+        const j = await r.json()
+        if (stopped) return
+        const m: Record<number, { alive: boolean; level: number }> = {}
+        for (const x of j.mics ?? []) m[x.mic] = { alive: !!x.alive, level: Number(x.level) || 0 }
+        setWmics(m); setWmicOn(true)
+      } catch { if (!stopped) { setWmicOn(false); setWmics({}) } }
+    }
+    void tick()
+    const t = window.setInterval(tick, 1500)
+    return () => { stopped = true; window.clearInterval(t) }
+  }, [step])
+  const wmicFor = (sid: string): number | null => { const n = micOf[sid]; return n && wmics[n]?.alive ? n : null }
+  const wmicBlobRef = useRef<Record<string, Promise<Blob | null>>>({})
   const curCtxRef = useRef<RecCtx | null>(null)
 
   const startRec = () => {
@@ -635,15 +726,20 @@ export default function LiveInterview({ grade, onClose, onPick, resumeExams }: {
       contParentId: cont?.parentId ?? null,
       mode, qText, qTag, customText,
       recId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      phone: !!phones[seat.student.id],
+      phone: !wmicFor(seat.student.id) && !!phones[seat.student.id],
+      wmic: wmicFor(seat.student.id),
+      facePhone: !!phones[seat.student.id],
       startedAt: Date.now(),
     }
     curCtxRef.current = ctx
-    if (ctx.phone) {
+    if (ctx.wmic) void fetch(`${WMIC}/start?mic=${ctx.wmic}`, { method: 'POST' }).catch(() => { /* 실패하면 노트북 녹음만 */ })
+    // 학생 핸드폰: 얼굴 분석은 항상, 소리 녹음은 무선 마이크가 없을 때만
+    if (ctx.facePhone) {
       sendToPhone(ctx.studentId, 'start', {
         recId: ctx.recId,
         question: cont ? '꼬리질문에 대답해 주세요' : mode === 'voice' ? '선생님 질문을 듣고 대답해 주세요' : qText,
         teacherStartedAt: ctx.startedAt,
+        audio: ctx.phone,
       })
     }
     chunksRef.current = []
@@ -663,7 +759,11 @@ export default function LiveInterview({ grade, onClose, onPick, resumeExams }: {
     if (timerRef.current) { window.clearInterval(timerRef.current); timerRef.current = null }
     recRef.current?.stop()
     const c = curCtxRef.current
-    if (c?.phone) sendToPhone(c.studentId, 'stop', { recId: c.recId })
+    if (c?.facePhone) sendToPhone(c.studentId, 'stop', { recId: c.recId })
+    if (c?.wmic) {
+      wmicBlobRef.current[c.recId] = fetch(`${WMIC}/stop?mic=${c.wmic}`, { method: 'POST' })
+        .then(r => (r.ok ? r.blob() : null)).catch(() => null)
+    }
     curCtxRef.current = null
     setPhase('idle')
     if (seat && !cont && !mode) {
@@ -691,7 +791,23 @@ export default function LiveInterview({ grade, onClose, onPick, resumeExams }: {
       const tg = tgOf(ctx.studentId)
       // 학생 핸드폰도 녹음했으면 그 파일이 올라올 때까지 기다렸다가 같이 보냄
       let phone: { path: string; startedAt: number } | null = null
+      const face = ctx.facePhone ? await waitFace(ctx.recId) : null
+      delete faceGotRef.current[ctx.recId]
+      const faceField = face ? { face_metrics: face } : {}
       if (ctx.phone) phone = await waitPhoneUpload(ctx.recId)
+      // 무선 마이크로 녹음했으면 그 소리를 올려서 핸드폰 녹음과 똑같이 보냄 (같은 순간에 시작해서 시간차 0)
+      if (ctx.wmic) {
+        const wb = await (wmicBlobRef.current[ctx.recId] ?? Promise.resolve(null))
+        delete wmicBlobRef.current[ctx.recId]
+        if (wb && wb.size > 44 + 16000) {   // 0.5초 이상일 때만
+          const { data: u } = await supabase.auth.getUser()
+          if (u.user) {
+            const path = `${u.user.id}/${ctx.recId}.wav`
+            const up = await supabase.storage.from('live-mock-audio').upload(path, wb, { contentType: 'audio/wav', upsert: true })
+            if (!up.error) phone = { path, startedAt: ctx.startedAt }
+          }
+        }
+      }
       const delay = phone ? (phone.startedAt - ctx.startedAt) / 1000 : 0
       const fd = new FormData()
       fd.append('audio', new File([blob], (blob.type || '').includes('mp4') ? 'answer.mp4' : 'answer.webm', { type: blob.type || 'audio/webm' }))
@@ -710,6 +826,7 @@ export default function LiveInterview({ grade, onClose, onPick, resumeExams }: {
         studentAudioPath: phone?.path,
         // 기기 시계가 어긋날 수 있어서 0~2초 사이일 때만 믿음
         studentDelaySec: phone ? (delay >= 0 && delay <= 2 ? delay : 0.3) : undefined,
+        face: face || undefined,
       }))
       const { data, error } = await supabase.functions.invoke('mock-live-answer', { body: fd })
       if (error) throw error
@@ -741,14 +858,14 @@ export default function LiveInterview({ grade, onClose, onPick, resumeExams }: {
           const { data: ins, error: iErr } = await supabase.from('high_mock_exam_questions').insert({
             exam_id: s0.exam.id, student_id: ctx.studentId, order, level: 'main', parent_id: null, tail_index: null,
             type: '추가', question_text: (p0.question || ctx.customText).trim() || '(말로 한 질문)',
-            ai_generated: false, time_limit_sec: 120, ...liveOf(p0, ctx.mode),
+            ai_generated: false, time_limit_sec: 120, ...liveOf(p0, ctx.mode), ...faceField,
           }).select().single()
           if (iErr) throw iErr
           mainRow = ins
           createdIds.push(ins.id)
           patchStudent(ctx.studentId, x => ({ ...x, rows: [...x.rows, ins] }))
         } else if (row0) {
-          const live = liveOf(p0, mainSource)
+          const live = { ...liveOf(p0, mainSource), ...faceField }
           const { error: uErr } = await supabase.from('high_mock_exam_questions').update(live).eq('id', row0.id)
           if (uErr) throw uErr
           mainRow = { ...row0, ...live }
@@ -764,6 +881,7 @@ export default function LiveInterview({ grade, onClose, onPick, resumeExams }: {
             exam_id: s0.exam.id, student_id: ctx.studentId, order: mainRow.order, level: 'tail',
             parent_id: mainRow.id, tail_index: before + i + 1, type: mainRow.type,
             question_text: p.question, ai_generated: false, time_limit_sec: 120, ...liveOf(p, 'followup'),
+            ...(ctx.contParentId && i === 0 ? faceField : {}),
           })),
         ).select()
         if (iErr) throw iErr
@@ -781,6 +899,7 @@ export default function LiveInterview({ grade, onClose, onPick, resumeExams }: {
           followUps: data.followUps ?? [],
           parentId: mainRow?.id ?? '',
           createdIds,
+          face,
         },
       }))
       if (selIdRef.current === ctx.studentId) setFbTab(pairs.length - 1)
@@ -837,7 +956,11 @@ export default function LiveInterview({ grade, onClose, onPick, resumeExams }: {
   const liveDone = (s: Seat) => s.rows.filter(r => r.answer_source === 'live' && r.student_answer)
   const draftOf = (r: any, name: string) => {
     const fb = r.ai_feedback ?? {}
-    const parts = [fb.good ? `잘한 점: ${fb.good}` : '', fb.improve ? `다음엔 이렇게: ${fb.improve}` : ''].filter(Boolean)
+    const parts = [
+      fb.good ? `잘한 점: ${fb.good}` : '',
+      fb.improve ? `다음엔 이렇게: ${fb.improve}` : '',
+      fb.face?.comment ? `표정·시선: ${fb.face.comment}${fb.face.tip ? ` ${fb.face.tip}` : ''}` : '',
+    ].filter(Boolean)
     return parts.length ? `${name} 학생, ${parts.join('\n')}` : null
   }
   // 학생 한 명(또는 전부)에게 보내기 — AI가 쓴 피드백 그대로. 고쳐서 보내려면 학생 상세 화면에서.
@@ -1137,9 +1260,11 @@ export default function LiveInterview({ grade, onClose, onPick, resumeExams }: {
                       </span>
                     </div>
                     <div className="text-[12px] text-slate-500 truncate">{[tgOf(s.student.id).univ, tgOf(s.student.id).major, tgOf(s.student.id).track].filter(Boolean).join(' · ')}</div>
-                    <div className="flex items-center gap-1.5 text-[11.5px] font-semibold" style={{ color: phones[s.student.id] ? '#047857' : '#94A3B8' }}>
-                      <span className="w-2 h-2 rounded-full" style={{ background: phones[s.student.id] ? '#10B981' : '#CBD5E1' }} />
-                      {phones[s.student.id] ? '핸드폰 연결됨' : '핸드폰 미연결 · 노트북만'}
+                    <div className="flex items-center gap-1.5 text-[11.5px] font-semibold" style={{ color: wmicFor(s.student.id) || phones[s.student.id] ? '#047857' : '#94A3B8' }}>
+                      <span className="w-2 h-2 rounded-full" style={{ background: wmicFor(s.student.id) || phones[s.student.id] ? '#10B981' : '#CBD5E1' }} />
+                      {wmicFor(s.student.id)
+                        ? `무선 마이크 ${wmicFor(s.student.id)}번${phones[s.student.id] ? ' · 카메라' : ''}`
+                        : phones[s.student.id] ? '핸드폰 연결됨 · 소리+카메라' : '핸드폰 미연결 · 노트북만'}
                     </div>
                     <div className="flex gap-1">
                       {Array.from({ length: total }).map((_, k) => (
@@ -1147,6 +1272,34 @@ export default function LiveInterview({ grade, onClose, onPick, resumeExams }: {
                       ))}
                     </div>
                   </button>
+                )
+              })}
+            </div>
+
+            {/* 무선 마이크 연결 — 학생마다 마이크 번호 정하기 (다음에도 기억함) */}
+            <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3 flex items-center gap-x-4 gap-y-2 flex-wrap">
+              <span className="text-[13px] font-bold text-ink">무선 마이크</span>
+              {!wmicOn ? (
+                <span className="text-[12px] text-slate-500">
+                  마이크 수신 프로그램이 꺼져 있어요. 노트북에서 <b>node receiver.js</b>를 켜면 연결돼요. (안 켜도 노트북·핸드폰으로 녹음돼요)
+                </span>
+              ) : seats.map(s => {
+                const n = micOf[s.student.id] ?? 0
+                const st = n ? wmics[n] : undefined
+                return (
+                  <label key={s.student.id} className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-600">
+                    {s.student.name}
+                    <select value={n} disabled={phase === 'rec'} onChange={e => setMic(s.student.id, Number(e.target.value))}
+                      className="h-8 px-2 border border-slate-200 rounded-lg text-[12px] bg-white">
+                      <option value={0}>안 씀</option>
+                      {[1, 2, 3, 4, 5, 6].map(k => <option key={k} value={k}>{k}번{wmics[k]?.alive ? '' : ' (꺼짐)'}</option>)}
+                    </select>
+                    {n ? (
+                      <span className="w-12 h-1.5 rounded bg-slate-100 overflow-hidden">
+                        <span className="block h-full bg-blue-600" style={{ width: `${Math.min(100, (st?.level ?? 0) * 3)}%` }} />
+                      </span>
+                    ) : null}
+                  </label>
                 )
               })}
             </div>
@@ -1238,7 +1391,7 @@ export default function LiveInterview({ grade, onClose, onPick, resumeExams }: {
                     <div className="flex items-center gap-2.5">
                       <span className={`w-3 h-3 rounded-full ${phase === 'rec' ? 'bg-red-500 animate-pulse' : 'bg-slate-500'}`} />
                       <span className="text-[16px] font-bold">
-                        {phase === 'rec' ? `녹음 중 · ${phones[seat.student.id] ? `원장 노트북 + ${seat.student.name} 핸드폰` : seat.student.name}` : '대기 중'}
+                        {phase === 'rec' ? `녹음 중 · ${wmicFor(seat.student.id) ? `원장 노트북 + 무선 마이크 ${wmicFor(seat.student.id)}번` : phones[seat.student.id] ? `원장 노트북 + ${seat.student.name} 핸드폰` : seat.student.name}` : '대기 중'}
                       </span>
                       {running.length > 0 && (
                         <span className="text-[12px] font-semibold text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-full">AI 정리 중 {running.length}개 · 기다리지 않아도 돼요</span>
@@ -1274,6 +1427,7 @@ export default function LiveInterview({ grade, onClose, onPick, resumeExams }: {
                     <div className="text-[16px] font-bold">받아 적은 내용 <span className="text-[12.5px] font-medium text-slate-500">· {shownLabel}</span></div>
                     <div className="text-[12px] text-slate-500">답한 질문을 누르면 그 기록이 보여요</div>
                   </div>
+                  {shown?.face && <FaceBox f={shown.face} />}
                   {!shown && (
                     <div className="text-[14px] text-slate-400 py-3">
                       {runningHere.length ? 'AI가 뒤에서 정리하고 있어요. 다른 학생 진행해도 되고, 끝나면 여기에 나와요.' : phase === 'rec' ? '녹음 중이에요. 끝을 누르면 바로 다음으로 넘어가고, AI가 뒤에서 나눠 적어요.' : '녹음을 시작하면 여기에 면접관과 학생 말이 나눠서 적혀요.'}
