@@ -7,6 +7,11 @@
 // 3턴+(chat): 자유 코칭
 //
 // 모델: gpt-4.1-mini
+//
+// 앞 학년 활동 연계 (2026-10)
+//   studentId(없으면 로그인한 학생 본인)의 앞 학년 탐구 · 완료한 수행평가를 읽어서
+//   대안 2개 중 1개는 "앞 학년 활동을 이어서 심화", 1개는 "새로 시작"으로 만든다.
+//   깊이는 학년별 진로 초점: 고1 계열 → 고2 학과 → 고3 직업군
 // ============================================
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -33,6 +38,9 @@ interface Body {
   content?: string
   message?: string
   history?: { role: 'user' | 'assistant'; content: string }[]
+  studentId?: string        // 원장이 학생 대신 부를 때 (학생 본인이면 없어도 됨)
+  semester?: string | number
+  previousTopic?: string    // 같은 학년 1학기 탐구 제목 (화면이 넘겨줌)
 }
 
 serve(async (req) => {
@@ -44,6 +52,15 @@ serve(async (req) => {
     if (!major) throw new Error('major(희망학과)는 필수입니다')
 
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
+
+    // 누구의 앞 학년 활동을 볼지 — 화면이 studentId 를 주면 그 학생, 아니면 로그인한 본인
+    let studentId = body.studentId ?? null
+    if (!studentId) {
+      const token = (req.headers.get('Authorization') ?? '').replace('Bearer ', '')
+      const { data: auth } = await supabase.auth.getUser(token).catch(() => ({ data: null as any }))
+      studentId = auth?.user?.id ?? null
+    }
+    const hist = await studentHistory(supabase, studentId, grade, body.semester, body.previousTopic, major, job, subject)
     const keywordSource = message || `${topic ?? ''} ${content ?? ''}`
     const keyword = extractKeyword(keywordSource)
 
@@ -70,7 +87,7 @@ serve(async (req) => {
 
     // ───────── 1턴: 적합도 평가 (JSON, 대안 없음) ─────────
     if (mode === 'eval') {
-      const sys = buildEvalSystem({ major, job })
+      const sys = buildEvalSystem({ major, job, hist })
       const userMsg = `[학생이 제출한 탐구]
 희망학과: ${major}
 희망직업군: ${job ?? '(미입력)'}
@@ -90,7 +107,7 @@ serve(async (req) => {
 
     // ───────── 2턴: 방향별 대안 (JSON) ─────────
     if (mode === 'alts') {
-      const sys = buildAltsSystem({ major, subject, job, direction: direction ?? 'both', dataMode, refText })
+      const sys = buildAltsSystem({ major, subject, job, direction: direction ?? 'both', dataMode, refText, hist })
       const userMsg = `희망학과 ${major}, 연계과목 ${subject ?? '미입력'}, 탐구제목 ${topic ?? '미입력'}, 탐구내용 ${content ?? '미입력'}`
       const raw = await callGPT(sys, [...history, { role: 'user', content: userMsg }], true)
       let altsResult: any = null
@@ -98,6 +115,17 @@ serve(async (req) => {
 
       // DB 사례: GPT가 고른 것 (없으면 빈 배열)
       const dbAlts = Array.isArray(altsResult?.dbAlts) ? altsResult.dbAlts : []
+      // 이어 가는 대안은 desc 앞에 "고1 ○○에서 이어져요"를 붙여 둔다 (화면이 desc 만 보여 줘도 보이게)
+      const withLink = (list: any) => (Array.isArray(list) ? list : []).map((a: any) => {
+        const from = String(a?.from ?? '').trim()
+        const deeper = String(a?.deeper ?? '').trim()
+        const head = from ? `[${from}에서 이어져요${deeper ? ` · ${deeper}` : ''}] ` : '[새로 시작] '
+        return { ...a, from, deeper, desc: hist.items.length ? head + String(a?.desc ?? '') : String(a?.desc ?? '') }
+      })
+      if (altsResult) {
+        altsResult.keepAlts = withLink(altsResult.keepAlts)
+        altsResult.careerAlts = withLink(altsResult.careerAlts)
+      }
 
       return new Response(
         JSON.stringify({
@@ -111,7 +139,7 @@ serve(async (req) => {
     }
 
     // ───────── 3턴+: 자유 코칭 ─────────
-    const sys = buildCoachSystem({ major, dataMode, refText })
+    const sys = buildCoachSystem({ major, dataMode, refText }) + '\n\n' + histBlock(hist)
     const reply = await callGPT(sys, [...history, { role: 'user', content: message! }], false)
     return new Response(
       JSON.stringify({ type: 'chat', dataMode, reply }),
@@ -125,8 +153,9 @@ serve(async (req) => {
 })
 
 // ── 1턴 평가 (대안 없이 판단만) ──
-function buildEvalSystem(p: { major: string; job?: string }): string {
+function buildEvalSystem(p: { major: string; job?: string; hist: History }): string {
   return `너는 입시 탐구활동 평가 코치야. 학생 희망학과는 "${p.major}"${p.job ? `, 직업군은 "${p.job}"` : ''}야.
+${histBlock(p.hist)}
 학생 탐구주제를 평가해서 아래 JSON으로만 응답해. 마크다운/코드펜스 없이 순수 JSON:
 
 {
@@ -135,6 +164,7 @@ function buildEvalSystem(p: { major: string; job?: string }): string {
   "subjectMatch": "과목 정합성 한 줄 (예: 화학II는 보통 고2~3)",
   "difficulty": "난이도/수준 한 줄. 고등학생이 실제로 할 수 있는 수준인지 짚어줘. 너무 전문적이면 그 점 지적.",
   "action": "수정 권장" | "유지 권장" | "재설정 권장",
+  "link": "앞 학년 활동과의 연계 한 줄. 이어지면 어떤 활동에서 무엇이 깊어지는지, 안 이어지면 '새로 시작하는 주제'라고. 앞 학년 활동이 없으면 빈 문자열.",
   "comment": "원장에게 한 마디. 2~3문장. 이 주제의 강점과 고민거리. 단, 모든 과목을 진로에 억지로 엮으면 작위적이라는 점, 너무 완벽하면 오히려 의심받는다는 점을 염두에 두고 현실적으로."
 }
 
@@ -144,7 +174,7 @@ function buildEvalSystem(p: { major: string; job?: string }): string {
 // ── 2턴 방향별 대안 ──
 function buildAltsSystem(p: {
   major: string; subject?: string; job?: string
-  direction: string; dataMode: string; refText: string
+  direction: string; dataMode: string; refText: string; hist: History
 }): string {
   const dataBlock = p.dataMode === 'none'
     ? `우리 DB에 "${p.major}" 관련 데이터가 없어. dbAlts는 반드시 빈 배열 []. 대안은 일반 기준으로 만들되 과장 마.`
@@ -177,11 +207,22 @@ ${p.refText}`
 
 {
   "dbAlts": [ { "title": "실제 세특 제목(다듬어도 됨)", "desc": "학년·과목 + 학생 주제와 어떻게 이어지는지 한 줄" } ],
-  "keepAlts": [ { "title": "과목 충실형 대안 제목", "subject": "${p.subject ?? ''}", "desc": "2~3문장. 과목 취지에 충실하면서 진로와 자연스럽게 닿는 방향." } ],
-  "careerAlts": [ { "title": "진로 연계형 대안 제목", "subject": "연계 과목", "desc": "2~3문장. 진로와 적극 연결한 방향. 단 작위적이지 않게." } ]
+  "keepAlts": [ { "title": "과목 충실형 대안 제목", "subject": "${p.subject ?? ''}", "from": "", "deeper": "", "desc": "2~3문장. 과목 취지에 충실하면서 진로와 자연스럽게 닿는 방향." } ],
+  "careerAlts": [ { "title": "진로 연계형 대안 제목", "subject": "연계 과목", "from": "", "deeper": "", "desc": "2~3문장. 진로와 적극 연결한 방향. 단 작위적이지 않게." } ]
 }
 
 ${dirInstruct}
+
+${histBlock(p.hist)}
+[앞 학년 활동 연계 규칙]
+${p.hist.items.length
+  ? `- 각 배열(keepAlts, careerAlts)의 2개 중 1개는 위 [앞 학년 활동] 하나를 이어서 한 단계 깊게 하는 대안, 1개는 새로 시작하는 대안으로 만든다.
+- 이어 가는 대안: from 에 "고1 1학기 통합사회 · 최저임금 기사 비교"처럼 어떤 활동인지, deeper 에 무엇이 달라지는지 한 줄. 같은 주제를 되풀이하지 말 것.
+  · [심화] 활동을 이으면: 진로 초점 깊이로 한 단계 끌어올린다(질문·자료·방법 중 무엇이 깊어지는지).
+  · [확장] 활동을 이으면: 같은 관심을 이번 과목의 다른 개념·관점·방법으로 넓힌다. 예) 고1 국어 '광고 문구의 설득 전략' → 고1 사회 '광고 규제와 소비자 권리'.
+- 새로 시작하는 대안: from, deeper 는 빈 문자열.
+- 억지로 잇지 말 것. 이어질 만한 활동이 정말 없으면 둘 다 새로 시작해도 된다.`
+  : `- 앞 학년 활동이 없으니 from, deeper 는 모두 빈 문자열.`}
 
 ${dataBlock}
 
@@ -213,7 +254,7 @@ async function callGPT(system: string, messages: any[], json: boolean): Promise<
     model: MODEL,
     messages: [{ role: 'system', content: system }, ...messages],
     temperature: 0.7,
-    max_tokens: 900,
+    max_tokens: 1400,
   }
   if (json) body.response_format = { type: 'json_object' }
   const resp = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -224,4 +265,85 @@ async function callGPT(system: string, messages: any[], json: boolean): Promise<
   if (!resp.ok) throw new Error(`OpenAI ${resp.status}: ${await resp.text()}`)
   const data = await resp.json()
   return (data.choices?.[0]?.message?.content ?? '').replace(/\*\*/g, '')
+}
+// ── 앞 학년 활동 · 진로 초점 ──
+interface History {
+  focus: { level: string; value: string } | null
+  items: { when: string; kind: string; subject: string; title: string; did: string; relation: '심화' | '확장' }[]
+}
+
+const gnum = (g: unknown) => Number(String(g ?? '').match(/[123]/)?.[0] ?? 0)
+const cut = (v: unknown, n: number) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n)
+
+async function studentHistory(
+  db: any, studentId: string | null, grade: unknown, semester: unknown, previousTopic: string | undefined, major: string, job?: string, subject?: string,
+): Promise<History> {
+  const tg = gnum(grade)
+  const ts = gnum(semester)
+  const items: History['items'] = []
+
+  if (studentId) {
+    const [topics, nodes, tasks] = await Promise.all([
+      db.from('high_roadmap_topic').select('id, node_id, title, detail, status').eq('student_id', studentId).limit(80),
+      db.from('high_roadmap_node').select('id, grade, subject_name').or(`student_id.eq.${studentId},student_id.is.null`).limit(300),
+      db.from('high_school_task').select('grade, semester, subject, title, setuk_text').eq('student_id', studentId).eq('status', 'done').limit(30),
+    ])
+    const nodeById = new Map((nodes.data ?? []).map((n: any) => [n.id, n]))
+    // 로드맵 탐구는 status 가 전부 'active' → 진행 단계(pipeline)에 내용을 적은 탐구만 '한 활동'으로 본다
+    const ids = (topics.data ?? []).map((t: any) => t.id)
+    const { data: pipes } = ids.length
+      ? await db.from('high_roadmap_pipeline').select('topic_id, content, final_content').in('topic_id', ids)
+      : { data: [] }
+    const didText = new Map<string, string>()
+    for (const p of pipes ?? []) {
+      const t = cut(p.final_content || p.content, 120)
+      if (t) didText.set(p.topic_id, `${didText.get(p.topic_id) ?? ''} ${t}`.trim())
+    }
+    for (const t of topics.data ?? []) {
+      if (!didText.has(t.id)) continue // 계획만 하고 아직 안 한 탐구는 빼기
+      const n: any = nodeById.get(t.node_id)
+      const g = gnum(n?.grade)
+      const subj = cut(n?.subject_name, 30)
+      // 앞 학년 = 심화 · 같은 학년 다른 과목 = 확장(같은 깊이에서 다른 방향)
+      const relation = g && g < tg ? '심화' : g === tg && subj && subject && subj !== subject ? '확장' : null
+      if (relation) items.push({ when: `고${g}`, kind: '탐구', subject: subj, title: cut(t.title, 80), did: cut(didText.get(t.id) || t.detail, 160), relation })
+    }
+    for (const p of tasks.data ?? []) {
+      const g = gnum(p.grade)
+      const sm = gnum(p.semester)
+      const subj = cut(p.subject, 30)
+      const relation =
+        g && g < tg ? '심화'
+        : g === tg && subj === subject && sm && ts && sm < ts ? '심화'
+        : g === tg && subj && subject && subj !== subject ? '확장'
+        : null
+      if (relation) items.push({ when: `고${g}${sm ? ` ${sm}학기` : ''}`, kind: '수행평가', subject: subj, title: cut(p.title, 80), did: cut(p.setuk_text, 160), relation })
+    }
+  }
+  if (previousTopic && tg) items.push({ when: `고${tg} 1학기`, kind: '탐구', subject: cut(subject, 30), title: cut(previousTopic, 80), did: '', relation: '심화' })
+  // 바로 전 학년부터
+  items.sort((a, b) => gnum(b.when) - gnum(a.when))
+
+  // 학년별 진로 초점: 고1 계열 · 고2 학과 · 고3 직업군
+  let series = ''
+  if (major) {
+    const { data } = await db.from('high_career_department').select('series').eq('name', major).limit(1)
+    series = cut(data?.[0]?.series, 30)
+  }
+  const focus =
+    tg >= 3 ? (job ? { level: '직업군', value: cut(job, 60) } : { level: '학과', value: cut(major, 60) })
+    : tg === 2 ? { level: '학과', value: cut(major, 60) }
+    : series ? { level: '계열', value: series } : { level: '학과', value: cut(major, 60) }
+
+  return { focus, items: items.slice(0, 20) }
+}
+
+function histBlock(h: History): string {
+  const depth = h.focus
+    ? `[진로 초점] ${h.focus.level}: ${h.focus.value} — 고1은 계열 전반에 통하는 넓은 관점, 고2는 학과 개념·이론, 고3은 그 직업이 실제로 다루는 현장 문제까지 깊게. 이 깊이에 맞춰라.`
+    : ''
+  const list = h.items.length
+    ? `[앞 학년 활동] (바로 전 학년부터 · 심화=앞 학년 활동이라 한 단계 깊게, 확장=같은 학년 다른 과목이라 같은 깊이에서 다른 방향으로)\n${h.items.map((x, i) => `${i + 1}. [${x.relation}] ${x.when} ${x.kind}${x.subject ? ` · ${x.subject}` : ''} — ${x.title}${x.did ? ` (${x.did})` : ''}`).join('\n')}`
+    : '[앞 학년 활동] 없음'
+  return [depth, list].filter(Boolean).join('\n')
 }

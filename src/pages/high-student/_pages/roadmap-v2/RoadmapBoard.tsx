@@ -36,6 +36,11 @@ interface Props {
   myGrade?: Grade
   /** `${학년}|${과목명}` → 담은 책 권수 */
   bookCounts?: Map<string, number>
+  /**
+   * 노드 id → 이 과목 칸에 연결된 수행평가 수 (high_school_task.node_id 기준)
+   * done: 완료한 수행평가 · total: 예정·진행 중까지 전체
+   */
+  taskCounts?: Map<string, { done: number; total: number }>
   /** 🎯 선생님 코멘트가 달린 노드 id — 보드에서 바로 보여야 학생이 놓치지 않는다 */
   commentedNodes?: Set<string>
   onNodeClick?: (line: RoadmapLine, node: RoadmapNode, grade: Grade) => void
@@ -59,6 +64,7 @@ export default function RoadmapBoard({
   career,
   myGrade = 1,
   bookCounts,
+  taskCounts,
   commentedNodes,
   onNodeClick,
   onToggleComplete,
@@ -370,6 +376,13 @@ export default function RoadmapBoard({
                                 : '공통과목'
                               : node.areas?.[0] ?? ''
                           const cnt = bookCounts?.get(`${cell.grade}|${node.subject_name}`) ?? 0
+                          // 수행평가 — 완료/전체 (하나도 없으면 안 보임)
+                          const tc = taskCounts?.get(node.id)
+                          const taskLabel = tc && tc.total > 0 ? `수행 ${tc.done}/${tc.total}` : ''
+                          const xBase = x - NODE_W / 2 + 26
+                          const xBook = xBase + (base ? base.length * 8 + 8 : 0)
+                          const xTask = xBook + (cnt > 0 ? 36 : 0)
+                          const xComment = xTask + (taskLabel ? taskLabel.length * 6 + 8 : 0)
                           return (
                             <>
                               {base && (
@@ -384,7 +397,7 @@ export default function RoadmapBoard({
                               )}
                               {cnt > 0 && (
                                 <text
-                                  x={x - NODE_W / 2 + 26 + (base ? base.length * 8 + 8 : 0)}
+                                  x={xBook}
                                   y={y + 11}
                                   fontSize={9}
                                   fill="#4338CA"
@@ -393,14 +406,21 @@ export default function RoadmapBoard({
                                   독서 {cnt}
                                 </text>
                               )}
+                              {taskLabel && (
+                                <text
+                                  x={xTask}
+                                  y={y + 11}
+                                  fontSize={9}
+                                  fill={tc && tc.done === tc.total ? '#047857' : '#B45309'}
+                                  fontWeight={700}
+                                >
+                                  {taskLabel}
+                                </text>
+                              )}
                               {/* 🎯 카드 안쪽 글자 자리 — 여기는 잘릴 일이 없다 */}
                               {hasComment && (
                                 <text
-                                  x={
-                                    x - NODE_W / 2 + 26 +
-                                    (base ? base.length * 8 + 8 : 0) +
-                                    (cnt > 0 ? 36 : 0)
-                                  }
+                                  x={xComment}
                                   y={y + 11}
                                   fontSize={9}
                                   fill="#EF4444"

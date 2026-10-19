@@ -284,27 +284,31 @@ function pickAudioType() {
 
 // ───────── 얼굴 분석 (MediaPipe · 기기 안에서만 계산) ─────────
 const MP_VER = '0.10.14'
-let landmarkerPromise: Promise<any> | null = null
-function loadLandmarker() {
-  if (!landmarkerPromise) {
-    landmarkerPromise = (async () => {
+// 아이폰·아이패드는 GPU 방식이 조용히 실패하는 경우가 많아서 처음부터 CPU 방식
+const IS_IOS = typeof navigator !== 'undefined' &&
+  (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1))
+const landmarkerPromises: Record<string, Promise<any> | undefined> = {}
+function loadLandmarker(delegate: 'GPU' | 'CPU' = IS_IOS ? 'CPU' : 'GPU') {
+  if (!landmarkerPromises[delegate]) {
+    const p = (async () => {
       const vision: any = await import('@mediapipe/tasks-vision')
       const files = await vision.FilesetResolver.forVisionTasks(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}/wasm`)
-      const make = (delegate: 'GPU' | 'CPU') => vision.FaceLandmarker.createFromOptions(files, {
+      const make = (d: 'GPU' | 'CPU') => vision.FaceLandmarker.createFromOptions(files, {
         baseOptions: {
           modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
-          delegate,
+          delegate: d,
         },
         runningMode: 'VIDEO', numFaces: 1,
         outputFaceBlendshapes: true, outputFacialTransformationMatrixes: true,
       })
-      let lm: any
-      try { lm = await make('GPU') } catch { lm = await make('CPU') }
-      return { lm, vision }
+      let lm: any, used: 'GPU' | 'CPU' = delegate
+      try { lm = await make(delegate) } catch { lm = await make('CPU'); used = 'CPU' }
+      return { lm, vision, used }
     })()
-    landmarkerPromise.catch(() => { landmarkerPromise = null })
+    landmarkerPromises[delegate] = p
+    p.catch(() => { delete landmarkerPromises[delegate] })
   }
-  return landmarkerPromise
+  return landmarkerPromises[delegate]!
 }
 
 interface FaceAcc {
@@ -356,6 +360,8 @@ function LiveStudentRoom({ onClose }: { onClose: () => void }) {
   const [lastSent, setLastSent] = useState(0)
   const [cam, setCam] = useState<'off' | 'loading' | 'on' | 'fail'>('off')
   const [faceSeen, setFaceSeen] = useState(false)
+  const [camErr, setCamErr] = useState('')        // 얼굴 인식이 안 될 때 이유 (화면에 보여 줌)
+  const [needTap, setNeedTap] = useState(false)   // 자동재생이 막혀서 한 번 눌러야 할 때
 
   const streamRef = useRef<MediaStream | null>(null)
   const recRef = useRef<MediaRecorder | null>(null)
@@ -400,23 +406,40 @@ function LiveStudentRoom({ onClose }: { onClose: () => void }) {
   // ── 얼굴 분석 반복 (1초에 15번쯤) ──
   const startFaceLoop = async () => {
     const video = videoRef.current
-    if (!video || !streamRef.current?.getVideoTracks().length) { setCam('fail'); return }
+    if (!video || !streamRef.current?.getVideoTracks().length) { setCamErr('카메라가 꺼져 있어요 (카메라 허용 안 됨)'); setCam('fail'); return }
     setCam('loading')
     try {
       video.srcObject = streamRef.current
-      await video.play().catch(() => { /* 자동재생 막히면 첫 터치 때 재생 */ })
-      const { lm, vision } = await loadLandmarker()
+      await video.play().catch(() => setNeedTap(true))   // 자동재생 막힘 → 화면 한 번 누르기
+      let { lm, vision, used } = await loadLandmarker()
       lmRef.current = lm
       setCam('on')
       let lastT = 0
+      let errs = 0
+      let switching = false
       const C = vision.FaceLandmarker
       const loop = () => {
         rafRef.current = requestAnimationFrame(loop)
         const now = performance.now()
-        if (now - lastT < 66 || video.readyState < 2) return
+        // 내 차례(녹음 중)일 때만 1초에 15번, 기다릴 때는 1초에 4번 → 1시간 켜 둬도 덜 뜨겁고 배터리 덜 씀
+        const gap = stageRef.current === 'rec' ? 66 : 250
+        if (switching || now - lastT < gap || video.readyState < 2 || document.hidden) return
         lastT = now
         let res: any
-        try { res = lm.detectForVideo(video, now) } catch { return }
+        try { res = lm.detectForVideo(video, now); errs = 0 } catch (e) {
+          // GPU 방식이 기기에서 안 되면 CPU 방식으로 한 번 바꿈
+          if (++errs >= 5 && used === 'GPU') {
+            switching = true
+            void loadLandmarker('CPU').then(r => { lm = r.lm; used = 'CPU'; lmRef.current = r.lm; errs = 0 })
+              .catch(err => { console.error('[현장 면접] CPU 전환 실패', err); setCamErr('이 기기에서는 얼굴 인식이 안 돼요'); setCam('fail') })
+              .finally(() => { switching = false })
+          } else if (errs >= 30) {
+            console.error('[현장 면접] 얼굴 인식 오류', e)
+            setCamErr('이 기기에서는 얼굴 인식이 안 돼요'); setCam('fail')
+            if (rafRef.current) cancelAnimationFrame(rafRef.current)
+          }
+          return
+        }
         const canvas = canvasRef.current
         const ctx = canvas?.getContext('2d')
         if (canvas && ctx) {
@@ -480,6 +503,7 @@ function LiveStudentRoom({ onClose }: { onClose: () => void }) {
       loop()
     } catch (e) {
       console.error('[현장 면접] 얼굴 분석 시작 실패', e)
+      setCamErr(navigator.onLine === false ? '인터넷이 끊겨서 얼굴 인식을 불러오지 못했어요' : `얼굴 인식을 불러오지 못했어요 (${String((e as any)?.message ?? e).slice(0, 60)})`)
       setCam('fail')
     }
   }
@@ -602,11 +626,21 @@ function LiveStudentRoom({ onClose }: { onClose: () => void }) {
           <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
           <div className="absolute left-2 top-2 text-[11px] font-bold px-2 py-1 rounded-md"
             style={{ background: 'rgba(15,23,42,.65)', color: cam === 'on' && faceSeen ? '#4ADE80' : '#FCD34D' }}>
-            {cam === 'loading' ? '얼굴 인식 준비 중…' : cam === 'on' ? (faceSeen ? '얼굴 인식 중' : '얼굴이 안 보여요') : ''}
+            {cam === 'loading' ? '얼굴 인식 준비 중… (처음엔 10~20초)' : cam === 'on' ? (faceSeen ? '얼굴 인식 중' : '얼굴이 안 보여요') : ''}
           </div>
+          {needTap && (
+            <button onClick={() => { void videoRef.current?.play(); setNeedTap(false) }}
+              className="absolute inset-0 flex items-center justify-center text-white text-[16px] font-bold"
+              style={{ background: 'rgba(15,23,42,.55)' }}>
+              화면을 한 번 눌러 주세요
+            </button>
+          )}
         </div>
         {showCam && cam === 'fail' && (
-          <div className="text-[12.5px] text-slate-500">카메라 없이 진행해요 (얼굴 분석은 빠져요)</div>
+          <div className="w-full max-w-[360px] rounded-xl px-3 py-2.5 text-[12.5px] leading-[1.6] text-left" style={{ background: '#FFF7ED', color: '#9A3412' }}>
+            {camErr || '얼굴 인식을 쓸 수 없어요'} · 대답 녹음은 그대로 돼요<br />
+            <button onClick={() => { setCamErr(''); void startFaceLoop() }} className="mt-1 font-bold underline">얼굴 인식 다시 시도</button>
+          </div>
         )}
 
         {stage === 'ask' && (

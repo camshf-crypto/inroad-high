@@ -14,6 +14,7 @@ import {
 } from '@/pages/high-student/_hooks/useHighSuhaengSubmission'
 import { supabase } from '@/lib/supabase'
 import { useHighSchoolSuhaeng, useHighSchool, useHighStudentSchool } from '@/pages/admin/_hooks/useHighSchoolSuhaeng'
+import SchoolTask from './SchoolTask'
 
 const TYPE_ICON: Record<string, string> = {
   '탐구보고서': '🔬', '독서기록': '📚', '발표·토론': '🎤',
@@ -766,6 +767,10 @@ export default function HighSuhaeng() {
   const grade = (student as any)?.grade ?? undefined
 
   const [mode, setMode] = useState<'list' | 'practice' | 'feedback'>('list')
+  const [tab, setTab] = useState<'practice' | 'task'>(() => {
+    try { return localStorage.getItem('high-suhaeng-tab') === 'task' ? 'task' : 'practice' } catch { return 'practice' }
+  })
+  const changeTab = (t: 'practice' | 'task') => { setTab(t); try { localStorage.setItem('high-suhaeng-tab', t) } catch {} }
   const [selectedSemester, setSelectedSemester] = useState<'1' | '2'>('1')
   const [selectedQuestion, setSelectedQuestion] = useState<HighAcademySuhaengQuestion | null>(null)
   const [feedbackData, setFeedbackData] = useState<{ submission: HighSuhaengSubmission; question: HighAcademySuhaengQuestion } | null>(null)
@@ -851,14 +856,27 @@ export default function HighSuhaeng() {
           <div className="text-[18px] font-extrabold text-ink tracking-tight">수행평가</div>
           <div className="text-[12px] text-ink-muted mt-0.5">{student?.name} · {academy?.academyName}</div>
         </div>
-        <div className="flex gap-2">
+        {tab === 'practice' && <div className="flex gap-2">
           {mySubmissions.length > 0 && (
             <div className="bg-blue-50 text-blue-700 text-[12px] font-bold px-3.5 py-1.5 rounded-full border border-blue-200">📤 제출한 답안 {mySubmissions.length}건</div>
           )}
           <div className="bg-brand-high-pale text-brand-high-dark text-[12px] font-bold px-3.5 py-1.5 rounded-full border border-brand-high-light">다가오는 수행평가 {myGradeSuhaeng.length}건</div>
-        </div>
+        </div>}
       </div>
 
+      {/* 탭: 선행 연습(기존 그대로) | 내 학교 과제(새로) */}
+      <div className="flex gap-1 border-b border-line flex-shrink-0">
+        {([['practice', '선행 연습'], ['task', '내 학교 과제']] as const).map(([k, label]) => (
+          <button key={k} onClick={() => changeTab(k)}
+            className={`px-4 py-2.5 text-[14px] -mb-px border-b-[3px] transition-colors ${tab === k ? 'font-extrabold text-brand-high-dark border-brand-high' : 'font-semibold text-ink-muted border-transparent hover:text-ink'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'task' ? (
+        <div className="flex-1 overflow-y-auto pr-1 min-h-0"><SchoolTask /></div>
+      ) : (
       <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4 min-h-0">
         <div className="bg-amber-50 border border-amber-200 rounded-xl shadow-[0_4px_16px_rgba(245,158,11,0.08)] flex-shrink-0">
           <div className="px-4 py-3 border-b border-amber-200 flex items-center justify-between">
@@ -954,6 +972,7 @@ export default function HighSuhaeng() {
           )}
         </div>
       </div>
+      )}
 
       {showAllModal && (
         <div onClick={() => setShowAllModal(false)} className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center backdrop-blur-sm">

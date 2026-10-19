@@ -206,6 +206,31 @@ export default function RoadmapV2() {
     return m
   }, [allReadings, myGrade])
 
+  /** 과목 칸별 수행평가 수 — 안내문 분석 때 붙은 칸(node_id) 기준 · 보드에 "수행 완료/전체" */
+  const { data: myTasks = [] } = useQuery({
+    queryKey: ['my-school-tasks-by-node', studentId],
+    enabled: !!studentId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('high_school_task')
+        .select('node_id, status')
+        .eq('student_id', studentId!)
+        .not('node_id', 'is', null)
+      if (error) throw error
+      return data ?? []
+    },
+  })
+  const taskCounts = useMemo(() => {
+    const m = new Map<string, { done: number; total: number }>()
+    for (const t of myTasks as any[]) {
+      const c = m.get(t.node_id) ?? { done: 0, total: 0 }
+      c.total += 1
+      if (t.status === 'done') c.done += 1
+      m.set(t.node_id, c)
+    }
+    return m
+  }, [myTasks])
+
   /** 보드 탭 전환 */
   const openTab = (key: 'board' | 'score' | 'compare' | 'next' | 'book') => {
     setShowScore(key === 'score')
@@ -477,6 +502,7 @@ export default function RoadmapV2() {
               career={career}
               myGrade={myGrade}
               bookCounts={bookCounts}
+              taskCounts={taskCounts}
               commentedNodes={commentedNodes}
               onToggleComplete={(node, next) => toggle.mutate({ node, next })}
               onEditGoal={() => setManualStep(3)}
