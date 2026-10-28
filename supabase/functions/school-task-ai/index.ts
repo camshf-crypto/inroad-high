@@ -567,16 +567,36 @@ json: {"total":0,"items":[{"name":"","got":0,"max":0,"tip":"","quote":""}],"road
 }
 
 async function review(db: SupabaseClient, task: any, draftRow: any) {
-  const system = `수행평가 첨삭 보조. 선생님이 보고 골라서 학생에게 공개할 코멘트를 만든다(5~8개).
-quote 는 본문에서 그대로 복사한 짧은 구절(정확히 일치해야 함). importance: 필수|권장|제안.
-사실 확인이 필요한 수치·출처는 "팩트체크 필요"로 표시. 세특·로드맵 연결을 살릴 수 있는 곳도 짚는다.
-json: {"comments":[{"quote":"","importance":"권장","body":"","suggestion":""}]}`;
-  const r = await ai(system, `과제: ${taskBrief(task)}\n본문:\n${str(draftRow.content, 20000)}`, 0.4);
+  const text = String(draftRow.content ?? "");
+  const blanks = Array.from(text.matchAll(BLANK_RE)).map(m => m[0]);
+  const system = `수행평가 첨삭 보조. 선생님이 골라서 학생에게 보낼 코멘트 5~8개를 만든다. 칭찬이 아니라 "고칠 곳"을 찾는 것이 목적이다.
+우선순위(위에서부터 먼저 채운다):
+① 본문에 남아 있는 [[직접 입력: …]] 칸 — 칸마다 하나씩, importance "필수". quote 는 그 칸을 포함한 문장의 앞부분, body 는 "아직 채우지 않은 칸이 있어요" + 무엇을 채워야 하는지.
+② 출처 없이 쓴 수치·통계·인용·사례 — importance "필수", body 끝에 "(팩트체크 필요)".
+③ 안내문 평가 기준 대비 부족한 곳 — 감점으로 이어지면 "필수", 점수를 올릴 여지면 "권장". body 에 해당 평가 기준 이름을 넣는다.
+④ 논리·구조(주장과 근거 연결, 반론 고려, 문단 연결) — "권장".
+⑤ 세특·입시로드맵 연결을 살릴 곳 — "제안".
+규칙:
+- 칭찬만 하는 코멘트 금지. 잘한 점은 최대 1개만, importance "제안", body 를 "잘한 점: "으로 시작.
+- "필수"는 고치지 않으면 감점되는 것만.
+- body: 무엇이 문제인지 + 왜(평가 기준) 1~2문장. suggestion: 학생이 바로 할 행동 한 줄 — 모범 문장을 대신 써 주지 않는다.
+- quote 는 본문에서 그대로 복사한 15~60자 구절(글자 하나도 바꾸지 말 것). 글 전체 의견이면 quote 는 "".
+- 사실 확인이 필요한 수치·출처는 지어내지 않는다.
+json: {"comments":[{"quote":"","importance":"필수","body":"","suggestion":""}]}`;
+  const r = await ai(system, `과제: ${taskBrief(task)}
+평가 기준: ${JSON.stringify(arr(task.analysis?.criteria))}
+감점 요소: ${JSON.stringify(task.analysis?.penalties ?? [])}
+제출 전 AI 채점: ${JSON.stringify(draftRow.score?.items ?? [])}
+남은 [[직접 입력]] 칸 ${blanks.length}개: ${JSON.stringify(blanks.slice(0, 10))}
+본문:
+${str(text, 20000)}`, 0.3);
   const rows = arr(r.comments).slice(0, 10).map((c: any) => ({
     task_id: task.id, draft_id: draftRow.id, author: "ai",
     quote: str(c.quote, 300), importance: ["필수", "권장", "제안"].includes(c.importance) ? c.importance : "권장",
     body: str(c.body, 800), suggestion: str(c.suggestion, 800) || null, visible_to_student: false,
-  })).filter((c: any) => c.body);
+  })).filter((c: any) => c.body)
+    // 본문에 없는 인용은 지워서 엉뚱한 곳에 표시되지 않게
+    .map((c: any) => (c.quote && !text.replace(/\*\*/g, "").includes(c.quote.replace(/\*\*/g, "")) ? { ...c, quote: "" } : c));
   if (!rows.length) return { comments: [] };
   const { data, error } = await db.from("high_school_task_comment").insert(rows).select();
   if (error) throw error;

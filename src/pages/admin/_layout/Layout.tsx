@@ -4,6 +4,7 @@ import { useAtomValue, useSetAtom, useAtom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import { academyState, tokenState } from '@/lib/auth/atoms'
 import { supabase } from '@/lib/supabase'
+import AdminAgentPanel from '@/components/AdminAgentPanel'
 
 const sidebarCollapsedAtom = atomWithStorage<boolean>('sidebarCollapsed', false)
 
@@ -173,6 +174,16 @@ export default function Layout() {
         </div>
 
         <nav className="flex-1 px-1.5 py-2 overflow-y-auto">
+          {/* 🤖 AI 비서 열기 (사이드바 맨 위) */}
+          {!isAcademyNotRegistered && !isPendingReview && !isRejected && (
+            <div onClick={() => window.dispatchEvent(new Event('open-admin-agent'))}
+              title={collapsed ? 'AI 비서' : ''}
+              className="flex items-center rounded-lg mb-1.5 cursor-pointer text-white transition-all hover:-translate-y-px"
+              style={{ background: 'linear-gradient(135deg,#1E40AF,#3B82F6)', padding: collapsed ? '8px 0' : '8px 10px', justifyContent: collapsed ? 'center' : 'flex-start', gap: collapsed ? 0 : '8px' }}>
+              <span className="text-[14px] flex-shrink-0">🤖</span>
+              {!collapsed && <span className="text-[12px] font-bold whitespace-nowrap">AI 비서</span>}
+            </div>
+          )}
           {menus.map(m => {
             const isActive = location.pathname === m.path || (m.path !== '/admin' && location.pathname.startsWith(m.path))
             const isMiddle = m.type === 'middle'
@@ -273,6 +284,9 @@ export default function Layout() {
           )}
         </div>
       </div>
+
+      {/* 🤖 AI 비서 — 학원 승인된 경우에만 */}
+      {!isAcademyNotRegistered && !statusLoading && !isPendingReview && !isRejected && <AdminAgentPanel />}
     </div>
   )
 }

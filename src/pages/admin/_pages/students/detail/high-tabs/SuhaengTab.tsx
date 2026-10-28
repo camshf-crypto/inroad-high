@@ -5,6 +5,7 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer,
 } from 'recharts'
 import { supabase } from '@/lib/supabase'
+import SchoolTaskPanel from './SchoolTaskReview'
 import {
   useStudentHighSuhaengSubmissions,
   useHighSubmissionFeedback,
@@ -86,7 +87,7 @@ function getHighFunctionName(type: string): string | null {
   }
 }
 
-type CategoryTab = 'school' | 'academy'
+type CategoryTab = 'school' | 'academy' | 'task'
 type SubmissionStatus = 'pending' | 'analyzed' | 'first_done' | 'resubmitted' | 'completed'
 
 interface ScoreSection { label: string; score: number; max: number; desc: string }
@@ -209,7 +210,7 @@ export default function HighSuhaengTab({ student }: { student: any }) {
   const studentId = student?.id ? String(student.id) : undefined
   const { data: dbSubmissions = [], isLoading } = useStudentHighSuhaengSubmissions(studentId)
 
-  const [categoryTab, setCategoryTab] = useState<CategoryTab>('school')
+  const [categoryTab, setCategoryTab] = useState<CategoryTab>('task')
   const [selSubId, setSelSubId] = useState<string | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [firstFbText, setFirstFbText] = useState('')
@@ -403,6 +404,9 @@ export default function HighSuhaengTab({ student }: { student: any }) {
   const handleTextareaFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => { e.target.style.borderColor = THEME.accent; e.target.style.boxShadow = `0 0 0 3px ${THEME.accentShadow}` }
   const handleTextareaBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => { e.target.style.borderColor = '#E5E7EB'; e.target.style.boxShadow = 'none' }
 
+  // 📸 학교 과제(학생이 찍어 올린 과제) 첨삭은 별도 화면
+  if (categoryTab === 'task') return <SchoolTaskPanel student={student} onTab={setCategoryTab} />
+
   return (
     <>
       <div className="flex gap-4 h-full overflow-hidden">
@@ -423,15 +427,15 @@ export default function HighSuhaengTab({ student }: { student: any }) {
           </div>
 
           <div className="flex border-b border-line flex-shrink-0">
-            <button onClick={() => setCategoryTab('school')}
-              className="flex-1 py-2.5 text-[12px] font-bold transition-all border-b-2 flex items-center justify-center"
-              style={{ color: categoryTab === 'school' ? THEME.accentDark : '#9CA3AF', borderColor: categoryTab === 'school' ? THEME.accent : 'transparent', background: categoryTab === 'school' ? THEME.accentBg : 'transparent' }}>
-              🏫 우리 학교
-            </button>
             <button onClick={() => setCategoryTab('academy')}
               className="flex-1 py-2.5 text-[12px] font-bold transition-all border-b-2 flex items-center justify-center"
               style={{ color: categoryTab === 'academy' ? THEME.accentDark : '#9CA3AF', borderColor: categoryTab === 'academy' ? THEME.accent : 'transparent', background: categoryTab === 'academy' ? THEME.accentBg : 'transparent' }}>
               📋 학원
+            </button>
+            <button onClick={() => setCategoryTab('task')}
+              className="flex-1 py-2.5 text-[12px] font-bold transition-all border-b-2 flex items-center justify-center"
+              style={{ color: '#9CA3AF', borderColor: 'transparent' }}>
+              📸 학교 과제
             </button>
           </div>
 

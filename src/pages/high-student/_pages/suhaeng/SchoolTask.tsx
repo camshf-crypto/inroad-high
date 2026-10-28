@@ -49,8 +49,11 @@ function Inline({ text }: { text: string }) {
     return <Linkify key={i} text={p} />
   })}</>
 }
+// 책 쪽수 빈칸은 필요 없어서 화면에서 지운다
+const noPage = (t: string) => t.replace(/\s*·?\s*\[\[직접 입력:\s*쪽수\s*\]\]/g, '')
+
 function Md({ text }: { text: string }) {
-  const lines = (text || '').split('\n')
+  const lines = noPage(text || '').split('\n')
   return (
     <div className="space-y-2 text-[14px] leading-[1.85] text-ink">
       {lines.map((l, i) => {
@@ -62,6 +65,42 @@ function Md({ text }: { text: string }) {
         if (/^[-*] /.test(t)) return <div key={i} className="flex gap-2 pl-1"><span className="text-brand-high">•</span><span><Inline text={t.slice(2)} /></span></div>
         if (t.startsWith('>')) return <div key={i} className="border-l-4 border-brand-high-light pl-3 text-ink-secondary"><Inline text={t.replace(/^>\s?/, '')} /></div>
         return <p key={i}><Inline text={t} /></p>
+      })}
+    </div>
+  )
+}
+
+// 선생님 코멘트 자리에 노란 표시 (첨삭 결과 보기용)
+function MarkedMd({ text, cms, act, onPick }: { text: string; cms: any[]; act: string | null; onPick: (id: string) => void }) {
+  const marks = cms.filter(c => c.quote)
+  const render = (raw: string) => {
+    const t = noPage(raw.replace(/\*\*/g, ''))
+    const hits: { s: number; e: number; c: any }[] = []
+    marks.forEach(c => {
+      const q = String(c.quote).replace(/\*\*/g, '').trim(), k = q ? t.indexOf(q) : -1
+      if (k >= 0 && !hits.some(h => k < h.e && k + q.length > h.s)) hits.push({ s: k, e: k + q.length, c })
+    })
+    hits.sort((a, b) => a.s - b.s)
+    const out: any[] = []; let pos = 0
+    hits.forEach((h, i) => {
+      if (h.s > pos) out.push(t.slice(pos, h.s))
+      out.push(<mark key={i} onClick={() => onPick(h.c.id)} className={`cursor-pointer rounded-sm px-0.5 border-b-2 text-inherit ${act === h.c.id ? 'bg-blue-100 border-brand-high' : h.c.importance === '필수' ? 'bg-orange-100 border-orange-500' : 'bg-amber-100 border-amber-400'}`}>{t.slice(h.s, h.e)}</mark>)
+      pos = h.e
+    })
+    if (pos < t.length) out.push(t.slice(pos))
+    return out
+  }
+  return (
+    <div className="space-y-2 text-[14px] leading-[1.85] text-ink">
+      {(text || '').split('\n').map((l, i) => {
+        const t = l.trim()
+        if (!t) return <div key={i} className="h-1" />
+        if (t.startsWith('### ')) return <h4 key={i} className="text-[15px] font-extrabold mt-3">{render(t.slice(4))}</h4>
+        if (t.startsWith('## ')) return <h3 key={i} className="text-[17px] font-extrabold mt-4">{render(t.slice(3))}</h3>
+        if (t.startsWith('# ')) return <h2 key={i} className="text-[21px] font-extrabold">{render(t.slice(2))}</h2>
+        if (/^[-*] /.test(t)) return <div key={i} className="flex gap-2 pl-1"><span className="text-brand-high">•</span><span>{render(t.slice(2))}</span></div>
+        if (t.startsWith('>')) return <div key={i} className="border-l-4 border-brand-high-light pl-3 text-ink-secondary">{render(t.replace(/^>\s?/, ''))}</div>
+        return <p key={i}>{render(t)}</p>
       })}
     </div>
   )
@@ -240,6 +279,7 @@ function TaskFlow({ taskId, onBack }: { taskId: string; onBack: () => void }) {
             step === 3 ? <StepGuide task={task} readOnly={reached > 4} hasDraft={drafts.length > 0}
               onDraft={(format) => run('고른 구조로 초안을 쓰는 중이에요', () => callAI('draft', { taskId: task.id, format }))} /> :
             step === 4 ? <StepDraft task={task} draft={drafts[drafts.length - 1]} readOnly={reached > 4} reload={load}
+              prevComments={comments.filter(c => c.draft_id === drafts[drafts.length - 2]?.id && c.visible_to_student)}
               onRedo={() => setView(3)}
               onScore={(content) => run('안내문 기준으로 채점하는 중이에요', () => callAI('score', { taskId: task.id, draftId: drafts[drafts.length - 1]?.id, content }))} /> :
             <StepReview task={task} drafts={drafts} comments={comments} reload={load} onRewrite={() => setView(null)} />}
@@ -604,8 +644,13 @@ function StepGuide({ task, readOnly, hasDraft, onDraft }: { task: Task; readOnly
 }
 
 // ---------- 5. 초안 · 채점 ----------
-function StepDraft({ task, draft, readOnly, onScore, onRedo, reload }: { task: Task; draft: Draft; readOnly: boolean; onScore: (content: string) => void; onRedo: () => void; reload: () => Promise<void> }) {
+function StepDraft({ task, draft, readOnly, onScore, onRedo, reload, prevComments = [] }: { task: Task; draft: Draft; readOnly: boolean; onScore: (content: string) => void; onRedo: () => void; reload: () => Promise<void>; prevComments?: any[] }) {
   const [content, setContent] = useState<string>(draft?.content ?? '')
+  // 고쳐 쓰기(2차~): 앞 회차 선생님 코멘트를 반영했는지 학생이 체크 → draft.addressed 에 코멘트 id 저장, 선생님 화면에 보임
+  const [addressed, setAddressed] = useState<string[]>(Array.isArray(draft?.addressed) ? draft.addressed : [])
+  useEffect(() => { setAddressed(Array.isArray(draft?.addressed) ? draft.addressed : []) }, [draft?.id])
+  const toggleAddr = (id: string) => setAddressed(a => a.includes(id) ? a.filter(x => x !== id) : [...a, id])
+  const missingMust = prevComments.filter(c => c.importance === '필수' && !addressed.includes(c.id)).length
   const [saving, setSaving] = useState(false)
   const [preview, setPreview] = useState(true)
   useEffect(() => { setContent(draft?.content ?? '') }, [draft?.id, draft?.updated_at])
@@ -616,14 +661,16 @@ function StepDraft({ task, draft, readOnly, onScore, onRedo, reload }: { task: T
   if (!draft) return <div className={`${card} p-6 text-[13px] text-ink-muted`}>초안이 아직 없어요.</div>
   const save = async () => {
     setSaving(true)
-    const { error } = await supabase.from('high_school_task_draft').update({ content, blanks_left: blanks.length, updated_at: new Date().toISOString() }).eq('id', draft.id)
+    const { error } = await supabase.from('high_school_task_draft').update({ content, blanks_left: blanks.length, addressed, updated_at: new Date().toISOString() }).eq('id', draft.id)
     setSaving(false)
     if (error) alert('저장 실패: ' + error.message); else await reload()
   }
   const submit = async () => {
+    if (prevComments.length && content.trim() === (draft?.content ?? '').trim() && !confirm('아직 고친 곳이 없어요. 그대로 제출할까요?')) return
+    if (missingMust && !confirm(`필수 코멘트 ${missingMust}개를 아직 반영 체크하지 않았어요. 그래도 제출할까요?`)) return
     if (!confirm('선생님께 제출할까요? 제출하면 선생님이 확인할 때까지 고칠 수 없어요.')) return
     const now = new Date().toISOString()
-    const a = await supabase.from('high_school_task_draft').update({ content, blanks_left: 0, submitted_at: now }).eq('id', draft.id)
+    const a = await supabase.from('high_school_task_draft').update({ content, blanks_left: 0, addressed, submitted_at: now }).eq('id', draft.id)
     const b = await supabase.from('high_school_task').update({ status: 'submitted', submitted_at: now, updated_at: now }).eq('id', task.id)
     if (a.error || b.error) { alert('제출 실패: ' + (a.error || b.error)!.message); return }
     alert('제출했어요! 선생님 첨삭을 기다려 주세요.')
@@ -634,9 +681,9 @@ function StepDraft({ task, draft, readOnly, onScore, onRedo, reload }: { task: T
     <div className="flex gap-4 flex-wrap items-start">
       <div className={`${card} flex-[3_1_460px] min-w-0 flex flex-col`}>
         <div className="px-4 py-2.5 border-b border-line flex items-center justify-between gap-2 flex-wrap">
-          <div className="text-[13px] font-bold text-brand-high">{draft.round}차 초안</div>
+          <div className="text-[13px] font-bold text-brand-high">{draft.round}차 {draft.round > 1 ? '고쳐 쓰기' : '초안'}</div>
           <div className="flex items-center gap-2">
-            {!readOnly && <button onClick={onRedo} className="text-[12px] font-semibold text-ink-secondary border border-line rounded-md px-2.5 py-1">↻ 구조 바꿔 다시 만들기</button>}
+            {!readOnly && draft.round === 1 && <button onClick={onRedo} className="text-[12px] font-semibold text-ink-secondary border border-line rounded-md px-2.5 py-1">↻ 구조 바꿔 다시 만들기</button>}
             {!readOnly && <button onClick={() => setPreview(!preview)} className="text-[12px] font-semibold text-ink-secondary border border-line rounded-md px-2.5 py-1">{preview ? '✏️ 고치기' : '👀 미리보기'}</button>}
           </div>
         </div>
@@ -648,6 +695,29 @@ function StepDraft({ task, draft, readOnly, onScore, onRedo, reload }: { task: T
       </div>
 
       <div className="flex-[2_1_300px] min-w-0 flex flex-col gap-3">
+        {prevComments.length > 0 && (
+          <div className={`${card} p-4 flex flex-col gap-2`}>
+            <div className="flex items-center justify-between">
+              <div className="text-[13px] font-extrabold text-ink">선생님 코멘트 반영 체크</div>
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${missingMust ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-green-50 text-green-700 border-green-200'}`}>{missingMust ? `필수 ${missingMust}개 남음` : `${addressed.length} / ${prevComments.length} 반영`}</span>
+            </div>
+            {prevComments.map(c => {
+              const on = addressed.includes(c.id)
+              return (
+                <label key={c.id} className={`flex gap-2.5 items-start rounded-lg border px-3 py-2.5 ${readOnly ? '' : 'cursor-pointer'} ${on ? 'bg-green-50 border-green-200' : 'border-line'}`}>
+                  <input type="checkbox" checked={on} disabled={readOnly} onChange={() => toggleAddr(c.id)} className="mt-1 accent-green-600" />
+                  <div className="flex-1 min-w-0">
+                    <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded mr-1 ${c.importance === '필수' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-ink-secondary'}`}>{c.importance}</span>
+                    {c.quote && <span className="text-[12px] text-ink-muted">"{c.quote.length > 40 ? c.quote.slice(0, 40) + '…' : c.quote}"</span>}
+                    <div className="text-[12.5px] leading-[1.55] text-ink mt-1">{c.body}</div>
+                    {c.suggestion && <div className="text-[11.5px] text-brand-high-dark mt-1">→ {c.suggestion}</div>}
+                  </div>
+                </label>
+              )
+            })}
+            <div className="text-[11.5px] text-ink-muted">고친 코멘트는 체크해요. 선생님 화면에 반영 여부가 보여요.</div>
+          </div>
+        )}
         <div className={`${card} p-4 flex flex-col gap-2`}>
           <div className="flex items-baseline justify-between">
             <div className="text-[13px] font-extrabold text-ink">안내문 기준 채점</div>
@@ -683,7 +753,10 @@ function StepDraft({ task, draft, readOnly, onScore, onRedo, reload }: { task: T
 // ---------- 6. 선생님 첨삭 ----------
 function StepReview({ task, drafts, comments, reload, onRewrite }: { task: Task; drafts: Draft[]; comments: any[]; reload: () => Promise<void>; onRewrite: () => void }) {
   const last = drafts[drafts.length - 1]
-  const mine = comments.filter(c => c.draft_id === last?.id)
+  // 선생님이 재작성 요청·완료를 보내기 전에는 코멘트를 보여주지 않는다 (첨삭 중인 코멘트가 미리 보이지 않게)
+  const sent = task.status === 'revise' || task.status === 'done'
+  const mine = sent ? comments.filter(c => c.draft_id === last?.id && c.visible_to_student) : []
+  const [act, setAct] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   const rewrite = async () => {
@@ -702,8 +775,10 @@ function StepReview({ task, drafts, comments, reload, onRewrite }: { task: Task;
   return (
     <div className="flex gap-4 flex-wrap items-start">
       <div className={`${card} flex-[3_1_460px] min-w-0`}>
-        <div className="px-4 py-2.5 border-b border-line text-[13px] font-bold text-ink-secondary">{last?.round}차 제출본</div>
-        <div className="p-5"><Md text={last?.content || ''} /></div>
+        <div className="px-4 py-2.5 border-b border-line text-[13px] font-bold text-ink-secondary flex items-center gap-2">{last?.round}차 제출본{mine.some(c => c.quote) && <span className="text-[11.5px] font-medium text-ink-muted">· 노란 표시를 누르면 그 코멘트로 가요</span>}</div>
+        <div className="p-5">{mine.some(c => c.quote)
+          ? <MarkedMd text={last?.content || ''} cms={mine} act={act} onPick={id => { setAct(id); document.getElementById(`scm-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) }} />
+          : <Md text={last?.content || ''} />}</div>
       </div>
       <div className="flex-[2_1_300px] min-w-0 flex flex-col gap-3">
         <div className={`rounded-xl p-4 border ${task.status === 'done' ? 'bg-green-50 border-green-200' : task.status === 'revise' ? 'bg-orange-50 border-orange-200' : 'bg-brand-high-pale border-brand-high-light'}`}>
@@ -716,8 +791,9 @@ function StepReview({ task, drafts, comments, reload, onRewrite }: { task: Task;
         {mine.length > 0 && (
           <div className={`${card} p-4 flex flex-col gap-2.5`}>
             <div className="text-[13px] font-extrabold text-ink">선생님 코멘트 {mine.length}</div>
+            {task.status === 'revise' && <div className="text-[11.5px] text-ink-muted -mt-1">고쳐 쓰기 화면에서 하나씩 반영했는지 체크할 수 있어요</div>}
             {mine.map(c => (
-              <div key={c.id} className="border border-line rounded-lg p-3 flex flex-col gap-1.5">
+              <div key={c.id} id={`scm-${c.id}`} onClick={() => setAct(c.id)} className={`border rounded-lg p-3 flex flex-col gap-1.5 ${act === c.id ? 'border-brand-high shadow-[0_0_0_3px_#EFF6FF]' : 'border-line'}`}>
                 <span className={`self-start text-[10px] font-extrabold px-1.5 py-0.5 rounded ${c.importance === '필수' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-ink-secondary'}`}>{c.importance}</span>
                 {c.quote && <div className="text-[12px] text-ink-muted">"{c.quote}"</div>}
                 <div className="text-[13px] leading-[1.6] text-ink">{c.body}</div>
