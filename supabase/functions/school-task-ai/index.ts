@@ -174,8 +174,8 @@ const gradeLabel = (g: unknown) => {
 
 // 조사·분석 출처 규칙 — 가이드에서 쓴다 (출처를 지어내지 않고, 실제로 있는 곳에서 찾게 안내)
 const SOURCE_RULE = `조사·분석·통계·사례가 들어가는 부분은 출처가 반드시 있어야 한다. 출처는 지어내지 않는다(기사·논문 제목, 숫자, 주소를 만들지 말 것).
-대신 "어디서 무엇을 찾을지"를 실제로 있는 곳으로 안내한다: KOSIS 국가통계포털, 한국은행 경제통계시스템(ECOS), 공공데이터포털, 국가법령정보센터, 빅카인즈(뉴스), RISS·DBpia(논문), 정부 부처·통계청 보도자료, 교과서·책(쪽수).
-학생은 찾은 자료를 "기관 · 자료 이름 · 발표 날짜 · 주소(또는 책 쪽수)" 형식으로 적는다.`;
+대신 "어디서 무엇을 찾을지"를 실제로 있는 곳으로 안내한다: KOSIS 국가통계포털, 한국은행 경제통계시스템(ECOS), 공공데이터포털, 국가법령정보센터, 빅카인즈(뉴스), RISS·DBpia(논문), 정부 부처·통계청 보도자료, 교과서·책.
+학생은 찾은 자료를 "기관 · 자료 이름 · 발표 날짜 · 주소" 형식으로 적는다. 책은 『제목』(저자)만 적고 쪽수는 적지 않는다.`;
 
 
 /*
@@ -526,7 +526,7 @@ async function draft(db: SupabaseClient, task: any, formatKey?: string) {
 - 학습가이드는 내용의 방향만 참고하고 문장을 옮기지 않는다. 로드맵추천의 deepen.how 와 perSection 을 해당 문단에 반영.
 - 나의 생각·느낀 점: 질의응답에서 학생이 고른 답을 바탕으로, 생각이 들어가야 자연스러운 문단(느낀 점, 생각이 바뀐 점, 마무리) 2~3곳에 학생 목소리로 직접 쓴다.
 책:
-- 책이 필요한 과제면 [학생 독서 기록]에서 과제 주제에 맞는 책을 골라 처음 나오는 문단에서 한 번만 『제목』(저자)로 밝힌다. 책 내용은 독서 기록의 요약·감상에 있는 것만 쓴다.
+- 책이 필요한 과제면 [학생 독서 기록]에서 과제 주제에 맞는 책을 골라 처음 나오는 문단에서 한 번만 『제목』(저자)로 밝힌다. 책 쪽수는 쓰지 않는다. 책 내용은 독서 기록의 요약·감상에 있는 것만 쓴다.
 출처:
 - [참고할 자료]는 3개 정도 있다. 각 자료를 맞는 문단에 나눠 실제 근거(사례·수치·기준)로 활용해 내용을 풍성하게 하고, 쓴 문장 끝에 "(출처: 발행처, 「제목」)"을 붙인다. 자료 내용은 그 자료의 요약(summary)에 있는 것만 쓴다.
 - [참고할 자료]에 없는 숫자·통계·기사·법령 조항·인용을 새로 만들지 않는다. 필요하면 일반적인 설명으로 쓴다.
@@ -552,7 +552,7 @@ async function score(db: SupabaseClient, task: any, draftRow: any, content?: str
   const criteria = arr(task.analysis?.criteria);
   const system = `수행평가 채점관. 안내문 평가 기준으로만 채점한다. 기준이 없으면 4개(자료의 적절성, 분석·해석, 문제 해결, 논리적 표현) 각 25점.
 [[직접 입력: ...]] 칸이 남아 있으면 그 칸이 속한 기준에서 감점하고 tip 에 "칸 채우기"를 적는다.
-조사·분석·통계·사례를 썼는데 출처(기관·자료 이름·날짜·주소 또는 책 쪽수)가 없으면 자료·근거 관련 기준에서 감점하고 tip 에 "출처 적기"를 적는다.
+조사·분석·통계·사례를 썼는데 출처(기관·자료 이름·날짜·주소, 책은 『제목』·저자)가 없으면 자료·근거 관련 기준에서 감점하고 tip 에 "출처 적기"를 적는다.
 tip 은 "만점까지 몇 점 — 이렇게"로, 고칠 문장을 quote 에 원문 그대로 짧게.
 json: {"total":0,"items":[{"name":"","got":0,"max":0,"tip":"","quote":""}],"roadmap":[{"skill":"","filled":true,"where":""}]}`;
   const r = await ai(system, `평가 기준: ${JSON.stringify(criteria)}\n감점: ${JSON.stringify(task.analysis?.penalties ?? [])}\n로드맵 추천: ${JSON.stringify(task.roadmap_reco ?? {})}\n본문:\n${str(text, 20000)}`, 0.2);
@@ -568,7 +568,8 @@ json: {"total":0,"items":[{"name":"","got":0,"max":0,"tip":"","quote":""}],"road
 
 async function review(db: SupabaseClient, task: any, draftRow: any) {
   const text = String(draftRow.content ?? "");
-  const blanks = Array.from(text.matchAll(BLANK_RE)).map(m => m[0]);
+  // 책 쪽수 빈칸은 필요 없는 칸이라 첨삭 대상에서 뺀다
+  const blanks = Array.from(text.matchAll(BLANK_RE)).map(m => m[0]).filter(b => !/쪽/.test(b));
   const system = `수행평가 첨삭 보조. 선생님이 골라서 학생에게 보낼 코멘트 5~8개를 만든다. 칭찬이 아니라 "고칠 곳"을 찾는 것이 목적이다.
 우선순위(위에서부터 먼저 채운다):
 ① 본문에 남아 있는 [[직접 입력: …]] 칸 — 칸마다 하나씩, importance "필수". quote 는 그 칸을 포함한 문장의 앞부분, body 는 "아직 채우지 않은 칸이 있어요" + 무엇을 채워야 하는지.
@@ -582,6 +583,7 @@ async function review(db: SupabaseClient, task: any, draftRow: any) {
 - body: 무엇이 문제인지 + 왜(평가 기준) 1~2문장. suggestion: 학생이 바로 할 행동 한 줄 — 모범 문장을 대신 써 주지 않는다.
 - quote 는 본문에서 그대로 복사한 15~60자 구절(글자 하나도 바꾸지 말 것). 글 전체 의견이면 quote 는 "".
 - 사실 확인이 필요한 수치·출처는 지어내지 않는다.
+- 책 쪽수는 요구하지 않는다. 책 출처는 『제목』(저자)면 충분하다. [[직접 입력: 쪽수]] 칸은 무시한다.
 json: {"comments":[{"quote":"","importance":"필수","body":"","suggestion":""}]}`;
   const r = await ai(system, `과제: ${taskBrief(task)}
 평가 기준: ${JSON.stringify(arr(task.analysis?.criteria))}

@@ -13,6 +13,7 @@ import {
 } from '@/constants/middleRoadmap'
 import { useMyMiddleRoadmapProgress } from '@/pages/middle-student/_hooks/useMyMiddleRoadmap'
 import JinroMap from './JinroMap'
+import CareerPlaza from './CareerPlaza'
 
 // 초록 테마 (중등)
 const THEME = {
@@ -66,6 +67,7 @@ export default function Roadmap() {
 
   const [tab, setTab] = useState<Tab>('road')
   const [selMonth, setSelMonth] = useState<number | null>(null)
+  const [plaza, setPlaza] = useState(false) // 🌳 진로 광장(3D)
 
   const { data: progressMap, isLoading } = useMyMiddleRoadmapProgress()
 
@@ -148,6 +150,13 @@ export default function Roadmap() {
 
   return (
     <div className="h-full overflow-y-auto px-8 py-7 box-border font-sans text-ink">
+      {plaza && (
+        <CareerPlaza
+          name={student?.name ?? ''}
+          room={`${student?.grade ?? '중등'} · ${academy.academyName ?? '우리 학원'}`}
+          onClose={() => setPlaza(false)}
+        />
+      )}
 
       {/* 탭 + 스탯 */}
       <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
@@ -176,6 +185,14 @@ export default function Roadmap() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setPlaza(true)}
+            className="rounded-xl px-4 py-2 text-left border-2 transition-all hover:-translate-y-0.5"
+            style={{ borderColor: THEME.accent, background: '#fff', boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
+          >
+            <div className="text-[10px] mb-0.5 font-bold" style={{ color: THEME.accent }}>NEW · 3D</div>
+            <div className="text-[15px] font-extrabold" style={{ color: THEME.accentDark }}>🌳 진로 광장 들어가기</div>
+          </button>
           <div
             className="rounded-xl px-4 py-2"
             style={{ background: THEME.gradient, boxShadow: `0 4px 12px ${THEME.accentShadow}` }}
