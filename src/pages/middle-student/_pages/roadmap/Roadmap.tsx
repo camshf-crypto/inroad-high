@@ -154,6 +154,8 @@ export default function Roadmap() {
         <CareerPlaza
           name={student?.name ?? ''}
           room={`${student?.grade ?? '중등'} · ${academy.academyName ?? '우리 학원'}`}
+          grade={myGrade}
+          month={nowIdx + 1}
           onClose={() => setPlaza(false)}
         />
       )}
