@@ -1,0 +1,540 @@
+{
+  "id": "M1-DISCOVER-1-1",
+  "grade": "중1",
+  "track": "DISCOVER",
+  "month": 1,
+  "session": 1,
+  "subject": "국어",
+  "title": "나를 보여주는 경험 5개 찾기",
+  "minutes": 10,
+  "video_ppt": "BKURS_중1_1개월_1회차_국어_영상10분.pptx",
+  "sections": [
+    {
+      "kind": "recall",
+      "name": "영상 떠올리기",
+      "questions": "Q1-Q3",
+      "minutes": 2
+    },
+    {
+      "kind": "self",
+      "name": "나를 고르기",
+      "questions": "Q4-Q8",
+      "minutes": 4
+    },
+    {
+      "kind": "write",
+      "name": "직접 쓰기",
+      "questions": "Q9-Q11",
+      "minutes": 3
+    }
+  ],
+  "questions": [
+    {
+      "id": "Q1",
+      "kind": "recall",
+      "type": "single",
+      "ppt_slide": 4,
+      "prompt": "영상의 두 가지 말 중, 내가 평소에 더 자주 쓰는 쪽은?",
+      "help": "정답은 없어요. 솔직하게 골라요",
+      "options": [
+        {
+          "label": "대충 말한 것",
+          "sub": "성실해요 · 열심히 했어요 · 재미있었어요",
+          "id": "1",
+          "icon": {
+            "lucide": "message-circle",
+            "color": "blue"
+          },
+          "image": "images/icon_message-circle_blue.svg"
+        },
+        {
+          "label": "진짜 있었던 일",
+          "sub": "세 번 다시 연습했어요 · 순서를 설명했어요",
+          "id": "2",
+          "icon": {
+            "lucide": "notebook-pen",
+            "color": "blue"
+          },
+          "image": "images/icon_notebook-pen_blue.svg"
+        },
+        {
+          "label": "둘 다 비슷하게",
+          "sub": "상황에 따라 달라요",
+          "id": "3",
+          "icon": {
+            "lucide": "scale",
+            "color": "blue"
+          },
+          "image": "images/icon_scale_blue.svg"
+        }
+      ],
+      "section": "영상 떠올리기",
+      "image": "images/ill_s05.png"
+    },
+    {
+      "id": "Q2",
+      "kind": "recall",
+      "type": "single",
+      "ppt_slide": 5,
+      "prompt": "경험 다섯 칸 중 나에게 가장 어려울 것 같은 칸은?",
+      "help": "영상에서 배운 다섯 칸을 떠올려 골라요",
+      "options": [
+        {
+          "label": "무슨 일",
+          "sub": "어떤 문제가 있었어?",
+          "id": "1",
+          "icon": {
+            "lucide": "circle-help",
+            "color": "blue"
+          },
+          "image": "images/icon_circle-help_blue.svg"
+        },
+        {
+          "label": "내 생각",
+          "sub": "그때 뭐가 필요하다고 생각했어?",
+          "id": "2",
+          "icon": {
+            "lucide": "lightbulb",
+            "color": "blue"
+          },
+          "image": "images/icon_lightbulb_blue.svg"
+        },
+        {
+          "label": "내가 한 일",
+          "sub": "네가 직접 뭘 했어?",
+          "id": "3",
+          "icon": {
+            "lucide": "hand",
+            "color": "blue"
+          },
+          "image": "images/icon_hand_blue.svg"
+        },
+        {
+          "label": "달라진 점",
+          "sub": "그러고 나서 뭐가 달라졌어?",
+          "id": "4",
+          "icon": {
+            "lucide": "sparkles",
+            "color": "blue"
+          },
+          "image": "images/icon_sparkles_blue.svg"
+        },
+        {
+          "label": "내 역할",
+          "sub": "너는 어떤 역할을 한 거야?",
+          "id": "5",
+          "icon": {
+            "lucide": "user-round",
+            "color": "blue"
+          },
+          "image": "images/icon_user-round_blue.svg"
+        }
+      ],
+      "section": "영상 떠올리기",
+      "image": "images/ill_s07.png"
+    },
+    {
+      "id": "Q3",
+      "kind": "recall",
+      "type": "single",
+      "ppt_slide": 10,
+      "prompt": "민서와 준혁 중 나와 더 비슷한 사람은?",
+      "help": "두 이야기를 떠올려 골라요",
+      "options": [
+        {
+          "label": "민서",
+          "sub": "서로 다른 사정을 맞춰 줬어요",
+          "id": "1",
+          "icon": {
+            "lucide": "users",
+            "color": "blue"
+          },
+          "image": "images/icon_users_blue.svg"
+        },
+        {
+          "label": "준혁",
+          "sub": "어려운 것을 쉽게 설명해 줬어요",
+          "id": "2",
+          "icon": {
+            "lucide": "presentation",
+            "color": "blue"
+          },
+          "image": "images/icon_presentation_blue.svg"
+        },
+        {
+          "label": "둘 다 조금씩",
+          "id": "3",
+          "icon": {
+            "lucide": "scale",
+            "color": "blue"
+          },
+          "image": "images/icon_scale_blue.svg"
+        },
+        {
+          "label": "둘 다 아니에요",
+          "sub": "나는 다른 쪽 같아요",
+          "id": "4",
+          "icon": {
+            "lucide": "ellipsis",
+            "color": "blue"
+          },
+          "image": "images/icon_ellipsis_blue.svg"
+        }
+      ],
+      "section": "영상 떠올리기",
+      "image": "images/ill_s11.png"
+    },
+    {
+      "id": "Q4",
+      "kind": "self",
+      "type": "multi",
+      "max_select": 5,
+      "ppt_slide": 13,
+      "prompt": "떠오르는 경험이 있는 곳을 모두 골라요",
+      "help": "상 받은 일 말고, 내가 직접 골라서 한 일이면 돼요",
+      "options": [
+        {
+          "label": "학교",
+          "sub": "질문하거나 설명한 일",
+          "id": "1",
+          "icon": {
+            "lucide": "school",
+            "color": "purple"
+          },
+          "image": "images/icon_school_purple.svg"
+        },
+        {
+          "label": "친구",
+          "sub": "같이 문제를 해결한 일",
+          "id": "2",
+          "icon": {
+            "lucide": "users",
+            "color": "purple"
+          },
+          "image": "images/icon_users_purple.svg"
+        },
+        {
+          "label": "집",
+          "sub": "내가 맡아서 한 일",
+          "id": "3",
+          "icon": {
+            "lucide": "house",
+            "color": "purple"
+          },
+          "image": "images/icon_house_purple.svg"
+        },
+        {
+          "label": "취미",
+          "sub": "시간 가는 줄 모르고 한 일",
+          "id": "4",
+          "icon": {
+            "lucide": "gamepad-2",
+            "color": "purple"
+          },
+          "image": "images/icon_gamepad-2_purple.svg"
+        },
+        {
+          "label": "실패",
+          "sub": "안 돼서 다시 해 본 일",
+          "id": "5",
+          "icon": {
+            "lucide": "rotate-ccw",
+            "color": "purple"
+          },
+          "image": "images/icon_rotate-ccw_purple.svg"
+        }
+      ],
+      "section": "나를 고르기",
+      "image": "images/ill_s19.png"
+    },
+    {
+      "id": "Q5",
+      "kind": "self",
+      "type": "single",
+      "ppt_slide": 13,
+      "prompt": "그중 나를 가장 잘 보여 주는 대표 경험은 어디에서였나요?",
+      "help": "내가 골랐고, 자세히 말할 수 있는 경험 하나를 골라요. Q8까지 이 경험으로 이어 가요",
+      "options": [
+        {
+          "label": "학교",
+          "id": "1",
+          "icon": {
+            "lucide": "school",
+            "color": "purple"
+          },
+          "image": "images/icon_school_purple.svg"
+        },
+        {
+          "label": "친구",
+          "id": "2",
+          "icon": {
+            "lucide": "users",
+            "color": "purple"
+          },
+          "image": "images/icon_users_purple.svg"
+        },
+        {
+          "label": "집",
+          "id": "3",
+          "icon": {
+            "lucide": "house",
+            "color": "purple"
+          },
+          "image": "images/icon_house_purple.svg"
+        },
+        {
+          "label": "취미",
+          "id": "4",
+          "icon": {
+            "lucide": "gamepad-2",
+            "color": "purple"
+          },
+          "image": "images/icon_gamepad-2_purple.svg"
+        },
+        {
+          "label": "실패",
+          "id": "5",
+          "icon": {
+            "lucide": "rotate-ccw",
+            "color": "purple"
+          },
+          "image": "images/icon_rotate-ccw_purple.svg"
+        }
+      ],
+      "section": "나를 고르기",
+      "image": "images/ill_s20.png"
+    },
+    {
+      "id": "Q6",
+      "kind": "self",
+      "type": "multi",
+      "max_select": 2,
+      "ppt_slide": 7,
+      "prompt": "그 경험에서 내가 직접 한 일은 무엇인가요?",
+      "help": "두 개까지 골라요",
+      "options": [
+        {
+          "label": "물어봤다",
+          "id": "1",
+          "icon": {
+            "lucide": "circle-help",
+            "color": "green"
+          },
+          "image": "images/icon_circle-help_green.svg"
+        },
+        {
+          "label": "나눴다",
+          "id": "2",
+          "icon": {
+            "lucide": "split",
+            "color": "green"
+          },
+          "image": "images/icon_split_green.svg"
+        },
+        {
+          "label": "설명했다",
+          "id": "3",
+          "icon": {
+            "lucide": "message-circle",
+            "color": "green"
+          },
+          "image": "images/icon_message-circle_green.svg"
+        },
+        {
+          "label": "다시 해 봤다",
+          "id": "4",
+          "icon": {
+            "lucide": "rotate-ccw",
+            "color": "green"
+          },
+          "image": "images/icon_rotate-ccw_green.svg"
+        },
+        {
+          "label": "비교했다",
+          "id": "5",
+          "icon": {
+            "lucide": "scale",
+            "color": "green"
+          },
+          "image": "images/icon_scale_green.svg"
+        },
+        {
+          "label": "만들었다",
+          "id": "6",
+          "icon": {
+            "lucide": "hammer",
+            "color": "green"
+          },
+          "image": "images/icon_hammer_green.svg"
+        },
+        {
+          "label": "도왔다",
+          "id": "7",
+          "icon": {
+            "lucide": "hand-helping",
+            "color": "green"
+          },
+          "image": "images/icon_hand-helping_green.svg"
+        },
+        {
+          "label": "정리했다",
+          "id": "8",
+          "icon": {
+            "lucide": "list-ordered",
+            "color": "green"
+          },
+          "image": "images/icon_list-ordered_green.svg"
+        }
+      ],
+      "section": "나를 고르기",
+      "image": "images/ill_s21.png"
+    },
+    {
+      "id": "Q7",
+      "kind": "self",
+      "type": "single",
+      "ppt_slide": 7,
+      "prompt": "그래서 무엇이 달라졌나요?",
+      "help": "하기 전과 후를 떠올려 골라요",
+      "options": [
+        {
+          "label": "일이 끝까지 됐어요",
+          "id": "1",
+          "icon": {
+            "lucide": "circle-check",
+            "color": "green"
+          },
+          "image": "images/icon_circle-check_green.svg"
+        },
+        {
+          "label": "친구가 이해했어요",
+          "id": "2",
+          "icon": {
+            "lucide": "smile",
+            "color": "green"
+          },
+          "image": "images/icon_smile_green.svg"
+        },
+        {
+          "label": "결과가 좋아졌어요",
+          "id": "3",
+          "icon": {
+            "lucide": "trending-up",
+            "color": "green"
+          },
+          "image": "images/icon_trending-up_green.svg"
+        },
+        {
+          "label": "내가 새로 알게 됐어요",
+          "id": "4",
+          "icon": {
+            "lucide": "lightbulb",
+            "color": "green"
+          },
+          "image": "images/icon_lightbulb_green.svg"
+        },
+        {
+          "label": "기타",
+          "input": "달라진 점을 써요",
+          "id": "5",
+          "icon": {
+            "lucide": "ellipsis",
+            "color": "green"
+          },
+          "image": "images/icon_ellipsis_green.svg"
+        }
+      ],
+      "section": "나를 고르기",
+      "image": "images/ill_s22.png"
+    },
+    {
+      "id": "Q8",
+      "kind": "self",
+      "type": "single",
+      "ppt_slide": 12,
+      "prompt": "그때 나는 어떤 역할을 한 것 같나요?",
+      "help": "행동이 여러 번 모이면 역할이 보여요",
+      "options": [
+        {
+          "label": "알아보는 사람",
+          "sub": "궁금한 걸 묻고 왜 그런지 찾아봐요",
+          "id": "1",
+          "icon": {
+            "lucide": "search",
+            "color": "purple"
+          },
+          "image": "images/icon_search_purple.svg"
+        },
+        {
+          "label": "설명하는 사람",
+          "sub": "남이 알아듣게 정리해서 말해요",
+          "id": "2",
+          "icon": {
+            "lucide": "presentation",
+            "color": "purple"
+          },
+          "image": "images/icon_presentation_purple.svg"
+        },
+        {
+          "label": "맞춰 주는 사람",
+          "sub": "서로 다른 사정을 하나로 맞춰요",
+          "id": "3",
+          "icon": {
+            "lucide": "users",
+            "color": "purple"
+          },
+          "image": "images/icon_users_purple.svg"
+        },
+        {
+          "label": "챙겨 주는 사람",
+          "sub": "어려워하는 친구를 살피고 도와줘요",
+          "id": "4",
+          "icon": {
+            "lucide": "heart-handshake",
+            "color": "purple"
+          },
+          "image": "images/icon_heart-handshake_purple.svg"
+        }
+      ],
+      "section": "나를 고르기",
+      "image": "images/ill_s23.png"
+    },
+    {
+      "id": "Q9",
+      "kind": "write",
+      "type": "text",
+      "ppt_slide": 14,
+      "prompt": "대표 경험에서 무슨 일이 있었고, 내가 직접 무엇을 했나요?",
+      "help": "언제 · 누구와 · 무엇을 했는지 사실로 두 문장",
+      "placeholder": "예) 체육대회 때 줄넘기 순서가 자꾸 꼬였어요. 저는 동작을 세 부분으로 나누고 잘하는 친구가 하나씩 보여 주게 했어요.",
+      "max_chars": 200,
+      "check": "4회차 점검 증거",
+      "section": "직접 쓰기",
+      "image": "images/ill_s24.png"
+    },
+    {
+      "id": "Q10",
+      "kind": "write",
+      "type": "text",
+      "ppt_slide": 5,
+      "prompt": "그때 왜 그렇게 했나요? (내 생각)",
+      "help": "“왜 그렇게 했어?”의 답이 바로 내 생각이에요",
+      "placeholder": "예) 친구들이 어려워하는 동작이 서로 다르다는 걸 알았기 때문이에요.",
+      "max_chars": 150,
+      "check": "4회차 점검 증거",
+      "section": "직접 쓰기",
+      "image": "images/ill_s08.png"
+    },
+    {
+      "id": "Q11",
+      "kind": "write",
+      "type": "template",
+      "ppt_slide": 15,
+      "prompt": "오늘의 한 문장",
+      "help": "Q6 · Q8에서 고른 것을 넣어 완성해요",
+      "template": "저는 {} 하고 {} 했어요. 그래서 {} 역할을 한 것 같아요.",
+      "section": "직접 쓰기",
+      "image": "images/ill_s25.png"
+    }
+  ]
+}

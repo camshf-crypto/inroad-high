@@ -7,18 +7,23 @@
 //     middle_plaza_quest      길 위 퀘스트 푼 기록
 //     middle_plaza_mission    이번 달 역량 미션 (학년·월·역량 Q/R/E/D/C 하나에 한 줄)
 //     middle_plaza_lesson     1~3회차 영상 확인 문제 (객관식 9 + 주관식 1)
+//     middle_lessons          (읽기만) 원장 '수업 영상 관리'에 등록한 이번 달 1~3주차 영상 → 광장 1~3회차에서 재생
+//   같은 학원 친구 실시간: Supabase Realtime 채널 plaza-{학원id} (presence = 지금 광장에 있는 사람, broadcast = 목적지·인사·응원)
+//     위치는 '걸어갈 목적지가 바뀔 때'만 보내서 학생이 많아도 메시지가 적어요
 //   grade(중1·중2·중3특목·중3일반)와 month(1~8, 지금 진행 중인 달)를 넘기면 그 학년·그 달 미션이 게시판에 떠요
 
 import { useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export default function CareerPlaza({ name, room, grade, month, onClose }: { name: string; room: string; grade: string; month: number; onClose: () => void }) {
+export default function CareerPlaza({ name, room, grade, month, academyId, onClose }: { name: string; room: string; grade: string; month: number; academyId?: string; onClose: () => void }) {
   const frameRef = useRef<HTMLIFrameElement>(null)
   const closeRef = useRef(onClose)
   closeRef.current = onClose
 
   useEffect(() => {
     let uid: string | null = null
+    let ch: ReturnType<typeof supabase.channel> | null = null
+    let look: any = { equip: null, title: '' }
     const toFrame = (msg: any) => frameRef.current?.contentWindow?.postMessage(msg, window.location.origin)
 
     // 처음 열 때: 저장된 진행 불러와서 3D 화면에 넘기기
@@ -26,13 +31,28 @@ export default function CareerPlaza({ name, room, grade, month, onClose }: { nam
       const { data: u } = await supabase.auth.getUser()
       uid = u.user?.id ?? null
       if (!uid) return toFrame({ type: 'plaza-state', state: {} })
-      const [p, v, q, m] = await Promise.all([
+      // 수업 영상: 중3특목·중3일반은 '중3' 영상, 이번 달 = 진로 로드맵 month번째 달
+      const lessonGrade = grade.startsWith('중3') ? '중3' : grade
+      const [p, v, q, m, ls, ld] = await Promise.all([
         supabase.from('middle_plaza_profile').select('drops, equip, owned').eq('student_id', uid).maybeSingle(),
         supabase.from('middle_plaza_dept_visit').select('dept_name, liked').eq('student_id', uid),
         supabase.from('middle_plaza_quest').select('quest_key').eq('student_id', uid),
         supabase.from('middle_plaza_mission').select('grade, month, kind, dept_name, dept2, choice, body').eq('student_id', uid),
+        supabase.from('middle_lessons')
+          .select('month_no, week_no, title, sub_title, video_url, video_url_1, video_url_2, video_url_3, video_url_4')
+          .eq('grade', lessonGrade).eq('is_active', true),
+        supabase.from('middle_plaza_lesson').select('round, status, picks').eq('student_id', uid).eq('grade', grade).eq('month', month),
       ])
-      if (p.error || v.error || q.error || m.error) console.warn('[진로 광장] 불러오기 실패', p.error || v.error || q.error || m.error)
+      const rows: any[] = ls.data ?? []
+      const monthNos = [...new Set(rows.map(r => r.month_no))].sort((a, b) => a - b)
+      const thisMonth = monthNos[month - 1]
+      const lessons = [1, 2, 3].map(w => {
+        const r = rows.find(x => x.month_no === thisMonth && x.week_no === w)
+        if (!r) return null
+        const urls = [r.video_url_1 ?? r.video_url, r.video_url_2, r.video_url_3, r.video_url_4].filter((u: string | null) => u && u.trim())
+        return { week: w, title: r.title ?? `${w}회차`, sub: r.sub_title ?? '', urls }
+      })
+      if (p.error || v.error || q.error || m.error || ls.error) console.warn('[진로 광장] 불러오기 실패', p.error || v.error || q.error || m.error || ls.error)
       toFrame({
         type: 'plaza-state',
         state: {
@@ -42,7 +62,33 @@ export default function CareerPlaza({ name, room, grade, month, onClose }: { nam
           visits: v.data ?? [],
           quests: (q.data ?? []).map((x: any) => x.quest_key),
           missions: m.data ?? [],
+          lessons,
+          lessonDone: (ld.data ?? []).filter((x: any) => x.status !== 'draft').map((x: any) => x.round),
+          // 임시저장한 답 (회차 → 답) — 다음에 들어오면 이어서
+          lessonDraft: Object.fromEntries((ld.data ?? []).filter((x: any) => x.status === 'draft').map((x: any) => [x.round, x.picks])),
         },
+      })
+      startNet()
+    }
+
+    // 같은 학원 친구 실시간 연결
+    const startNet = () => {
+      if (!uid || !academyId || ch) return
+      const me = uid
+      ch = supabase.channel(`plaza-${academyId}`, { config: { broadcast: { self: false }, presence: { key: me } } })
+      ch.on('presence', { event: 'sync' }, () => {
+        const st: Record<string, any[]> = (ch as any).presenceState()
+        const peers = Object.entries(st)
+          .filter(([k]) => k !== me)
+          .map(([k, v]) => ({ id: k, name: v[0]?.name, equip: v[0]?.equip, title: v[0]?.title }))
+        toFrame({ type: 'plaza-peers', peers })
+      })
+      ch.on('broadcast', { event: 'pos' }, ({ payload }) => toFrame({ type: 'plaza-peer-pos', ...payload }))
+      ch.on('broadcast', { event: 'act' }, ({ payload }) => toFrame({ type: 'plaza-peer-act', ...payload }))
+      ch.subscribe(async status => {
+        if (status !== 'SUBSCRIBED') return
+        await ch?.track({ name: name || '친구', grade, ...look })
+        toFrame({ type: 'plaza-net-on', me })
       })
     }
 
@@ -68,7 +114,7 @@ export default function CareerPlaza({ name, room, grade, month, onClose }: { nam
       }
       else if (kind === 'lesson') {
         r = await supabase.from('middle_plaza_lesson').upsert(
-          { student_id: uid, grade: data.grade, month: data.month, round: data.round, picks: data.picks ?? [], correct: data.correct, total: data.total, answer: data.answer, done_at: now },
+          { student_id: uid, grade: data.grade, month: data.month, round: data.round, picks: data.picks ?? [], correct: data.correct, total: data.total, answer: data.answer, status: data.status ?? 'done', done_at: now },
           { onConflict: 'student_id,grade,month,round' },
         )
       }
@@ -81,6 +127,10 @@ export default function CareerPlaza({ name, room, grade, month, onClose }: { nam
       if (d.type === 'career-plaza-close') closeRef.current()
       if (d.type === 'plaza-ready') loadState()
       if (d.type === 'plaza-save') save(d.kind, d.data)
+      if (d.type === 'plaza-net' && ch && uid) {
+        if (d.ev === 'look') { look = d.d ?? look; ch.track({ name: name || '친구', grade, ...look }) }
+        else ch.send({ type: 'broadcast', event: d.ev, payload: { id: uid, ...(d.d ?? {}) } })
+      }
     }
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRef.current() }
     window.addEventListener('message', onMsg)
@@ -90,6 +140,7 @@ export default function CareerPlaza({ name, room, grade, month, onClose }: { nam
       window.removeEventListener('message', onMsg)
       window.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
+      if (ch) supabase.removeChannel(ch)
     }
   }, [])
 
