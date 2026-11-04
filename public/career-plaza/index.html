@@ -163,13 +163,18 @@ svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stro
 .wbt b{display:block;font-size:14.5px;color:#111827}.wbt small{display:block;font-size:12px;color:#6B7280;margin-top:2px;line-height:1.4}
 .wbin{width:100%;box-sizing:border-box;margin-top:8px;border:1.5px solid #A7F3D0;border-radius:12px;padding:11px;font:inherit;font-size:14px}
 .wbtpl{margin-top:12px;padding:16px;border-radius:16px;background:#F7FEFB;border:1.5px solid #D1FAE5;font-size:16px;line-height:2.4;font-weight:700;color:#065F46}
-.wbblank{width:118px;margin:0 4px;padding:4px 8px;border:none;border-bottom:2px solid #059669;background:#fff;border-radius:6px 6px 0 0;font:inherit;font-size:15px;color:#111827;text-align:center}
+.wbblank{max-width:100%;margin:0 4px;padding:4px 8px;border:none;border-bottom:2px solid #059669;background:#fff;border-radius:6px 6px 0 0;font:inherit;font-size:15px;color:#111827;text-align:center}
 .wbtools{display:flex;align-items:center;gap:6px}.wbsave{padding:6px 10px;border-radius:999px;background:#ECFDF5;color:#047857;font-size:12px;font-weight:800}
 .wbx{width:32px;height:32px;border-radius:50%;background:#F3F4F6;color:#374151;font-size:15px;font-weight:800}
 .wbsub{margin-top:2px;font-size:12px;font-weight:700;color:#6B7280}
 .mbox{position:relative}.qxask{position:absolute;inset:0;background:rgba(17,24,39,.45);border-radius:inherit;display:flex;align-items:center;justify-content:center;padding:20px;z-index:5}
 .qxbox{background:#fff;border-radius:20px;padding:20px;width:100%;max-width:340px;display:flex;flex-direction:column;gap:8px;box-shadow:0 20px 40px rgba(0,0,0,.2)}.qxbox b{font-size:17px}.qxbox p{margin:0 0 6px;font-size:13.5px;color:#6B7280;line-height:1.5}.qxbox .btn{width:100%;height:46px;flex:none;display:flex;align-items:center;justify-content:center;font-size:14.5px}
 .qxkeep{padding:8px;font-size:13px;font-weight:700;color:#6B7280;background:none}
+.wbh small{min-width:0}.wbtools{flex:none}.wbsave,.wblang{white-space:nowrap}.wblang{padding:6px 10px;border-radius:999px;background:#EFF6FF;color:#1D4ED8;font-size:12px;font-weight:800}
+.wbnum{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}@media (max-width:420px){.wbnum{grid-template-columns:1fr}}
+.wbnum label{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid #E5E7EB;border-radius:12px;background:#fff}.wbnum span{flex:1;font-size:14px;font-weight:700;color:#374151}
+.wbnum input{width:76px;border:none;border-bottom:2px solid #A7F3D0;font:inherit;font-size:16px;font-weight:800;text-align:right;color:#065F46;background:transparent}.wbnum input:focus{outline:none;border-color:#059669}.wbnum em{font-style:normal;font-size:12.5px;color:#6B7280}
+.wbtot{margin-top:10px;padding:10px 12px;border-radius:12px;background:#FEF3C7;color:#92400E;font-size:13.5px}.wbtot.ok{background:#ECFDF5;color:#047857}.wbtot.over{background:#FEF2F2;color:#B91C1C}
 </style></head><body>
 <div id="stage"><div id="frame">
   <canvas id="cv"></canvas>
@@ -1078,7 +1083,7 @@ function showSheet(k){if(k.dep!=null){depSheet(k.dep);return}sheetFor=k;const s=
   else{const st=k,m=MONTHS[st.i];
     if(st.lock)s.innerHTML='<div class="h"><div class="ic" style="background:#9CA3AF">'+ic('lock')+'</div><div><small>'+(st.i+1)+'개월 · '+m[1]+'</small><b>'+m[0]+'</b></div></div><p>'+(st.i>=4?'2학기에 선생님이 열어 주면 들어갈 수 있어요.':'앞 장소를 먼저 끝내야 열려요.')+'</p><div class="btns"><button class="btn o" onclick="closeSheet()">닫기</button></div>';
     else if(st.done)s.innerHTML='<div class="h"><div class="ic" style="background:'+m[3]+'">'+ic('check')+'</div><div><small>'+(st.i+1)+'개월 · 탐험 완료</small><b>'+m[0]+'</b></div></div><p>이 장소에서 얻은 결과물: <b style="display:inline;font-size:13.5px">'+m[2]+'</b></p><div class="btns"><button class="btn o" onclick="closeSheet()">닫기</button><button class="btn p" onclick="toast(\'포트폴리오에서 결과물을 열어요\')">'+ic('folder','width:18px;height:18px')+'결과물 보기</button></div>';
-    else{const nx=qd.indexOf(false);s.innerHTML='<div class="h"><div class="ic" style="background:'+m[3]+'">'+ic('spark')+'</div><div><small>'+(st.i+1)+'개월 · 지금 탐험 중</small><b>'+m[0]+'</b></div></div><div class="qs">'+QS.map((q,j)=>'<div class="'+(qd[j]?'d':j===nx?'n':'')+'"><i>'+(qd[j]?'✓':j+1)+'</i>'+(j+1)+'회차 · '+(LESSONS?(LESSONS[j]?LESSONS[j].title:'수업 영상 준비 중'):q[1])+'<em>'+(qd[j]?'완료':j===nx?'+10 💧':'')+'</em></div>').join('')+'<div class="l"><i>4</i>4회차 · 학원 수업<em style="color:#6B7280">학원에서</em></div></div><div class="btns"><button class="btn o" onclick="closeSheet()">나중에</button>'+(nx>=0?'<button class="btn p" onclick="enter('+nx+')">'+(nx+1)+'회차 들어가기</button>':'<button class="btn p" onclick="toast(\'1~3회차 끝! 4회차는 학원에서 선생님과 함께해요\')">4회차 준비 완료</button>')+'</div>'}
+    else{const nx=qd.indexOf(false);s.innerHTML='<div class="h"><div class="ic" style="background:'+m[3]+'">'+ic('spark')+'</div><div><small>'+(st.i+1)+'개월 · 지금 탐험 중</small><b>'+m[0]+'</b></div></div><div class="qs">'+QS.map((q,j)=>'<div class="'+(qd[j]?'d':j===nx?'n':'')+'" style="cursor:pointer" onclick="enter('+j+')"><i>'+(qd[j]?'✓':j+1)+'</i>'+(j+1)+'회차 · '+(LESSONS?(LESSONS[j]?LESSONS[j].title:'수업 영상 준비 중'):q[1])+'<em>'+(qd[j]?'완료 · 다시 보기 ›':'💧+10 · 들어가기 ›')+'</em></div>').join('')+'<div class="l"><i>4</i>4회차 · 학원 수업<em style="color:#6B7280">학원에서</em></div></div><div class="btns"><button class="btn o" onclick="closeSheet()">나중에</button>'+(nx>=0?'<button class="btn p" onclick="enter('+nx+')">'+(nx+1)+'회차 들어가기</button>':'<button class="btn p" onclick="toast(\'1~3회차 끝! 4회차는 학원에서 선생님과 함께해요\')">4회차 준비 완료</button>')+'</div>'}
   }
   s.classList.add('on')}
 /* ===== 1~3회차 수업 영상 — 비커스 원장 화면 '수업 영상 관리'에 등록한 영상 (학년 · 이번 달 · 1~3주차) =====
@@ -1118,7 +1123,7 @@ function lvPart(j,p){const L=LESSONS[j],e=toEmbed(L.urls[p]);lvW.cur=p;clearTime
   lvState(j)}
 function lvSeen(j,p){lvW[j].add(p);try{localStorage.setItem(lvKey(j,p),'1')}catch(e){}const L=LESSONS[j];if($('lvmsg'))$('lvmsg').textContent='✓ '+(p+1)+'편 시청 완료';
   const nx=L.urls.findIndex((_,q)=>!lvW[j].has(q));if(nx>=0){toast((nx+1)+'편으로 넘어가요');setTimeout(()=>{if($('lvbox'))lvPart(j,nx)},800)}else toast('영상 다 봤어요! 확인 문제를 풀어요');lvState(j)}
-function finishQ(j){qd[j]=true;drop+=10;$('drop').textContent=drop;closeM();
+function finishQ(j){if(qd[j]){closeM();toast('다시 푼 답으로 저장했어요');return}qd[j]=true;drop+=10;$('drop').textContent=drop;closeM();
   // 우리 반 나무에 잎 하나 + 내 머리 위 축하
   treeSync();
   bubble(me,(j+1)+'회차 완료! 💧+10',2600);if(!EMBED&&friends[0])setTimeout(()=>{bubble(friends[0].o,'오 축하해!',2200)},700);netAct('say',(j+1)+'회차 완료! 🎉');toast('내 진로 나무가 자랐어요')}
@@ -1271,12 +1276,15 @@ function drawMini(){const cv=$('mm');if(!cv)return;if(!mmBase)mmBuild();
    그림은 같은 폴더의 images/ 에 넣으면 보이고, 없으면 아이콘으로 보여요
    문제 종류: single(하나 고르기) · multi(여러 개, max_select) · text(쓰기) · template(빈칸 채워 한 문장) ===== */
 const WB_CODE={'중1':'m1','중2':'m2','중3특목':'m3s','중3일반':'m3g'};
-const WB_ICON={'circle-check':'✅','circle-help':'❓','ellipsis':'💬','gamepad-2':'🎮','hammer':'🔨','hand':'✋','hand-helping':'🤝','heart-handshake':'💞','house':'🏠','lightbulb':'💡','list-ordered':'📋','message-circle':'💬','notebook-pen':'📝','presentation':'🧑‍🏫','rotate-ccw':'🔁','scale':'⚖️','school':'🏫','search':'🔍','smile':'😊','sparkles':'✨','split':'✂️','trending-up':'📈','user-round':'🙂','users':'👥'};
+const WB_ICON={'camera':'📷','heart':'❤️','flag':'🚩','sprout':'🌱','rocket':'🚀','music':'🎵','file-search':'🔎','blocks':'🧱','wrench':'🔧','calculator':'🧮','pencil':'✏️','calendar':'📅','clock':'⏰','ruler':'📏','layers':'🗂️','list-checks':'✅','repeat':'🔁','sun':'☀️','calendar-days':'📆','calendar-check':'🗓️','utensils':'🍽️','book-open':'📖','bike':'🚲','eye':'👀','palette':'🎨','leaf':'🍃','cpu':'💻','chart-column':'📊','circle-check':'✅','circle-help':'❓','ellipsis':'💬','gamepad-2':'🎮','hammer':'🔨','hand':'✋','hand-helping':'🤝','heart-handshake':'💞','house':'🏠','lightbulb':'💡','list-ordered':'📋','message-circle':'💬','notebook-pen':'📝','presentation':'🧑‍🏫','rotate-ccw':'🔁','scale':'⚖️','school':'🏫','search':'🔍','smile':'😊','sparkles':'✨','split':'✂️','trending-up':'📈','user-round':'🙂','users':'👥'};
 const WB_COL={blue:['#EFF6FF','#2563EB'],purple:['#F5F3FF','#7C3AED'],green:['#ECFDF5','#059669']};
-let wb=null; // {j, d, base, i, ans:{}}
+let wb=null; // {j, d, base, i, ans:{}, ko, en, lang}
+const WBT={ko:{chk:'회차 확인 문제',save:'임시저장',next:'다음',prev:'이전',done:'퀘스트 완료하기',multi:'여러 개 골라도 돼요',upto:'개까지 ',one:'하나 골라 줘요',some:'하나 이상 골라 줘요',other:'기타 내용을 써 줘요',more:'조금만 더 써 봐요 (10글자 이상)',blank:'빈칸을 다 채워 줘요',pre:'앞에서 고른 걸 넣어 뒀어요. 내 말로 고쳐도 돼요.',ev:'으로 4회차에 선생님이 같이 봐요',total:'합계',left:'남았어요',over:'넘었어요',ok:'딱 맞아요!',numfix:'합계를 맞춰 줘요',max:'개까지 고를 수 있어요'},
+ en:{chk:' check',save:'Save',next:'Next',prev:'Back',done:'Finish',multi:'You can pick more than one',upto:'Up to ',one:'Pick one',some:'Pick at least one',other:'Write your own answer',more:'Write a little more (10+ letters)',blank:'Fill in all the blanks',pre:'Your earlier answers are filled in. You can change them.',ev:'',total:'Total',left:'left',over:'over',ok:'Perfect!',numfix:'Make the total match',max:' max'}};
+const wt=k=>WBT[(wb&&wb.lang)||'ko'][k];
 let DRAFT={}; // 회차 → 임시저장한 답 (서버 middle_plaza_lesson status='draft')
 const quizOn=()=>!!(wb||lq);
-function quizHead(label,i,n){return '<div class="grab"></div><div class="wbh"><small>'+label+'</small><span class="wbtools">'+(qd[(wb||lq).j]?'':'<button class="wbsave" onclick="quizDraft()">임시저장</button>')+'<button class="wbx" onclick="quizExit()" aria-label="나가기">✕</button></span></div><div class="wbsub"><span>'+(i+1)+' / '+n+'</span></div><div class="lqbar"><i style="width:'+(i/n*100)+'%"></i></div>'}
+function quizHead(label,i,n){return '<div class="grab"></div><div class="wbh"><small>'+label+'</small><span class="wbtools">'+(wb&&wb.ko&&wb.en?'<button class="wblang" onclick="wbLang()">'+(wb.lang==='en'?'한국어':'EN')+'</button>':'')+(qd[(wb||lq).j]?'':'<button class="wbsave" onclick="quizDraft()">'+(wb?wt('save'):'임시저장')+'</button>')+'<button class="wbx" onclick="quizExit()" aria-label="나가기">✕</button></span></div><div class="wbsub"><span>'+(i+1)+' / '+n+'</span></div><div class="lqbar"><i style="width:'+(i/n*100)+'%"></i></div>'}
 function quizDraftData(){return wb?{id:wb.d.id,i:wb.i,answers:wb.ans}:{lq:true,i:lq.i,picks:lq.picks,sa:lq.sa,order:lq.order}}
 function quizDraft(silent){const q=wb||lq;if(!q||qd[q.j])return;
   if(wb){const tq=wbQ();if(tq.type==='text'){const t=$('wbta');if(t)wb.ans[tq.id]=t.value}if(tq.type==='template')wbTpl()}
@@ -1288,57 +1296,87 @@ function quizExit(){const q=wb||lq;if(!q){closeM();return}
   box.innerHTML='<div class="qxbox"><b>지금까지 한 걸 저장할까요?</b><p>저장하면 다음에 들어왔을 때 여기서부터 이어서 할 수 있어요.</p><button class="btn p" onclick="quizDraft(true);wb=lq=null;closeM();toast(\'저장했어요 · 다음에 이어서 해요\')">저장하고 나가기</button><button class="btn o" onclick="wb=lq=null;closeM()">저장 안 하고 나가기</button><button class="qxkeep" onclick="this.closest(\'.qxask\').remove()">계속 풀기</button></div>';
   $('mbox').appendChild(box)}
 async function wbStart(j){const base='workbook/'+(WB_CODE[GRADE]||'m1')+'-'+MON+'-'+(j+1)+'/';
-  try{const r=await fetch(base+'data.json',{cache:'no-cache'});if(!r.ok)throw 0;const d=await r.json();wb={j,d,base,i:0,ans:{}};const dr=DRAFT[j+1];if(dr&&dr.id===d.id&&dr.answers&&!qd[j]){wb.ans=dr.answers;wb.i=Math.min(dr.i||0,d.questions.length-1);toast('저장해 둔 데서 이어서 해요')}wbDraw()}
+  try{const get=async f=>{const r=await fetch(base+f,{cache:'no-cache'});if(!r.ok)throw 0;return r.json()};
+    const ko=await get('data.json').catch(()=>null),en=await get('data_en.json').catch(()=>null);if(!ko&&!en)throw 0;
+    let lang='ko';try{if(localStorage.getItem('plaza-wb-lang')==='en'&&en)lang='en'}catch(x){}if(!ko)lang='en';
+    const d=lang==='en'?en:ko;wb={j,d,base,i:0,ans:{},ko,en,lang};const dr=DRAFT[j+1];if(dr&&String(dr.id||'').replace(/-EN$/,'')===String(d.id).replace(/-EN$/,'')&&dr.answers&&!qd[j]){wb.ans=dr.answers;wb.i=Math.min(dr.i||0,d.questions.length-1);toast('저장해 둔 데서 이어서 해요')}wbDraw()}
   catch(e){lqStart(j)} // 이 회차 문제가 아직 없으면 예전 예시 문제
 }
 function wbQ(){return wb.d.questions[wb.i]}
+function wbLang(){if(!(wb.ko&&wb.en))return;wb.lang=wb.lang==='en'?'ko':'en';wb.d=wb.lang==='en'?wb.en:wb.ko;
+  // 빈칸 문장은 언어가 바뀌면 다시 채워요 (고른 답은 문제 번호가 같아서 그대로)
+  wb.d.questions.forEach(q=>{if(q.type==='template')delete wb.ans[q.id]});try{localStorage.setItem('plaza-wb-lang',wb.lang)}catch(x){}wbDraw()}
 function wbOpts(q){let o=q.options||[];
   // '그중' 대표 경험: 앞 문제(여러 개 고르기)에서 고른 것만 보여 줘요
-  if(q.id==='Q5'&&Array.isArray(wb.ans.Q4)&&wb.ans.Q4.length)o=o.filter(x=>wb.ans.Q4.includes(x.id));
+  const base=String(wb.d.id).replace(/-EN$/,'');
+  if(base==='M1-DISCOVER-1-1'&&q.id==='Q5'&&Array.isArray(wb.ans.Q4)&&wb.ans.Q4.length)o=o.filter(x=>wb.ans.Q4.includes(x.id));
+  // 3회차: 두 번째 관심 방향은 첫 번째(Q6)와 다른 것만
+  if(base==='M1-DISCOVER-1-3'&&q.id==='Q7'&&wb.ans.Q6)o=o.filter(x=>x.id!==wb.ans.Q6);
   return o}
 function wbIcon(o){const c=(WB_COL[o.icon&&o.icon.color]||WB_COL.blue),em=WB_ICON[o.icon&&o.icon.lucide]||'•';
   return '<span class="wbic" style="background:'+c[0]+';color:'+c[1]+'">'+(o.image?'<img src="'+wb.base+o.image+'" alt="" onerror="this.replaceWith(document.createTextNode(\''+em+'\'))">':em)+'</span>'}
 function wbFill(){const q=wbQ();if(q.type!=='template')return null;
   const lab=(qid)=>{const a=wb.ans[qid],Q=wb.d.questions.find(x=>x.id===qid);if(!Q||a==null)return [];const ids=Array.isArray(a)?a:[a.id||a];return ids.map(id=>(Q.options.find(o=>o.id===id)||{}).label).filter(Boolean)};
-  // '저는 {} 하고 {} 했어요' 에 맞게 행동을 명사로 (물어봤다 → 질문)
+  const base=String(wb.d.id).replace(/-EN$/,'');
+  if(base==='M1-DISCOVER-1-3'){
+    // I like {} . I often {} . ← Q4(영어 낱말) · Q5(행동 낱말)
+    if(q.id==='Q9'){const a4=wb.ans.Q4,Q4=wb.d.questions.find(x=>x.id==='Q4'),o4=Q4&&Q4.options.find(o=>o.id===(a4&&a4.id||a4));
+      const like=a4&&a4.text?a4.text:o4?(o4.sub||o4.label).replace(/ · /g,' and '):'';return [like,lab('Q5').join(', ')]}
+    return []}
+  if(base==='M1-DISCOVER-1-2'){const Q5=wb.d.questions.find(x=>x.id==='Q5'),nums=(wb.ans.Q5||[]).map(Number),F=Q5?Q5.fields:[];
+    const mi=nums.length?nums.indexOf(Math.max(...nums.map(x=>x||0))):-1,act=lab('Q6')[0]||'',ai=F.indexOf(act);
+    if(q.id==='Q9')return [mi>=0?F[mi]:'',mi>=0?String(nums[mi]):'','','',''];
+    if(q.id==='Q10')return [act,''];
+    if(q.id==='Q11')return [act,ai>=0&&nums[ai]?String(nums[ai]):'',lab('Q7')[0]||'',lab('Q8')[0]||''];
+    return []}
+  // 1회차: '저는 {} 하고 {} 했어요' 에 맞게 행동을 명사로 (물어봤다 → 질문)
   const N={'물어봤다':'질문','나눴다':'역할 분담','설명했다':'설명','다시 해 봤다':'재도전','비교했다':'비교','만들었다':'제작','도왔다':'도움','정리했다':'정리'};
   const v=lab('Q6').map(x=>N[x]||x),r=lab('Q8');return [v[0]||'',v[1]||'',r[0]||'']}
 function wbDraw(){const d=wb.d,q=wbQ(),n=d.questions.length,a=wb.ans[q.id];
-  let h=quizHead(d.title+' · '+(wb.j+1)+'회차 확인 문제',wb.i,n)+
+  let h=quizHead(d.title+' · '+(wb.lang==='en'?'Session '+(wb.j+1)+wt('chk'):(wb.j+1)+wt('chk')),wb.i,n)+
     '<div class="wbsec">'+(q.section||'')+'</div>'+
     (q.image?'<img class="wbill" src="'+wb.base+q.image+'" alt="" onerror="this.remove()">':'')+
     '<h3 class="wbq">'+q.prompt+'</h3>'+(q.help?'<div class="s">'+q.help+'</div>':'');
   if(q.type==='single'||q.type==='multi'){const sel=Array.isArray(a)?a:a?[a.id||a]:[];
-    h+=(q.type==='multi'?'<div class="s" style="margin-top:2px;color:#059669;font-weight:700">'+(q.max_select?q.max_select+'개까지 ':'')+'여러 개 골라도 돼요</div>':'')+
+    h+=(q.type==='multi'?'<div class="s" style="margin-top:2px;color:#059669;font-weight:700">'+(q.max_select?(wb.lang==='en'?wt('upto')+q.max_select+' · ':q.max_select+wt('upto')):'')+wt('multi')+'</div>':'')+
       '<div class="wbopts">'+wbOpts(q).map(o=>'<button class="wbo'+(sel.includes(o.id)?' on':'')+'" onclick="wbPick(\''+o.id+'\')">'+wbIcon(o)+'<span class="wbt"><b>'+o.label+'</b>'+(o.sub?'<small>'+o.sub+'</small>':'')+'</span></button>').join('')+'</div>';
     const other=wbOpts(q).find(o=>o.input&&sel.includes(o.id));if(other)h+='<input class="wbin" id="wbother" placeholder="'+esc(o_ph(other))+'" value="'+esc(a&&a.text||'')+'" oninput="wbOther(this.value)">'}
-  else if(q.type==='text')h+='<textarea class="lqta" id="wbta" rows="4" maxlength="'+(q.max_chars||300)+'" placeholder="'+esc(q.placeholder||'')+'" oninput="wb.ans[\''+q.id+'\']=this.value;wbCount()">'+esc(a||'')+'</textarea><div class="s" id="wbcnt" style="text-align:right"></div>'+(q.check?'<div class="s">📌 '+q.check+'으로 4회차에 선생님이 같이 봐요</div>':'');
+  else if(q.type==='text')h+='<textarea class="lqta" id="wbta" rows="4" maxlength="'+(q.max_chars||300)+'" placeholder="'+esc(q.placeholder||'')+'" oninput="wb.ans[\''+q.id+'\']=this.value;wbCount()">'+esc(a||'')+'</textarea><div class="s" id="wbcnt" style="text-align:right"></div>'+(q.check?'<div class="s">📌 '+q.check+wt('ev')+'</div>':'');
+  else if(q.type==='numbers'){const v=Array.isArray(a)?a:q.fields.map(()=>'');if(!Array.isArray(a))wb.ans[q.id]=v;
+    h+='<div class="wbnum">'+q.fields.map((f,k)=>'<label><span>'+f+'</span><input type="number" inputmode="numeric" min="0" max="'+(q.target||1440)+'" step="5" value="'+esc(v[k])+'" oninput="wbNum('+k+',this.value)"><em>'+(q.unit||'')+'</em></label>').join('')+'</div><div class="wbtot" id="wbtot"></div>'+(q.check?'<div class="s">📌 '+q.check+wt('ev')+'</div>':'')}
   else if(q.type==='template'){const parts=q.template.split('{}'),pre=Array.isArray(a)?a:wbFill();
-    h+='<div class="wbtpl">'+parts.map((t,k)=>esc(t)+(k<parts.length-1?'<input class="wbblank" data-k="'+k+'" value="'+esc(pre[k]||'')+'" oninput="wbTpl()">':'')).join('')+'</div><div class="s">앞에서 고른 걸 넣어 뒀어요. 내 말로 고쳐도 돼요.</div>';
+    h+='<div class="wbtpl">'+parts.map((t,k)=>esc(t)+(k<parts.length-1?'<input class="wbblank" data-k="'+k+'" value="'+esc(pre[k]||'')+'" style="width:'+wbW(pre[k])+'" oninput="this.style.width=wbW(this.value);wbTpl()">':'')).join('')+'</div><div class="s">'+wt('pre')+'</div>';
     if(!Array.isArray(a))wb.ans[q.id]=pre}
   const last=wb.i===n-1;
   // 처음엔 '다음'만, 중간엔 '이전 · 다음', 마지막엔 '퀘스트 완료하기'만
-  h+='<div class="btns">'+(wb.i&&!last?'<button class="btn o" onclick="wb.i--;wbDraw()">이전</button>':'')+'<button class="btn p" onclick="wbNext()">'+(last?'퀘스트 완료하기':'다음')+'</button></div>';
-  $('mbox').innerHTML=h;$('modal').classList.add('on');if(q.type==='text')wbCount()}
+  h+='<div class="btns">'+(wb.i&&!last?'<button class="btn o" onclick="wb.i--;wbDraw()">'+wt('prev')+'</button>':'')+'<button class="btn p" onclick="wbNext()">'+(last?wt('done'):wt('next'))+'</button></div>';
+  $('mbox').innerHTML=h;$('modal').classList.add('on');if(q.type==='text')wbCount();if(q.type==='numbers')wbTot()}
+// 빈칸은 쓴 글 길이만큼 늘어나요 (한글은 넓게)
+function wbW(v){v=String(v||'');let w=0;for(const c of v)w+=/[가-힣]/.test(c)?1.9:1.05;return 'calc('+Math.max(6,Math.ceil(w)+1)+'ch + 16px)'}
+function wbNum(k,v){const q=wbQ();wb.ans[q.id][k]=v;wbTot()}
+function wbSum(){const q=wbQ();return (wb.ans[q.id]||[]).reduce((t,x)=>t+(parseInt(x,10)||0),0)}
+function wbTot(){const q=wbQ(),t=wbSum(),T=q.target||0,u=q.unit||'',el=$('wbtot');if(!el)return;const d=T-t;
+  el.className='wbtot'+(T&&d===0?' ok':d<0?' over':'');el.innerHTML='<b>'+wt('total')+' '+t.toLocaleString()+(T?' / '+T.toLocaleString():'')+u+'</b>'+(T?' · '+(d===0?wt('ok'):Math.abs(d).toLocaleString()+u+' '+(d>0?wt('left'):wt('over'))):'')}
 function o_ph(o){return o.input||'직접 써요'}
 function wbCount(){const q=wbQ(),el=$('wbcnt');if(el)el.textContent=(wb.ans[q.id]||'').length+' / '+(q.max_chars||300)}
 function wbPick(id){const q=wbQ();
   if(q.type==='single'){const o=(q.options||[]).find(x=>x.id===id);wb.ans[q.id]=o&&o.input?{id,text:''}:id;wbDraw();if(!(o&&o.input))setTimeout(()=>{if(wb&&wbQ()===q)wbNext()},250);return}
-  let s=Array.isArray(wb.ans[q.id])?wb.ans[q.id]:[];if(s.includes(id))s=s.filter(x=>x!==id);else{if(q.max_select&&s.length>=q.max_select){toast(q.max_select+'개까지 고를 수 있어요');return}s=[...s,id]}
+  let s=Array.isArray(wb.ans[q.id])?wb.ans[q.id]:[];if(s.includes(id))s=s.filter(x=>x!==id);else{if(q.max_select&&s.length>=q.max_select){toast(wb.lang==='en'?wt('upto')+q.max_select:q.max_select+wt('max'));return}s=[...s,id]}
   wb.ans[q.id]=s;wbDraw()}
 function wbOther(v){const q=wbQ();wb.ans[q.id]={id:(wb.ans[q.id]||{}).id,text:v}}
 function wbTpl(){const q=wbQ();wb.ans[q.id]=[...document.querySelectorAll('.wbblank')].map(x=>x.value)}
 function wbNext(){const q=wbQ(),a=wb.ans[q.id];
-  if(q.type==='single'&&!a){toast('하나 골라 줘요');return}
-  if(q.type==='single'&&a&&a.id&&a.text!==undefined&&!a.text.trim()){toast('기타 내용을 써 줘요');return}
-  if(q.type==='multi'&&!(Array.isArray(a)&&a.length)){toast('하나 이상 골라 줘요');return}
-  if(q.type==='text'&&(a||'').replace(/\s/g,'').length<10){toast('조금만 더 써 봐요 (10글자 이상)');return}
-  if(q.type==='template'&&!(Array.isArray(a)&&a.every(x=>x&&x.trim()))){toast('빈칸을 다 채워 줘요');return}
+  if(q.type==='single'&&!a){toast(wt('one'));return}
+  if(q.type==='single'&&a&&a.id&&a.text!==undefined&&!a.text.trim()){toast(wt('other'));return}
+  if(q.type==='multi'&&!(Array.isArray(a)&&a.length)){toast(wt('some'));return}
+  if(q.type==='text'&&(a||'').replace(/\s/g,'').length<10){toast(wt('more'));return}
+  if(q.type==='numbers'&&q.target&&wbSum()!==q.target){toast(wt('numfix')+' ('+q.target.toLocaleString()+(q.unit||'')+')');return}
+  if(q.type==='template'&&!(Array.isArray(a)&&a.every(x=>x&&String(x).trim()))){toast(wt('blank'));return}
   if(wb.i<wb.d.questions.length-1){wb.i++;wbDraw();return}
   // 끝: 답 전부 저장 (정답 없는 문제라 맞힌 개수는 없음) · 오늘의 한 문장은 answer 칸에
-  const tq=wb.d.questions.find(x=>x.type==='template'),parts=tq?tq.template.split('{}'):[],ta=tq?wb.ans[tq.id]||[]:[];
+  const tq=[...wb.d.questions].reverse().find(x=>x.type==='template'),parts=tq?tq.template.split('{}'):[],ta=tq?wb.ans[tq.id]||[]:[];
   const sentence=tq?parts.map((t,k)=>t+(k<parts.length-1?(ta[k]||''):'')).join(''):'';
-  send2({type:'plaza-save',kind:'lesson',data:{grade:GRADE,month:MON,round:wb.j+1,picks:{id:wb.d.id,answers:wb.ans},correct:null,total:null,answer:sentence}});
+  send2({type:'plaza-save',kind:'lesson',data:{grade:GRADE,month:MON,round:wb.j+1,picks:{id:wb.d.id,lang:wb.lang,answers:wb.ans},correct:null,total:null,answer:sentence}});
   const j=wb.j;delete DRAFT[j+1];wb=null;if(sentence)setTimeout(()=>bubble(me,'💬 '+sentence.slice(0,40)+(sentence.length>40?'…':''),3500),900);finishQ(j)}
 
 function closeM(){clearTimeout(lvTimer);wb=null;lq=null;$('modal').classList.remove('on');$('mbox').classList.remove('wide');document.querySelectorAll('#mbox iframe,#mbox video').forEach(f=>f.remove())}

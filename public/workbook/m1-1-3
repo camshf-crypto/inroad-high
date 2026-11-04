@@ -1,0 +1,649 @@
+{
+  "id": "M1-DISCOVER-1-3",
+  "grade": "중1",
+  "track": "DISCOVER",
+  "month": 1,
+  "session": 3,
+  "subject": "영어 · 진로",
+  "title": "My Future Self + 강점 키워드",
+  "minutes": 10,
+  "video_ppt": "BKURS_중1_1개월_3회차_영어진로_영상10분.pptx",
+  "sections": [
+    {
+      "kind": "recall",
+      "name": "영상 떠올리기",
+      "questions": "Q1-Q3",
+      "minutes": 2
+    },
+    {
+      "kind": "self",
+      "name": "나를 고르기",
+      "questions": "Q4-Q8",
+      "minutes": 4
+    },
+    {
+      "kind": "write",
+      "name": "직접 쓰기",
+      "questions": "Q9-Q11",
+      "minutes": 3
+    }
+  ],
+  "questions": [
+    {
+      "id": "Q1",
+      "kind": "recall",
+      "type": "single",
+      "ppt_slide": 3,
+      "prompt": "내가 듣는 사람이라면, 어떤 발표가 더 기억에 남을까요?",
+      "help": "영상의 발표 A와 B를 떠올려요",
+      "options": [
+        {
+          "label": "발표 A",
+          "sub": "I like science. I want to be a scientist.",
+          "id": "1",
+          "icon": {
+            "lucide": "message-circle",
+            "color": "blue"
+          },
+          "image": "images/icon_message-circle_blue.svg"
+        },
+        {
+          "label": "발표 B",
+          "sub": "I take photos of new leaves.",
+          "id": "2",
+          "icon": {
+            "lucide": "camera",
+            "color": "blue"
+          },
+          "image": "images/icon_camera_blue.svg"
+        },
+        {
+          "label": "둘 다 비슷해요",
+          "id": "3",
+          "icon": {
+            "lucide": "scale",
+            "color": "blue"
+          },
+          "image": "images/icon_scale_blue.svg"
+        }
+      ],
+      "section": "영상 떠올리기",
+      "image": "images/ill_s04.png"
+    },
+    {
+      "id": "Q2",
+      "kind": "recall",
+      "type": "single",
+      "ppt_slide": 5,
+      "prompt": "My Future Self 네 칸 중 나에게 가장 쉬운 칸은?",
+      "help": "하나를 골라요",
+      "options": [
+        {
+          "label": "I like…",
+          "sub": "내가 좋아하는 것",
+          "id": "1",
+          "icon": {
+            "lucide": "heart",
+            "color": "blue"
+          },
+          "image": "images/icon_heart_blue.svg"
+        },
+        {
+          "label": "I often…",
+          "sub": "내가 자주 하는 일",
+          "id": "2",
+          "icon": {
+            "lucide": "repeat",
+            "color": "blue"
+          },
+          "image": "images/icon_repeat_blue.svg"
+        },
+        {
+          "label": "I want to know…",
+          "sub": "내가 알고 싶은 것",
+          "id": "3",
+          "icon": {
+            "lucide": "search",
+            "color": "blue"
+          },
+          "image": "images/icon_search_blue.svg"
+        },
+        {
+          "label": "First, I will…",
+          "sub": "다음에 해 볼 일",
+          "id": "4",
+          "icon": {
+            "lucide": "flag",
+            "color": "blue"
+          },
+          "image": "images/icon_flag_blue.svg"
+        }
+      ],
+      "section": "영상 떠올리기",
+      "image": "images/ill_s05.png"
+    },
+    {
+      "id": "Q3",
+      "kind": "recall",
+      "type": "single",
+      "ppt_slide": 6,
+      "prompt": "지아의 이야기 중 나와 가장 비슷한 행동은?",
+      "help": "지아가 한 일을 떠올려요",
+      "options": [
+        {
+          "label": "자주 살펴보기",
+          "sub": "watch",
+          "id": "1",
+          "icon": {
+            "lucide": "eye",
+            "color": "blue"
+          },
+          "image": "images/icon_eye_blue.svg"
+        },
+        {
+          "label": "사진 찍어 기록하기",
+          "sub": "take photos",
+          "id": "2",
+          "icon": {
+            "lucide": "camera",
+            "color": "blue"
+          },
+          "image": "images/icon_camera_blue.svg"
+        },
+        {
+          "label": "나누고 비교하기",
+          "sub": "sort · compare",
+          "id": "3",
+          "icon": {
+            "lucide": "scale",
+            "color": "blue"
+          },
+          "image": "images/icon_scale_blue.svg"
+        },
+        {
+          "label": "친구에게 설명하기",
+          "sub": "tell",
+          "id": "4",
+          "icon": {
+            "lucide": "message-circle",
+            "color": "blue"
+          },
+          "image": "images/icon_message-circle_blue.svg"
+        }
+      ],
+      "section": "영상 떠올리기",
+      "image": "images/ill_s14.png"
+    },
+    {
+      "id": "Q4",
+      "kind": "self",
+      "type": "single",
+      "ppt_slide": 9,
+      "prompt": "내가 좋아하는 것 (I like)은 어디에 가까운가요?",
+      "help": "1·2회차 기록을 떠올리며 하나를 골라요",
+      "options": [
+        {
+          "label": "식물 · 동물",
+          "sub": "plants · animals",
+          "id": "1",
+          "icon": {
+            "lucide": "sprout",
+            "color": "purple"
+          },
+          "image": "images/icon_sprout_purple.svg"
+        },
+        {
+          "label": "게임",
+          "sub": "games",
+          "id": "2",
+          "icon": {
+            "lucide": "gamepad-2",
+            "color": "purple"
+          },
+          "image": "images/icon_gamepad-2_purple.svg"
+        },
+        {
+          "label": "사람 · 친구",
+          "sub": "people · friends",
+          "id": "3",
+          "icon": {
+            "lucide": "users",
+            "color": "purple"
+          },
+          "image": "images/icon_users_purple.svg"
+        },
+        {
+          "label": "그림 · 만들기",
+          "sub": "drawing · making",
+          "id": "4",
+          "icon": {
+            "lucide": "palette",
+            "color": "purple"
+          },
+          "image": "images/icon_palette_purple.svg"
+        },
+        {
+          "label": "과학 · 우주",
+          "sub": "science · space",
+          "id": "5",
+          "icon": {
+            "lucide": "rocket",
+            "color": "purple"
+          },
+          "image": "images/icon_rocket_purple.svg"
+        },
+        {
+          "label": "운동",
+          "sub": "sports",
+          "id": "6",
+          "icon": {
+            "lucide": "bike",
+            "color": "purple"
+          },
+          "image": "images/icon_bike_purple.svg"
+        },
+        {
+          "label": "음악",
+          "sub": "music",
+          "id": "7",
+          "icon": {
+            "lucide": "music",
+            "color": "purple"
+          },
+          "image": "images/icon_music_purple.svg"
+        },
+        {
+          "label": "기타",
+          "input": "영어 또는 우리말로 써요",
+          "id": "8",
+          "icon": {
+            "lucide": "ellipsis",
+            "color": "purple"
+          },
+          "image": "images/icon_ellipsis_purple.svg"
+        }
+      ],
+      "section": "나를 고르기",
+      "image": "images/ill_s18.png"
+    },
+    {
+      "id": "Q5",
+      "kind": "self",
+      "type": "multi",
+      "max_select": 3,
+      "ppt_slide": 13,
+      "prompt": "내가 자주 하는 행동 낱말 (I often)을 골라요",
+      "help": "실제로 여러 번 한 행동만 세 개까지",
+      "options": [
+        {
+          "label": "watch",
+          "sub": "보다",
+          "id": "1",
+          "icon": {
+            "lucide": "eye",
+            "color": "green"
+          },
+          "image": "images/icon_eye_green.svg"
+        },
+        {
+          "label": "check",
+          "sub": "살펴보다",
+          "id": "2",
+          "icon": {
+            "lucide": "search",
+            "color": "green"
+          },
+          "image": "images/icon_search_green.svg"
+        },
+        {
+          "label": "find",
+          "sub": "찾다",
+          "id": "3",
+          "icon": {
+            "lucide": "file-search",
+            "color": "green"
+          },
+          "image": "images/icon_file-search_green.svg"
+        },
+        {
+          "label": "make",
+          "sub": "만들다",
+          "id": "4",
+          "icon": {
+            "lucide": "hammer",
+            "color": "green"
+          },
+          "image": "images/icon_hammer_green.svg"
+        },
+        {
+          "label": "build",
+          "sub": "세우다",
+          "id": "5",
+          "icon": {
+            "lucide": "blocks",
+            "color": "green"
+          },
+          "image": "images/icon_blocks_green.svg"
+        },
+        {
+          "label": "fix",
+          "sub": "고치다",
+          "id": "6",
+          "icon": {
+            "lucide": "wrench",
+            "color": "green"
+          },
+          "image": "images/icon_wrench_green.svg"
+        },
+        {
+          "label": "tell",
+          "sub": "말하다",
+          "id": "7",
+          "icon": {
+            "lucide": "message-circle",
+            "color": "green"
+          },
+          "image": "images/icon_message-circle_green.svg"
+        },
+        {
+          "label": "help",
+          "sub": "돕다",
+          "id": "8",
+          "icon": {
+            "lucide": "hand-helping",
+            "color": "green"
+          },
+          "image": "images/icon_hand-helping_green.svg"
+        },
+        {
+          "label": "ask",
+          "sub": "묻다",
+          "id": "9",
+          "icon": {
+            "lucide": "circle-help",
+            "color": "green"
+          },
+          "image": "images/icon_circle-help_green.svg"
+        },
+        {
+          "label": "sort",
+          "sub": "나누다",
+          "id": "10",
+          "icon": {
+            "lucide": "list-ordered",
+            "color": "green"
+          },
+          "image": "images/icon_list-ordered_green.svg"
+        },
+        {
+          "label": "count",
+          "sub": "세다",
+          "id": "11",
+          "icon": {
+            "lucide": "calculator",
+            "color": "green"
+          },
+          "image": "images/icon_calculator_green.svg"
+        },
+        {
+          "label": "compare",
+          "sub": "비교하다",
+          "id": "12",
+          "icon": {
+            "lucide": "scale",
+            "color": "green"
+          },
+          "image": "images/icon_scale_green.svg"
+        },
+        {
+          "label": "draw",
+          "sub": "그리다",
+          "id": "13",
+          "icon": {
+            "lucide": "pencil",
+            "color": "green"
+          },
+          "image": "images/icon_pencil_green.svg"
+        },
+        {
+          "label": "write",
+          "sub": "쓰다",
+          "id": "14",
+          "icon": {
+            "lucide": "notebook-pen",
+            "color": "green"
+          },
+          "image": "images/icon_notebook-pen_green.svg"
+        },
+        {
+          "label": "plan",
+          "sub": "계획하다",
+          "id": "15",
+          "icon": {
+            "lucide": "calendar-check",
+            "color": "green"
+          },
+          "image": "images/icon_calendar-check_green.svg"
+        }
+      ],
+      "section": "나를 고르기",
+      "image": "images/ill_s20.png"
+    },
+    {
+      "id": "Q6",
+      "kind": "self",
+      "type": "single",
+      "ppt_slide": 13,
+      "prompt": "내 행동 낱말이 가장 많이 닿는 관심 방향은? (첫 번째)",
+      "help": "Q5에서 고른 낱말이 어느 줄에 있는지 봐요",
+      "options": [
+        {
+          "label": "사람 · 소통",
+          "sub": "tell · help · ask",
+          "id": "1",
+          "icon": {
+            "lucide": "users",
+            "color": "purple"
+          },
+          "image": "images/icon_users_purple.svg"
+        },
+        {
+          "label": "자연 · 생명",
+          "sub": "watch · check · find",
+          "id": "2",
+          "icon": {
+            "lucide": "leaf",
+            "color": "purple"
+          },
+          "image": "images/icon_leaf_purple.svg"
+        },
+        {
+          "label": "기술 · 도구",
+          "sub": "make · build · fix",
+          "id": "3",
+          "icon": {
+            "lucide": "cpu",
+            "color": "purple"
+          },
+          "image": "images/icon_cpu_purple.svg"
+        },
+        {
+          "label": "자료 · 논리",
+          "sub": "sort · count · compare",
+          "id": "4",
+          "icon": {
+            "lucide": "chart-column",
+            "color": "purple"
+          },
+          "image": "images/icon_chart-column_purple.svg"
+        },
+        {
+          "label": "표현 · 창작",
+          "sub": "draw · write · plan",
+          "id": "5",
+          "icon": {
+            "lucide": "palette",
+            "color": "purple"
+          },
+          "image": "images/icon_palette_purple.svg"
+        }
+      ],
+      "section": "나를 고르기",
+      "image": "images/ill_s21.png"
+    },
+    {
+      "id": "Q7",
+      "kind": "self",
+      "type": "single",
+      "ppt_slide": 13,
+      "prompt": "두 번째로 닿는 관심 방향은?",
+      "help": "첫 번째와 다른 방향을 골라요",
+      "options": [
+        {
+          "label": "사람 · 소통",
+          "id": "1",
+          "icon": {
+            "lucide": "users",
+            "color": "purple"
+          },
+          "image": "images/icon_users_purple.svg"
+        },
+        {
+          "label": "자연 · 생명",
+          "id": "2",
+          "icon": {
+            "lucide": "leaf",
+            "color": "purple"
+          },
+          "image": "images/icon_leaf_purple.svg"
+        },
+        {
+          "label": "기술 · 도구",
+          "id": "3",
+          "icon": {
+            "lucide": "cpu",
+            "color": "purple"
+          },
+          "image": "images/icon_cpu_purple.svg"
+        },
+        {
+          "label": "자료 · 논리",
+          "id": "4",
+          "icon": {
+            "lucide": "chart-column",
+            "color": "purple"
+          },
+          "image": "images/icon_chart-column_purple.svg"
+        },
+        {
+          "label": "표현 · 창작",
+          "id": "5",
+          "icon": {
+            "lucide": "palette",
+            "color": "purple"
+          },
+          "image": "images/icon_palette_purple.svg"
+        }
+      ],
+      "section": "나를 고르기",
+      "image": "images/ill_s30.png"
+    },
+    {
+      "id": "Q8",
+      "kind": "self",
+      "type": "single",
+      "ppt_slide": 14,
+      "prompt": "이번 주에 해 볼 작은 행동 (First, I will)은?",
+      "help": "거창한 꿈보다 7일 안에 할 수 있는 것",
+      "options": [
+        {
+          "label": "7일 동안 관찰하기",
+          "sub": "watch for 7 days",
+          "id": "1",
+          "icon": {
+            "lucide": "eye",
+            "color": "green"
+          },
+          "image": "images/icon_eye_green.svg"
+        },
+        {
+          "label": "매일 기록하기",
+          "sub": "keep a record",
+          "id": "2",
+          "icon": {
+            "lucide": "notebook-pen",
+            "color": "green"
+          },
+          "image": "images/icon_notebook-pen_green.svg"
+        },
+        {
+          "label": "하나 만들어 보기",
+          "sub": "make one",
+          "id": "3",
+          "icon": {
+            "lucide": "hammer",
+            "color": "green"
+          },
+          "image": "images/icon_hammer_green.svg"
+        },
+        {
+          "label": "누군가에게 물어보기",
+          "sub": "ask someone",
+          "id": "4",
+          "icon": {
+            "lucide": "circle-help",
+            "color": "green"
+          },
+          "image": "images/icon_circle-help_green.svg"
+        },
+        {
+          "label": "기타",
+          "input": "해 볼 행동을 써요",
+          "id": "5",
+          "icon": {
+            "lucide": "ellipsis",
+            "color": "green"
+          },
+          "image": "images/icon_ellipsis_green.svg"
+        }
+      ],
+      "section": "나를 고르기",
+      "image": "images/ill_s25.png"
+    },
+    {
+      "id": "Q9",
+      "kind": "write",
+      "type": "template",
+      "ppt_slide": 14,
+      "prompt": "I like · I often 문장",
+      "help": "Q4 · Q5에서 고른 것을 넣어 영어로 써요. 어려우면 우리말을 섞어도 돼요",
+      "template": "I like {} . I often {} .",
+      "check": "4회차 점검 증거",
+      "section": "직접 쓰기",
+      "image": "images/ill_s23.png"
+    },
+    {
+      "id": "Q10",
+      "kind": "write",
+      "type": "template",
+      "ppt_slide": 14,
+      "prompt": "알고 싶은 것과 진짜 있었던 일",
+      "help": "because 뒤에는 이유, For example 뒤에는 실제로 한 일",
+      "template": "I want to know {} because {} . For example, I {} .",
+      "section": "직접 쓰기",
+      "image": "images/ill_s13.png"
+    },
+    {
+      "id": "Q11",
+      "kind": "write",
+      "type": "template",
+      "ppt_slide": 12,
+      "prompt": "내 강점 키워드",
+      "help": "강점은 칭찬이 아니라 여러 번 나타난 행동이에요",
+      "template": "내 강점 키워드는 {} 이고, 그 증거는 {} 이에요.",
+      "check": "4회차 점검 증거",
+      "section": "직접 쓰기",
+      "image": "images/ill_s01.png"
+    }
+  ]
+}

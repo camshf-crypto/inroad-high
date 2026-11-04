@@ -1,0 +1,484 @@
+{
+  "id": "M1-DISCOVER-1-2-EN",
+  "grade": "중1",
+  "track": "DISCOVER",
+  "month": 1,
+  "session": 2,
+  "subject": "Math",
+  "title": "Reading My Day as Data",
+  "minutes": 10,
+  "video_ppt": "BKURS_중1_1개월_2회차_수학_영상10분.pptx",
+  "sections": [
+    {
+      "kind": "recall",
+      "name": "Recall the Video",
+      "questions": "Q1-Q3",
+      "minutes": 2
+    },
+    {
+      "kind": "self",
+      "name": "Choose About Me",
+      "questions": "Q4-Q8",
+      "minutes": 5
+    },
+    {
+      "kind": "write",
+      "name": "Write It Yourself",
+      "questions": "Q9-Q11",
+      "minutes": 2
+    }
+  ],
+  "questions": [
+    {
+      "id": "Q1",
+      "kind": "recall",
+      "type": "single",
+      "ppt_slide": 3,
+      "prompt": "Of the three parts of a precise sentence, which one do I leave out most often when I talk?",
+      "help": "There's no right answer. Think about how you usually talk.",
+      "options": [
+        {
+          "label": "When",
+          "id": "1",
+          "icon": {
+            "lucide": "calendar",
+            "color": "blue"
+          },
+          "image": "images/icon_calendar_blue.svg"
+        },
+        {
+          "label": "What",
+          "id": "2",
+          "icon": {
+            "lucide": "circle-help",
+            "color": "blue"
+          },
+          "image": "images/icon_circle-help_blue.svg"
+        },
+        {
+          "label": "How long",
+          "id": "3",
+          "icon": {
+            "lucide": "clock",
+            "color": "blue"
+          },
+          "image": "images/icon_clock_blue.svg"
+        }
+      ],
+      "section": "Recall the Video",
+      "image": "images/ill_s04.png"
+    },
+    {
+      "id": "Q2",
+      "kind": "recall",
+      "type": "single",
+      "ppt_slide": 5,
+      "prompt": "Of the four rules for recording a day, which one seems hardest for me?",
+      "help": "Remember the four rules from the video.",
+      "options": [
+        {
+          "label": "Same unit",
+          "sub": "All time in minutes",
+          "id": "1",
+          "icon": {
+            "lucide": "ruler",
+            "color": "blue"
+          },
+          "image": "images/icon_ruler_blue.svg"
+        },
+        {
+          "label": "No overlaps",
+          "sub": "Don't count the same time twice",
+          "id": "2",
+          "icon": {
+            "lucide": "layers",
+            "color": "blue"
+          },
+          "image": "images/icon_layers_blue.svg"
+        },
+        {
+          "label": "Nothing missing",
+          "sub": "Check that the total is 1,440 minutes",
+          "id": "3",
+          "icon": {
+            "lucide": "list-checks",
+            "color": "blue"
+          },
+          "image": "images/icon_list-checks_blue.svg"
+        },
+        {
+          "label": "No guessing",
+          "sub": "Mark unsure times with “about”",
+          "id": "4",
+          "icon": {
+            "lucide": "circle-help",
+            "color": "blue"
+          },
+          "image": "images/icon_circle-help_blue.svg"
+        }
+      ],
+      "section": "Recall the Video",
+      "image": "images/ill_s06.png"
+    },
+    {
+      "id": "Q3",
+      "kind": "recall",
+      "type": "single",
+      "ppt_slide": 12,
+      "prompt": "Of the three clues that show interest, which one do I trust the most?",
+      "help": "Pick one: time, repetition, or choice.",
+      "options": [
+        {
+          "label": "Time",
+          "sub": "How long did I do it?",
+          "id": "1",
+          "icon": {
+            "lucide": "clock",
+            "color": "blue"
+          },
+          "image": "images/icon_clock_blue.svg"
+        },
+        {
+          "label": "Repetition",
+          "sub": "How many times, over how many days?",
+          "id": "2",
+          "icon": {
+            "lucide": "repeat",
+            "color": "blue"
+          },
+          "image": "images/icon_repeat_blue.svg"
+        },
+        {
+          "label": "Choice",
+          "sub": "Did I do it without being told?",
+          "id": "3",
+          "icon": {
+            "lucide": "hand",
+            "color": "blue"
+          },
+          "image": "images/icon_hand_blue.svg"
+        }
+      ],
+      "section": "Recall the Video",
+      "image": "images/ill_s15.png"
+    },
+    {
+      "id": "Q4",
+      "kind": "self",
+      "type": "single",
+      "ppt_slide": 5,
+      "prompt": "Which day will I record?",
+      "help": "Pick a day you remember clearly and that is close to a usual day.",
+      "options": [
+        {
+          "label": "Yesterday",
+          "sub": "Weekday",
+          "id": "1",
+          "icon": {
+            "lucide": "calendar",
+            "color": "purple"
+          },
+          "image": "images/icon_calendar_purple.svg"
+        },
+        {
+          "label": "Yesterday",
+          "sub": "Weekend",
+          "id": "2",
+          "icon": {
+            "lucide": "sun",
+            "color": "purple"
+          },
+          "image": "images/icon_sun_purple.svg"
+        },
+        {
+          "label": "The day before yesterday",
+          "id": "3",
+          "icon": {
+            "lucide": "calendar-days",
+            "color": "purple"
+          },
+          "image": "images/icon_calendar-days_purple.svg"
+        },
+        {
+          "label": "Another day this week",
+          "sub": "I can check it with my timetable or photos",
+          "id": "4",
+          "icon": {
+            "lucide": "calendar-check",
+            "color": "purple"
+          },
+          "image": "images/icon_calendar-check_purple.svg"
+        }
+      ],
+      "section": "Choose About Me",
+      "image": "images/ill_s18.png"
+    },
+    {
+      "id": "Q5",
+      "kind": "self",
+      "type": "numbers",
+      "ppt_slide": 8,
+      "prompt": "Record that day in seven boxes, in minutes",
+      "help": "Put each activity in only one box, by its main purpose. When the total reaches 1,440 minutes, you're done.",
+      "fields": [
+        "Sleep",
+        "School · Commute",
+        "Daily life",
+        "Study",
+        "Hobbies · Media",
+        "Exercise",
+        "Family · Friends"
+      ],
+      "unit": "min",
+      "target": 1440,
+      "check": "Evidence for the Session 4 check",
+      "section": "Choose About Me",
+      "image": "images/ill_s10.png"
+    },
+    {
+      "id": "Q6",
+      "kind": "self",
+      "type": "single",
+      "ppt_slide": 9,
+      "prompt": "Outside of school, what did I do for the longest time?",
+      "help": "In Q5, leave out Sleep and School · Commute, then pick the biggest box.",
+      "options": [
+        {
+          "label": "Daily life",
+          "sub": "Meals · washing · getting ready",
+          "id": "1",
+          "icon": {
+            "lucide": "utensils",
+            "color": "purple"
+          },
+          "image": "images/icon_utensils_purple.svg"
+        },
+        {
+          "label": "Study",
+          "sub": "Homework · reading · review",
+          "id": "2",
+          "icon": {
+            "lucide": "book-open",
+            "color": "purple"
+          },
+          "image": "images/icon_book-open_purple.svg"
+        },
+        {
+          "label": "Hobbies · Media",
+          "sub": "Games · videos · drawing · instruments",
+          "id": "3",
+          "icon": {
+            "lucide": "gamepad-2",
+            "color": "purple"
+          },
+          "image": "images/icon_gamepad-2_purple.svg"
+        },
+        {
+          "label": "Exercise",
+          "sub": "Walking · P.E. · sports",
+          "id": "4",
+          "icon": {
+            "lucide": "bike",
+            "color": "purple"
+          },
+          "image": "images/icon_bike_purple.svg"
+        },
+        {
+          "label": "Family · Friends",
+          "sub": "Talking · doing things together",
+          "id": "5",
+          "icon": {
+            "lucide": "users",
+            "color": "purple"
+          },
+          "image": "images/icon_users_purple.svg"
+        }
+      ],
+      "section": "Choose About Me",
+      "image": "images/ill_s12.png"
+    },
+    {
+      "id": "Q7",
+      "kind": "self",
+      "type": "multi",
+      "max_select": 3,
+      "ppt_slide": 14,
+      "prompt": "Pick the action verbs I actually did in my day",
+      "help": "Not the name of the activity — up to three actions I did in it.",
+      "options": [
+        {
+          "label": "Observe",
+          "id": "1",
+          "icon": {
+            "lucide": "eye",
+            "color": "green"
+          },
+          "image": "images/icon_eye_green.svg"
+        },
+        {
+          "label": "Compare",
+          "id": "2",
+          "icon": {
+            "lucide": "scale",
+            "color": "green"
+          },
+          "image": "images/icon_scale_green.svg"
+        },
+        {
+          "label": "Make",
+          "id": "3",
+          "icon": {
+            "lucide": "hammer",
+            "color": "green"
+          },
+          "image": "images/icon_hammer_green.svg"
+        },
+        {
+          "label": "Explain",
+          "id": "4",
+          "icon": {
+            "lucide": "message-circle",
+            "color": "green"
+          },
+          "image": "images/icon_message-circle_green.svg"
+        },
+        {
+          "label": "Help",
+          "id": "5",
+          "icon": {
+            "lucide": "hand-helping",
+            "color": "green"
+          },
+          "image": "images/icon_hand-helping_green.svg"
+        },
+        {
+          "label": "Organize",
+          "id": "6",
+          "icon": {
+            "lucide": "list-ordered",
+            "color": "green"
+          },
+          "image": "images/icon_list-ordered_green.svg"
+        },
+        {
+          "label": "Explore",
+          "id": "7",
+          "icon": {
+            "lucide": "search",
+            "color": "green"
+          },
+          "image": "images/icon_search_green.svg"
+        },
+        {
+          "label": "Express",
+          "id": "8",
+          "icon": {
+            "lucide": "palette",
+            "color": "green"
+          },
+          "image": "images/icon_palette_green.svg"
+        }
+      ],
+      "section": "Choose About Me",
+      "image": "images/ill_s26.png"
+    },
+    {
+      "id": "Q8",
+      "kind": "self",
+      "type": "multi",
+      "max_select": 2,
+      "ppt_slide": 15,
+      "prompt": "Pick two fields of interest I might explore",
+      "help": "A field is not a job name. It is the direction I use my interest in.",
+      "options": [
+        {
+          "label": "People · Communication",
+          "sub": "explain · help",
+          "id": "1",
+          "icon": {
+            "lucide": "users",
+            "color": "purple"
+          },
+          "image": "images/icon_users_purple.svg"
+        },
+        {
+          "label": "Nature · Life",
+          "sub": "observe · explore",
+          "id": "2",
+          "icon": {
+            "lucide": "leaf",
+            "color": "purple"
+          },
+          "image": "images/icon_leaf_purple.svg"
+        },
+        {
+          "label": "Technology · Tools",
+          "sub": "make · fix",
+          "id": "3",
+          "icon": {
+            "lucide": "cpu",
+            "color": "purple"
+          },
+          "image": "images/icon_cpu_purple.svg"
+        },
+        {
+          "label": "Data · Logic",
+          "sub": "compare · classify",
+          "id": "4",
+          "icon": {
+            "lucide": "chart-column",
+            "color": "purple"
+          },
+          "image": "images/icon_chart-column_purple.svg"
+        },
+        {
+          "label": "Expression · Creation",
+          "sub": "draw · write",
+          "id": "5",
+          "icon": {
+            "lucide": "palette",
+            "color": "purple"
+          },
+          "image": "images/icon_palette_purple.svg"
+        }
+      ],
+      "section": "Choose About Me",
+      "image": "images/ill_s28.png"
+    },
+    {
+      "id": "Q9",
+      "kind": "write",
+      "type": "template",
+      "ppt_slide": 10,
+      "prompt": "A sentence about my graph",
+      "help": "Look at my numbers in Q5 and write only the facts I can see.",
+      "template": "My longest activity is {} ({} minutes), and {} is longer than {} by {} minutes.",
+      "section": "Write It Yourself",
+      "image": "images/ill_s31.png"
+    },
+    {
+      "id": "Q10",
+      "kind": "write",
+      "type": "template",
+      "ppt_slide": 11,
+      "prompt": "A careful interpretation",
+      "help": "Don't decide “I like it” yet. Write the possibility and what more records I need.",
+      "template": "Looking at just this one day, I may often choose {}. But to call it a real interest, I need more records of {}.",
+      "check": "Evidence for the Session 4 check",
+      "section": "Write It Yourself",
+      "image": "images/ill_s08.png"
+    },
+    {
+      "id": "Q11",
+      "kind": "write",
+      "type": "template",
+      "ppt_slide": 16,
+      "prompt": "Today's one sentence",
+      "help": "Finish it with a number and an action verb.",
+      "template": "I recorded {} for {} minutes, and because I kept doing the action “{}”, I want to explore the {} field more.",
+      "section": "Write It Yourself",
+      "image": "images/ill_s01.png"
+    }
+  ],
+  "lang": "en"
+}
