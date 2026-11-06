@@ -108,6 +108,7 @@ svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stro
 .wgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.wi{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:12px;border-radius:14px;border:1.5px solid #E5E7EB;background:#fff;text-align:left}
 .wi .sw{width:30px;height:30px;border-radius:10px;border:1px solid rgba(0,0,0,.1);margin-bottom:4px}.wi b{font-size:14px;color:#111827}.wi small{font-size:11.5px;font-weight:700}.wi em{font-style:normal;font-size:12px;font-weight:700;color:#059669;margin-top:4px}
 .wi.on{border-color:#059669;background:#ECFDF5}.wi.lk{opacity:.6}.wi.lk em{color:#6B7280}
+.lkbox{margin-top:12px;display:flex;flex-direction:column;gap:14px}.lkbox h4{margin:0 0 7px;font-size:13.5px;font-weight:800;color:#111827}.lksw{display:flex;flex-wrap:wrap;gap:8px}.lksw button{width:40px;height:40px;border-radius:12px;border:2px solid rgba(0,0,0,.08);position:relative}.lksw button.on{border-color:#059669;box-shadow:0 0 0 3px #A7F3D0}.lksw button.on:after{content:'✓';position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:900;text-shadow:0 1px 2px rgba(0,0,0,.5)}.lkch{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.lkch button{padding:10px 4px;border-radius:12px;border:1.5px solid #E5E7EB;background:#fff;font-size:12.5px;font-weight:800;color:#374151;display:flex;flex-direction:column;align-items:center;gap:3px}.lkch button i{font-style:normal;font-size:20px;line-height:1}.lkch button.on{border-color:#059669;background:#ECFDF5;color:#047857}
 .bar button{min-width:58px}
 .skipq{width:100%;margin-top:8px;padding:10px;border-radius:12px;background:#F3F4F6;font-size:13.5px;font-weight:700;color:#4B5563}
 /* PC·태블릿: 화면 전체에 3D, 버튼·카드는 가운데 적당한 폭으로 */
@@ -175,6 +176,19 @@ svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stro
 .wbnum label{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid #E5E7EB;border-radius:12px;background:#fff}.wbnum span{flex:1;font-size:14px;font-weight:700;color:#374151}
 .wbnum input{width:76px;border:none;border-bottom:2px solid #A7F3D0;font:inherit;font-size:16px;font-weight:800;text-align:right;color:#065F46;background:transparent}.wbnum input:focus{outline:none;border-color:#059669}.wbnum em{font-style:normal;font-size:12.5px;color:#6B7280}
 .wbtot{margin-top:10px;padding:10px 12px;border-radius:12px;background:#FEF3C7;color:#92400E;font-size:13.5px}.wbtot.ok{background:#ECFDF5;color:#047857}.wbtot.over{background:#FEF2F2;color:#B91C1C}
+.advg{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:12px}
+.adv{aspect-ratio:1;border-radius:14px;border:1.5px solid #E5E7EB;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:2px}
+.adv small{font-size:10.5px;font-weight:800;color:#9CA3AF}.adv b{font-size:22px;line-height:1.1}.adv em{font-style:normal;font-size:9.5px;font-weight:700;color:#047857;text-align:center;line-height:1.2}
+.adv.can{border-color:#F87171;background:#FEF2F2;cursor:pointer}.adv.can:hover{transform:translateY(-1px)}.adv.op{border-color:#A7F3D0;background:#F0FDF4}.adv.lk{opacity:.55}
+.adv.td{box-shadow:0 0 0 3px #FCA5A5}.adv.td em{color:#DC2626}
+.chg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.chg button{padding:14px 10px;border-radius:14px;border:1.5px solid #FBCFE8;background:#FDF2F8;font-weight:800;font-size:14px;color:#9D174D}.chg button:hover{background:#FCE7F3}
+.chb{margin-left:auto;padding:5px 10px;border-radius:999px;background:#FDF2F8;color:#BE185D;font-size:12px;font-weight:800;white-space:nowrap}
+.chin{display:flex;flex-direction:column;gap:8px;margin-top:12px}.chin div{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:14px;background:#FDF2F8}.chin .av{width:30px;height:30px;border-radius:50%;background:#F472B6;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}.chin b{font-size:14px}.chin em{font-style:normal;font-size:14px;color:#9D174D;font-weight:700}.chin small{margin-left:auto;font-size:11.5px;color:#9CA3AF}
+.tryit{padding:12px;border-radius:16px;background:#FFF1F2;border:1.5px solid #FECDD3}.pbig{font-size:46px;font-weight:900;color:#E11D48;text-align:center;line-height:1.2}
+.pres{display:flex;align-items:baseline;gap:10px}.pres b{font-size:22px;color:#BE123C}.pres span{font-size:12.5px;color:#6B7280}
+.dday{margin-top:8px;padding:10px 12px;border-radius:14px;background:#F8FAFC}.dday em{display:block;font-style:normal;font-size:12px;font-weight:800;color:#0369A1;margin-bottom:4px}.dday div{display:flex;gap:10px;font-size:13.5px;line-height:1.7}.dday div b{flex:0 0 46px;color:#374151}.dday div span{color:#4B5563}
+.dterm{display:flex;gap:10px;margin-top:6px;padding:9px 12px;border-radius:12px;background:#F0F9FF;font-size:13.5px;line-height:1.5}.dterm b{flex:0 0 auto;color:#0C4A6E}.dterm span{color:#374151}
+.dfaq{margin-top:6px;border:1px solid #E5E7EB;border-radius:12px;padding:10px 12px;background:#fff}.dfaq summary{font-size:14px;font-weight:700;cursor:pointer}.dfaq p{margin:6px 0 0;font-size:13.5px;line-height:1.6;color:#4B5563}
 </style></head><body>
 <div id="stage"><div id="frame">
   <canvas id="cv"></canvas>
@@ -420,6 +434,18 @@ const MISSION_PLAN = {
 // 비커스 진로 로드맵에서 열 때 넘겨받는 값 (?name=김민준&room=중1 반)
 const QP=new URLSearchParams(location.search),ME_NAME=QP.get('name')||'김민준',ROOM=QP.get('room')||'중1 A반';
 const GRADE=MISSION_PLAN[QP.get('grade')]?QP.get('grade'):'중1',MON=Math.max(1,Math.min(8,parseInt(QP.get('month')||'1',10)||1));
+// 🎄 12월 선물 상자 (앞쪽에 둬야 화면 버튼이 처음부터 읽을 수 있어요)
+const XM_ITEMS=[ // [이모지, 이름, 종류, 색]
+ ['🔴','빨간 오너먼트','ball','#EF4444'],['⭐','작은 별','star','#FACC15'],['🔔','금빛 종','bell','#F59E0B'],['💡','반짝 전구 1줄','lights','#FDE047'],['🎀','빨간 리본','bow','#DC2626'],
+ ['🔵','파란 오너먼트','ball','#3B82F6'],['🍭','지팡이 사탕','cane','#F87171'],['❄️','눈송이','flake','#E0F2FE'],['🟣','보라 오너먼트','ball','#A855F7'],['💡','반짝 전구 2줄','lights','#F472B6'],
+ ['🍪','진저브레드','ginger','#B45309'],['🟢','초록 오너먼트','ball','#22C55E'],['🔔','은빛 종','bell','#CBD5E1'],['🎁','선물 상자','gift','#EF4444'],['🧦','양말','sock','#DC2626'],
+ ['💡','반짝 전구 3줄','lights','#60A5FA'],['🟡','금빛 오너먼트','ball','#EAB308'],['🎀','초록 리본','bow','#16A34A'],['🎁','선물 상자 2','gift','#3B82F6'],['☃️','트리 위 눈','snow','#FFFFFF'],
+ ['❄️','큰 눈송이','flake','#BAE6FD'],['🩷','분홍 오너먼트','ball','#EC4899'],['🎁','선물 상자 3','gift','#A855F7'],['🕯️','촛불','candle','#FDE68A'],['🌟','꼭대기 큰 별','topstar','#FDE047']];
+const XM_TODAY=(()=>{const t=QP.get('today');const d=t?new Date(t+'T12:00:00'):new Date();return d})();
+const XM_ON=XM_TODAY.getMonth()===11; // 12월 한 달
+const XM_DAY=XM_ON?Math.min(25,XM_TODAY.getDate()):0;
+const advOpened=new Set(); // 연 날짜 (1~25)
+const xmKey=d=>'adv:12-'+String(d).padStart(2,'0');
 const EMBED=window.parent!==window;
 function closePlaza(){if(EMBED)window.parent.postMessage({type:'career-plaza-close'},'*');else toast('진로 로드맵으로 돌아가요')}
 const $=id=>document.getElementById(id);
@@ -480,21 +506,53 @@ MONTHS.forEach((m,i)=>{const a=-Math.PI/2+(i-3.5)*Math.PI/5,r=15.5,x=Math.cos(a)
 for(let i=0;i<22;i++){const a=i/22*Math.PI*2+.13,r=27+(i%3)*4;if(Math.abs(Math.cos(a))<.3&&Math.sin(a)>0)continue;const t=new THREE.Group();t.position.set(Math.cos(a)*r,0,Math.sin(a)*r);t.add(mesh(new THREE.CylinderGeometry(.18,.25,1.4),M('#8B6B4A'),0,.7,0));t.add(mesh(new THREE.ConeGeometry(1.3,2.8,7),M(i%2?'#4D9E6C':'#5DB07A',{flatShading:true}),0,2.6,0));scene.add(t)}
 
 /* ===== 아바타 ===== */
-function avatar(shirt,hair,sc){const g=new THREE.Group();
-  const skin=M('#F6D3B3');
-  const body=mesh(new THREE.CylinderGeometry(.42,.5,1,14),M(shirt),0,.95,0);g.add(body);
-  const legL=mesh(new THREE.CylinderGeometry(.14,.14,.5,8),M('#E5E7EB'),-.18,.3,0),legR=legL.clone();legR.position.x=.18;g.add(legL,legR);
-  const head=mesh(new THREE.SphereGeometry(.62,20,16),skin,0,1.95,0);g.add(head);
-  const hr=mesh(new THREE.SphereGeometry(.66,20,16,0,Math.PI*2,0,Math.PI*.55),M(hair),0,2.02,-.03);g.add(hr);const sleeves=[];
-  const eyeM=M('#2B1D14');[-.2,.2].forEach(x=>g.add(mesh(new THREE.SphereGeometry(.07,8,8),eyeM,x,1.95,.56,false)));
-  [-.36,.36].forEach(x=>g.add(mesh(new THREE.SphereGeometry(.09,8,8),M('#F9A8D4',{transparent:true,opacity:.7}),x,1.78,.5,false)));
-  const armL=new THREE.Group(),armR=new THREE.Group();armL.position.set(-.52,1.35,0);armR.position.set(.52,1.35,0);
-  [armL,armR].forEach(a=>{const sl=mesh(new THREE.CylinderGeometry(.11,.11,.7,8),M(shirt),0,-.35,0);sleeves.push(sl);a.add(sl);a.add(mesh(new THREE.SphereGeometry(.13,8,8),skin,0,-.72,0));g.add(a)});
-  const sh=mesh(new THREE.CircleGeometry(.6,16),new THREE.MeshBasicMaterial({color:'#000',transparent:true,opacity:.15}),0,.02,0,false);sh.rotation.x=-Math.PI/2;g.add(sh);
-  legR.material=legL.material.clone();g.userData={armL,armR,legL,legR,body,sleeves,hair:hr,base:{shirt},t:Math.random()*10};(sc||scene).add(g);return g}
+function avatar(shirt,hair,sc,pants){const g=new THREE.Group(); // 블록 캐릭터 (네모 머리 · 네모 몸 · 팔다리는 어깨/엉덩이에서 흔들려요)
+  const skin=M(SKIN[1]),BX=(w,h,d)=>new THREE.BoxGeometry(w,h,d);
+  // 다리: 엉덩이에서 돌도록 위쪽을 축으로
+  const legGeo=BX(.46,.5,.5);legGeo.translate(0,-.25,0);
+  const legL=mesh(legGeo,M(pants||'#334155'),-.25,.48,0),legR=mesh(legGeo,M(pants||'#334155'),.25,.48,0);
+  [legL,legR].forEach(l=>l.add(mesh(BX(.5,.12,.56),M('#1F2937'),0,-.45,.03,false)));g.add(legL,legR);
+  // 몸통
+  const body=mesh(BX(1,.95,.86),M(shirt),0,.95,0);g.add(body);
+  // 머리 + 얼굴
+  const head=new THREE.Group();head.position.set(0,1.95,0);g.add(head);
+  head.add(mesh(BX(.94,.88,.88),skin,0,0,0));
+  head.add(mesh(BX(.36,.12,.36),skin,0,-.48,0,false)); // 목
+  const eyes=new THREE.Group();head.add(eyes);const eyeM=M('#1F2937');
+  const sm=mesh(new THREE.TorusGeometry(.12,.025,6,16,Math.PI),eyeM,0,-.16,.445,false);sm.rotation.z=Math.PI;head.add(sm);
+  [-.33,.33].forEach(x=>head.add(mesh(BX(.14,.07,.02),M('#FCA5A5',{transparent:true,opacity:.75}),x,-.1,.445,false)));
+  // 머리카락: 모양·색은 applyLook 에서 만들어요 (모자 쓰면 살짝 줄어들어요)
+  const hr=new THREE.Group();hr.position.set(0,1.95,0);g.add(hr);
+  // 팔: 어깨에서 돌아요 · 위는 옷 색(소매), 아래는 손
+  const armL=new THREE.Group(),armR=new THREE.Group();armL.position.set(-.69,1.38,0);armR.position.set(.69,1.38,0);const sleeves=[];
+  [armL,armR].forEach(a=>{const sl=mesh(BX(.36,.58,.42),M(shirt),0,-.24,0);sleeves.push(sl);a.add(sl);a.add(mesh(BX(.32,.34,.38),skin,0,-.69,0));g.add(a)});
+  const sh=mesh(new THREE.CircleGeometry(.75,16),new THREE.MeshBasicMaterial({color:'#000',transparent:true,opacity:.15}),0,.02,0,false);sh.rotation.x=-Math.PI/2;g.add(sh);
+  g.userData={armL,armR,legL,legR,body,sleeves,hair:hr,head,eyes,skin,base:{shirt,pants:pants||'#334155'},t:Math.random()*10};
+  applyLook(g,{skin:1,hair:'short',hc:hair,eye:'dot'});(sc||scene).add(g);return g}
+
+/* ===== 내 모습 (피부색 · 머리 모양 · 머리 색 · 눈) — 옷장 [내 모습] 탭에서 무료로 바꿔요 · equip.look 에 저장 ===== */
+const SKIN=['#FCE5D2','#F7D2B4','#E9B791','#C98E66','#8F5D3E'];
+const HAIRS=[['short','짧은 머리','👦'],['bang','앞머리','🧒'],['spiky','삐죽 머리','🦔'],['long','긴 머리','👧'],['pony','묶은 머리','🎀'],['bun','똥머리','🍡']];
+const HAIR_C=['#1F1A17','#4A2E20','#7A4B2E','#B7793F','#E3B866','#D9603B','#EC4899','#3B82F6'];
+const EYES=[['dot','기본','👀'],['big','큰 눈','🥺'],['smile','웃는 눈','😊'],['wink','윙크','😉']];
+function hairBuild(hr,style,col){while(hr.children.length)hr.remove(hr.children[0]);const hm=M(col),B=(w,h,d,x,y,z,top)=>{const m=mesh(new THREE.BoxGeometry(w,h,d),hm,x,y,z);if(top)m.userData.top=1;hr.add(m);return m};
+  // 공통: 정수리 + 뒤통수 + 옆머리
+  B(1,.26,.96,0,.4,-.01);B(1,.7,.2,0,.07,-.4);[-.47,.47].forEach(x=>B(.08,.42,.9,x,.18,0));
+  if(style==='short')B(.98,.14,.16,0,.27,.4);
+  if(style==='bang'){B(.98,.12,.16,0,.3,.4);[-.32,0,.32].forEach((x,i)=>B(.3,i===1?.17:.13,.14,x,i===1?.235:.255,.42))}
+  if(style==='spiky'){B(.98,.14,.16,0,.27,.4);[[-.3,.1],[0,0],[.3,.1],[-.15,-.3],[.15,-.3]].forEach(([x,z],i)=>{const c=mesh(new THREE.ConeGeometry(.17,.38,4),hm,x,.66,z);c.rotation.y=Math.PI/4;c.rotation.z=x*-.6;c.userData.top=1;hr.add(c)})}
+  if(style==='long'){B(.98,.14,.16,0,.27,.4);B(1,1.25,.18,0,-.13,-.53);[-.49,.49].forEach(x=>B(.1,1.05,.42,x,-.18,-.2))}
+  if(style==='pony'){B(.98,.14,.16,0,.27,.4);const t=B(.3,.75,.28,0,-.2,-.66);t.rotation.x=.25;const band=mesh(new THREE.BoxGeometry(.34,.1,.32),M('#F472B6'),0,.18,-.6,false);hr.add(band)}
+  if(style==='bun'){B(.98,.14,.16,0,.27,.4);B(.5,.42,.5,0,.68,-.12,1);hr.add(mesh(new THREE.BoxGeometry(.54,.08,.54),M('#F472B6'),0,.49,-.12,false))}}
+function eyeBuild(ey,kind){while(ey.children.length)ey.remove(ey.children[0]);const em=M('#1F2937'),wm=M('#FFFFFF'),Z=.44;
+  const dot=(x,w,h)=>{ey.add(mesh(new THREE.BoxGeometry(w,h,.04),em,x,.04,Z,false));ey.add(mesh(new THREE.BoxGeometry(w*.38,h*.3,.02),wm,x+w*.22,.04+h*.25,Z+.025,false))};
+  const arch=x=>ey.add(mesh(new THREE.TorusGeometry(.085,.028,6,12,Math.PI),em,x,.02,Z+.005,false));
+  if(kind==='big'){dot(-.2,.17,.27);dot(.2,.17,.27)}else if(kind==='smile'){arch(-.2);arch(.2)}else if(kind==='wink'){dot(-.2,.13,.2);arch(.2)}else{dot(-.2,.13,.2);dot(.2,.13,.2)}}
+function applyLook(av,L){const u=av.userData;L=Object.assign({skin:1,hair:'short',hc:HAIR_C[1],eye:'dot'},L||{});const k=JSON.stringify(L);if(u.lookKey===k)return;u.lookKey=k;u.look=L;
+  u.skin.color.set(SKIN[L.skin]||SKIN[1]);hairBuild(u.hair,L.hair,L.hc);eyeBuild(u.eyes,L.eye);if(u.hatOn)u.hair.children.forEach(c=>{if(c.userData.top)c.visible=false})}
 const me=avatar('#A7F3D0','#5B3A29');me.position.set(0,.3,12);
 // 내 어깨띠 (레퍼런스의 띠처럼 = 이번 달 장소 색)
-const sash=mesh(new THREE.BoxGeometry(.12,1.1,.95),M('#FBBF24'),0,1.05,0);sash.rotation.z=.6;me.add(sash);me.userData.sash=sash;
+const sash=mesh(new THREE.BoxGeometry(.14,1.15,.92),M('#FBBF24'),0,1.05,0);sash.rotation.z=.6;me.add(sash);me.userData.sash=sash;
 const friends=FR.map((f,i)=>{const a=avatar(f[1],f[2]);const ang=i/FR.length*Math.PI*2;a.position.set(Math.cos(ang)*8,.3,Math.sin(ang)*8);return{n:f[0],o:a,tgt:null,wait:Math.random()*3,c:f[1]}});
 const teacher=avatar('#BFDBFE','#1F2937');teacher.position.set(ST[CUR].x*.82,.3,ST[CUR].z*.82);teacher.rotation.y=Math.atan2(-ST[CUR].x,-ST[CUR].z);
 function pcount(){$('pc').textContent=friends.length+1+(EMBED?0:1)}pcount();
@@ -750,6 +808,49 @@ const BOARD={x:5.5,z:14};
  [[-.7,2.3],[.1,2.3],[.8,2.3],[-.35,1.75],[.45,1.75]].forEach(([x,y],i)=>g.add(mesh(new THREE.BoxGeometry(.55,.4,.04),M(['#FBCFE8','#BAE6FD','#FED7AA','#DDD6FE','#A7F3D0'][i]),x,y,.1,false))&&g.add(mesh(new THREE.BoxGeometry(.55,.4,.04),M(['#FBCFE8','#BAE6FD','#FED7AA','#DDD6FE','#A7F3D0'][i]),x,y,-.1,false)));
  scene.add(g)}
 const boardTag=mkTag('sign cur','<div class="n" style="background:rgba(236,72,153,.92)"><span class="k" style="background:#fff;color:#BE185D">📋</span>이번 달 미션</div>');boardTag.onclick=()=>{hideHint();openBoard()};
+/* ===== 🌳 우리 학원 나무 — 같은 학원 친구들이 이번 달에 한 것(회차 · 미션 · 학과 방문)이 모여서 자라요
+   누가 몇 개 했는지는 안 보여요. 목표를 다 채우면 모두 💧+10 (한 달에 한 번) ===== */
+let ACAD={leaves:0,goal:60,members:0};
+const ACAD_POS={x:-6.5,z:12.5};
+const acadTree=new THREE.Group();acadTree.position.set(ACAD_POS.x,0,ACAD_POS.z);scene.add(acadTree);
+acadTree.add(mesh(new THREE.CylinderGeometry(1.5,1.7,.4,24),M('#E9D5A1'),0,.2,0));
+acadTree.add(mesh(new THREE.CylinderGeometry(.28,.42,3.2,10),M('#8B6B4A'),0,2,0));
+[[0,4.4,0,1.5],[-1,3.8,.4,1],[1,3.9,-.3,1.05],[.2,5.3,.1,1]].forEach(p=>acadTree.add(mesh(new THREE.IcosahedronGeometry(p[3],1),M('#86EFAC',{flatShading:true}),p[0],p[1],p[2])));
+const acadLeaves=new THREE.Group();acadTree.add(acadLeaves);
+const acadTag=mkTag('sign cur','<div class="n" style="background:rgba(22,163,74,.92)"><span class="k" style="background:#fff;color:#15803D">🌳</span>우리 학원 나무 <em id="acadN" style="font-style:normal;opacity:.85;margin-left:4px"></em></div>');acadTag.onclick=()=>{hideHint();openAcad()};
+const acadKey=()=>{const d=new Date();return 'acad:'+d.getFullYear()+'-'+(d.getMonth()+1)};
+let acadClaimed=false;
+function acadSync(){const n=Math.min(120,ACAD.leaves),have=acadLeaves.children.length;
+  for(let i=have;i<n;i++){const a=i*2.399,t=((i*0.618)%1),y=3.4+t*2.6,r=1.55*Math.sqrt(1-Math.pow((t-.45)*1.4,2))+.15;
+    const c=['#FDE047','#FACC15','#FBBF24','#4ADE80'][i%4],m=mesh(new THREE.SphereGeometry(.17,8,6),M(c,{emissive:c,emissiveIntensity:.35}),Math.cos(a)*r,y,Math.sin(a)*r,false);
+    if(have>0){m.userData.s0=m.scale.clone();m.scale.setScalar(.01);m.userData.pop=0;leafs.push(m)}acadLeaves.add(m)}
+  const el=$('acadN');if(el)el.textContent=ACAD.leaves+'/'+ACAD.goal}
+function acadAdd(n){ACAD.leaves+=n;acadSync()} // 내가 한 건 바로 보여요
+function openAcad(){const done=ACAD.leaves>=ACAD.goal,pct=Math.min(100,Math.round(ACAD.leaves/ACAD.goal*100));
+  $('mbox').innerHTML='<div class="grab"></div><div class="th"><small>'+(new Date().getMonth()+1)+'월 · 같은 학원 친구들과 함께</small><h3>🌳 우리 학원 나무</h3><div class="s">친구들이 광장에서 한 것이 모두 황금 잎이 돼요. 누가 몇 개 했는지는 안 보여요.</div><div class="bp" style="margin-top:12px"><i style="width:'+pct+'%;background:linear-gradient(90deg,#FDE047,#22C55E)"></i></div><div class="s" style="margin-top:6px"><b style="display:inline;color:#15803D">'+ACAD.leaves+'</b> / '+ACAD.goal+'장'+(ACAD.members?' · 함께하는 친구 '+ACAD.members+'명':'')+'</div></div>'+
+   '<div class="sec"><b>잎이 달리는 방법</b><div class="pills"><span>학과 건물 들어가기 +1</span><span>역량 미션 쓰기 +2</span><span>1~3회차 끝내기 +3</span></div></div>'+
+   (done?'<div class="sec"><b>🎉 이번 달 목표를 다 같이 채웠어요!</b><div class="s" style="margin-top:4px">모두에게 💧+10 선물이 있어요.</div></div>':'<div class="sec"><b>다 채우면</b><div class="s" style="margin-top:4px">우리 학원 친구 모두에게 💧+10 선물이 열려요.</div></div>')+
+   '<div class="btns"><button class="btn o" onclick="closeM()">닫기</button>'+(done?(acadClaimed?'<button class="btn p" disabled style="opacity:.6">선물 받았어요 ✓</button>':'<button class="btn p" onclick="acadClaim()">💧+10 선물 받기</button>'):'<button class="btn p" onclick="closeM();openBoard()">이번 달 미션 하러 가기</button>')+'</div>';$('modal').classList.add('on')}
+function acadClaim(){if(acadClaimed||ACAD.leaves<ACAD.goal)return;acadClaimed=true;drop+=10;$('drop').textContent=drop;send2({type:'plaza-save',kind:'quest',data:{quest_key:acadKey()}});bubble(me,'🌳 다 같이 해냈다! 💧+10',2800);openAcad()}
+
+/* ===== 💧 오늘의 학과 + 물 주기 — 매일 학과 하나가 반짝여요. 들어가 보면 내 나무에 물을 줄 수 있어요
+   연속이 아니어도 7번 주면 황금 잎 + 💧+5 · 기록은 middle_plaza_quest 'water:2026-11-04' ===== */
+const WATER=new Set();
+const dayStr=()=>{const d=XM_TODAY;return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const TODAY_DEP=(()=>{const s=dayStr();let h=7;for(const c of s)h=(h*31+c.charCodeAt(0))>>>0;return h%DEPS.length})();
+const todayRing=mesh(new THREE.TorusGeometry(2.2,.12,8,40),M('#38BDF8',{emissive:'#0EA5E9',emissiveIntensity:.9}),0,.25,0,false);todayRing.rotation.x=Math.PI/2;
+{const d=DEPS[TODAY_DEP];todayRing.position.set(d.door.x,.25,d.door.z);scene.add(todayRing)}
+const watered=()=>WATER.has(dayStr());
+function goToday(){closeM();const d=DEPS[TODAY_DEP];hideHint();walkRoute([...landRoute(d.s),{x:d.door.x,z:d.door.z}]);toast('오늘의 학과 '+d.n+'(으)로 걸어가요 · 파란 고리가 있는 건물이에요')}
+function waterBox(k){if(k!==TODAY_DEP)return '';const n=WATER.size,left=7-(n%7||7)+(watered()?0:0);
+  return '<div class="sec wbx2"><b>💧 오늘의 학과예요!</b><div class="s" style="margin:2px 0 8px">'+(watered()?'오늘 물을 줬어요. 내일 또 다른 학과가 반짝여요.':'들어와 줘서 고마워요. 내 나무에 물을 줄 수 있어요.')+'</div>'+
+   (watered()?'<button class="btn o" disabled style="width:100%;opacity:.7">✓ 오늘 물 줬어요 · 지금까지 '+n+'번</button>':'<button class="btn p" style="width:100%" onclick="giveWater()">💧 내 나무에 물 주기</button>')+
+   '<div class="s" style="margin-top:6px">7번 주면 황금 잎이 하나 달려요 (연속 아니어도 돼요) · 다음 황금 잎까지 '+(7-(n%7))+'번</div></div>'}
+function giveWater(){if(watered())return;WATER.add(dayStr());send2({type:'plaza-save',kind:'quest',data:{quest_key:'water:'+dayStr()}});
+  const n=WATER.size;drop+=1;if(n%7===0){drop+=5;setTimeout(()=>{bubble(me,'✨ 황금 잎이 달렸어요! 💧+5',2800)},500)}$('drop').textContent=drop;
+  treeSync();chips();bubble(me,'💧 물 줬어요',1800);toast(n%7===0?'물 '+n+'번! 내 나무에 황금 잎이 달렸어요':'물 '+n+'번 · 황금 잎까지 '+(7-(n%7))+'번 남았어요');
+  const b=document.querySelector('.wbx2');if(b)b.outerHTML=waterBox(TODAY_DEP)}
+
 // 라벨
 const gateTag=mkTag('sign cur','<div class="n" style="font-size:14px;padding:8px 14px"><span class="k">↓</span>정문 · 학과 랜드로 나가기</div>');gateTag.onclick=()=>{hideHint();goHub()};
 const hubTag=mkTag('dsign','<span style="background:#38BDF8"></span>갈림길 광장<em>8개 랜드로 가는 길</em>');hubTag.style.pointerEvents='auto';hubTag.style.cursor='pointer';hubTag.onclick=()=>goHub();
@@ -760,6 +861,7 @@ const qTags=QUESTS.map(q=>{const e=mkTag('sign cur','<div class="n" style="backg
 function placeXYZ(el,x,y,z){v3.set(x,y,z);v3.project(cam);const w=frame.clientWidth,h=frame.clientHeight;if(v3.z>1||v3.x<-1.2||v3.x>1.2||v3.y>1.1){el.style.display='none';return}el.style.display='';el.style.left=((v3.x+1)/2*w)+'px';el.style.top=((1-v3.y)/2*h)+'px'}
 function townLabels(){const nr=(x,z,r)=>Math.hypot(x-me.position.x,z-me.position.z)<r;
   if(nr(BOARD.x,BOARD.z,26))placeXYZ(boardTag,BOARD.x,3.6,BOARD.z);else boardTag.style.display='none';
+  if(nr(ACAD_POS.x,ACAD_POS.z,26))placeXYZ(acadTag,ACAD_POS.x,6.8,ACAD_POS.z);else acadTag.style.display='none';
   if(nr(GATE.x,GATE.z,40))placeXYZ(gateTag,GATE.x,2.6,GATE.z);else gateTag.style.display='none';
   if(nr(HUB.x,HUB.z,60))placeXYZ(hubTag,HUB.x,5.5,HUB.z);else hubTag.style.display='none';
   LANDS.forEach((L,i)=>{if(nr(L.gateW.x,L.gateW.z,80))placeXYZ(landTags[i],L.gateW.x,8,L.gateW.z);else landTags[i].style.display='none';
@@ -781,7 +883,7 @@ function landRoute(si){const L=LANDS[si];if(Math.hypot(L.cx-me.position.x,L.cz-m
 function plazaRoute(){const r=toHub();if(Math.hypot(me.position.x,me.position.z)<21)return [{x:0,z:8}];return [...r,...AVE.slice().reverse().filter((p,i)=>i%3===2).map(P),{x:GATE.x,z:GATE.z+2},{x:GATE.x,z:GATE.z-3},{x:0,z:9}]}
 function goHub(){closeSheet();closeM();walkRoute(toHub());toast('정문을 나가 갈림길 광장으로 걸어가요')}
 function warp(p){stopWalk();me.position.x=p.x;me.position.z=p.z;camYaw=0;cam.position.set(p.x,14.5,p.z+13);closeSheet();closeM();near=null;chips()}
-function chips(){$('chips').innerHTML='<button class="gl chip" style="background:rgba(5,150,105,.85)" onclick="openMap()">'+ic('mapi','width:16px;height:16px')+'지도</button><button class="gl chip" onclick="openFind()">'+ic('search','width:16px;height:16px')+'학과 찾기</button><button class="gl chip" onclick="openDex()">'+ic('stamp','width:16px;height:16px')+'도장 <b id="dexN">'+visited.size+'</b>/140</button><button class="gl chip" style="background:rgba(236,72,153,.85)" onclick="openBoard()">📋 이번 달 미션 <b>'+msDone()+'</b>/5</button><button class="gl chip" onclick="openQLv()">⭐ Lv.'+(qLevel()+1)+' '+QLV[qLevel()][1]+'</button>'}
+function chips(){$('chips').innerHTML='<button class="gl chip" style="background:rgba(5,150,105,.85)" onclick="openMap()">'+ic('mapi','width:16px;height:16px')+'지도</button><button class="gl chip" onclick="openFind()">'+ic('search','width:16px;height:16px')+'학과 찾기</button><button class="gl chip" onclick="openDex()">'+ic('stamp','width:16px;height:16px')+'도장 <b id="dexN">'+visited.size+'</b>/140</button><button class="gl chip" style="background:rgba(236,72,153,.85)" onclick="openBoard()">📋 이번 달 미션 <b>'+msDone()+'</b>/5</button><button class="gl chip" style="background:rgba(14,165,233,.85)" onclick="goToday()">💧 오늘의 학과 '+(WATER.has(dayStr())?'✓':DEPS[TODAY_DEP].n.replace(/학과$/,''))+'</button>'+(XM_ON||XM_TODAY.getMonth()===10?'<button class="gl chip" style="background:rgba(21,128,61,.85)" onclick="openAdvent()">🎄 선물 상자 '+(XM_ON?'<b>'+advOpened.size+'</b>/25':'D-'+Math.ceil((new Date(XM_TODAY.getFullYear(),11,1)-XM_TODAY)/864e5))+'</button>':'')+'<button class="gl chip" onclick="openQLv()">⭐ Lv.'+(qLevel()+1)+' '+QLV[qLevel()][1]+'</button>'}
 function openQLv(){const lv=qLevel();$('mbox').innerHTML='<div class="grab"></div><h3>퀘스트 레벨</h3><div class="s">길 위 퀴즈를 풀고 이번 달 역량 미션을 할수록 레벨이 올라가요. 지금까지 '+qTotal+'개 했어요.</div><div class="qs">'+QLV.map((x,i)=>'<div class="'+(i<lv?'d':i===lv?'n':'')+'"><i style="'+(i<=lv?'background:'+QTYPE_COL[i]:'')+'">'+(i<lv?'✓':i+1)+'</i><span style="flex:1;min-width:0">Lv.'+(i+1)+' '+x[1]+(x[3]?'<span class="cb">'+x[3]+'</span>':'')+'<small class="cd">'+(i<=lv?x[2]:x[0]+'개 풀면 열려요')+'</small></span></div>').join('')+'</div>'+noteHtml()+'<div class="btns"><button class="btn p" onclick="closeM()">확인</button></div>';$('modal').classList.add('on')}
 function noteHtml(){const L=Object.values(MS).filter(m=>m.grade===GRADE).sort((a,b)=>b.month-a.month);if(!L.length)return '';
   return '<div class="sec"><b>📒 내 미션 노트</b><div class="s" style="margin-top:2px">'+Object.keys(MK).map(k=>MK[k][0]+' '+L.filter(m=>m.kind===k).length).join(' · ')+' · 배지 '+[...badges].filter(b=>b.startsWith(GRADE+':')).length+'개</div>'+L.slice(0,10).map(m=>'<div class="note"><span class="cb2" style="background:'+MK[m.kind][1]+'">'+MK[m.kind][0]+'</span><small>'+m.month+'개월차 · '+esc(m.dept_name)+(m.dept2?' vs '+esc(m.dept2):'')+(m.choice?' · '+esc(m.choice):'')+'</small><div>'+esc(m.body)+'</div></div>').join('')+'</div>'}
@@ -845,16 +947,31 @@ function depSheet(k){const d=DEPS[k],s=$('sheet');sheetFor={dep:k};
 /* ===== 학과별 상세 (영상·과목·직업·확인 문제) — 있는 학과만 이걸로 보여줌, 없으면 기본 설명 ===== */
 const DETAIL={
  '간호학과':{
-  vid:'FZPsenHJOHs',vt:'연세대학교 미래캠퍼스 간호학과 소개',
+  vid:'d5Mm6r2bcmo',vt:'분당서울대병원 · 간호사의 하루 [브이로그]',
+  // 그 직업의 실제 하루 (병원 공식 채널 브이로그)
   one:'아픈 사람 곁을 가장 가까이에서 지키는 사람, 간호사가 되는 공부를 해요. 4년 동안 배우고 실습한 뒤 간호사 국가시험에 붙으면 간호사 면허를 받아요.',
   sub:['기본간호학','성인간호학','아동간호학','여성건강간호학','정신간호학','지역사회간호학','병원 임상실습'],
   job:['병원 간호사','보건교사','보건직 공무원','간호장교','제약·의료기기 회사','해외 간호사'],
   hs:['생명과학','화학','확률과 통계','영어','보건'],
   fit:['다른 사람을 돕는 게 뿌듯한 친구','꼼꼼하게 확인하는 걸 잘하는 친구','오래 서 있어도 끄떡없는 체력이 있는 친구'],
+  // 예시 하루 (학년마다 달라요) · 전공 용어 · 자주 묻는 질문 · 30초 체험
+  day:[['2학년 · 학교에서 배우는 날',[['09:00','성인간호학 수업 — 어른 환자의 병과 간호 방법'],['13:00','실습실 — 마네킹으로 혈압·맥박 재기 연습'],['15:00','조별 과제 — 환자 사례 읽고 간호 계획 세우기'],['저녁','오늘 배운 용어 복습']]],
+       ['3·4학년 · 병원 실습 날',[['07:00','병동 도착 · 밤사이 환자 상태 듣기 (인수인계)'],['09:00','간호사 선생님 따라 환자 상태 살피기'],['14:00','실습 일지 쓰기'],['16:00','교수님과 오늘 본 사례 이야기하기']]]],
+  terms:[['활력징후','몸이 잘 살아 있는지 보는 4가지 숫자 — 체온 · 맥박 · 호흡 · 혈압'],['간호과정','살피기 → 문제 찾기 → 계획 → 하기 → 확인하기, 간호사가 일하는 순서'],['무균술','상처나 주사에 균이 들어가지 않게 하는 방법']],
+  faq:[['피 보는 게 무서우면 못 하나요?','처음엔 대부분 긴장해요. 실습실에서 마네킹으로 먼저 연습하고, 병원 실습은 3학년쯤 시작해서 천천히 익숙해져요.'],['남학생도 있나요?','네. 남학생 간호사도 꾸준히 늘고 있고, 응급실·수술실 등 여러 곳에서 일해요.'],['간호사만 될 수 있나요?','병원 간호사가 가장 많지만 보건교사, 보건직 공무원, 연구원, 제약·의료기기 회사 등 길이 여러 가지예요.']],
+  tryit:'pulse',
   q:{t:'간호학과를 졸업하고 간호사가 되려면 꼭 거쳐야 하는 것은?',o:['간호사 국가시험에 합격하기','의대에 다시 들어가기','약사 면허 따기'],a:0}
  }
 };
 const dquiz=new Set();
+// 30초 체험: 맥박 15초 세기 → ×4 = 1분 맥박
+let pulseT=null;
+function pulseGo(){const el=$('pulse');if(!el)return;let t=15;clearInterval(pulseT);
+  el.innerHTML='<div class="pbig" id="pnum">15</div><div class="s" style="text-align:center">톡톡 뛰는 걸 세는 중…</div>';
+  pulseT=setInterval(()=>{t--;const n=$('pnum');if(!n){clearInterval(pulseT);return}n.textContent=t;
+    if(t<=0){clearInterval(pulseT);el.innerHTML='<div class="s" style="margin-bottom:6px">15초 동안 몇 번 뛰었어요?</div><div style="display:flex;gap:6px"><input id="pcnt" type="number" inputmode="numeric" min="5" max="60" class="wbin" style="margin:0;flex:1" placeholder="예) 20"><button class="btn p" style="flex:none;padding:0 18px" onclick="pulseDone()">확인</button></div>'}},1000)}
+function pulseDone(){const c=parseInt(($('pcnt')||{}).value,10);if(!c){toast('센 숫자를 넣어 줘요');return}const bpm=c*4;
+  $('pulse').innerHTML='<div class="pres"><b>1분에 약 '+bpm+'번</b><span>'+c+'번 × 4 = '+bpm+'</span></div><div class="s" style="margin-top:6px;line-height:1.6">쉬고 있을 때 맥박은 보통 1분에 60~100번 정도예요. 간호사는 이렇게 잰 숫자를 기록해서 환자 상태가 어제와 어떻게 달라졌는지 살펴요. 방금 운동했거나 긴장하면 빨라질 수 있어요.</div><button class="btn o" style="width:100%;margin-top:8px" onclick="pulseGo()">한 번 더 재 보기</button>'}
 function dqPick(k,j){const D=DETAIL[DEPS[k].n],ok=j===D.q.a,bs=document.querySelectorAll('.dq button');
   bs.forEach((b,i)=>{b.disabled=ok;b.classList.toggle('ok',ok&&i===j);b.classList.toggle('no',!ok&&i===j)});
   if(!ok){toast('다시 생각해 봐요! 영상에 힌트가 있어요');return}
@@ -866,10 +983,15 @@ function depBody(k){const d=DEPS[k],D=DETAIL[d.n],col=SER[d.s][1];
    '<div class="sec"><b>'+ic('spark','width:17px;height:17px')+'고등학교 때 들으면 좋은 과목</b><div class="s" style="margin-top:4px">'+SER[d.s][2]+'</div></div>';
   return '<div class="sec"><b>▶ 학과 소개 영상</b><div class="vbox"><iframe src="https://www.youtube-nocookie.com/embed/'+D.vid+'?rel=0&playsinline=1" title="'+D.vt+'" loading="lazy" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen></iframe></div>'+
    '<div class="vsrc">'+D.vt+' · <a href="https://www.youtube.com/watch?v='+D.vid+'" target="_blank" rel="noopener">영상이 안 나오면 유튜브에서 보기</a></div></div>'+
+   (D.life?'<div class="sec"><b>'+D.life.t+'</b><div class="s" style="margin-top:2px">학과를 졸업하고 일하는 사람의 실제 하루예요.</div><div class="vbox"><iframe src="https://www.youtube-nocookie.com/embed/'+D.life.vid+'?rel=0&playsinline=1" title="'+D.life.vt+'" loading="lazy" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen></iframe></div><div class="vsrc">'+D.life.vt+' · <a href="https://www.youtube.com/watch?v='+D.life.vid+'" target="_blank" rel="noopener">영상이 안 나오면 유튜브에서 보기</a></div></div>':'')+
    '<div class="sec"><b>'+ic('book','width:17px;height:17px')+'여기서는 이런 걸 배워요</b>'+pills(D.sub)+'</div>'+
    '<div class="sec"><b>'+ic('spark','width:17px;height:17px')+'고등학교 때 들으면 좋은 과목</b>'+pills(D.hs)+'</div>'+
    '<div class="sec"><b>'+ic('brief','width:17px;height:17px')+'졸업하면 이런 일을 해요</b>'+pills(D.job)+'</div>'+
    '<div class="sec"><b>이런 친구에게 잘 맞아요</b><ul class="fit">'+D.fit.map(x=>'<li>'+x+'</li>').join('')+'</ul></div>'+
+   (D.tryit==='pulse'?'<div class="sec tryit"><b>🫀 30초 체험 · 간호사처럼 맥박 재 보기</b><div class="s" style="margin:4px 0 8px">손목 안쪽(엄지 쪽)에 검지·중지를 살짝 대요. 시작을 누르고 15초 동안 톡톡 뛰는 걸 세어 봐요.</div><div id="pulse"><button class="btn p" style="width:100%" onclick="pulseGo()">15초 시작</button></div></div>':'')+
+   (D.day?'<div class="sec"><b>🕘 이 학과 대학생의 하루 (예시)</b>'+D.day.map(([t,L])=>'<div class="dday"><em>'+t+'</em>'+L.map(([h,x])=>'<div><b>'+h+'</b><span>'+x+'</span></div>').join('')+'</div>').join('')+'</div>':'')+
+   (D.terms?'<div class="sec"><b>📖 이 학과 사람들이 쓰는 말</b>'+D.terms.map(([w,x])=>'<div class="dterm"><b>'+w+'</b><span>'+x+'</span></div>').join('')+'</div>':'')+
+   (D.faq?'<div class="sec"><b>🙋 많이 묻는 질문</b>'+D.faq.map(([q,a])=>'<details class="dfaq"><summary>'+q+'</summary><p>'+a+'</p></details>').join('')+'</div>':'')+
    '<div class="sec dq"><b>영상 보고 풀어 봐요 '+(dquiz.has(d.n)?'<em class="done">✓ 풀었어요</em>':'<em>💧+3</em>')+'</b><div class="s" style="margin:4px 0 8px">'+D.q.t+'</div>'+D.q.o.map((o,j)=>'<button onclick="dqPick('+k+','+j+')"'+(dquiz.has(d.n)&&j===D.q.a?' class="ok"':'')+'>'+o+'</button>').join('')+'</div>'}
 /* ===== 이번 달 역량 미션 — 학년별 8개월 × AI 시대 5가지 역량 (MISSION_PLAN)
    '광장·미션 노트' 미션은 광장 게시판에서, 나머지는 학과 건물 안에서 직접 써요. 저장된 건 4회차 학원 수업에서 선생님이 봐요 ===== */
@@ -917,7 +1039,7 @@ function msSave(c,k){const r=curMs().find(x=>x.c===c),ta=$('mt_'+c),box=ta.close
   const first=!r.m,lv0=qLevel(),dept_name=k!=null?DEPS[k].n:'진로 광장';
   MS[mkey(c)]={grade:GRADE,month:MON,kind:c,dept_name,dept2,choice,body};
   send2({type:'plaza-save',kind:'mission',data:MS[mkey(c)]});
-  if(first){qTotal++;drop+=5;$('drop').textContent=drop;bubble(me,MK[c][0]+' 💧+5',2000)}
+  if(first){qTotal++;acadAdd(2);drop+=5;$('drop').textContent=drop;bubble(me,MK[c][0]+' 💧+5',2000)}
   let bdg=false;
   if(first&&msDone()===5&&!badges.has(GRADE+':'+MON)){badges.add(GRADE+':'+MON);drop+=20;$('drop').textContent=drop;send2({type:'plaza-save',kind:'quest',data:{quest_key:'b:'+GRADE+':'+MON}});bdg=true;
     setTimeout(()=>{bubble(me,'🏅 '+MON+'개월차 배지!',3000);toast('이번 달 미션 5개 완료! 🏅 '+MONTH[0]+' 배지 · 💧+20 · 4회차에 선생님과 같이 봐요')},600)}
@@ -925,12 +1047,12 @@ function msSave(c,k){const r=curMs().find(x=>x.c===c),ta=$('mt_'+c),box=ta.close
   if(k!=null){if($('msn'))$('msn').innerHTML=missionBox(k)}else openBoard();
   if(!bdg&&!(first&&lvUp(lv0)))toast(first?MK[c][0]+' 미션 저장! ('+msDone()+'/5)':'고쳐서 저장했어요')}
 function enterDep(k){const d=DEPS[k],col=SER[d.s][1];closeSheet();const first=!visited.has(k);if(prevDep!=null&&prevDep!==k)cmpDep=prevDep;else if(prevDep===k&&cmpDep===k)cmpDep=null;prevDep=k;
-  $('mbox').innerHTML='<div class="grab"></div><div class="dh" style="background:linear-gradient(135deg,'+col+','+col+'cc)"><small>'+SER[d.s][0]+' 계열 · '+LANDS[d.s].name+'</small><h3>'+d.n+'</h3><div>'+((DETAIL[d.n]||{}).one||d.one)+'</div></div>'+depBody(k)+
+  $('mbox').innerHTML='<div class="grab"></div><div class="dh" style="background:linear-gradient(135deg,'+col+','+col+'cc)"><small>'+SER[d.s][0]+' 계열 · '+LANDS[d.s].name+'</small><h3>'+d.n+'</h3><div>'+((DETAIL[d.n]||{}).one||d.one)+'</div></div>'+waterBox(k)+depBody(k)+
    '<div class="sec"><b>이 학과, 나랑 맞을 것 같아?</b><div class="likes">'+[['끌려요','💚'],['보통이에요','🙂'],['잘 모르겠어요','🤔']].map((x,j)=>'<button class="'+(liked[k]===j?'on':'')+'" onclick="like('+k+','+j+')">'+x[1]+' '+x[0]+'</button>').join('')+'</div></div>'+
    '<div id="msn">'+missionBox(k)+'</div>'+
    '<div class="btns"><button class="btn o" onclick="closeM()">밖으로 나가기</button></div>';
   $('modal').classList.add('on');
-  if(first){visited.add(k);send2({type:'plaza-save',kind:'visit',data:{dept_name:d.n,series:SER[d.s][0]}});drop++;$('drop').textContent=drop;d.tag.querySelector('.k').textContent='✓';chips();treeSync();const c=landCount(d.s),tot=DEPS.filter(x=>x.s===d.s).length;$('lc'+d.s).textContent=c+'/'+tot;
+  if(first){acadAdd(1);visited.add(k);send2({type:'plaza-save',kind:'visit',data:{dept_name:d.n,series:SER[d.s][0]}});drop++;$('drop').textContent=drop;d.tag.querySelector('.k').textContent='✓';chips();treeSync();const c=landCount(d.s),tot=DEPS.filter(x=>x.s===d.s).length;$('lc'+d.s).textContent=c+'/'+tot;
     setTimeout(()=>toast(c===3?LANDS[d.s].name+' 배지 획득! (학과 3곳 방문)':d.n+' 도장 · 💧+1 · '+visited.size+'/140'),400)}}
 function like(k,j){liked[k]=j;send2({type:'plaza-save',kind:'like',data:{dept_name:DEPS[k].n,series:SER[DEPS[k].s][0],liked:j}});document.querySelectorAll('.likes button').forEach((b,i)=>b.classList.toggle('on',i===j));treeSync();if($('msn'))$('msn').innerHTML=missionBox(k);if(j===0)toast('관심 학과에 담았어요 · 진로 로드맵에 쌓여요')}
 function openFind(){$('mbox').innerHTML='<div class="grab"></div><h3>학과 찾기</h3><div class="s">이름을 누르면 그 건물 앞으로 바로 가요.</div><input class="fin" id="fin" placeholder="예) 간호, 컴퓨터, 디자인" oninput="findList()"><div id="flist"></div>';$('modal').classList.add('on');findList()}
@@ -960,6 +1082,7 @@ function mapPick(si){const L=LANDS[si],c=landCount(si),tot=DEPS.filter(d=>d.s===
 /* ===== 꾸미기 (옷장) — 직업군별 모자·옷·액세서리 30종 ===== */
 // slot: hat|outfit|acc · job: 계열 번호(SER) · price: 물방울 · land: 이 랜드 배지(학과 3곳 방문) 있어야 열림 · title: 옷 입으면 이름표에 붙는 직업
 const MAT=c=>M(c);
+const rotM=(o,ax,v)=>{o.rotation[ax]=v;return o}; // 장식 하나만 돌리기 (그룹 전체가 돌지 않게)
 function grp(){return new THREE.Group()}
 const ITEMS=[
  // 모자 10
@@ -968,7 +1091,7 @@ const ITEMS=[
  {id:'mirror',slot:'hat',name:'의사 헤드미러',job:5,price:30,sw:'#CBD5E1',b:()=>{const g=grp();const band=mesh(new THREE.TorusGeometry(.64,.05,6,32),MAT('#1F2937'),0,2.2,0);band.rotation.x=Math.PI/2;g.add(band);const m=mesh(new THREE.CylinderGeometry(.22,.22,.04,24),M('#E5E7EB',{metalness:.6,roughness:.2}),0,2.45,.58);m.rotation.x=Math.PI/2.3;g.add(m);return g}},
  {id:'chefhat',slot:'hat',name:'셰프 모자',job:2,price:25,sw:'#F8FAFC',b:()=>{const g=grp();g.add(mesh(new THREE.CylinderGeometry(.5,.45,.45,16),MAT('#FFFFFF'),0,2.62,0));[[-.25,0],[.25,0],[0,.2],[0,-.2],[0,0]].forEach(p=>g.add(mesh(new THREE.SphereGeometry(.32,10,8),MAT('#FFFFFF'),p[0],3,p[1])));return g}},
  {id:'hardhat',slot:'hat',name:'노란 안전모',job:4,land:4,sw:'#FACC15',b:()=>{const g=grp();g.add(mesh(new THREE.SphereGeometry(.7,20,12,0,Math.PI*2,0,Math.PI/2),MAT('#FACC15'),0,2.1,0));const r=mesh(new THREE.CylinderGeometry(.82,.82,.06,24),MAT('#EAB308'),0,2.12,0);g.add(r);g.add(mesh(new THREE.BoxGeometry(.12,.1,1.3),MAT('#EAB308'),0,2.78,0));return g}},
- {id:'policehat',slot:'hat',name:'경찰 모자',job:1,land:1,sw:'#1E3A8A',b:()=>{const g=grp();g.add(mesh(new THREE.CylinderGeometry(.72,.6,.32,20),MAT('#1E3A8A'),0,2.55,0));g.add(mesh(new THREE.BoxGeometry(.8,.05,.45),MAT('#111827'),0,2.4,.55));g.add(mesh(new THREE.CylinderGeometry(.12,.12,.04,12),MAT('#FBBF24'),0,2.6,.62,false)).rotation.x=Math.PI/2;return g}},
+ {id:'policehat',slot:'hat',name:'경찰 모자',job:1,land:1,sw:'#1E3A8A',b:()=>{const g=grp();g.add(mesh(new THREE.CylinderGeometry(.72,.6,.32,20),MAT('#1E3A8A'),0,2.55,0));g.add(mesh(new THREE.BoxGeometry(.8,.05,.45),MAT('#111827'),0,2.4,.55));g.add(rotM(mesh(new THREE.CylinderGeometry(.12,.12,.04,12),MAT('#FBBF24'),0,2.6,.62,false),'x',Math.PI/2));return g}},
  {id:'firehat',slot:'hat',name:'소방 헬멧',job:1,price:30,sw:'#DC2626',b:()=>{const g=grp();g.add(mesh(new THREE.SphereGeometry(.72,20,12,0,Math.PI*2,0,Math.PI/2),MAT('#DC2626'),0,2.08,0));const r=mesh(new THREE.CylinderGeometry(.95,.95,.06,24),MAT('#B91C1C'),0,2.1,-.05);g.add(r);g.add(mesh(new THREE.BoxGeometry(.3,.35,.05),MAT('#FBBF24'),0,2.55,.66,false));return g}},
  {id:'gradcap',slot:'hat',name:'학사모',job:6,land:6,sw:'#111827',b:()=>{const g=grp();g.add(mesh(new THREE.CylinderGeometry(.55,.55,.25,16),MAT('#111827'),0,2.55,0));g.add(mesh(new THREE.BoxGeometry(1.3,.06,1.3),MAT('#111827'),0,2.7,0));g.add(mesh(new THREE.BoxGeometry(.05,.5,.05),MAT('#FBBF24'),.55,2.5,.55));return g}},
  {id:'beret',slot:'hat',name:'화가 베레모',job:7,price:20,sw:'#7C3AED',b:()=>{const g=grp();const b=mesh(new THREE.SphereGeometry(.68,18,10),MAT('#7C3AED'),.12,2.45,0);b.scale.y=.35;b.rotation.z=-.25;g.add(b);g.add(mesh(new THREE.CylinderGeometry(.04,.04,.15),MAT('#5B21B6'),.12,2.7,0));return g}},
@@ -978,17 +1101,17 @@ const ITEMS=[
  {id:'nursewear',slot:'outfit',name:'간호복',job:5,price:25,title:'예비 간호사',sw:'#93C5FD',body:'#93C5FD',sleeve:'#93C5FD',b:()=>{const g=grp();const v=mesh(new THREE.ConeGeometry(.18,.28,3),MAT('#FFFFFF'),0,1.32,.44,false);v.rotation.x=Math.PI;g.add(v);g.add(mesh(new THREE.BoxGeometry(.2,.16,.03),MAT('#60A5FA'),.2,1.1,.48,false));return g}},
  {id:'labcoat',slot:'outfit',name:'연구원 실험복',job:3,price:25,title:'꼬마 연구원',sw:'#ECFDF5',body:'#F8FAFC',sleeve:'#F8FAFC',b:()=>{const g=grp();g.add(mesh(new THREE.BoxGeometry(.32,.5,.04),MAT('#34D399'),0,1.15,.46,false));[[-.2,.75],[.2,.75]].forEach(p=>g.add(mesh(new THREE.BoxGeometry(.18,.16,.03),MAT('#D1FAE5'),p[0],p[1],.5,false)));return g}},
  {id:'jumpsuit',slot:'outfit',name:'엔지니어 작업복',job:4,price:25,title:'꼬마 엔지니어',sw:'#F97316',body:'#F97316',sleeve:'#F97316',leg:'#EA580C',b:()=>{const g=grp();const s=mesh(new THREE.CylinderGeometry(.47,.52,.1,16),MAT('#FDE68A'),0,.7,0,false);g.add(s);g.add(mesh(new THREE.BoxGeometry(.25,.2,.03),MAT('#9A3412'),.18,1.15,.48,false));return g}},
- {id:'policeuni',slot:'outfit',name:'경찰 제복',job:1,price:30,title:'예비 경찰관',sw:'#1E3A8A',body:'#1E3A8A',sleeve:'#1E3A8A',leg:'#1E293B',b:()=>{const g=grp();g.add(mesh(new THREE.CylinderGeometry(.12,.12,.03,12),MAT('#FBBF24'),-.2,1.15,.47,false)).rotation.x=Math.PI/2;g.add(mesh(new THREE.CylinderGeometry(.52,.52,.1,16),MAT('#111827'),0,.6,0,false));return g}},
+ {id:'policeuni',slot:'outfit',name:'경찰 제복',job:1,price:30,title:'예비 경찰관',sw:'#1E3A8A',body:'#1E3A8A',sleeve:'#1E3A8A',leg:'#1E293B',b:()=>{const g=grp();g.add(rotM(mesh(new THREE.CylinderGeometry(.12,.12,.03,12),MAT('#FBBF24'),-.2,1.15,.47,false),'x',Math.PI/2));g.add(mesh(new THREE.CylinderGeometry(.52,.52,.1,16),MAT('#111827'),0,.6,0,false));return g}},
  {id:'suit',slot:'outfit',name:'정장',job:2,land:2,title:'꼬마 CEO',sw:'#374151',body:'#374151',sleeve:'#374151',leg:'#1F2937',b:()=>{const g=grp();const v=mesh(new THREE.ConeGeometry(.2,.5,3),MAT('#FFFFFF'),0,1.2,.44,false);v.rotation.x=Math.PI;g.add(v);g.add(mesh(new THREE.BoxGeometry(.08,.38,.03),MAT('#DC2626'),0,1.1,.5,false));return g}},
- {id:'chefwear',slot:'outfit',name:'셰프복',job:2,price:20,title:'꼬마 셰프',sw:'#FFFFFF',body:'#FFFFFF',sleeve:'#FFFFFF',b:()=>{const g=grp();[[-.12,1.2],[.12,1.2],[-.12,1],[.12,1],[-.12,.8],[.12,.8]].forEach(p=>g.add(mesh(new THREE.SphereGeometry(.04,6,6),MAT('#111827'),p[0],p[1],.48,false)));g.add(mesh(new THREE.TorusGeometry(.3,.05,6,16),MAT('#EF4444'),0,1.38,.12,false)).rotation.x=Math.PI/2;return g}},
+ {id:'chefwear',slot:'outfit',name:'셰프복',job:2,price:20,title:'꼬마 셰프',sw:'#FFFFFF',body:'#FFFFFF',sleeve:'#FFFFFF',b:()=>{const g=grp();[[-.12,1.2],[.12,1.2],[-.12,1],[.12,1],[-.12,.8],[.12,.8]].forEach(p=>g.add(mesh(new THREE.SphereGeometry(.04,6,6),MAT('#111827'),p[0],p[1],.48,false)));g.add(rotM(mesh(new THREE.TorusGeometry(.3,.05,6,16),MAT('#EF4444'),0,1.38,.12,false),'x',Math.PI/2));return g}},
  {id:'apron',slot:'outfit',name:'화가 앞치마',job:7,land:7,title:'꼬마 화가',sw:'#E7D3B0',body:'#FDE68A',sleeve:'#FDE68A',b:()=>{const g=grp();g.add(mesh(new THREE.BoxGeometry(.62,.85,.04),MAT('#E7D3B0'),0,.9,.47,false));[['#EF4444',-.15,1.1],['#3B82F6',.12,.9],['#22C55E',-.05,.7],['#F59E0B',.16,1.15]].forEach(p=>g.add(mesh(new THREE.SphereGeometry(.06,6,6),MAT(p[0]),p[1],p[2],.5,false)));return g}},
  {id:'sport',slot:'outfit',name:'운동복',job:7,price:15,title:'예비 선수',sw:'#DC2626',body:'#DC2626',sleeve:'#DC2626',leg:'#1F2937',b:()=>{const g=grp();[-.47,.47].forEach(x=>g.add(mesh(new THREE.BoxGeometry(.04,.9,.08),MAT('#FFFFFF'),x,.95,0,false)));g.add(mesh(new THREE.BoxGeometry(.3,.22,.03),MAT('#FFFFFF'),0,1.05,.48,false));return g}},
  {id:'cardigan',slot:'outfit',name:'선생님 카디건',job:6,price:20,title:'예비 선생님',sw:'#D97706',body:'#D97706',sleeve:'#D97706',b:()=>{const g=grp();g.add(mesh(new THREE.BoxGeometry(.16,.9,.04),MAT('#FFFFFF'),0,.98,.47,false));[1.2,1,.8].forEach(y=>g.add(mesh(new THREE.SphereGeometry(.035,6,6),MAT('#78350F'),.1,y,.49,false)));return g}},
  // 액세서리 10
- {id:'stetho',slot:'acc',name:'청진기',job:5,price:15,sw:'#475569',b:()=>{const g=grp();const t=mesh(new THREE.TorusGeometry(.3,.035,6,20,Math.PI*1.3),MAT('#334155'),0,1.3,.32,false);t.rotation.z=Math.PI*.85;g.add(t);g.add(mesh(new THREE.CylinderGeometry(.08,.08,.05,12),M('#CBD5E1',{metalness:.6}),.05,1,.48,false)).rotation.x=Math.PI/2;return g}},
+ {id:'stetho',slot:'acc',name:'청진기',job:5,price:15,sw:'#475569',b:()=>{const g=grp();const t=mesh(new THREE.TorusGeometry(.3,.035,6,20,Math.PI*1.3),MAT('#334155'),0,1.3,.46,false);t.rotation.z=Math.PI*.85;g.add(t);g.add(rotM(mesh(new THREE.CylinderGeometry(.08,.08,.05,12),M('#CBD5E1',{metalness:.6}),.05,1,.48,false),'x',Math.PI/2));return g}},
  {id:'glasses',slot:'acc',name:'동그란 안경',job:0,price:10,sw:'#1F2937',b:()=>{const g=grp();[-.2,.2].forEach(x=>g.add(mesh(new THREE.TorusGeometry(.13,.025,6,18),MAT('#1F2937'),x,1.95,.6,false)));g.add(mesh(new THREE.BoxGeometry(.14,.025,.025),MAT('#1F2937'),0,1.97,.62,false));return g}},
- {id:'headset',slot:'acc',name:'방송 헤드셋',job:7,price:20,sw:'#111827',b:()=>{const g=grp();const b=mesh(new THREE.TorusGeometry(.66,.05,6,24,Math.PI),MAT('#111827'),0,2.05,0,false);g.add(b);[-.66,.66].forEach(x=>g.add(mesh(new THREE.CylinderGeometry(.16,.16,.1,12),MAT('#1F2937'),x,2.02,0,false)).rotation.z=Math.PI/2);const mk=mesh(new THREE.BoxGeometry(.04,.04,.4),MAT('#111827'),-.55,1.8,.3,false);mk.rotation.y=.6;g.add(mk);return g},hand:false},
- {id:'camera',slot:'acc',name:'카메라',job:7,price:20,sw:'#374151',b:()=>{const g=grp();g.add(mesh(new THREE.BoxGeometry(.42,.28,.18),MAT('#1F2937'),0,1.05,.55,false));g.add(mesh(new THREE.CylinderGeometry(.1,.1,.12,12),MAT('#94A3B8'),0,1.05,.68,false)).rotation.x=Math.PI/2;return g}},
+ {id:'headset',slot:'acc',name:'방송 헤드셋',job:7,price:20,sw:'#111827',b:()=>{const g=grp();const b=mesh(new THREE.TorusGeometry(.66,.05,6,24,Math.PI),MAT('#111827'),0,2.05,0,false);g.add(b);[-.66,.66].forEach(x=>g.add(rotM(mesh(new THREE.CylinderGeometry(.16,.16,.1,12),MAT('#1F2937'),x,2.02,0,false),'z',Math.PI/2)));const mk=mesh(new THREE.BoxGeometry(.04,.04,.4),MAT('#111827'),-.55,1.8,.3,false);mk.rotation.y=.6;g.add(mk);return g},hand:false},
+ {id:'camera',slot:'acc',name:'카메라',job:7,price:20,sw:'#374151',b:()=>{const g=grp();g.add(mesh(new THREE.BoxGeometry(.42,.28,.18),MAT('#1F2937'),0,1.05,.55,false));g.add(rotM(mesh(new THREE.CylinderGeometry(.1,.1,.12,12),MAT('#94A3B8'),0,1.05,.68,false),'x',Math.PI/2));return g}},
  {id:'brush',slot:'acc',name:'붓',job:7,price:10,sw:'#F59E0B',hand:true,b:()=>{const g=grp();g.add(mesh(new THREE.CylinderGeometry(.03,.03,.6),MAT('#A16207'),0,-.6,.15,false));g.add(mesh(new THREE.ConeGeometry(.06,.15,8),MAT('#2563EB'),0,-.25,.15,false));return g}},
  {id:'book',slot:'acc',name:'두꺼운 책',job:0,land:0,sw:'#B45309',hand:true,b:()=>{const g=grp();g.add(mesh(new THREE.BoxGeometry(.4,.5,.14),MAT('#B45309'),0,-.8,.2,false));g.add(mesh(new THREE.BoxGeometry(.36,.46,.15),MAT('#FFFBEB'),.03,-.8,.2,false));return g}},
  {id:'laptop',slot:'acc',name:'노트북',job:4,price:25,sw:'#94A3B8',hand:true,b:()=>{const g=grp();g.add(mesh(new THREE.BoxGeometry(.55,.04,.4),MAT('#94A3B8'),0,-.78,.3,false));const s=mesh(new THREE.BoxGeometry(.55,.36,.03),MAT('#334155'),0,-.6,.12,false);s.rotation.x=-.3;g.add(s);return g}},
@@ -996,7 +1119,7 @@ const ITEMS=[
  {id:'magnifier',slot:'acc',name:'돋보기',job:3,price:15,sw:'#A16207',hand:true,b:()=>{const g=grp();g.add(mesh(new THREE.CylinderGeometry(.035,.035,.35),MAT('#78350F'),0,-.85,.15,false));g.add(mesh(new THREE.TorusGeometry(.17,.035,8,20),MAT('#A16207'),0,-1.2,.15,false));g.add(mesh(new THREE.CircleGeometry(.15,16),M('#BAE6FD',{transparent:true,opacity:.6}),0,-1.2,.16,false));return g}},
  {id:'mic',slot:'acc',name:'인터뷰 마이크',job:1,price:15,sw:'#111827',hand:true,b:()=>{const g=grp();g.add(mesh(new THREE.CylinderGeometry(.045,.035,.4),MAT('#111827'),0,-.85,.18,false));g.add(mesh(new THREE.SphereGeometry(.11,10,8),MAT('#6B7280'),0,-.6,.18,false));return g}},
 ];
-const SLOT_NAME={hat:'모자',outfit:'옷',acc:'액세서리'};
+const SLOT_NAME={look:'내 모습',hat:'모자',outfit:'옷',acc:'액세서리'};
 const owned=new Set(),equip={hat:null,outfit:null,acc:null};
 function landBadge(si){return landCount(si)>=3}
 function itemState(it){if(owned.has(it.id))return 'own';if(it.land!=null)return landBadge(it.land)?'free':'lock';return 'buy'}
@@ -1004,10 +1127,11 @@ function itemState(it){if(owned.has(it.id))return 'own';if(it.land!=null)return 
 function dress(av,eq){const u=av.userData;
   ['hatG','accG','outG'].forEach(k=>{if(u[k]){u[k].parent.remove(u[k]);u[k]=null}});
   const out=eq.outfit&&ITEMS.find(i=>i.id===eq.outfit),base=u.base;
-  u.body.material.color.set(out?out.body:base.shirt);u.sleeves.forEach(s=>s.material.color.set(out?out.sleeve:base.shirt));[u.legL,u.legR].forEach(l=>l.material.color.set(out&&out.leg?out.leg:'#E5E7EB'));
+  u.body.material.color.set(out?out.body:base.shirt);u.sleeves.forEach(s=>s.material.color.set(out?out.sleeve:base.shirt));[u.legL,u.legR].forEach(l=>l.material.color.set(out&&out.leg?out.leg:(base.pants||'#334155')));
   if(u.sash)u.sash.visible=!out;
   if(out){u.outG=out.b();av.add(u.outG)}
-  const hat=eq.hat&&ITEMS.find(i=>i.id===eq.hat);u.hair.scale.setScalar(hat?.97:1);if(hat){u.hatG=hat.b();av.add(u.hatG)}
+  if(eq.look)applyLook(av,eq.look);
+  const hat=eq.hat&&ITEMS.find(i=>i.id===eq.hat);u.hatOn=!!hat;u.hair.scale.setScalar(hat?.97:1);u.hair.children.forEach(c=>{if(c.userData.top)c.visible=!hat});if(hat){u.hatG=hat.b();av.add(u.hatG)}
   const acc=eq.acc&&ITEMS.find(i=>i.id===eq.acc);if(acc){u.accG=acc.b();(acc.hand?u.armR:av).add(u.accG)}}
 function myTitle(){const o=equip.outfit&&ITEMS.find(i=>i.id===equip.outfit);return o?o.title:''}
 function refreshMe(){dress(me,equip);if(prevAv)dress(prevAv,equip);meTag.innerHTML='<b>나</b>'+(myTitle()?'<span style="color:#059669;margin-right:2px">'+myTitle()+'</span> ':'')+ME_NAME}
@@ -1019,10 +1143,12 @@ function setupPreview(cv2){prevR=new THREE.WebGLRenderer({canvas:cv2,antialias:t
   prevAv=avatar('#A7F3D0','#5B3A29',prevS);prevAv.position.set(0,0,0);
   const disc=new THREE.Mesh(new THREE.CylinderGeometry(1.3,1.3,.08,32),M('#D1FAE5'));disc.position.y=-.04;prevS.add(disc)}
 function openWardrobe(){closeSheet();$('say').classList.remove('on');pvMode='w';$('mbox').classList.remove('wide');
-  $('mbox').innerHTML='<div class="grab"></div><div class="wtop"><div id="pvwrap"></div><div class="wt"><h3>내 옷장</h3><div class="s" id="wtitle"></div><div class="wdrop">💧 <b id="wdrop">'+drop+'</b></div><button class="btn o" style="height:38px;margin-top:8px;font-size:13px" onclick="unequipAll()">모두 벗기</button></div></div><div class="wtabs">'+Object.keys(SLOT_NAME).map(k=>'<button data-s="'+k+'" onclick="slotTab=\''+k+'\';wList()">'+SLOT_NAME[k]+'</button>').join('')+'</div><div class="wgrid" id="wgrid"></div><div class="s" style="margin-top:10px;font-size:12.5px">잠긴 옷은 그 랜드에서 학과 3곳을 둘러보면(랜드 배지) 무료로 열려요. 옷을 입으면 이름표에 직업이 붙어요.</div>';
+  $('mbox').innerHTML='<div class="grab"></div><div class="wtop"><div id="pvwrap"></div><div class="wt"><h3>내 옷장</h3><div class="s" id="wtitle"></div><div class="wdrop">💧 <b id="wdrop">'+drop+'</b></div><button class="btn o" style="height:38px;margin-top:8px;font-size:13px" onclick="unequipAll()">모두 벗기</button></div></div><div class="wtabs">'+Object.keys(SLOT_NAME).map(k=>'<button data-s="'+k+'" onclick="slotTab=\''+k+'\';wList()">'+SLOT_NAME[k]+'</button>').join('')+'</div><div class="wgrid" id="wgrid"></div><div class="s" id="wnote" style="margin-top:10px;font-size:12.5px">잠긴 옷은 그 랜드에서 학과 3곳을 둘러보면(랜드 배지) 무료로 열려요. 옷을 입으면 이름표에 직업이 붙어요.</div>';
   $('modal').classList.add('on');if(!prevR){const cv2=document.createElement('canvas');cv2.id='pv';setupPreview(cv2);prevR.setSize(150,170,false);prevC.aspect=150/170;prevC.updateProjectionMatrix()}prevR.setSize(150,170,false);prevR.domElement.style.width='';prevR.domElement.style.height='';prevC.aspect=150/170;prevC.updateProjectionMatrix();prevR.domElement.onpointerdown=prevR.domElement.onpointermove=prevR.domElement.onpointerup=null;$('pvwrap').appendChild(prevR.domElement);dress(prevAv,equip);wList()}
 function wList(){document.querySelectorAll('.wtabs button').forEach(b=>b.classList.toggle('on',b.dataset.s===slotTab));
   $('wtitle').textContent=myTitle()?'지금 직업 · '+myTitle():'옷을 입으면 직업이 붙어요';$('wdrop').textContent=drop;
+  $('wnote').style.display=slotTab==='look'?'none':'';
+  if(slotTab==='look'){$('wgrid').style.display='block';$('wgrid').innerHTML=lookBox();return}$('wgrid').style.display='';
   $('wgrid').innerHTML=ITEMS.filter(i=>i.slot===slotTab).map(it=>{const st=itemState(it),on=equip[it.slot]===it.id,job=it.job!=null?SER[it.job]:null;
     return '<button class="wi'+(on?' on':'')+(st==='lock'?' lk':'')+'" onclick="pick(\''+it.id+'\')"><span class="sw" style="background:'+it.sw+'"></span><b>'+it.name+'</b>'+(job?'<small style="color:'+job[1]+'">'+job[0]+'</small>':'<small>기본</small>')+
       '<em>'+(on?'입는 중':st==='own'?'입기':st==='free'?'🏅 무료로 받기':st==='lock'?'🔒 '+SER[it.land][0]+' 랜드 배지':'💧 '+it.price)+'</em></button>'}).join('')}
@@ -1035,6 +1161,16 @@ function pick(id){const it=ITEMS.find(i=>i.id===id),st=itemState(it);
 // 친구들도 몇 명은 직업 옷을 입고 있어요
 friends.forEach((f,i)=>{const sets=[{hat:'nursecap',outfit:'nursewear'},{hat:'beret',outfit:'apron',acc:'brush'},{hat:'hardhat',outfit:'jumpsuit',acc:'wrench'},{outfit:'suit',acc:'glasses'},{hat:'cap',outfit:'sport'},{hat:'safari',outfit:'labcoat',acc:'magnifier'},{}];dress(f.o,Object.assign({hat:null,outfit:null,acc:null},sets[i%sets.length]))});
 function unequipAll(){equip.hat=equip.outfit=equip.acc=null;refreshMe();wList()}
+function myLook(){return Object.assign({skin:1,hair:'short',hc:HAIR_C[1],eye:'dot'},equip.look||{})}
+function lookBox(){const L=myLook();
+  return '<div class="lkbox"><div><h4>피부색</h4><div class="lksw">'+SKIN.map((c,i)=>'<button class="'+(L.skin===i?'on':'')+'" style="background:'+c+'" onclick="setLook(\'skin\','+i+')"></button>').join('')+'</div></div>'+
+   '<div><h4>머리 모양</h4><div class="lkch">'+HAIRS.map(h=>'<button class="'+(L.hair===h[0]?'on':'')+'" onclick="setLook(\'hair\',\''+h[0]+'\')"><i>'+h[2]+'</i>'+h[1]+'</button>').join('')+'</div></div>'+
+   '<div><h4>머리 색</h4><div class="lksw">'+HAIR_C.map(c=>'<button class="'+(L.hc===c?'on':'')+'" style="background:'+c+'" onclick="setLook(\'hc\',\''+c+'\')"></button>').join('')+'</div></div>'+
+   '<div><h4>눈</h4><div class="lkch" style="grid-template-columns:repeat(4,1fr)">'+EYES.map(e=>'<button class="'+(L.eye===e[0]?'on':'')+'" onclick="setLook(\'eye\',\''+e[0]+'\')"><i>'+e[2]+'</i>'+e[1]+'</button>').join('')+'</div></div>'+
+   '<div class="s" style="font-size:12.5px">내 모습은 무료로 언제든 바꿀 수 있어요. 같은 학원 친구들 화면에도 이 모습으로 보여요.</div></div>'}
+function setLook(k,v){equip.look=Object.assign(myLook(),{[k]:v});refreshMe();wList()}
+// 처음 들어온 친구들은 모습이 다 달라 보이게
+friends.forEach((f,i)=>applyLook(f.o,{skin:[0,1,2,1,3,0,1][i%7],hair:HAIRS[(i*2+1)%HAIRS.length][0],hc:HAIR_C[[0,2,1,3,0,6,1][i%7]],eye:EYES[i%EYES.length][0]}));
 
 chips();
 /* ===== 이동 ===== */
@@ -1076,7 +1212,7 @@ function showSheet(k){if(k.dep!=null){depSheet(k.dep);return}sheetFor=k;const s=
   if(k==='gate'){gateSheet();return}
   if(k==='hub'){hubSheet();return}
   if(k.pg!=null){const L=LANDS[k.pg],tot=DEPS.filter(d=>d.s===k.pg).length;s.innerHTML='<div class="h"><div class="ic" style="background:'+L.col+'">'+ic('school')+'</div><div><small>이 문으로 나가면 · '+LANDMARK_NAME[k.pg]+'</small><b>'+L.name+'</b></div></div><p>학과 '+tot+'곳이 있어요 · 도장 '+landCount(k.pg)+'/'+tot+'. 길을 따라가다 노란 <b style="display:inline;font-size:13.5px;color:#B45309">?</b> 퀘스트를 만나면 풀고 가요.</p><div class="btns"><button class="btn o" onclick="closeSheet()">광장에 있기</button><button class="btn p" onclick="hideHint();walkRoute(landRoute('+k.pg+'))">문 나가서 걸어가기</button></div>';s.classList.add('on');return}
-  if(k==='tree'){const T=treeStats();s.innerHTML='<div class="h"><div class="ic" style="background:#059669">'+ic('tree')+'</div><div><small>광장 가운데 · '+T.st[1]+'</small><b>나의 진로 나무</b></div></div><p>내가 둘러본 학과·끌린 학과·역량 미션으로 자라는 나만의 나무예요. 지금 🍃 '+T.vis.length+' · 🌸 '+T.lk.length+' · 🍎 '+T.ms.length+' · ⭐ '+T.bd.length+'</p><div class="btns"><button class="btn o" onclick="closeSheet()">닫기</button><button class="btn p" onclick="openMyTree()">내 나무 보기</button></div>'}
+  if(k==='tree'){const T=treeStats();s.innerHTML='<div class="h"><div class="ic" style="background:#059669">'+ic('tree')+'</div><div><small>광장 가운데 · '+(XM_ON?'12월 크리스마스':T.st[1])+'</small><b>'+(XM_ON?'나의 크리스마스 트리':'나의 진로 나무')+'</b></div></div><p>내가 둘러본 학과·끌린 학과·역량 미션으로 자라는 나만의 나무예요. 지금 🍃 '+T.vis.length+' · 🌸 '+T.lk.length+' · 🍎 '+T.ms.length+' · ⭐ '+T.bd.length+'</p><div class="btns"><button class="btn o" onclick="closeSheet()">닫기</button><button class="btn p" onclick="openMyTree()">내 나무 보기</button></div>'}
   else if(k==='teacher'){s.innerHTML='<div class="h"><div class="ic" style="background:#2563EB">선</div><div><small>지금 광장에 있어요</small><b>김원장 선생님</b></div></div><p>궁금한 걸 물어보면 수업 전에 확인해 주세요. 오늘 18:00 학원에서 관찰 연구소 보스전이 있어요.</p><div class="btns"><button class="btn o" onclick="closeSheet()">닫기</button><button class="btn p" onclick="askT()">질문 남기기</button></div>'}
   else if(k.f&&k.f.remote){const f=k.f;s.innerHTML='<div class="h"><div class="ic" style="background:'+f.c+'">'+f.n.slice(-2,-1)+'</div><div><small>'+(f.title?f.title+' · ':'')+'같은 학원 친구</small><b>'+f.n+'</b></div></div><p>지금 진로 광장에 같이 있어요. 응원을 보내면 친구 화면에도 💚가 떠요.</p><div class="btns"><button class="btn o" onclick="closeSheet()">닫기</button><button class="btn p" onclick="cheerF()">'+ic('heart','width:18px;height:18px')+'응원 보내기</button></div>'}
   else if(k.f){const f=k.f;s.innerHTML='<div class="h"><div class="ic" style="background:'+f.c+'">'+f.n[f.n.length-2]+'</div><div><small>중1 A반 친구</small><b>'+f.n+'</b></div></div><p>지금 '+MONTHS[CUR][0]+' 퀘스트 '+(1+(f.n.length%3))+'회차를 하고 있어요.</p><div class="btns"><button class="btn o" onclick="closeSheet()">닫기</button><button class="btn p" onclick="cheerF()">'+ic('heart','width:18px;height:18px')+'응원 보내기 · 💧+1</button></div>'}
@@ -1123,12 +1259,48 @@ function lvPart(j,p){const L=LESSONS[j],e=toEmbed(L.urls[p]);lvW.cur=p;clearTime
   lvState(j)}
 function lvSeen(j,p){lvW[j].add(p);try{localStorage.setItem(lvKey(j,p),'1')}catch(e){}const L=LESSONS[j];if($('lvmsg'))$('lvmsg').textContent='✓ '+(p+1)+'편 시청 완료';
   const nx=L.urls.findIndex((_,q)=>!lvW[j].has(q));if(nx>=0){toast((nx+1)+'편으로 넘어가요');setTimeout(()=>{if($('lvbox'))lvPart(j,nx)},800)}else toast('영상 다 봤어요! 확인 문제를 풀어요');lvState(j)}
-function finishQ(j){if(qd[j]){closeM();toast('다시 푼 답으로 저장했어요');return}qd[j]=true;drop+=10;$('drop').textContent=drop;closeM();
+function finishQ(j){if(qd[j]){closeM();toast('다시 푼 답으로 저장했어요');return}qd[j]=true;acadAdd(3);drop+=10;$('drop').textContent=drop;closeM();
   // 우리 반 나무에 잎 하나 + 내 머리 위 축하
   treeSync();
   bubble(me,(j+1)+'회차 완료! 💧+10',2600);if(!EMBED&&friends[0])setTimeout(()=>{bubble(friends[0].o,'오 축하해!',2200)},700);netAct('say',(j+1)+'회차 완료! 🎉');toast('내 진로 나무가 자랐어요')}
+/* ===== 🎄 12월 크리스마스 트리 — 12월 1~25일 매일 선물 상자 하나 (경쟁 없음 · 놓친 날도 나중에 열 수 있어요)
+   12월에는 광장 가운데 내 나무가 크리스마스 트리로 바뀌고, 연 상자의 장식이 트리에 달려요
+   연 기록은 middle_plaza_quest 의 'adv:12-03' 키로 저장 (새 테이블 없음)
+   미리 보기: 주소에 ?today=2026-12-10 을 붙이면 그날처럼 보여요 ===== */
+// 크리스마스 트리 몸통(원뿔 3단) + 연 장식
+function xmBuild(g){g.add(mesh(new THREE.CylinderGeometry(.35,.5,1.6,10),M('#7C4A2D'),0,1.4,0,false));
+  [[3.1,2.6,2.9],[2.5,2.4,4.6],[1.8,2.2,6.2]].forEach(([r,h,y])=>g.add(mesh(new THREE.ConeGeometry(r,h,10),M('#15803D',{flatShading:true}),0,y,0,false)));
+  const cone=(t,a,off)=>{const y=2.2+t*5.2,r=Math.max(.3,3.0*(1-t)*.98+.15)+(off||0);return [Math.cos(a)*r,y,Math.sin(a)*r]};
+  [...advOpened].sort((a,b)=>a-b).forEach(d=>{const it=XM_ITEMS[d-1],k=d*2.399,t=.08+((d*0.381966)%1)*.78,[x,y,z]=cone(t,k);const c=it[3],o=new THREE.Group();o.position.set(x,y,z);
+    if(it[2]==='ball')o.add(mesh(new THREE.SphereGeometry(.28,14,10),M(c,{emissive:c,emissiveIntensity:.3}),0,0,0,false));
+    else if(it[2]==='star')o.add(mesh(new THREE.OctahedronGeometry(.3,0),M(c,{emissive:c,emissiveIntensity:.7,flatShading:true}),0,0,0,false));
+    else if(it[2]==='bell'){o.add(mesh(new THREE.ConeGeometry(.26,.38,10),M(c,{emissive:c,emissiveIntensity:.3}),0,0,0,false))}
+    else if(it[2]==='bow'){o.add(mesh(new THREE.TorusGeometry(.16,.07,6,10),M(c),-.14,0,0,false),mesh(new THREE.TorusGeometry(.16,.07,6,10),M(c),.14,0,0,false))}
+    else if(it[2]==='cane'){const cn=mesh(new THREE.TorusGeometry(.18,.06,6,10,Math.PI),M(c),0,.2,0,false);o.add(cn,mesh(new THREE.CylinderGeometry(.06,.06,.5,6),M('#FFFFFF'),.18,-.05,0,false))}
+    else if(it[2]==='flake')o.add(mesh(new THREE.OctahedronGeometry(.32,0),M(c,{emissive:'#FFFFFF',emissiveIntensity:.4,flatShading:true}),0,0,0,false));
+    else if(it[2]==='ginger')o.add(mesh(new THREE.BoxGeometry(.32,.42,.08),M(c),0,0,0,false));
+    else if(it[2]==='sock')o.add(mesh(new THREE.BoxGeometry(.24,.4,.12),M(c),0,0,0,false),mesh(new THREE.BoxGeometry(.24,.1,.14),M('#FFFFFF'),0,.22,0,false));
+    else if(it[2]==='candle')o.add(mesh(new THREE.CylinderGeometry(.08,.08,.36,8),M('#FFFFFF'),0,0,0,false),mesh(new THREE.SphereGeometry(.08,8,6),M(c,{emissive:c,emissiveIntensity:1}),0,.24,0,false));
+    else if(it[2]==='gift'){o.position.set(Math.cos(d)*2.4,.75,Math.sin(d)*2.4);o.add(mesh(new THREE.BoxGeometry(.7,.6,.7),M(c),0,0,0,false),mesh(new THREE.BoxGeometry(.74,.12,.12),M('#FDE047'),0,.02,0,false))}
+    else if(it[2]==='snow'){o.position.set(0,0,0);[[3.1,2.6,2.9],[2.5,2.4,4.6],[1.8,2.2,6.2]].forEach(([r,h,y])=>o.add(mesh(new THREE.ConeGeometry(r*.5,h*.28,10),M('#FFFFFF'),0,y+h*.36,0,false)))}
+    else if(it[2]==='topstar'){o.position.set(0,7.75,0);o.add(mesh(new THREE.OctahedronGeometry(.55,0),M(c,{emissive:'#F59E0B',emissiveIntensity:.9,flatShading:true}),0,0,0,false))}
+    else if(it[2]==='lights'){o.position.set(0,0,0);const n=d%3;for(let i=0;i<26;i++){const t2=.04+i/26*.85,[lx,ly,lz]=cone(t2,i*.9+n*2.1,.05);o.add(mesh(new THREE.SphereGeometry(.09,6,5),M(c,{emissive:c,emissiveIntensity:.9}),lx,ly,lz,false))}}
+    g.add(o)})}
+// 광장 가운데 나무: 12월엔 크리스마스 트리로
+const xmPlaza=new THREE.Group();tree.add(xmPlaza);
+function xmSync(){const on=XM_ON;tree.children.forEach(c=>{if(c!==xmPlaza&&c.geometry&&c.geometry.type==='IcosahedronGeometry')c.visible=!on});orn.visible=!on;
+  while(xmPlaza.children.length)xmPlaza.remove(xmPlaza.children[0]);if(on)xmBuild(xmPlaza)}
+function xmOpen(d){if(!XM_ON||d>XM_DAY||advOpened.has(d))return;advOpened.add(d);
+  send2({type:'plaza-save',kind:'quest',data:{quest_key:xmKey(d)}});drop+=2;$('drop').textContent=drop;xmSync();chips();
+  const it=XM_ITEMS[d-1];bubble(me,it[0]+' '+it[1]+'!',2600);toast('12월 '+d+'일 상자: '+it[0]+' '+it[1]+' · 내 트리에 달았어요 · 💧+2');openAdvent()}
+function openAdvent(){const left=XM_ON?0:Math.ceil((new Date(XM_TODAY.getFullYear(),11,1)-XM_TODAY)/864e5);
+  $('mbox').innerHTML='<div class="grab"></div><div class="th"><small>12월 1일 ~ 25일 · 하루에 한 상자</small><h3>🎄 크리스마스 선물 상자</h3><div class="s">'+(XM_ON?'상자를 열면 장식이 내 트리에 달려요. 놓친 날 상자도 나중에 열 수 있어요. 지금 '+advOpened.size+' / 25개':'12월 1일부터 열려요 · D-'+left+'. 12월엔 광장 가운데 내 나무가 크리스마스 트리로 바뀌어요.')+'</div></div>'+
+   '<div class="advg">'+XM_ITEMS.map((it,i)=>{const d=i+1,op=advOpened.has(d),can=XM_ON&&d<=XM_DAY&&!op,today=XM_ON&&d===XM_DAY;
+     return '<button class="adv'+(op?' op':can?' can':' lk')+(today?' td':'')+'" '+(can?'onclick="xmOpen('+d+')"':'disabled')+'><small>'+d+'</small><b>'+(op?it[0]:can?'🎁':'🔒')+'</b>'+(op?'<em>'+it[1]+'</em>':today&&can?'<em>오늘!</em>':'')+'</button>'}).join('')+'</div>'+
+   '<div class="btns">'+(XM_ON?'<button class="btn o" onclick="closeM();openMyTree()">내 트리 보기</button>':'')+'<button class="btn p" onclick="closeM()">닫기</button></div>';$('modal').classList.add('on')}
+
 function treeStats(){const vis=[...visited],lk=Object.keys(liked).filter(k=>liked[k]===0).map(Number),ms=Object.values(MS).filter(m=>m.grade===GRADE),bd=[...badges].filter(b=>b.startsWith(GRADE+':'));
-  const grow=vis.length+lk.length*2+ms.length*2+bd.length*5+qd.filter(Boolean).length*3;
+  const grow=vis.length+lk.length*2+ms.length*2+bd.length*5+qd.filter(Boolean).length*3+WATER.size;
   const st=grow>=60?[3,'우람한 나무',1.18]:grow>=25?[2,'큰 나무',1]:grow>=8?[1,'자라는 나무',.82]:[0,'새싹 나무',.64];
   return {vis,lk,ms,bd,grow,st}}
 // 잎 자리: 140개 학과마다 정해진 자리 (계열마다 나무의 한쪽 면) → 들어가 본 학과만 색이 채워져요
@@ -1146,6 +1318,7 @@ function ornList(T){const L=[];
     g.add(mesh(new THREE.SphereGeometry(.13,8,6),M('#FACC15',{emissive:'#FACC15',emissiveIntensity:.3}),0,.05,0,false));L.push(['l'+k,g])});
   T.ms.forEach((m,i)=>{const [x,y,z]=spiral(i+17,2.05,4.1,1.5),c=['#EF4444','#DC2626','#F87171'][i%3],g=new THREE.Group();g.position.set(x,y,z);
     g.add(mesh(new THREE.SphereGeometry(.3,12,10),M(c,{emissive:c,emissiveIntensity:.25}),0,0,0,false));g.add(mesh(new THREE.CylinderGeometry(.03,.03,.25,5),M('#6B4F2E'),0,.32,0,false));L.push(['m'+m.month+m.kind,g])});
+  for(let i=0;i<Math.floor(WATER.size/7);i++){const [x,y,z]=spiral(i+70,2.5,4.6,2.8);L.push(['g'+i,mesh(new THREE.SphereGeometry(.3,12,10),M('#FACC15',{emissive:'#F59E0B',emissiveIntensity:.8}),x,y,z,false)])}
   T.bd.forEach((b,i)=>{const a=i/8*Math.PI*2;L.push(['b'+b,mesh(new THREE.OctahedronGeometry(.42,0),M('#FDE047',{emissive:'#F59E0B',emissiveIntensity:.6,flatShading:true}),Math.cos(a)*.9,8.3+(i%2)*.4,Math.sin(a)*.9,false)])});
   return L}
 // 광장 나무: 빈 잎 자리 140개를 먼저 깔고, 채워진 자리는 색 잎으로 바꿔요
@@ -1160,6 +1333,7 @@ function setupTreePreview(){treeS=new THREE.Scene();treeS.add(new THREE.Hemisphe
   treeC=new THREE.PerspectiveCamera(32,1,.1,80);treeC.position.set(0,6.2,16.5);treeC.lookAt(0,4.6,0)}
 function drawTreePreview(){if(!treeS)return;if(treeG)treeS.remove(treeG);const T=treeStats();treeG=new THREE.Group();treeS.add(treeG);
   treeG.add(mesh(new THREE.CylinderGeometry(2.6,2.9,.6,32),M('#D1FAE5'),0,.3,0,false));
+  if(XM_ON){xmBuild(treeG);treeG.scale.setScalar(1);return}
   treeG.add(mesh(new THREE.CylinderGeometry(.35,.55,4,10),M('#8B6B4A'),0,2.6,0,false));
   [[0,6,0,1.9],[-1.4,5.2,.6,1.3],[1.4,5.3,-.4,1.35],[.3,5,1.4,1.2],[-.4,5.6,-1.3,1.25],[0,7.2,.2,1.2]].forEach((p,i)=>treeG.add(mesh(new THREE.IcosahedronGeometry(p[3],1),M(i===0?'#4ADE80':'#6EE7B7',{flatShading:true}),p[0],p[1],p[2],false)));
   DEPS.forEach((d,k)=>{if(!T.vis.includes(k)){const m=leafMesh(k,LEAF_EMPTY);m.scale.multiplyScalar(.8);treeG.add(m)}});
@@ -1169,8 +1343,8 @@ function openMyTree(){closeSheet();const T=treeStats(),bySer=SER.map((x,si)=>[si
   const nxt=[8,25,60].find(n=>n>T.grow);
   const comp=Object.keys(MK).map(k=>[k,T.ms.filter(m=>m.kind===k).length]);
   pvMode='t';$('mbox').classList.add('wide');
-  $('mbox').innerHTML='<div class="grab"></div><div class="tlay"><div class="tleft"><div id="tpv"></div><div class="tcap">🍃 잎 <b>'+T.vis.length+'</b> / 140 채웠어요<br><small>나무를 끌어서 돌려 봐요 · 빈 자리는 아직 안 가 본 학과</small></div><button class="btn o tdeco" onclick="toast(\'🎄 크리스마스 트리 · 꾸미기는 곧 열려요!\')">🎄 나무 꾸미기 <small>준비 중</small></button></div><div class="tright"><div class="th"><small>'+ME_NAME+'의 진로 나무 · '+PLAN.name+'</small><h3>🌳 '+T.st[1]+'</h3><div class="s">'+(nxt?'다음 단계까지 성장 '+(nxt-T.grow)+' 남았어요':'가장 큰 나무가 됐어요!')+'</div><div class="bp"><i style="width:'+Math.min(100,Math.round(T.grow/(nxt||T.grow)*100))+'%;background:linear-gradient(90deg,#34D399,#059669)"></i></div></div>'+
-   '<div class="tgrid"><div><b>'+T.vis.length+'</b><span>🍃 잎</span><small>학과 도장</small></div><div><b>'+T.lk.length+'</b><span>🌸 꽃</span><small>끌린 학과</small></div><div><b>'+T.ms.length+'</b><span>🍎 열매</span><small>역량 미션</small></div><div><b>'+T.bd.length+'</b><span>⭐ 별</span><small>이번 달 배지</small></div></div>'+
+  $('mbox').innerHTML='<div class="grab"></div><div class="tlay"><div class="tleft"><div id="tpv"></div><div class="tcap">🍃 잎 <b>'+T.vis.length+'</b> / 140 채웠어요<br><small>나무를 끌어서 돌려 봐요 · 빈 자리는 아직 안 가 본 학과</small></div><button class="btn o tdeco" onclick="closeM();openAdvent()">🎄 크리스마스 선물 상자 <small>'+(XM_ON?advOpened.size+'/25':'12월 1일 오픈')+'</small></button></div><div class="tright"><div class="th"><small>'+ME_NAME+'의 진로 나무 · '+PLAN.name+'</small><h3>🌳 '+T.st[1]+'</h3><div class="s">'+(nxt?'다음 단계까지 성장 '+(nxt-T.grow)+' 남았어요':'가장 큰 나무가 됐어요!')+'</div><div class="bp"><i style="width:'+Math.min(100,Math.round(T.grow/(nxt||T.grow)*100))+'%;background:linear-gradient(90deg,#34D399,#059669)"></i></div></div>'+
+   '<div class="tgrid"><div><b>'+T.vis.length+'</b><span>🍃 잎</span><small>학과 도장</small></div><div><b>'+T.lk.length+'</b><span>🌸 꽃</span><small>끌린 학과</small></div><div><b>'+T.ms.length+'</b><span>🍎 열매</span><small>역량 미션</small></div><div><b>'+T.bd.length+'</b><span>⭐ 별</span><small>이번 달 배지</small></div></div><div class="s" style="margin-top:8px">💧 물 준 날 '+WATER.size+'번 · ✨ 황금 잎 '+Math.floor(WATER.size/7)+'장 · 다음 황금 잎까지 '+(7-WATER.size%7)+'번</div>'+
    '<div class="sec"><b>요즘 내 관심</b><div class="s" style="margin-top:4px">'+(top?'잎이 가장 많은 건 <b style="display:inline;color:'+SER[top[0]][1]+'">'+SER[top[0]][0]+' 계열</b>이에요 ('+top[1]+'장)'+(pt?' · “나라면?” 답은 '+SER[pt[0]][0]+' 쪽이 많아요':''):'아직 잎이 없어요. 학과 건물에 들어가 보면 잎이 달려요.')+'</div>'+
    (bySer.length?'<div class="sbar">'+bySer.map(([si,n])=>'<div><span style="background:'+SER[si][1]+'"></span><em>'+SER[si][0]+'</em><i><b style="width:'+(n/bySer[0][1]*100)+'%;background:'+SER[si][1]+'"></b></i><small>'+n+'</small></div>').join('')+'</div>':'')+'</div>'+
    '<div class="sec"><b>🍎 역량 열매</b><div class="pills">'+comp.map(([k,n])=>'<span style="background:'+MK[k][1]+'1a;color:'+MK[k][1]+'">'+MK[k][0]+' '+n+'</span>').join('')+'</div></div>'+
@@ -1379,12 +1553,36 @@ function wbNext(){const q=wbQ(),a=wb.ans[q.id];
   send2({type:'plaza-save',kind:'lesson',data:{grade:GRADE,month:MON,round:wb.j+1,picks:{id:wb.d.id,lang:wb.lang,answers:wb.ans},correct:null,total:null,answer:sentence}});
   const j=wb.j;delete DRAFT[j+1];wb=null;if(sentence)setTimeout(()=>bubble(me,'💬 '+sentence.slice(0,40)+(sentence.length>40?'…':''),3500),900);finishQ(j)}
 
-function closeM(){clearTimeout(lvTimer);wb=null;lq=null;$('modal').classList.remove('on');$('mbox').classList.remove('wide');document.querySelectorAll('#mbox iframe,#mbox video').forEach(f=>f.remove())}
+function closeM(){clearTimeout(lvTimer);clearInterval(pulseT);wb=null;lq=null;$('modal').classList.remove('on');$('mbox').classList.remove('wide');document.querySelectorAll('#mbox iframe,#mbox video').forEach(f=>f.remove())}
+/* ===== 💌 친구 응원 쌓이기 — 친구가 광장에 없어도 응원을 보내 두면, 그 친구가 다음에 들어왔을 때 보여요
+   응원 문구는 정해진 것만 (아무 글이나 못 써요) · 한 친구에게 하루 한 번 · 누가 몇 개 받았는지 비교 숫자는 없어요 ===== */
+const CHEER_MSG=['💚 화이팅!','👏 오늘도 수고했어','🌟 미션 같이 하자','🔥 이번 달도 잘하고 있어','🍀 좋은 하루 보내','🎄 메리 크리스마스'];
+let CLASS=[],CHEERS_IN=[];const cheerDay=new Set(); // CLASS: 같은 학원 광장 친구 (오프라인 포함)
+const todayKey=()=>{const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()};
+function cheerSent(id){try{return localStorage.getItem('plaza-cheer:'+id)===todayKey()}catch(e){return cheerDay.has(id)}}
+function openCheer(id,name){if(cheerSent(id)){toast(name+'에게는 오늘 응원을 보냈어요 · 내일 또 보낼 수 있어요');return}
+  $('mbox').innerHTML='<div class="grab"></div><div class="th"><small>같은 학원 친구</small><h3>💌 '+esc(name)+'에게 응원 보내기</h3><div class="s">친구가 광장에 없어도 괜찮아요. 다음에 들어오면 보여요.</div></div><div class="chg">'+CHEER_MSG.map((m,i)=>'<button onclick="sendCheer(\''+id+'\',\''+esc(name).replace(/'/g,'')+'\','+i+')">'+m+'</button>').join('')+'</div><div class="btns"><button class="btn o" onclick="openPeople()">뒤로</button></div>';$('modal').classList.add('on')}
+function sendCheer(id,name,i){const msg=CHEER_MSG[i];send2({type:'plaza-save',kind:'cheer',data:{to:id,msg}});
+  const f=friends.find(x=>x.id===id);if(f){netAct('cheer','',id);faceTo(me,f.o)}bubble(me,msg,2400);
+  cheerDay.add(id);try{localStorage.setItem('plaza-cheer:'+id,todayKey())}catch(e){}closeM();toast(name+'에게 응원을 보냈어요 '+msg.split(' ')[0])}
+function showCheersIn(){if(!CHEERS_IN.length)return;const L=CHEERS_IN.slice(0,20);
+  const ago=t=>{const m=Math.max(1,Math.round((Date.now()-new Date(t))/6e4));return m<60?m+'분 전':m<1440?Math.round(m/60)+'시간 전':Math.round(m/1440)+'일 전'};
+  $('mbox').innerHTML='<div class="grab"></div><div class="th"><small>내가 없는 동안</small><h3>💌 친구들이 응원을 보냈어</h3></div><div class="chin">'+L.map(c=>'<div><span class="av">'+esc((c.from_name||'친').slice(-2,-1)||'친')+'</span><b>'+esc(c.from_name||'친구')+'</b><em>'+esc(c.msg)+'</em><small>'+ago(c.created_at)+'</small></div>').join('')+'</div><div class="btns"><button class="btn p" onclick="cheersSeen()">고마워! 💚</button></div>';$('modal').classList.add('on')}
+function cheersSeen(){send2({type:'plaza-save',kind:'cheer-seen',data:{}});CHEERS_IN=[];closeM();bubble(me,'💚 고마워!',2000)}
+
 const cheered=new Set();
-function cheerF(){const f=sheetFor.f;if(f.remote){netAct('cheer','',f.id);if(cheered.has(f.id)){closeSheet();faceTo(me,f.o);bubble(me,'💚 '+f.n+' 화이팅!',2200);return}cheered.add(f.id)}drop++;$('drop').textContent=drop;closeSheet();faceTo(me,f.o);bubble(me,'💚 '+f.n+' 화이팅!',2200);if(!f.remote)setTimeout(()=>bubble(f.o,'고마워!',2000),900);toast(f.n+'에게 응원을 보냈어요 · 💧+1')}
+function cheerF(){const f=sheetFor.f;if(f.remote){closeSheet();openCheer(f.id,f.n);return}if(f.remote){netAct('cheer','',f.id);if(cheered.has(f.id)){closeSheet();faceTo(me,f.o);bubble(me,'💚 '+f.n+' 화이팅!',2200);return}cheered.add(f.id)}drop++;$('drop').textContent=drop;closeSheet();faceTo(me,f.o);bubble(me,'💚 '+f.n+' 화이팅!',2200);if(!f.remote)setTimeout(()=>bubble(f.o,'고마워!',2000),900);toast(f.n+'에게 응원을 보냈어요 · 💧+1')}
 function askT(){closeSheet();bubble(me,'선생님, 질문 있어요!',2200);setTimeout(()=>bubble(teacher,'좋아, 수업 때 같이 보자',2600),900)}
 function liveInfo(){$('mbox').innerHTML='<div class="grab"></div><h3>오늘 18:00 · 학원 보스전</h3><div class="s">관찰 연구소 4회차는 학원에서 해요. 1~3회차 결과물을 들고 선생님과 검증해요.</div><div class="qs">'+QS.map((q,j)=>'<div class="'+(qd[j]?'d':'')+'"><i>'+(qd[j]?'✓':j+1)+'</i>'+(j+1)+'회차 · '+(LESSONS?(LESSONS[j]?LESSONS[j].title:'수업 영상 준비 중'):q[1])+'<em>'+(qd[j]?'완료':'아직')+'</em></div>').join('')+'</div><div class="btns"><button class="btn p" onclick="closeM()">확인</button></div>';$('modal').classList.add('on')}
-function openPeople(){$('mbox').innerHTML='<div class="grab"></div><h3>진로 광장 · '+ROOM+'</h3><div class="s">지금 광장에 '+(friends.length+1+(EMBED?0:1))+'명이 있어요'+(EMBED?' (같은 학원 친구만 보여요)':'')+'. 이름을 누르면 그 친구에게 걸어가요.</div><div class="ppl"><div><span class="av" style="background:#059669">나</span>'+ME_NAME+'<small>'+MONTHS[CUR][0]+'</small></div>'+(EMBED?'':'<div onclick="closeM();goToObj(teacher)" style="cursor:pointer"><span class="av" style="background:#2563EB">선</span>김원장 선생님<small>관찰 연구소 앞</small></div>')+friends.map((f,i)=>'<div onclick="closeM();goToObj(friends['+i+'].o)" style="cursor:pointer"><span class="av" style="background:'+f.c+'">'+(f.n.slice(-2,-1)||f.n[0])+'</span>'+f.n+'<small>'+(f.remote?(f.title||'광장에 있어요'):(1+(f.n.length%3))+'회차 하는 중')+'</small></div>').join('')+'</div>';$('modal').classList.add('on')}
+function openPeople(){const on=new Set(friends.filter(f=>f.remote).map(f=>f.id)),off=CLASS.filter(c=>!on.has(c.id));
+  const av=(n,c)=>'<span class="av" style="background:'+(c||'#9CA3AF')+'">'+esc((n||'친').slice(-2,-1)||n[0])+'</span>';
+  const cb=(id,n)=>'<button class="chb" onclick="event.stopPropagation();openCheer(\''+id+'\',\''+esc(n).replace(/'/g,'')+'\')">'+(cheerSent(id)?'✓ 보냄':'💌 응원')+'</button>';
+  $('mbox').innerHTML='<div class="grab"></div><h3>진로 광장 · '+ROOM+'</h3><div class="s">지금 광장에 '+(friends.length+1+(EMBED?0:1))+'명이 있어요'+(EMBED?' (같은 학원 친구만 보여요)':'')+'. 이름을 누르면 그 친구에게 걸어가요.</div>'+
+   '<div class="ppl"><div>'+av(ME_NAME,'#059669')+ME_NAME+'<small>나</small></div>'+(EMBED?'':'<div onclick="closeM();goToObj(teacher)" style="cursor:pointer">'+av('김원장 선생님','#2563EB')+'김원장 선생님<small>관찰 연구소 앞</small></div>')+
+   friends.map((f,i)=>'<div onclick="closeM();goToObj(friends['+i+'].o)" style="cursor:pointer">'+av(f.n,f.c)+f.n+'<small>'+(f.remote?(f.title||'광장에 있어요'):(1+(f.n.length%3))+'회차 하는 중')+'</small>'+(f.remote?cb(f.id,f.n):'')+'</div>').join('')+'</div>'+
+   (off.length?'<div class="sec"><b>지금은 광장에 없는 친구</b><div class="s" style="margin:2px 0 6px">응원을 보내 두면 친구가 다음에 들어왔을 때 보여요.</div><div class="ppl">'+off.map(c=>'<div>'+av(c.name)+esc(c.name||'친구')+'<small>'+(c.last_seen?ago2(c.last_seen)+' 들어왔어요':'')+'</small>'+cb(c.id,c.name||'친구')+'</div>').join('')+'</div></div>':'')+
+   '<div class="btns"><button class="btn p" onclick="closeM()">닫기</button></div>';$('modal').classList.add('on')}
+function ago2(t){const m=Math.max(1,Math.round((Date.now()-new Date(t))/6e4));return m<60?m+'분 전':m<1440?Math.round(m/60)+'시간 전':Math.round(m/1440)+'일 전'}
 function goToObj(o){pendFriend=o;const dx=o.position.x-me.position.x,dz=o.position.z-me.position.z,d=Math.hypot(dx,dz)||1;setTarget(o.position.x-dx/d*1.6,o.position.z-dz/d*1.6)}
 function faceTo(a,b){a.rotation.y=Math.atan2(b.position.x-a.position.x,b.position.z-a.position.z)}
 
@@ -1448,14 +1646,14 @@ function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;
 requestAnimationFrame(loop);
 /* ===== 비커스 저장 연결 — 진로 로드맵(부모 화면)이 Supabase에 읽고 써요 ===== */
 function send2(m){if(EMBED)window.parent.postMessage(m,location.origin)}
-let lastProf='',loaded=!EMBED;treeSync();
+let lastProf='',loaded=!EMBED;treeSync();xmSync();acadSync();
 function profKey(){return JSON.stringify({drops:drop,equip,owned:[...owned]})}
 function applyState(st){
   if(st.drops!=null){drop=st.drops;$('drop').textContent=drop}
   (st.owned||[]).forEach(id=>owned.add(id));if(st.equip)Object.assign(equip,st.equip);refreshMe();
   (st.visits||[]).forEach(v=>{const k=DEPS.findIndex(d=>d.n===v.dept_name);if(k<0)return;visited.add(k);if(v.liked!=null)liked[k]=v.liked;DEPS[k].tag.querySelector('.k').textContent='✓'});
   SER.forEach((x,si)=>{const el=$('lc'+si);if(el)el.textContent=landCount(si)+'/'+DEPS.filter(d=>d.s===si).length});
-  (st.quests||[]).forEach(key=>{key=String(key);if(key.startsWith('b:')){badges.add(key.slice(2));return}qDone.add(key);qTotal++;
+  (st.quests||[]).forEach(key=>{key=String(key);if(key.startsWith('adv:12-')){advOpened.add(parseInt(key.slice(7),10));return}if(key.startsWith('water:')){WATER.add(key.slice(6));return}if(key.startsWith('acad:')){if(key===acadKey())acadClaimed=true;return}if(key.startsWith('b:')){badges.add(key.slice(2));return}qDone.add(key);qTotal++;
     if(key.startsWith('d:')){dquiz.add(key.slice(2));return}
     let qi,rd;if(/^q\d+$/.test(key)){qi=+key.slice(1);rd=0}else{const a=key.split(':');qi=+a[1];rd=+a[2];if(a[0]==='p'&&a[3]!=null)pTally[+a[3]]++}
     const q=QUESTS[qi];if(q)q.round=Math.max(q.round,rd+1)});
@@ -1465,7 +1663,10 @@ function applyState(st){
   if(Array.isArray(st.lessons))LESSONS=st.lessons;
   (st.lessonDone||[]).forEach(r=>{if(r>=1&&r<=3)qd[r-1]=true});
   if(st.lessonDraft)DRAFT=st.lessonDraft;
-  treeSync();chips();lastProf=profKey()}
+  if(Array.isArray(st.classmates))CLASS=st.classmates;
+  if(st.academy){ACAD={leaves:st.academy.leaves|0,goal:Math.max(60,(st.academy.members|0)*25),members:st.academy.members|0}}acadSync();
+  if(Array.isArray(st.cheers)&&st.cheers.length){CHEERS_IN=st.cheers;setTimeout(()=>{if(!$('modal').classList.contains('on'))showCheersIn();else toast('💌 친구 응원이 '+CHEERS_IN.length+'개 와 있어요 · 위쪽 사람 버튼에서 볼 수 있어요')},1800)}
+  treeSync();xmSync();chips();lastProf=profKey()}
 /* ===== 같은 학원 친구 실시간 — 위치는 '걸어갈 목적지가 바뀔 때'만 보내서 메시지가 적어요 ===== */
 let NET=false,MY_ID=null,netKey='',netAt=0,lookKey='';
 const PAL=[['#F472B6','#7C3AED'],['#60A5FA','#1D4ED8'],['#FBBF24','#B45309'],['#34D399','#047857'],['#A78BFA','#6D28D9'],['#FB923C','#C2410C'],['#F87171','#991B1B'],['#2DD4BF','#0F766E']];
@@ -1489,7 +1690,8 @@ window.addEventListener('message',e=>{if(e.origin!==location.origin)return;const
   if(d.type==='plaza-net-on'){NET=true;MY_ID=d.me;netKey='';lookKey=''}
   if(d.type==='plaza-peers')netPeers(d.peers||[]);
   if(d.type==='plaza-peer-pos')netPos(d);
-  if(d.type==='plaza-peer-act')netActIn(d);if(d.type==='plaza-state'){applyState(d.state||{});loaded=true}});
+  if(d.type==='plaza-peer-act')netActIn(d);if(d.type==='plaza-state'){applyState(d.state||{});loaded=true;
+    if(!equip.look&&!CHEERS_IN.length)setTimeout(()=>{if($('modal').classList.contains('on'))return;slotTab='look';openWardrobe();toast('👋 반가워요! 먼저 내 캐릭터를 꾸며 봐요')},1400)}});
 setInterval(()=>{if(!loaded)return;const k=profKey();if(k!==lastProf){lastProf=k;send2({type:'plaza-save',kind:'profile',data:JSON.parse(k)})}},1500);
 send2({type:'plaza-ready'});
 </script>

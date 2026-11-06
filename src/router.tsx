@@ -14,6 +14,7 @@ import MiddleWorkbookView from '@/pages/admin/_pages/students/detail/middle-tabs
 import LessonRun from '@/pages/admin/_pages/lesson-run/LessonRun'
 import LessonScreen from '@/pages/admin/_pages/lesson-run/LessonScreen'
 import MiddleLessonVideos from '@/pages/admin/_pages/lessons/MiddleLessonVideos'
+import PlazaStatus from '@/pages/admin/_pages/plaza/PlazaStatus'
 import Academy from '@/pages/admin/_pages/academy/Academy'
 import Billing from '@/pages/admin/_pages/billing/Billing'
 import Settings from '@/pages/admin/_pages/settings/Settings'
@@ -111,6 +112,7 @@ const router = createBrowserRouter([
           { path: 'middle-students/:id/workbook/:missionKey', element: <MiddleWorkbookView /> },
           { path: 'lesson-run', element: <LessonRun /> },
           { path: 'middle-lessons', element: <MiddleLessonVideos /> },
+          { path: 'plaza-status', element: <PlazaStatus /> },   // 진로 광장 현황 (중등)
           { path: 'middle-suhaeng', element: <SuhaengManage /> },
           { path: 'mock-exam', element: <MockExamPage /> },   // 면접 모의고사
           { path: 'reports', element: <Reports /> },

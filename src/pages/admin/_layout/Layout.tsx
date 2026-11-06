@@ -96,6 +96,7 @@ export default function Layout() {
     hasMiddleMenu && { path: '/admin/middle-students', label: '중등 관리', icon: '🌱', type: 'middle' as const, show: true },
     hasMiddleMenu && { path: '/admin/lesson-run', label: '수업 진행', icon: '🎓', type: 'middle' as const, show: true },
     hasMiddleMenu && { path: '/admin/middle-lessons', label: '수업 영상 관리', icon: '🎬', type: 'middle' as const, show: true },
+    hasMiddleMenu && { path: '/admin/plaza-status', label: '진로 광장 현황', icon: '🌳', type: 'middle' as const, show: true },
     (hasMiddleMenu || hasHighMenu) && { path: '/admin/middle-suhaeng', label: '수행평가 관리', icon: '📋', type: 'middle' as const, show: true },
     hasHighMenu && { path: '/admin/mock-exam', label: '면접 모의고사', icon: '🎤', type: 'default' as const, show: true },   // 현장 모의면접 (고등)
     (hasHighMenu || hasMiddleMenu) && { path: '/admin/reports', label: '월간 보고서', icon: '📊', type: 'default' as const, show: true },

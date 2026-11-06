@@ -7,6 +7,8 @@
 //     middle_plaza_quest      길 위 퀘스트 푼 기록
 //     middle_plaza_mission    이번 달 역량 미션 (학년·월·역량 Q/R/E/D/C 하나에 한 줄)
 //     middle_plaza_lesson     1~3회차 영상 확인 문제 (객관식 9 + 주관식 1)
+//     middle_plaza_member     같은 학원 광장 친구 목록 (이름 · 마지막 접속)
+//     middle_plaza_cheer      친구에게 보낸 응원 (없을 때 보내도 다음에 보여요)
 //     middle_lessons          (읽기만) 원장 '수업 영상 관리'에 등록한 이번 달 1~3주차 영상 → 광장 1~3회차에서 재생
 //   같은 학원 친구 실시간: Supabase Realtime 채널 plaza-{학원id} (presence = 지금 광장에 있는 사람, broadcast = 목적지·인사·응원)
 //     위치는 '걸어갈 목적지가 바뀔 때'만 보내서 학생이 많아도 메시지가 적어요
@@ -33,7 +35,9 @@ export default function CareerPlaza({ name, room, grade, month, academyId, onClo
       if (!uid) return toFrame({ type: 'plaza-state', state: {} })
       // 수업 영상: 중3특목·중3일반은 '중3' 영상, 이번 달 = 진로 로드맵 month번째 달
       const lessonGrade = grade.startsWith('중3') ? '중3' : grade
-      const [p, v, q, m, ls, ld] = await Promise.all([
+      // 광장 친구 목록에 나를 올려 두기 (같은 학원 친구들이 응원을 보낼 수 있게)
+      if (academyId) await supabase.from('middle_plaza_member').upsert({ student_id: uid, academy_id: academyId, name: name || '친구', grade, last_seen: new Date().toISOString() })
+      const [p, v, q, m, ls, ld, cm, ch, ac] = await Promise.all([
         supabase.from('middle_plaza_profile').select('drops, equip, owned').eq('student_id', uid).maybeSingle(),
         supabase.from('middle_plaza_dept_visit').select('dept_name, liked').eq('student_id', uid),
         supabase.from('middle_plaza_quest').select('quest_key').eq('student_id', uid),
@@ -42,6 +46,11 @@ export default function CareerPlaza({ name, room, grade, month, academyId, onClo
           .select('month_no, week_no, title, sub_title, video_url, video_url_1, video_url_2, video_url_3, video_url_4')
           .eq('grade', lessonGrade).eq('is_active', true),
         supabase.from('middle_plaza_lesson').select('round, status, picks').eq('student_id', uid).eq('grade', grade).eq('month', month),
+        academyId
+          ? supabase.from('middle_plaza_member').select('student_id, name, last_seen').eq('academy_id', academyId).neq('student_id', uid).order('last_seen', { ascending: false }).limit(60)
+          : Promise.resolve({ data: [] as any[], error: null }),
+        supabase.from('middle_plaza_cheer').select('from_name, msg, created_at').eq('to_id', uid).eq('seen', false).order('created_at', { ascending: false }).limit(20),
+        supabase.rpc('plaza_academy_month'),
       ])
       const rows: any[] = ls.data ?? []
       const monthNos = [...new Set(rows.map(r => r.month_no))].sort((a, b) => a - b)
@@ -63,6 +72,9 @@ export default function CareerPlaza({ name, room, grade, month, academyId, onClo
           quests: (q.data ?? []).map((x: any) => x.quest_key),
           missions: m.data ?? [],
           lessons,
+          classmates: (cm.data ?? []).map((x: any) => ({ id: x.student_id, name: x.name, last_seen: x.last_seen })),
+          cheers: ch.data ?? [],
+          academy: Array.isArray(ac.data) ? ac.data[0] ?? null : ac.data ?? null,
           lessonDone: (ld.data ?? []).filter((x: any) => x.status !== 'draft').map((x: any) => x.round),
           // 임시저장한 답 (회차 → 답) — 다음에 들어오면 이어서
           lessonDraft: Object.fromEntries((ld.data ?? []).filter((x: any) => x.status === 'draft').map((x: any) => [x.round, x.picks])),
@@ -117,6 +129,12 @@ export default function CareerPlaza({ name, room, grade, month, academyId, onClo
           { student_id: uid, grade: data.grade, month: data.month, round: data.round, picks: data.picks ?? [], correct: data.correct, total: data.total, answer: data.answer, status: data.status ?? 'done', done_at: now },
           { onConflict: 'student_id,grade,month,round' },
         )
+      }
+      else if (kind === 'cheer' && academyId) {
+        r = await supabase.from('middle_plaza_cheer').insert({ academy_id: academyId, from_id: uid, from_name: name || '친구', to_id: data.to, msg: String(data.msg ?? '').slice(0, 40) })
+      }
+      else if (kind === 'cheer-seen') {
+        r = await supabase.from('middle_plaza_cheer').update({ seen: true }).eq('to_id', uid).eq('seen', false)
       }
       if (r?.error) console.warn('[진로 광장] 저장 실패', kind, r.error.message)
     }
